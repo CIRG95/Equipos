@@ -1,0 +1,16 @@
+{
+  "name": "Equipos — prueba del módulo",
+  "short_name": "Equipos",
+  "description": "Inventario de equipos topográficos: calibraciones, checklist de salida y alertas.",
+  "lang": "es-CL",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF2F0",
+  "theme_color": "#1D5C63",
+  "icons": [
+    { "src": "iconos/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/icono-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

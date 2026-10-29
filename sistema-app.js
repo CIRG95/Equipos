@@ -3190,6 +3190,9 @@ Content-Type: ${mime}\r
   var DRONES_BASE = [
     {
       id: "m4e",
+      familia: "m4e",
+      familiaNombre: "DJI Matrice 4E",
+      sensor: "Cámara gran angular",
       nombre: "DJI Matrice 4E (cámara gran angular)",
       sensorAnchoMm: 17.3,
       sensorAltoMm: 13,
@@ -3206,7 +3209,10 @@ Content-Type: ${mime}\r
     },
     {
       id: "m300-l2",
-      nombre: "DJI Matrice 300 RTK + Zenmuse L2",
+      familia: "m300",
+      familiaNombre: "DJI Matrice 300 RTK",
+      sensor: "Zenmuse L2",
+      nombre: "DJI Matrice 300 RTK · Zenmuse L2",
       sensorAnchoMm: 17.3,
       sensorAltoMm: 13,
       focalMm: 12.29,
@@ -3222,7 +3228,10 @@ Content-Type: ${mime}\r
     },
     {
       id: "m300-l1",
-      nombre: "DJI Matrice 300 RTK + Zenmuse L1",
+      familia: "m300",
+      familiaNombre: "DJI Matrice 300 RTK",
+      sensor: "Zenmuse L1",
+      nombre: "DJI Matrice 300 RTK · Zenmuse L1",
       sensorAnchoMm: 13.2,
       sensorAltoMm: 8.8,
       focalMm: 8.8,
@@ -3238,6 +3247,9 @@ Content-Type: ${mime}\r
     },
     {
       id: "p4rtk",
+      familia: "p4rtk",
+      familiaNombre: "DJI Phantom 4 RTK",
+      sensor: "Cámara integrada",
       nombre: "DJI Phantom 4 RTK",
       sensorAnchoMm: 13.2,
       sensorAltoMm: 8.8,
@@ -3342,6 +3354,46 @@ Content-Type: ${mime}\r
     }
     return (ang % 180 + 180) % 180;
   }
+  function giro(rumboGrados) {
+    const a = (90 - rumboGrados) * Math.PI / 180;
+    const c = Math.cos(-a), s = Math.sin(-a);
+    return {
+      ida: ([x, y]) => [x * c - y * s, x * s + y * c],
+      vuelta: ([x, y]) => [x * c + y * s, -x * s + y * c]
+    };
+  }
+  function repartirBaterias(segmentos, { v, segGiro, segUtiles, despegue }) {
+    const tramos = segmentos.map((l, i) => i % 2 === 0 ? { ...l, a: [l.x1, l.y], b: [l.x2, l.y] } : { ...l, a: [l.x2, l.y], b: [l.x1, l.y] });
+    const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+    const baterias = [];
+    let actual = null;
+    const cerrar = () => {
+      if (!actual) return;
+      const vuelta = despegue ? dist(actual.fin, despegue) / v : 0;
+      actual.seg += vuelta;
+      actual.traslado += vuelta;
+      baterias.push(actual);
+      actual = null;
+    };
+    tramos.forEach((t, i) => {
+      const vuelo = t.largo / v + segGiro;
+      if (actual) {
+        const enlace = dist(actual.fin, t.a) / v;
+        const vuelta = despegue ? dist(t.b, despegue) / v : 0;
+        if (actual.seg + enlace + vuelo + vuelta > segUtiles && actual.lineas.length) cerrar();
+        else {
+          actual.seg += enlace + vuelo;
+          actual.fin = t.b;
+          actual.lineas.push(i);
+          return;
+        }
+      }
+      const ida = despegue ? dist(despegue, t.a) / v : 0;
+      actual = { lineas: [i], seg: ida + vuelo, traslado: ida, inicio: t.a, fin: t.b };
+    });
+    cerrar();
+    return { tramos, baterias };
+  }
   function lineasDeVuelo(pts, rumboGrados, sep) {
     const a = (90 - rumboGrados) * Math.PI / 180;
     const c = Math.cos(-a), s = Math.sin(-a);
@@ -3399,9 +3451,21 @@ Content-Type: ${mime}\r
     ];
     const velSugerida = Math.min(...limites.map((l) => l[1]));
     const v = p.velocidad;
-    const segMision = distancia / v + nLineas * p.segGiro;
     const minUtiles = d.autonomiaMin * (1 - p.reserva) - p.minDespegue;
-    const vuelos = Math.max(1, Math.ceil(segMision / 60 / Math.max(1, minUtiles)));
+    let segMision, vuelos, baterias = [], tramos = [], trasladoM = 0, despegueGirado = null;
+    if (segmentos.length) {
+      const g = giro(rumbo);
+      despegueGirado = p.despegue ? g.ida(p.despegue) : null;
+      const rep = repartirBaterias(segmentos, { v, segGiro: p.segGiro, segUtiles: Math.max(60, minUtiles * 60), despegue: despegueGirado });
+      baterias = rep.baterias.map((b) => ({ ...b, min: b.seg / 60 }));
+      tramos = rep.tramos;
+      segMision = baterias.reduce((s, b) => s + b.seg, 0);
+      trasladoM = baterias.reduce((s, b) => s + b.traslado, 0) * v;
+      vuelos = Math.max(1, baterias.length);
+    } else {
+      segMision = distancia / v + nLineas * p.segGiro;
+      vuelos = Math.max(1, Math.ceil(segMision / 60 / Math.max(1, minUtiles)));
+    }
     const minTotal = segMision / 60 + vuelos * p.minDespegue + (vuelos - 1) * p.minCambio;
     const intervalo2 = sepFotos / v;
     const densidad = barrido ? d.lidar.puntosPorSegundo / (v * sepLineas) : null;
@@ -3412,6 +3476,7 @@ Content-Type: ${mime}\r
     if ((p.modo === "foto" || p.fotosEnLidar) && intervalo2 < d.intervaloMinS) avisos.push(`Habría que disparar cada ${fmt(intervalo2, 2)} s y la cámara necesita ${fmt(d.intervaloMinS, 1)} s: baja la velocidad a ${fmt(velIntervalo, 1)} m/s o el traslape frontal.`);
     if (p.altura > 120) avisos.push("La altura supera los 120 m (400 ft): revisa la autorización DGAC.");
     if (minUtiles <= 0) avisos.push("Con la reserva elegida no queda tiempo útil por batería: revisa autonomía y reserva.");
+    if (baterias.some((b) => b.min > minUtiles + 0.05)) avisos.push("Hay una línea que no alcanza a volarse con una sola batería: divide el área o acerca el despegue.");
     return {
       gsd,
       huellaAncho,
@@ -3436,8 +3501,32 @@ Content-Type: ${mime}\r
       minTotal,
       densidad,
       densidadPasada,
-      avisos
+      avisos,
+      baterias,
+      tramos,
+      trasladoM,
+      despegueGirado
     };
+  }
+  function rumboMasCorto(p) {
+    const prueba = (r) => calcularPlan({ ...p, rumbo: r }).minTotal;
+    let mejor = 0, minimo = Infinity;
+    for (let r = 0; r < 180; r += 5) {
+      const m = prueba(r);
+      if (m < minimo - 1e-6) {
+        minimo = m;
+        mejor = r;
+      }
+    }
+    for (let r = mejor - 4; r <= mejor + 4; r++) {
+      const rr = (r + 180) % 180;
+      const m = prueba(rr);
+      if (m < minimo - 1e-6) {
+        minimo = m;
+        mejor = rr;
+      }
+    }
+    return mejor;
   }
   function fmt(n, dec = 0) {
     if (n == null || !isFinite(n)) return "—";
@@ -3666,7 +3755,6 @@ Content-Type: ${mime}\r
     return (_a = vals.find((v) => v != null && isFinite(v))) != null ? _a : null;
   };
   function ordenar(json, lat, lon) {
-    var _a;
     const h = json.hourly || {};
     const horas = (h.time || []).map((t, i) => {
       const porModelo = MODELOS.map(([m, nombre]) => {
@@ -3707,10 +3795,10 @@ Content-Type: ${mime}\r
         sol: elevacionSol(t, lat, lon)
       };
     });
-    const dias = (((_a = json.daily) == null ? void 0 : _a.time) || []).map((f, i) => {
-      var _a2, _b;
-      return { fecha: f, salida: (_a2 = json.daily.sunrise) == null ? void 0 : _a2[i], puesta: (_b = json.daily.sunset) == null ? void 0 : _b[i] };
-    });
+    const d = json.daily || {};
+    const serieDiaria = (nombre) => d[nombre] || d[Object.keys(d).find((k) => k.startsWith(nombre + "_")) || ""] || [];
+    const salidas = serieDiaria("sunrise"), puestas = serieDiaria("sunset");
+    const dias = (d.time || []).map((f, i) => ({ fecha: f, salida: salidas[i] || null, puesta: puestas[i] || null }));
     return { lat, lon, horas, dias, elevacionModelo: json.elevation };
   }
   async function pedirKp() {
@@ -3718,7 +3806,15 @@ Content-Type: ${mime}\r
       const r = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json");
       if (!r.ok) return null;
       const filas = await r.json();
-      return filas.slice(1).map((f) => ({ t: String(f[0]).replace(" ", "T") + "Z", kp: Number(f[1]) })).filter((x) => isFinite(x.kp));
+      const aIso = (t) => {
+        const x = String(t).trim().replace(" ", "T");
+        return /Z|[+-]\d\d:?\d\d$/.test(x) ? x : x + "Z";
+      };
+      const kps = (Array.isArray(filas) ? filas : []).map((f) => {
+        var _a, _b, _c;
+        return Array.isArray(f) ? { t: f[0], kp: f[1] } : { t: f && ((_a = f.time_tag) != null ? _a : f.time), kp: f && ((_c = (_b = f.kp) != null ? _b : f.Kp) != null ? _c : f.kp_index) };
+      }).filter((x) => x.t && x.t !== "time_tag" && x.kp != null && isFinite(Number(x.kp))).map((x) => ({ t: aIso(x.t), kp: Number(x.kp) }));
+      return kps.length ? kps : null;
     } catch {
       return null;
     }
@@ -3789,8 +3885,31 @@ Content-Type: ${mime}\r
     minCambio: 5,
     segGiro: 8,
     areaHa: "",
-    rumbo: ""
+    rumbo: "",
+    despegue: null
   };
+  var COLORES_BATERIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4", "#FFAB40", "#B0BEC5"];
+  var GSD_TABLA = [3, 2.5, 2, 1.5];
+  var R_LAT2 = 110540;
+  var R_LON2 = 111320;
+  var CENTRO_CHILE = [-33, -70.6];
+  var ESRI = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
+  function marco(anillo) {
+    const { lat0, lon0 } = proyectar(anillo);
+    const k = Math.cos(lat0 * Math.PI / 180) * R_LON2;
+    return {
+      aXY: ([lon, lat]) => [(lon - lon0) * k, (lat - lat0) * R_LAT2],
+      aLatLon: ([x, y]) => [lat0 + y / R_LAT2, lon0 + x / k],
+      lat0,
+      lon0
+    };
+  }
+  function poligonoDesde(nombre, coords) {
+    const anillo = limpiarAnillo(coords);
+    const { puntos } = proyectar(anillo);
+    const cruces = autoInterseccion(puntos);
+    return { nombre, coords: anillo, anillo, vertices: anillo.length, area: areaM2(puntos), cruces, problemas: cruces ? ["El contorno se cruza consigo mismo."] : [] };
+  }
   function montarPantallas2(contenedor2, ctx2) {
     fijarPersona2(ctx2.personaId || null);
     const raiz = document.createElement("div");
@@ -3806,6 +3925,11 @@ Content-Type: ${mime}\r
       proyectoId: ctx2.proyectoId || "",
       nombrePlan: "",
       planId: null,
+      dibujando: false,
+      dibujo: [],
+      velA: 5,
+      velB: 10,
+      gsdExtra: [],
       kml: null,
       kmlError: "",
       maxVertices: 200,
@@ -3813,21 +3937,25 @@ Content-Type: ${mime}\r
       pronError: "",
       pronCargando: false,
       kps: null,
+      kpError: false,
       dia: hoyISO(),
+      pronModo: "plan",
+      pronPlanId: "",
       pronLat: "",
       pronLon: "",
       pronDron: "m4e",
       pronOrigen: "",
       mensaje: null
     };
-    let drones = [], proyectos2 = [];
+    let drones = [], proyectos2 = [], planes = [];
     const dronActual = () => drones.find((d) => d.id === st.params.dronId) || drones[0];
     const polActual = () => st.poligonos[st.polSel] || null;
     const avisar2 = (texto3, tipo = "ok") => {
       st.mensaje = { texto: texto3, tipo };
     };
+    const familias = () => [...new Map(drones.map((d) => [d.familia || d.id, d.familiaNombre || d.nombre])).entries()];
     async function cargarBase() {
-      [drones, proyectos2] = await Promise.all([listarDrones(), listarProyectos()]);
+      [drones, proyectos2, planes] = await Promise.all([listarDrones(), listarProyectos(), listarPlanes()]);
     }
     async function abrirPlan(id) {
       const p = await obtenerPlan(id);
@@ -3836,23 +3964,19 @@ Content-Type: ${mime}\r
       st.nombrePlan = p.nombre;
       st.proyectoId = p.proyectoId || "";
       st.params = { ...PARAMS_INICIALES, ...p.params };
-      st.poligonos = p.poligono ? [{ nombre: p.poligono.nombre, anillo: p.poligono.anillo, coords: p.poligono.anillo, vertices: p.poligono.anillo.length, problemas: [] }] : [];
+      st.poligonos = p.poligono ? [poligonoDesde(p.poligono.nombre, p.poligono.anillo)] : [];
       st.polSel = 0;
       st.archivo = p.poligono ? "guardado en el plan" : "";
       st.tab = "planificar";
+      st.dibujando = false;
     }
-    function resultado() {
-      const d = dronActual();
-      if (!d) return null;
-      const P = st.params;
+    function base(P, d, extra = {}) {
       const modo = P.modo === "lidar" && d.lidar ? "lidar" : "foto";
-      const altura = P.porGsd ? alturaParaGsd(d, Number(P.gsd) || 1) : Number(P.altura) || 1;
       const pol = polActual();
-      const puntos = pol ? proyectar(pol.anillo).puntos : null;
-      const base = {
+      const m = pol ? marco(pol.anillo) : null;
+      return {
         dron: d,
         modo,
-        altura,
         traslapeFrontal: (Number(P.traslapeFrontal) || 0) / 100,
         traslapeLateral: (Number(P.traslapeLateral) || 0) / 100,
         exposicion: 1 / (Number(P.exposicion) || 1e3),
@@ -3860,160 +3984,395 @@ Content-Type: ${mime}\r
         minDespegue: Number(P.minDespegue) || 0,
         minCambio: Number(P.minCambio) || 0,
         segGiro: Number(P.segGiro) || 0,
-        puntos,
+        puntos: pol ? proyectar(pol.anillo).puntos : null,
         areaHa: Number(P.areaHa) || 0,
-        rumbo: P.rumbo === "" ? void 0 : Number(P.rumbo),
-        fotosEnLidar: false
+        rumbo: P.rumbo === "" || P.rumbo == null ? void 0 : Number(P.rumbo),
+        fotosEnLidar: false,
+        despegue: m ? P.despegue ? m.aXY(P.despegue) : [0, 0] : null,
+        ...extra
       };
-      if (!puntos && !base.areaHa) return { sinArea: true, altura, modo, d };
-      const previo = calcularPlan({ ...base, velocidad: 10 });
-      const velocidad = Number(P.velocidad) || Math.floor(previo.velSugerida * 10) / 10;
-      return { ...calcularPlan({ ...base, velocidad }), altura, modo, velocidad, d, auto: !Number(P.velocidad) };
+    }
+    const alturaDe = (P, d) => P.porGsd ? alturaParaGsd(d, Number(P.gsd) || 1) : Number(P.altura) || 1;
+    function resultado() {
+      const d = dronActual();
+      if (!d) return null;
+      const P = st.params;
+      const altura = alturaDe(P, d);
+      const b = base(P, d, { altura });
+      if (!b.puntos && !b.areaHa) return { sinArea: true, altura, modo: b.modo, d, gsd: gsdCm(d, altura) };
+      const previo = calcularPlan({ ...b, velocidad: 10 });
+      const sugerida = Math.floor(previo.velSugerida * 10) / 10;
+      const velocidad = Number(P.velocidad) || sugerida;
+      return { ...calcularPlan({ ...b, velocidad }), altura, modo: b.modo, velocidad, sugerida, d, auto: !Number(P.velocidad) };
+    }
+    function opcionesGsd(r) {
+      const d = r.d, P = st.params;
+      const actual = Math.round(r.gsd * 100) / 100;
+      const lista = [.../* @__PURE__ */ new Set([...GSD_TABLA, ...st.gsdExtra, actual])].sort((a, b) => b - a);
+      return lista.map((g) => {
+        const altura = alturaParaGsd(d, g);
+        const b = base(P, d, { altura, modo: "foto" });
+        const a = calcularPlan({ ...b, velocidad: st.velA });
+        const z = calcularPlan({ ...b, velocidad: st.velB });
+        return { gsd: g, altura, actual: Math.abs(g - actual) < 5e-3, a, z, sobre120: altura > 120 };
+      });
     }
     const opcionesProyectos = (sel) => `<option value="">Sin proyecto</option>` + proyectos2.map((p) => `<option value="${escapar(p.id)}" ${p.id === sel ? "selected" : ""}>${escapar(p.id === OFICINA_ID ? "Oficina" : p.nombre)}</option>`).join("");
     const campo = (nombre, etiqueta, valor, extra = "", sufijo = "") => `<label class="sis-campo"><span>${etiqueta}</span>
     <span class="vu-con-sufijo"><input name="${nombre}" value="${escapar(valor)}" inputmode="decimal" ${extra}>${sufijo ? `<em>${sufijo}</em>` : ""}</span></label>`;
+    const deslizador = (nombre, etiqueta, valor, { min, max, paso, sufijo, nota = "", mostrar: mostrar2 }) => `<div class="vu-desl">
+      <div class="vu-desl-cab"><label for="vu-${nombre}">${etiqueta}${nota ? ` <small>${nota}</small>` : ""}</label>
+        <span class="vu-desl-valor"><input type="number" data-espejo="${nombre}" value="${escapar(mostrar2 != null ? mostrar2 : valor)}" step="${paso}" min="${min}" max="${max}" aria-label="${etiqueta}">${sufijo}</span></div>
+      <input type="range" id="vu-${nombre}" name="${nombre}" min="${min}" max="${max}" step="${paso}" value="${escapar(valor)}">
+    </div>`;
     function vistaPlanificar() {
       const P = st.params, d = dronActual(), pol = polActual();
+      const fam = d ? d.familia || d.id : "";
+      const sensores = drones.filter((x) => (x.familia || x.id) === fam);
+      const altura = d ? alturaDe(P, d) : 100;
+      const gsd = d ? gsdCm(d, altura) : 2.5;
+      const r = resultado();
+      const vMax = d ? d.velocidadMaxMs : 15;
+      const vel = r && !r.sinArea ? r.velocidad : Number(P.velocidad) || 5;
       return `<div class="vu-planificar">
+      <div class="vu-izquierda">
       <form class="vu-form sis-form" data-form="plan" autocomplete="off">
-        <fieldset><legend>Área</legend>
-          <label class="sis-btn vu-archivo">Cargar KML / KMZ<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="plan" hidden></label>
-          ${st.archivo ? `<p class="sis-tenue">Archivo: <b>${escapar(st.archivo)}</b></p>` : ""}
+        <section class="sis-tarjeta vu-t-area"><h2>Área</h2>
+          <div class="sis-acciones">
+            <label class="sis-btn vu-archivo">Cargar KML / KMZ<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="plan" hidden></label>
+            <button type="button" class="sis-btn${st.dibujando ? " primario" : ""}" data-accion="dibujar">${st.dibujando ? "Dibujando…" : "Dibujar en el mapa"}</button>
+          </div>
+          ${pol ? `<p class="sis-tenue vu-area-info">${escapar(st.archivo || pol.nombre)} · ${fmt(pol.area / 1e4, 2)} ha · ${pol.vertices} vértices</p>` : ""}
           ${st.poligonos.length > 1 ? `<label class="sis-campo"><span>Polígono</span><select data-campo="polSel">${st.poligonos.map((p, i) => `<option value="${i}" ${i === st.polSel ? "selected" : ""}>${escapar(p.nombre)} · ${fmt(p.area / 1e4, 2)} ha</option>`).join("")}</select></label>` : ""}
-          ${pol && pol.problemas && pol.problemas.length ? `<div class="vu-aviso"><b>Este polígono tiene detalles para el control:</b><ul>${pol.problemas.map((t) => `<li>${escapar(t)}</li>`).join("")}</ul><span>Al descargar el KML limpio se corrigen, salvo los cruces.</span></div>` : ""}
+          ${pol && pol.problemas && pol.problemas.length ? `<div class="vu-aviso"><b>Este polígono tiene detalles para el control:</b><ul>${pol.problemas.map((t) => `<li>${escapar(t)}</li>`).join("")}</ul><span>Al descargar el KML se corrigen, salvo los cruces.</span></div>` : ""}
           ${pol ? "" : campo("areaHa", "O escribe el área (sin polígono)", P.areaHa, 'placeholder="0"', "ha")}
-        </fieldset>
-        <fieldset><legend>Dron y vuelo</legend>
-          <label class="sis-campo"><span>Dron</span><select name="dronId">${drones.map((x) => `<option value="${x.id}" ${x.id === P.dronId ? "selected" : ""}>${escapar(x.nombre)}</option>`).join("")}</select></label>
+        </section>
+        <section class="sis-tarjeta vu-t-dron"><h2>Dron y vuelo</h2>
+          <div class="${sensores.length > 1 ? "sis-par" : ""}">
+            <label class="sis-campo"><span>Dron</span><select name="familia">${familias().map(([k, t]) => `<option value="${escapar(k)}" ${k === fam ? "selected" : ""}>${escapar(t)}</option>`).join("")}</select></label>
+            ${sensores.length > 1 ? `<label class="sis-campo"><span>Sensor</span><select name="dronId">${sensores.map((x) => `<option value="${x.id}" ${x.id === P.dronId ? "selected" : ""}>${escapar(x.sensor || x.nombre)}</option>`).join("")}</select></label>` : ""}
+          </div>
           ${d && d.lidar ? `<div class="sis-campo"><span>Producto</span><div class="sis-opciones">
             <label class="sis-opcion"><input type="radio" name="modo" value="foto" ${P.modo !== "lidar" ? "checked" : ""}> Fotogrametría</label>
             <label class="sis-opcion"><input type="radio" name="modo" value="lidar" ${P.modo === "lidar" ? "checked" : ""}> LiDAR</label></div></div>` : ""}
-          <div class="sis-campo"><span>Definir por</span><div class="sis-opciones">
-            <label class="sis-opcion"><input type="radio" name="porGsd" value="1" ${P.porGsd ? "checked" : ""}> GSD objetivo</label>
-            <label class="sis-opcion"><input type="radio" name="porGsd" value="0" ${!P.porGsd ? "checked" : ""}> Altura</label></div></div>
-          ${P.porGsd ? campo("gsd", "GSD objetivo", P.gsd, "", "cm/px") : campo("altura", "Altura sobre el terreno", P.altura, "", "m")}
-          <div class="sis-par">
-            ${campo("traslapeFrontal", "Traslape frontal", P.traslapeFrontal, "", "%")}
-            ${campo("traslapeLateral", "Traslape lateral", P.traslapeLateral, "", "%")}
+          <div class="vu-enlazados">
+            ${deslizador("gsd", "GSD", Math.round(gsd * 100) / 100, { min: 0.5, max: 8, paso: 0.05, sufijo: "cm/px" })}
+            ${deslizador("altura", "Altura", Math.round(altura), { min: 15, max: 400, paso: 1, sufijo: "m", nota: "(enlazada al GSD)" })}
           </div>
-          <div class="sis-par">
-            ${campo("velocidad", "Velocidad", P.velocidad, 'placeholder="automática"', "m/s")}
-            ${campo("rumbo", "Rumbo de las líneas", P.rumbo, 'placeholder="automático"', "°")}
-          </div>
-        </fieldset>
-        <details class="vu-detalles"><summary>Supuestos de terreno y cámara</summary>
-          <div class="sis-par">
-            ${campo("reserva", "Reserva por batería", P.reserva, "", "%")}
-            ${campo("minDespegue", "Despegue y aterrizaje", P.minDespegue, "", "min")}
-          </div>
-          <div class="sis-par">
-            ${campo("minCambio", "Cambio de batería", P.minCambio, "", "min")}
-            ${campo("segGiro", "Giro entre líneas", P.segGiro, "", "s")}
-          </div>
-          ${campo("exposicion", "Exposición 1/…", P.exposicion, "", "s")}
-        </details>
+          ${deslizador("traslapeFrontal", "Traslape frontal", P.traslapeFrontal, { min: 40, max: 90, paso: 1, sufijo: "%" })}
+          ${deslizador("traslapeLateral", "Traslape lateral", P.traslapeLateral, { min: 20, max: 90, paso: 1, sufijo: "%" })}
+          ${deslizador("velocidad", "Velocidad", Math.min(vMax, Math.round(vel * 10) / 10), { min: 1, max: vMax, paso: 0.1, sufijo: "m/s", nota: P.velocidad === "" ? "(sugerida)" : "" })}
+          <div class="vu-desl-pie" id="vu-vel-pie">${pieVelocidad(r)}</div>
+          <details class="vu-detalles"><summary>Supuestos de terreno y cámara</summary>
+            <div class="sis-par">
+              ${campo("reserva", "Reserva por batería", P.reserva, "", "%")}
+              ${campo("minDespegue", "Despegue y aterrizaje", P.minDespegue, "", "min")}
+            </div>
+            <div class="sis-par">
+              ${campo("minCambio", "Cambio de batería", P.minCambio, "", "min")}
+              ${campo("segGiro", "Giro entre líneas", P.segGiro, "", "s")}
+            </div>
+            ${campo("exposicion", "Exposición 1/…", P.exposicion, "", "s")}
+          </details>
+        </section>
       </form>
-      <div class="vu-resultado" id="vu-resultado">${htmlResultado()}</div>
+      <section class="sis-tarjeta vu-t-guardar">
+        <h2>Guardar y exportar</h2>
+        <form class="vu-guardar sis-form" data-form="guardar">
+          <label class="sis-campo"><span>Nombre del plan</span><input name="nombrePlan" value="${escapar(st.nombrePlan || (pol ? pol.nombre : ""))}" required></label>
+          <label class="sis-campo"><span>Proyecto</span><select name="proyectoId">${opcionesProyectos(st.proyectoId)}</select></label>
+          <div class="sis-acciones">
+            <button class="sis-btn primario">${st.planId ? "Guardar cambios" : "Guardar plan"}</button>
+            ${pol ? '<button type="button" class="sis-btn" data-accion="descargar-kml-plan">Descargar KML</button>' : ""}
+            ${pol ? '<button type="button" class="sis-btn" data-accion="pronostico-plan">Pronóstico</button>' : ""}
+            ${st.planId ? '<button type="button" class="sis-btn" data-accion="nuevo-plan">Nuevo plan</button>' : ""}
+          </div>
+        </form>
+      </section>
+      </div>
+      <div class="vu-derecha">
+        <div id="vu-kpis">${htmlKpis(r)}</div>
+        <div class="vu-mapa-caja">
+          <div class="vu-mapa-lugar"></div>
+          <div class="vu-mapa-barra" id="vu-barra">${htmlBarra(r)}</div>
+        </div>
+        <div id="vu-leyenda">${htmlLeyenda(r)}</div>
+        <div id="vu-detalle">${htmlDetalle(r)}</div>
+      </div>
     </div>`;
     }
-    function htmlResultado() {
-      const r = resultado();
+    function pieVelocidad(r) {
+      if (!r || r.sinArea) return "";
+      const lim = r.limites.map(([t, v]) => `${t} ${fmt(v, 1)}`).join(" · ");
+      return `<span>Sugerida ${fmt(r.sugerida, 1)} m/s · límites: ${lim} m/s</span>${r.auto ? "" : ' <button type="button" class="vu-link" data-accion="vel-auto">usar la sugerida</button>'}`;
+    }
+    const kpi = (t, v, clase = "") => `<div class="vu-kpi ${clase}"><span>${t}</span><b>${v}</b></div>`;
+    const fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
+    function htmlKpis(r) {
       if (!r) return "";
-      if (r.sinArea) return `<section class="sis-tarjeta"><h2>Resultado</h2>
-      <p class="sis-tenue">Carga un KML/KMZ del área o escribe las hectáreas para calcular líneas, fotos, tiempo y baterías.</p>
-      <div class="vu-kpis">${kpi("Altura", `${fmt(r.altura, 0)} m`)}${kpi("GSD", `${fmt(gsdCm(r.d, r.altura), 2)} cm/px`)}</div></section>`;
+      if (r.sinArea) return `<div class="vu-kpis">${kpi("Altura", `${fmt(r.altura, 0)} m`)}${kpi("GSD", `${fmt(r.gsd, 2)} cm/px`)}</div>`;
+      return `<div class="vu-kpis">
+      ${kpi("Altura", `${fmt(r.altura, 0)} m`, r.altura > 120 ? "alerta" : "")}
+      ${r.densidad ? kpi("Densidad LiDAR", `${fmt(r.densidad, 0)} pts/m²`) : kpi("GSD", `${fmt(r.gsd, 2)} cm`)}
+      ${kpi("Líneas", fmt(r.nLineas))}
+      ${r.modo === "foto" ? kpi("Fotos", fmt(r.fotos)) : kpi("Velocidad", `${fmt(r.velocidad, 1)} m/s`)}
+      ${kpi("En el aire", fmtDuracion(r.minMision))}
+      ${kpi("Baterías", fmt(r.vuelos))}
+      ${kpi("Jornada", fmtDuracion(r.minTotal))}
+    </div>`;
+    }
+    function htmlBarra(r) {
       const pol = polActual();
-      return `<section class="sis-tarjeta">
-      <h2>Resultado${r.d.corregido ? ' <span class="sis-chip gris">datos del dron corregidos</span>' : ""}</h2>
-      <div class="vu-kpis">
-        ${kpi("Altura", `${fmt(r.altura, 0)} m`)}
-        ${kpi("GSD", `${fmt(r.gsd, 2)} cm/px`)}
-        ${r.densidad ? kpi("Densidad LiDAR", `${fmt(r.densidad, 0)} pts/m²`) : kpi("Fotos", fmt(r.fotos))}
-        ${kpi("Vuelos / baterías", fmt(r.vuelos))}
-        ${kpi("Tiempo en el aire", fmtDuracion(r.minMision))}
-        ${kpi("Jornada de vuelo", fmtDuracion(r.minTotal))}
-      </div>
-      ${r.avisos.length ? `<div class="vu-aviso"><ul>${r.avisos.map((a) => `<li>${escapar(a)}</li>`).join("")}</ul></div>` : ""}
-      ${pol ? svgPreview(pol, r) : ""}
+      if (st.dibujando) {
+        return `<span class="vu-barra-txt">Toca el mapa para marcar los vértices · ${st.dibujo.length} marcado${st.dibujo.length === 1 ? "" : "s"}</span>
+        <button type="button" class="vu-barra-btn" data-accion="dibujo-deshacer" ${st.dibujo.length ? "" : "disabled"}>Deshacer</button>
+        <button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-terminar" ${st.dibujo.length >= 3 ? "" : "disabled"}>Terminar</button>
+        <button type="button" class="vu-barra-btn" data-accion="dibujo-cancelar">Cancelar</button>`;
+      }
+      if (!pol) return '<span class="vu-barra-txt">Carga un KML/KMZ o usa «Dibujar en el mapa».</span>';
+      if (!r || r.sinArea) return "";
+      return `<span class="vu-barra-txt">Rumbo ${fmt(r.rumbo, 0)}°${st.params.rumbo === "" ? " · lado más largo" : ""}</span>
+      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="-5" aria-label="Girar las líneas 5 grados a la izquierda">⟲ 5°</button>
+      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="5" aria-label="Girar las líneas 5 grados a la derecha">⟳ 5°</button>
+      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="90">Girar 90°</button>
+      <button type="button" class="vu-barra-btn fuerte" data-accion="rumbo-corto">Más corto</button>
+      ${st.params.rumbo !== "" ? '<button type="button" class="vu-barra-btn" data-accion="rumbo-auto">Auto</button>' : ""}`;
+    }
+    function htmlLeyenda(r) {
+      if (!r || r.sinArea || !r.baterias || !r.baterias.length) return "";
+      const dist = r.baterias.length && st.params.despegue !== void 0 ? despegueTexto(r) : "";
+      const extra = r.baterias.length > 8 ? `<span>y ${r.baterias.length - 8} baterías más</span>` : "";
+      return `<div class="vu-leyenda">${r.baterias.slice(0, 8).map((b, i) => `<span><i style="background:${COLORES_BATERIA[i % COLORES_BATERIA.length]}"></i>Batería ${i + 1} · ${fmtDuracion(b.min)}</span>`).join("")}${extra}
+      <span class="vu-leyenda-desp"><i class="vu-punto"></i>${dist}</span></div>
+      <p class="sis-tenue vu-pie">Arrastra el punto para cambiar el despegue: el tiempo incluye ir y volver desde él en cada batería.</p>`;
+    }
+    function despegueTexto(r) {
+      if (!r.despegueGirado || !r.baterias.length) return "Despegue";
+      const b = r.baterias[0];
+      const m = Math.hypot(b.inicio[0] - r.despegueGirado[0], b.inicio[1] - r.despegueGirado[1]);
+      return st.params.despegue ? `Despegue · ${fmt(m, 0)} m a la primera línea` : "Despegue en el centro del área";
+    }
+    function htmlDetalle(r) {
+      if (!r) return "";
+      if (r.sinArea) return "";
+      return `${r.avisos.length ? `<div class="vu-aviso"><ul>${r.avisos.map((a) => `<li>${escapar(a)}</li>`).join("")}</ul></div>` : ""}
+      ${r.modo === "foto" ? htmlTablaGsd(r) : ""}
+      <details class="vu-detalles"><summary>Detalle del cálculo</summary>
       <dl class="vu-tabla">
         ${fila("Área", `${fmt(r.area / 1e4, 2)} ha`)}
-        ${r.rumbo != null ? fila("Rumbo de las líneas", `${fmt(r.rumbo, 0)}°${st.params.rumbo === "" ? " (lado más largo)" : ""}`) : ""}
         ${fila("Huella de la foto", `${fmt(r.huellaAncho, 0)} × ${fmt(r.huellaLargo, 0)} m`)}
         ${r.barrido ? fila("Ancho de barrido LiDAR", `${fmt(r.barrido, 0)} m`) : ""}
         ${fila("Separación entre líneas", `${fmt(r.sepLineas, 1)} m · ${fmt(r.nLineas)} líneas`)}
         ${r.modo === "foto" ? fila("Distancia entre fotos", `${fmt(r.sepFotos, 1)} m · cada ${fmt(r.intervalo, 1)} s`) : fila("Densidad en una pasada", `${fmt(r.densidadPasada, 0)} pts/m²`)}
-        ${fila("Distancia de vuelo", `${fmt(r.distancia / 1e3, 2)} km`)}
+        ${fila("Distancia de las líneas", `${fmt(r.distancia / 1e3, 2)} km`)}
+        ${r.trasladoM ? fila("Traslado desde el despegue (ida y vuelta)", `${fmt(r.trasladoM / 1e3, 2)} km`) : ""}
         ${fila("Velocidad", `${fmt(r.velocidad, 1)} m/s${r.auto ? " (sugerida)" : ""}`)}
-        ${fila("Límites de velocidad", r.limites.map(([t, v]) => `${t}: ${fmt(v, 1)}`).join(" · ") + " m/s")}
         ${fila("Tiempo útil por batería", `${fmt(r.minUtiles, 0)} min`)}
       </dl>
-      <p class="sis-tenue">Estimación para planificar y cotizar. El GSD es sobre el punto de despegue: en terreno con desnivel cambia. El vuelo se programa en DJI Pilot 2.</p>
-    </section>
-    <section class="sis-tarjeta">
-      <h2>Guardar y exportar</h2>
-      <form class="vu-guardar" data-form="guardar">
-        <label class="sis-campo"><span>Nombre del plan</span><input name="nombrePlan" value="${escapar(st.nombrePlan || (pol ? pol.nombre : ""))}" required></label>
-        <label class="sis-campo"><span>Proyecto</span><select name="proyectoId">${opcionesProyectos(st.proyectoId)}</select></label>
-        <div class="sis-acciones">
-          <button class="sis-btn primario">${st.planId ? "Guardar cambios" : "Guardar plan"}</button>
-          ${pol ? '<button type="button" class="sis-btn" data-accion="descargar-kml-plan">Descargar KML limpio</button>' : ""}
-          ${pol ? '<button type="button" class="sis-btn" data-accion="pronostico-plan">Ver pronóstico</button>' : ""}
-          ${st.planId ? '<button type="button" class="sis-btn" data-accion="nuevo-plan">Nuevo plan</button>' : ""}
-        </div>
-      </form>
+      <p class="sis-tenue">Estimación para planificar y cotizar. El GSD es sobre el punto de despegue: con desnivel cambia. El vuelo se programa en DJI Pilot 2.</p>
+      </details>`;
+    }
+    function htmlTablaGsd(r) {
+      const filas = opcionesGsd(r);
+      const pol = polActual();
+      return `<section class="sis-tarjeta vu-opciones">
+      <div class="vu-opciones-cab">
+        <h2>Opciones por GSD${pol ? ` · ${escapar(st.nombrePlan || pol.nombre)}` : ""}</h2>
+        <label class="vu-vel">Velocidades <input type="number" data-vel="velA" value="${st.velA}" min="1" max="25" step="0.5" aria-label="Velocidad A"> y <input type="number" data-vel="velB" value="${st.velB}" min="1" max="25" step="0.5" aria-label="Velocidad B"> m/s</label>
+      </div>
+      <div class="vu-tabla-scroll"><table class="vu-gsd">
+        <thead><tr><th>GSD (cm/px)</th><th>Altura (m)</th><th>Tiempo a ${fmt(st.velA, 1)} m/s</th><th>Baterías</th><th>Tiempo a ${fmt(st.velB, 1)} m/s</th><th>Baterías</th><th></th></tr></thead>
+        <tbody>${filas.map((f) => `<tr class="${f.actual ? "actual" : ""}${f.sobre120 ? " sobre120" : ""}">
+          <td>${fmt(f.gsd, 2)}${f.actual ? " · actual" : ""}</td><td>${fmt(f.altura, 0)}${f.sobre120 ? " ⚠" : ""}</td>
+          <td>${fmtDuracion(f.a.minMision)}${st.velA > f.a.velSugerida + 0.05 ? ' <span class="vu-ojo" title="Sobre la velocidad sugerida para este GSD">*</span>' : ""}</td><td>${f.a.vuelos}</td>
+          <td>${fmtDuracion(f.z.minMision)}${st.velB > f.z.velSugerida + 0.05 ? ' <span class="vu-ojo" title="Sobre la velocidad sugerida para este GSD">*</span>' : ""}</td><td>${f.z.vuelos}</td>
+          <td><button type="button" class="vu-link" data-accion="usar-gsd" data-g="${f.gsd}">usar</button>${GSD_TABLA.includes(f.gsd) || f.actual ? "" : ` <button type="button" class="vu-link" data-accion="quitar-gsd" data-g="${f.gsd}" aria-label="Quitar">✕</button>`}</td>
+        </tr>`).join("")}</tbody></table></div>
+      <div class="vu-opciones-pie">
+        <span class="vu-agregar"><input type="number" data-campo="gsdNuevo" placeholder="GSD" step="0.1" min="0.3" max="10" aria-label="GSD a agregar"><button type="button" class="sis-btn chico" data-accion="agregar-gsd">+ GSD</button></span>
+        <button type="button" class="sis-btn chico" data-accion="copiar-tabla">Copiar para correo</button>
+        <button type="button" class="sis-btn chico" data-accion="excel-tabla">Descargar Excel</button>
+      </div>
+      <p class="sis-tenue">Tiempo de vuelo en el aire con el dron y traslapes del plan. ⚠ sobre 120 m: requiere autorización DGAC. * sobre la velocidad sugerida (la foto puede salir movida).</p>
     </section>`;
     }
-    const kpi = (t, v) => `<div class="vu-kpi"><span>${t}</span><b>${v}</b></div>`;
-    const fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
-    function svgPreview(pol, r) {
-      const { puntos } = proyectar(pol.anillo);
-      const xs = puntos.map((p) => p[0]), ys = puntos.map((p) => p[1]);
-      const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
-      const W = 360, H = 220, m = 12;
-      const k = Math.min((W - 2 * m) / (maxx - minx || 1), (H - 2 * m) / (maxy - miny || 1));
-      const ox = (W - (maxx - minx) * k) / 2, oy = (H - (maxy - miny) * k) / 2;
-      const tx = ([x, y]) => [ox + (x - minx) * k, H - (oy + (y - miny) * k)];
-      const pts = puntos.map(tx).map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" ");
-      let lineas = "";
-      if (r.segmentos && r.segmentos.length && r.rumbo != null) {
-        const a = (90 - r.rumbo) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
-        const desrot = (x, y) => [x * c - y * s, x * s + y * c];
-        lineas = r.segmentos.slice(0, 400).map((l) => {
-          const [p1, p2] = [tx(desrot(l.x1, l.y)), tx(desrot(l.x2, l.y))];
-          return `<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}" x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}"/>`;
-        }).join("");
+    function filasTablaTexto(r) {
+      const filas = opcionesGsd(r);
+      const cab = ["GSD (cm/px)", "Altura (m)", `Tiempo a ${fmt(st.velA, 1)} m/s`, "Baterías", `Tiempo a ${fmt(st.velB, 1)} m/s`, "Baterías"];
+      return [cab, ...filas.map((f) => [fmt(f.gsd, 2), fmt(f.altura, 0) + (f.sobre120 ? " *" : ""), fmtDuracion(f.a.minMision), String(f.a.vuelos), fmtDuracion(f.z.minMision), String(f.z.vuelos)])];
+    }
+    const mapas = {};
+    async function cargarLeaflet() {
+      if (window.L) return window.L;
+      await cargarScript("vendor/leaflet/leaflet.js");
+      return window.L;
+    }
+    async function mapaEn(lugar, clave) {
+      let L;
+      try {
+        L = await cargarLeaflet();
+      } catch {
+        return null;
       }
-      return `<svg class="vu-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Polígono del área con ${r.nLineas} líneas de vuelo">
-      <polygon points="${pts}" class="vu-pol"/><g class="vu-lineas">${lineas}</g></svg>
-      <p class="sis-tenue vu-pie">Vista esquemática (norte arriba): contorno y líneas de vuelo.</p>`;
+      if (!L || !raiz.contains(lugar)) return null;
+      let m = mapas[clave];
+      if (!m) {
+        const el = document.createElement("div");
+        el.className = "vu-mapa";
+        const mapa = L.map(el, { zoomControl: true, attributionControl: true });
+        L.tileLayer(ESRI("World_Imagery"), { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }).addTo(mapa);
+        L.tileLayer(ESRI("Reference/World_Transportation"), { maxZoom: 20, maxNativeZoom: 19 }).addTo(mapa);
+        L.tileLayer(ESRI("Reference/World_Boundaries_and_Places"), { maxZoom: 20, maxNativeZoom: 19 }).addTo(mapa);
+        m = mapas[clave] = { el, mapa, capas: {}, pol: null, L };
+        mapa.setView(CENTRO_CHILE, 7);
+        if (clave === "plan") mapa.on("click", alClicMapa);
+      }
+      if (m.el.parentNode !== lugar) lugar.appendChild(m.el);
+      m.mapa.invalidateSize();
+      return m;
+    }
+    function quitar(m, ...nombres) {
+      for (const n of nombres) if (m.capas[n]) {
+        m.capas[n].remove();
+        delete m.capas[n];
+      }
+    }
+    async function actualizarMapa() {
+      const lugar = raiz.querySelector(".vu-planificar .vu-mapa-lugar");
+      if (!lugar) return;
+      const m = await mapaEn(lugar, "plan");
+      if (!m) {
+        lugar.innerHTML = '<p class="sis-tenue vu-sin-mapa">El mapa necesita internet. El cálculo funciona igual.</p>';
+        return;
+      }
+      const { L, mapa } = m;
+      const pol = polActual();
+      m.el.classList.toggle("dibujando", st.dibujando);
+      quitar(m, "dibujo");
+      if (st.dibujando) {
+        const ll = st.dibujo.map(([lon, lat]) => [lat, lon]);
+        m.capas.dibujo = L.layerGroup([
+          ...ll.length >= 2 ? [L.polyline([...ll, ...ll.length >= 3 ? [ll[0]] : []], { color: "#FFFFFF", weight: 2, dashArray: "6 5" })] : [],
+          ...ll.map((p) => L.circleMarker(p, { radius: 5, color: "#FFFFFF", weight: 2, fillColor: "#E8611C", fillOpacity: 1 }))
+        ]).addTo(mapa);
+      }
+      if (!pol) {
+        quitar(m, "pol", "lineas", "despegue", "traslados");
+        m.pol = null;
+        return;
+      }
+      if (m.pol !== pol) {
+        quitar(m, "pol");
+        m.capas.pol = L.polygon(pol.anillo.map(([lon, lat]) => [lat, lon]), { color: "#E8611C", weight: 3, fillColor: "#E8611C", fillOpacity: 0.12, interactive: false }).addTo(mapa);
+        mapa.fitBounds(m.capas.pol.getBounds(), { padding: [30, 30] });
+        m.pol = pol;
+      }
+      pintarLineas(m);
+    }
+    function pintarLineas(m) {
+      const { L, mapa } = m;
+      const pol = polActual();
+      const r = resultado();
+      quitar(m, "lineas", "traslados");
+      if (!pol || !r || r.sinArea || !r.tramos) return;
+      const fr = marco(pol.anillo);
+      const g = giro(r.rumbo);
+      const aLL = (p) => fr.aLatLon(g.vuelta(p));
+      const colorDe = {};
+      r.baterias.forEach((b, i) => b.lineas.forEach((j) => {
+        colorDe[j] = COLORES_BATERIA[i % COLORES_BATERIA.length];
+      }));
+      m.capas.lineas = L.layerGroup(r.tramos.slice(0, 800).map((t, j) => L.polyline([aLL(t.a), aLL(t.b)], { color: colorDe[j] || "#4FC3F7", weight: 2, opacity: 0.95, interactive: false }))).addTo(mapa);
+      const desp = st.params.despegue ? [st.params.despegue[1], st.params.despegue[0]] : fr.aLatLon([0, 0]);
+      m.capas.traslados = L.layerGroup(r.baterias.slice(0, 40).map((b) => L.polyline([desp, aLL(b.inicio)], { color: "#FFFFFF", weight: 1.5, dashArray: "5 5", opacity: 0.9, interactive: false }))).addTo(mapa);
+      if (!m.capas.despegue) {
+        const icono = L.divIcon({ className: "vu-despegue", html: "<span></span>", iconSize: [26, 26], iconAnchor: [13, 13] });
+        m.capas.despegue = L.marker(desp, { draggable: true, icon: icono, title: "Punto de despegue (arrástralo)", keyboard: true }).addTo(mapa);
+        m.capas.despegue.on("dragend", (ev) => {
+          const { lat, lng } = ev.target.getLatLng();
+          st.params.despegue = [lng, lat];
+          refrescarResultados();
+        });
+      } else {
+        m.capas.despegue.setLatLng(desp);
+      }
+    }
+    async function mapaKml() {
+      const lugar = raiz.querySelector(".vu-kml-mapa");
+      if (!lugar || !st.kml) return;
+      const m = await mapaEn(lugar, "kml");
+      if (!m) {
+        lugar.innerHTML = '<p class="sis-tenue vu-sin-mapa">El mapa necesita internet.</p>';
+        return;
+      }
+      if (m.kml === st.kml) return;
+      quitar(m, "kml");
+      const { L } = m;
+      const capas = st.kml.poligonos.map((p, i) => L.polygon(p.anillo.map(([lon, lat]) => [lat, lon]), { color: p.problemas.length ? "#FFB74D" : "#E8611C", weight: 3, fillOpacity: 0.12 }).bindTooltip(`${i + 1}. ${p.nombre}`, { sticky: true }));
+      if (!capas.length) return;
+      m.capas.kml = L.featureGroup(capas).addTo(m.mapa);
+      m.mapa.fitBounds(m.capas.kml.getBounds(), { padding: [24, 24] });
+      m.kml = st.kml;
+    }
+    function refrescarResultados() {
+      const r = resultado();
+      const poner = (id, html) => {
+        const el = raiz.querySelector("#" + id);
+        if (el) el.innerHTML = html;
+      };
+      poner("vu-kpis", htmlKpis(r));
+      poner("vu-barra", htmlBarra(r));
+      poner("vu-leyenda", htmlLeyenda(r));
+      poner("vu-detalle", htmlDetalle(r));
+      poner("vu-vel-pie", pieVelocidad(r));
+      if (r && !r.sinArea && st.params.velocidad === "") ponerValor("velocidad", Math.round(r.velocidad * 10) / 10);
+      const m = mapas.plan;
+      if (m && m.el.isConnected) pintarLineas(m);
+    }
+    function ponerValor(nombre, valor) {
+      const rango = raiz.querySelector(`input[type=range][name="${nombre}"]`);
+      const espejo = raiz.querySelector(`input[data-espejo="${nombre}"]`);
+      if (rango && document.activeElement !== rango) rango.value = valor;
+      if (espejo && document.activeElement !== espejo) espejo.value = valor;
     }
     function vistaKml() {
       const a = st.kml;
       return `<section class="sis-tarjeta">
-      <h2>Limpiar un KML o KMZ para DJI Pilot 2</h2>
-      <p>Revisa el archivo que te enviaron y deja cada polígono como lo lee el control: un solo contorno por archivo, sin altura, cerrado, sin vértices repetidos y con pocos vértices.</p>
+      <h2>Limpiar un KML o KMZ para el control</h2>
+      <p>Revisa el archivo que te enviaron y deja cada polígono como lo lee el control (DJI Pilot 2 u otro): un solo contorno por archivo, sin altura, cerrado, sin vértices repetidos y con pocos vértices.</p>
       <div class="sis-acciones">
         <label class="sis-btn primario vu-archivo">Elegir archivo<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="kml" hidden></label>
         <label class="sis-campo vu-mini"><span>Máximo de vértices</span><input data-campo="maxVertices" value="${st.maxVertices}" inputmode="numeric"></label>
       </div>
       ${st.kmlError ? `<div class="sis-error">${escapar(st.kmlError)}</div>` : ""}
     </section>
-    ${a ? `<section class="sis-tarjeta">
+    ${a ? `<div class="vu-kml">
+      <section class="sis-tarjeta">
       <h2>${escapar(a.archivo)}</h2>
       <p class="sis-tenue">${a.placemarks} elemento${a.placemarks === 1 ? "" : "s"} · ${a.poligonos.length} polígono${a.poligonos.length === 1 ? "" : "s"} utilizable${a.poligonos.length === 1 ? "" : "s"}${a.lineas ? ` · ${a.lineas} línea${a.lineas > 1 ? "s" : ""}` : ""}${a.puntos ? ` · ${a.puntos} punto${a.puntos > 1 ? "s" : ""} (se ignoran)` : ""}${a.carpetas ? ` · ${a.carpetas} carpeta${a.carpetas > 1 ? "s" : ""}` : ""}</p>
       ${a.poligonos.length ? `<div class="sis-lista">${a.poligonos.map((p, i) => `<div class="sis-fila vu-kml-fila">
-        <span class="sis-fila-txt"><b>${escapar(p.nombre)}</b><span class="sis-tenue">${fmt(p.area / 1e4, 2)} ha · ${p.vertices} vértices</span>
+        <span class="sis-fila-txt"><b>${i + 1}. ${escapar(p.nombre)}</b><span class="sis-tenue">${fmt(p.area / 1e4, 2)} ha · ${p.vertices} vértices</span>
           ${p.problemas.length ? `<ul class="vu-problemas">${p.problemas.map((t) => `<li>${escapar(t)}</li>`).join("")}</ul>` : '<span class="sis-chip verde">Sin problemas</span>'}</span>
-        <span class="sis-acciones"><button class="sis-btn chico" data-accion="descargar-kml" data-i="${i}">Descargar limpio</button>
+        <span class="sis-acciones"><button class="sis-btn chico" data-accion="descargar-kml" data-i="${i}">Descargar KML</button>
           <button class="sis-btn chico" data-accion="usar-en-plan" data-i="${i}">Planificar</button></span></div>`).join("")}</div>
         <p class="sis-tenue">Cada polígono se descarga como un archivo aparte, que es lo que el control importa mejor.</p>` : '<div class="sis-vacio"><p>No encontré polígonos ni polilíneas de 3 o más vértices en este archivo.</p></div>'}
-    </section>` : ""}`;
+      </section>
+      ${a.poligonos.length ? '<div class="vu-kml-mapa"></div>' : ""}
+    </div>` : ""}`;
+    }
+    function planesConArea() {
+      const lista = planes.filter((p) => p.poligono && p.poligono.anillo && p.poligono.anillo.length >= 3).map((p) => ({ id: p.id, nombre: p.nombre, anillo: p.poligono.anillo, dronId: p.dronId, proyectoId: p.proyectoId }));
+      const pol = polActual();
+      if (pol && !st.planId) lista.unshift({ id: "actual", nombre: `${st.nombrePlan || pol.nombre} (sin guardar)`, anillo: pol.anillo, dronId: st.params.dronId });
+      return lista;
     }
     function vistaPronostico() {
-      var _a, _b, _c;
+      var _a;
       const p = st.pron;
       const dron = drones.find((d) => d.id === st.pronDron) || drones[0];
+      const lista = planesConArea();
+      if (st.pronModo === "plan" && !lista.some((x) => x.id === st.pronPlanId)) st.pronPlanId = lista[0] ? lista[0].id : "";
+      const elegido = lista.find((x) => x.id === st.pronPlanId);
       let cuerpo = "";
       if (st.pronCargando) cuerpo = '<p class="sis-tenue">Consultando el pronóstico…</p>';
       else if (st.pronError) cuerpo = `<div class="sis-error">${escapar(st.pronError)}</div>`;
@@ -4023,11 +4382,14 @@ Content-Type: ${mime}\r
         const filas = horas.map((h) => ({ h, kp: kpEnHora(st.kps, h.t), ev: null })).map((x) => ({ ...x, ev: evaluarHora(x.h, dron, { kp: x.kp, solMin: 5 }) }));
         const ventana = mejorVentana(filas);
         const sol = p.dias.find((d) => d.fecha === st.dia);
-        cuerpo = `<div class="vu-dias">${dias.map((d) => `<button class="sis-menu-chip${d === st.dia ? " activo" : ""}" data-accion="dia" data-dia="${d}">${fechaLegible(d)}</button>`).join("")}</div>
+        const kpMax = filas.map((f) => f.kp).filter((k) => k != null);
+        cuerpo = `<div class="vu-pron-origen"><b>${escapar(st.pronOrigen || "Ubicación consultada")}</b><span class="sis-tenue">${fmt(p.lat, 5)}, ${fmt(p.lon, 5)}${p.elevacionModelo != null ? ` · ${fmt(p.elevacionModelo, 0)} m s. n. m. (modelo)` : ""}</span></div>
+        <div class="vu-dias">${dias.map((d) => `<button class="sis-menu-chip${d === st.dia ? " activo" : ""}" data-accion="dia" data-dia="${d}">${fechaLegible(d)}</button>`).join("")}</div>
         <div class="vu-resumen-dia">
-          ${ventana ? `<span class="sis-chip verde">Ventana GO: ${ventana[0]}:00 – ${ventana[1] + 1}:00</span>` : '<span class="sis-chip rojo">Sin ventana GO este día</span>'}
-          ${sol ? `<span class="sis-chip gris">Sol: ${((_a = sol.salida) == null ? void 0 : _a.slice(11, 16)) || "—"} – ${((_b = sol.puesta) == null ? void 0 : _b.slice(11, 16)) || "—"}</span>` : ""}
-          <span class="sis-chip gris">Límites ${escapar(dron.nombre.replace("DJI ", ""))}: viento ${dron.vientoMaxMs} · ráfaga ${dron.rafagaMaxMs} m/s</span>
+          ${ventana ? `<span class="sis-chip verde">Ventana GO: ${String(ventana[0]).padStart(2, "0")}:00 – ${String(ventana[1] + 1).padStart(2, "0")}:00</span>` : '<span class="sis-chip rojo">Sin ventana GO este día</span>'}
+          <span class="sis-chip gris">Sol: ${sol && sol.salida ? sol.salida.slice(11, 16) : "—"} – ${sol && sol.puesta ? sol.puesta.slice(11, 16) : "—"}</span>
+          <span class="sis-chip gris">${kpMax.length ? `Kp máx. ${fmt(Math.max(...kpMax), 1)}` : "Kp sin dato"}</span>
+          <span class="sis-chip gris">Límites ${escapar((dron.familiaNombre || dron.nombre).replace("DJI ", ""))}: viento ${dron.vientoMaxMs} · ráfaga ${dron.rafagaMaxMs} m/s</span>
         </div>
         <div class="vu-tabla-scroll"><table class="vu-pron">
           <thead><tr><th>Hora</th><th>Estado</th><th>Viento a 120 m</th><th>Ráfaga est.</th><th>Dir.</th><th>Lluvia</th><th>Nubes</th><th>Temp.</th><th>Sol</th><th>Kp</th></tr></thead>
@@ -4040,20 +4402,29 @@ Content-Type: ${mime}\r
             <td>${h.prob != null ? `${fmt(h.prob)} %` : "—"}${h.lluvia >= 0.1 ? ` · ${fmt(h.lluvia, 1)} mm` : ""}</td>
             <td>${fmt(h.nubes)} %</td><td>${fmt(h.temp, 0)}°</td><td>${fmt(h.sol, 0)}°</td><td>${kp != null ? fmt(kp, 1) : "—"}</td>
           </tr>`).join("")}</tbody></table></div>
-        <p class="sis-tenue">Viento: promedio de ${((_c = p.horas[0]) == null ? void 0 : _c.modelos) || 0} modelos (ECMWF, GFS, ICON) y entre paréntesis el rango entre ellos; si el rango es amplio, el pronóstico es inseguro. La ráfaga a 120 m es estimada. La flecha indica hacia dónde sopla. ${st.kps ? "" : "No se pudo leer el índice Kp (NOAA). "}Modelos globales: en valles y faenas de cordillera el viento real puede diferir; mide en terreno.</p>`;
+        <p class="sis-tenue">Viento: promedio de ${((_a = p.horas[0]) == null ? void 0 : _a.modelos) || 0} modelos (ECMWF, GFS, ICON) y entre paréntesis el rango entre ellos; si el rango es amplio, el pronóstico es inseguro. La ráfaga a 120 m es estimada. La flecha indica hacia dónde sopla. ${st.kps ? "Kp: pronóstico de NOAA en ventanas de 3 horas (desde 5 afecta la precisión GNSS)." : "No se pudo leer el índice Kp de NOAA (sin conexión o el servicio no respondió); revísalo en el enlace de NOAA."} Modelos globales: en valles y faenas de cordillera el viento real puede diferir; mide en terreno.</p>`;
       }
+      const modoBtn = (k, t) => `<button type="button" class="vu-seg${st.pronModo === k ? " activo" : ""}" data-accion="pron-modo" data-m="${k}">${t}</button>`;
       return `<section class="sis-tarjeta">
       <h2>Pronóstico para volar</h2>
-      <form class="vu-pron-form" data-form="pronostico">
-        <div class="sis-par">
+      <form class="vu-pron-form sis-form" data-form="pronostico">
+        <div class="sis-campo"><span>¿Dónde consultar?</span><div class="vu-segmentos">${modoBtn("plan", "Plan")}${modoBtn("gps", "Mi ubicación")}${modoBtn("coord", "Coordenadas")}</div></div>
+        ${st.pronModo === "plan" ? lista.length ? `<label class="sis-campo"><span>Plan</span><select name="pronPlanId">${lista.map((x) => `<option value="${escapar(x.id)}" ${x.id === st.pronPlanId ? "selected" : ""}>${escapar(x.nombre)}</option>`).join("")}</select></label>
+            ${elegido ? (() => {
+        const { lat0, lon0 } = proyectar(elegido.anillo);
+        const ha = areaM2(proyectar(elegido.anillo).puntos) / 1e4;
+        return `<div class="vu-plan-tarjeta"><b>${escapar(elegido.nombre)}</b><span class="sis-tenue">${fmt(ha, 2)} ha · centro ${fmt(lat0, 5)}, ${fmt(lon0, 5)}</span></div>`;
+      })() : ""}` : '<div class="sis-vacio"><p>No hay planes con área. Carga un KMZ en «Planificar» o usa tu ubicación o coordenadas.</p></div>' : ""}
+        ${st.pronModo === "coord" ? `<div class="sis-par">
           <label class="sis-campo"><span>Latitud</span><input name="lat" value="${escapar(st.pronLat)}" placeholder="-32.83" inputmode="decimal" required></label>
           <label class="sis-campo"><span>Longitud</span><input name="lon" value="${escapar(st.pronLon)}" placeholder="-70.60" inputmode="decimal" required></label>
-        </div>
-        <label class="sis-campo"><span>Dron (para sus límites)</span><select name="pronDron">${drones.map((x) => `<option value="${x.id}" ${x.id === st.pronDron ? "selected" : ""}>${escapar(x.nombre)}</option>`).join("")}</select></label>
-        ${st.pronOrigen ? `<p class="sis-tenue">Ubicación: ${escapar(st.pronOrigen)}</p>` : ""}
-        <div class="sis-acciones"><button class="sis-btn primario">Consultar pronóstico</button>
-          <button type="button" class="sis-btn" data-accion="gps">Usar mi ubicación</button>
-          ${polActual() ? '<button type="button" class="sis-btn" data-accion="pronostico-plan">Centro del polígono</button>' : ""}</div>
+        </div>` : ""}
+        ${st.pronModo === "gps" ? `<p class="sis-tenue">${st.pronOrigen === "tu ubicación actual" ? `Ubicación: ${escapar(st.pronLat)}, ${escapar(st.pronLon)}` : "Se pide la ubicación del teléfono o computador al consultar."}</p>` : ""}
+        <label class="sis-campo"><span>Dron (para sus límites de viento)</span><select name="pronDron">${familias().map(([k, t]) => {
+        const x = drones.find((d) => (d.familia || d.id) === k);
+        return `<option value="${x.id}" ${(drones.find((d) => d.id === st.pronDron) || {}).familia === k || x.id === st.pronDron ? "selected" : ""}>${escapar(t)}</option>`;
+      }).join("")}</select></label>
+        <div class="sis-acciones"><button class="sis-btn primario" ${st.pronModo === "plan" && !elegido ? "disabled" : ""}>Consultar pronóstico</button></div>
       </form>
       ${cuerpo}
     </section>
@@ -4077,7 +4448,6 @@ Content-Type: ${mime}\r
       return mejor ? [filas[mejor[0]].h.hora, filas[mejor[1]].h.hora] : null;
     }
     async function vistaPlanes() {
-      const planes = await listarPlanes();
       const nomProy = (id) => (proyectos2.find((p) => p.id === id) || {}).nombre || (id === OFICINA_ID ? "Oficina" : "Sin proyecto");
       return `<section class="sis-tarjeta"><h2>Planes guardados</h2>
       ${planes.length ? `<div class="sis-lista">${planes.map((p) => {
@@ -4085,14 +4455,14 @@ Content-Type: ${mime}\r
         const r = p.resumen || {};
         return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(p.nombre)}</b>
           <span class="sis-tenue">${escapar(nomProy(p.proyectoId))} · ${escapar(d ? d.nombre.replace("DJI ", "") : p.dronId)}</span>
-          <span class="sis-chips">${r.area ? `<span class="sis-chip gris">${fmt(r.area / 1e4, 1)} ha</span>` : ""}${r.gsd ? `<span class="sis-chip gris">GSD ${fmt(r.gsd, 2)} cm</span>` : ""}${r.densidad ? `<span class="sis-chip gris">${fmt(r.densidad)} pts/m²</span>` : ""}${r.vuelos ? `<span class="sis-chip azul">${r.vuelos} vuelo${r.vuelos > 1 ? "s" : ""} · ${fmtDuracion(r.minTotal)}</span>` : ""}</span></span>
+          <span class="sis-chips">${r.area ? `<span class="sis-chip gris">${fmt(r.area / 1e4, 1)} ha</span>` : ""}${r.gsd ? `<span class="sis-chip gris">GSD ${fmt(r.gsd, 2)} cm</span>` : ""}${r.densidad ? `<span class="sis-chip gris">${fmt(r.densidad)} pts/m²</span>` : ""}${r.vuelos ? `<span class="sis-chip azul">${r.vuelos} batería${r.vuelos > 1 ? "s" : ""} · ${fmtDuracion(r.minTotal)}</span>` : ""}</span></span>
           <span class="sis-acciones"><button class="sis-btn chico" data-accion="abrir-plan" data-id="${p.id}">Abrir</button>
           <button class="sis-btn chico peligro" data-accion="eliminar-plan" data-id="${p.id}">Eliminar</button></span></div>`;
       }).join("")}</div>` : '<div class="sis-vacio"><p>Todavía no hay planes. Arma uno en «Planificar» y guárdalo en su proyecto.</p></div>'}
     </section>`;
     }
     function vistaDrones() {
-      return `<p class="sis-tenue">Valores de referencia tomados de las fichas técnicas. Revísalos con la ficha de tu equipo: si corriges uno, se usa tu valor en todos los cálculos. Los Mavic 2 Enterprise no están porque se usan solo para termografía.</p>
+      return `<p class="sis-tenue">Valores de referencia tomados de las fichas técnicas. Revísalos con la ficha de tu equipo: si corriges uno, se usa tu valor en todos los cálculos. El Matrice 300 aparece una vez por sensor. Los Mavic 2 Enterprise no están porque se usan solo para termografía.</p>
       ${drones.map((d) => `<section class="sis-tarjeta"><div class="sis-cab"><h2>${escapar(d.nombre)}</h2>${d.corregido ? '<span class="sis-chip ambar">Corregido</span>' : ""}</div>
         <form class="sis-form vu-dron" data-form="dron" data-id="${d.id}"><div class="vu-grilla">
           ${CAMPOS_DRON.map(([k, t, u]) => campo(k, t, d[k], "", u)).join("")}
@@ -4111,26 +4481,74 @@ Content-Type: ${mime}\r
       ${st.mensaje ? `<div class="vu-msg ${st.mensaje.tipo}">${escapar(st.mensaje.texto)}</div>` : ""}
       <div class="sis-vista">${html}</div>`;
       st.mensaje = null;
+      if (st.tab === "planificar") actualizarMapa();
+      if (st.tab === "kml") mapaKml();
     }
-    function leerFormPlan(form) {
+    const num = (v) => String(v).replace(",", ".").trim();
+    function leerFormPlan(form, objetivo) {
       const fd = new FormData(form);
       const P = st.params;
-      for (const k of ["dronId", "gsd", "altura", "traslapeFrontal", "traslapeLateral", "velocidad", "rumbo", "reserva", "minDespegue", "minCambio", "segGiro", "exposicion", "areaHa"]) {
-        if (fd.has(k)) P[k] = String(fd.get(k)).replace(",", ".").trim();
+      const d0 = dronActual();
+      for (const k of ["traslapeFrontal", "traslapeLateral", "reserva", "minDespegue", "minCambio", "segGiro", "exposicion", "areaHa"]) {
+        if (fd.has(k)) P[k] = num(fd.get(k));
       }
       if (fd.has("modo")) P.modo = fd.get("modo");
-      if (fd.has("porGsd")) P.porGsd = fd.get("porGsd") === "1";
+      if (!objetivo) return;
+      const nombre = objetivo.name || objetivo.dataset.espejo;
+      const valor = num(objetivo.value);
+      const d = d0;
+      if (nombre === "gsd" && Number(valor) > 0) {
+        P.porGsd = true;
+        P.gsd = valor;
+        ponerValor("altura", Math.round(alturaParaGsd(d, Number(valor))));
+      } else if (nombre === "altura" && Number(valor) > 0) {
+        P.porGsd = false;
+        P.altura = valor;
+        ponerValor("gsd", Math.round(gsdCm(d, Number(valor)) * 100) / 100);
+      } else if (nombre === "velocidad" && Number(valor) > 0) {
+        P.velocidad = valor;
+        const nota = raiz.querySelector('label[for="vu-velocidad"] small');
+        if (nota) nota.remove();
+      } else if (["traslapeFrontal", "traslapeLateral"].includes(nombre)) {
+        P[nombre] = valor;
+      }
+      if (objetivo.dataset.espejo) ponerValor(nombre, valor);
+      else if (objetivo.type === "range") {
+        const e = raiz.querySelector(`input[data-espejo="${nombre}"]`);
+        if (e) e.value = valor;
+      }
     }
     raiz.addEventListener("input", (ev) => {
-      const form = ev.target.closest('form[data-form="plan"]');
-      if (form) {
-        leerFormPlan(form);
-        const r = raiz.querySelector("#vu-resultado");
-        if (r) r.innerHTML = htmlResultado();
+      var _a;
+      const t = ev.target;
+      const form = t.closest('form[data-form="plan"]');
+      if (form && t.type !== "file" && t.tagName !== "SELECT" && t.type !== "radio") {
+        leerFormPlan(form, t);
+        refrescarResultados();
         return;
       }
-      if (ev.target.dataset.campo === "maxVertices") st.maxVertices = Math.max(4, Number(ev.target.value) || 200);
-      if (ev.target.name === "nombrePlan") st.nombrePlan = ev.target.value;
+      if (t.dataset.vel) {
+        const v = Number(num(t.value));
+        if (v > 0) {
+          st[t.dataset.vel] = v;
+          const det = raiz.querySelector(".vu-opciones");
+          if (det) {
+            const r = resultado();
+            const nuevo = document.createElement("div");
+            nuevo.innerHTML = htmlTablaGsd(r);
+            const sel = t.dataset.vel;
+            det.replaceWith(nuevo.firstElementChild);
+            const i = raiz.querySelector(`input[data-vel="${sel}"]`);
+            if (i) {
+              i.focus();
+              (_a = i.setSelectionRange) == null ? void 0 : _a.call(i, 99, 99);
+            }
+          }
+        }
+        return;
+      }
+      if (t.dataset.campo === "maxVertices") st.maxVertices = Math.max(4, Number(t.value) || 200);
+      if (t.name === "nombrePlan") st.nombrePlan = t.value;
     });
     raiz.addEventListener("change", async (ev) => {
       const t = ev.target;
@@ -4147,7 +4565,11 @@ Content-Type: ${mime}\r
             st.poligonos = analisis.poligonos;
             st.polSel = 0;
             st.archivo = archivo.name;
+            st.dibujando = false;
+            st.params.despegue = null;
+            st.params.rumbo = "";
             if (!st.nombrePlan) st.nombrePlan = analisis.poligonos[0].nombre;
+            if (analisis.poligonos[0].area > 2e3 * 1e4) avisar2(`El polígono tiene ${fmt(analisis.poligonos[0].area / 1e4, 0)} ha: revisa que sea el área de vuelo.`, "error");
           }
         } catch (e) {
           if (t.dataset.archivo === "kml") {
@@ -4160,39 +4582,53 @@ Content-Type: ${mime}\r
       }
       if (t.dataset.campo === "polSel") {
         st.polSel = Number(t.value);
+        st.params.despegue = null;
+        st.params.rumbo = "";
         await render();
         return;
       }
-      if (form && (t.name === "dronId" || t.name === "modo" || t.name === "porGsd")) {
-        leerFormPlan(form);
-        if (t.name === "porGsd") {
-          const d = dronActual();
-          const r = resultado();
-          if (r && !st.params.porGsd) st.params.altura = String(Math.round(r.altura));
-          if (r && st.params.porGsd && r.gsd) st.params.gsd = String(Math.round(r.gsd * 100) / 100);
-          if (!d) return;
+      if (form && (t.name === "familia" || t.name === "dronId" || t.name === "modo")) {
+        const altura = alturaDe(st.params, dronActual());
+        if (t.name === "familia") {
+          const x = drones.find((d) => (d.familia || d.id) === t.value);
+          if (x) st.params.dronId = x.id;
         }
-        if (t.name === "modo" && st.params.modo === "lidar" && Number(st.params.traslapeLateral) > 60) st.params.traslapeLateral = "50";
-        if (t.name === "modo" && st.params.modo === "foto" && Number(st.params.traslapeLateral) < 60) st.params.traslapeLateral = "70";
+        if (t.name === "dronId") st.params.dronId = t.value;
+        if (t.name === "modo") {
+          st.params.modo = t.value;
+          if (st.params.modo === "lidar" && Number(st.params.traslapeLateral) > 60) st.params.traslapeLateral = "50";
+          if (st.params.modo === "foto" && Number(st.params.traslapeLateral) < 60) st.params.traslapeLateral = "70";
+        }
+        if (!st.params.porGsd) st.params.altura = String(Math.round(altura));
+        if (Number(st.params.velocidad) > dronActual().velocidadMaxMs) st.params.velocidad = "";
+        await render();
+        return;
+      }
+      if (form) return;
+      if (t.name === "proyectoId") st.proyectoId = t.value;
+      if (t.name === "pronPlanId") {
+        st.pronPlanId = t.value;
         await render();
       }
-      if (t.name === "proyectoId") st.proyectoId = t.value;
+      if (t.name === "pronDron") st.pronDron = t.value;
     });
     raiz.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const form = ev.target;
       try {
+        if (form.dataset.form === "plan") return;
         if (form.dataset.form === "guardar") {
           const r = resultado();
           const pol = polActual();
           const fd = new FormData(form);
           const limpio = pol ? limpiarParaDji(pol, { maxVertices: st.maxVertices }) : null;
+          const params = { ...st.params, ...st.params.porGsd ? { gsd: String(Math.round(r.gsd * 100) / 100) } : {} };
           const plan = await guardarPlan({
             ...st.planId ? { id: st.planId } : {},
             nombre: String(fd.get("nombrePlan")).trim(),
             proyectoId: fd.get("proyectoId") || null,
             dronId: st.params.dronId,
-            params: { ...st.params },
+            params,
             poligono: limpio ? { nombre: pol.nombre, anillo: limpio.anillo } : null,
             resumen: r && !r.sinArea ? { area: r.area, gsd: r.modo === "foto" ? r.gsd : null, altura: r.altura, densidad: r.densidad, vuelos: r.vuelos, minTotal: r.minTotal, fotos: r.fotos, modo: r.modo } : null
           });
@@ -4202,31 +4638,46 @@ Content-Type: ${mime}\r
           avisar2("Plan guardado");
         } else if (form.dataset.form === "pronostico") {
           const fd = new FormData(form);
-          st.pronLat = String(fd.get("lat")).replace(",", ".");
-          st.pronLon = String(fd.get("lon")).replace(",", ".");
-          st.pronDron = fd.get("pronDron");
-          st.pronOrigen = st.pronOrigen || "coordenadas escritas";
+          st.pronDron = fd.get("pronDron") || st.pronDron;
+          if (st.pronModo === "coord") {
+            st.pronLat = num(fd.get("lat"));
+            st.pronLon = num(fd.get("lon"));
+            st.pronOrigen = "Coordenadas escritas";
+          } else if (st.pronModo === "plan") {
+            const x = planesConArea().find((y) => y.id === (fd.get("pronPlanId") || st.pronPlanId));
+            if (!x) throw new Error("Elige un plan con área.");
+            const { lat0, lon0 } = proyectar(x.anillo);
+            st.pronLat = lat0.toFixed(5);
+            st.pronLon = lon0.toFixed(5);
+            st.pronOrigen = `Centro de «${x.nombre.replace(" (sin guardar)", "")}»`;
+          } else {
+            if (!navigator.geolocation) throw new Error("Este navegador no entrega la ubicación.");
+            const pos = await new Promise((ok, mal) => navigator.geolocation.getCurrentPosition(ok, mal, { enableHighAccuracy: false, timeout: 15e3 }));
+            st.pronLat = pos.coords.latitude.toFixed(5);
+            st.pronLon = pos.coords.longitude.toFixed(5);
+            st.pronOrigen = "Tu ubicación actual";
+          }
           await consultar();
           return;
         } else if (form.dataset.form === "dron") {
           const fd = new FormData(form);
-          const num = (k) => Number(String(fd.get(k)).replace(",", "."));
-          const valores = Object.fromEntries(CAMPOS_DRON.map(([k]) => [k, num(k)]));
-          if (fd.has("lidarPps")) valores.lidar = { puntosPorSegundo: num("lidarPps"), fovGrados: num("lidarFov") };
+          const n = (k) => Number(num(fd.get(k)));
+          const valores = Object.fromEntries(CAMPOS_DRON.map(([k]) => [k, n(k)]));
+          if (fd.has("lidarPps")) valores.lidar = { puntosPorSegundo: n("lidarPps"), fovGrados: n("lidarFov") };
           if (Object.values(valores).some((v) => typeof v === "number" && !(v > 0))) throw new Error("Todos los valores deben ser números mayores que 0.");
           await guardarDron(form.dataset.id, valores);
           avisar2("Datos del dron guardados");
         }
       } catch (e) {
         console.error(e);
-        avisar2(e.message, "error");
+        avisar2(e.message || "No se pudo completar", "error");
       }
       await render();
     });
     async function consultar() {
       var _a;
       const lat = Number(st.pronLat), lon = Number(st.pronLon);
-      if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180 || !lat && !lon) {
         st.pronError = "Revisa la latitud y la longitud (grados decimales, por ejemplo -32.83 y -70.60).";
         await render();
         return;
@@ -4245,19 +4696,128 @@ Content-Type: ${mime}\r
       st.pronCargando = false;
       await render();
     }
+    function alClicMapa(ev) {
+      if (!st.dibujando || st.tab !== "planificar") return;
+      st.dibujo.push([ev.latlng.lng, ev.latlng.lat]);
+      const barra = raiz.querySelector("#vu-barra");
+      if (barra) barra.innerHTML = htmlBarra(resultado());
+      actualizarMapa();
+    }
     raiz.addEventListener("click", async (ev) => {
       const b = ev.target.closest("[data-accion]");
       if (!b) return;
       const a = b.dataset.accion;
+      const P = st.params;
       try {
         if (a === "tab") {
           st.tab = b.dataset.tab;
         } else if (a === "dia") {
           st.dia = b.dataset.dia;
+        } else if (a === "pron-modo") {
+          st.pronModo = b.dataset.m;
+        } else if (a === "rumbo" || a === "rumbo-corto" || a === "rumbo-auto") {
+          const r = resultado();
+          if (!r || r.sinArea) return;
+          if (a === "rumbo") P.rumbo = String(((Math.round(r.rumbo) + Number(b.dataset.d)) % 180 + 180) % 180);
+          else if (a === "rumbo-auto") P.rumbo = "";
+          else {
+            const d = dronActual();
+            const bb = base(P, d, { altura: alturaDe(P, d), velocidad: r.velocidad });
+            P.rumbo = String(rumboMasCorto(bb));
+            avisar2(`Rumbo ${P.rumbo}°: el que da menos tiempo con este despegue (${fmtDuracion(calcularPlan({ ...bb, rumbo: Number(P.rumbo) }).minTotal)} de jornada).`);
+            await render();
+            return;
+          }
+          refrescarResultados();
+          return;
+        } else if (a === "vel-auto") {
+          P.velocidad = "";
+          refrescarResultados();
+          return;
+        } else if (a === "usar-gsd") {
+          const g = Number(b.dataset.g);
+          P.porGsd = true;
+          P.gsd = String(g);
+          ponerValor("gsd", g);
+          ponerValor("altura", Math.round(alturaParaGsd(dronActual(), g)));
+          refrescarResultados();
+          return;
+        } else if (a === "agregar-gsd") {
+          const i = raiz.querySelector('input[data-campo="gsdNuevo"]');
+          const g = Math.round(Number(num(i && i.value)) * 100) / 100;
+          if (!(g > 0.2 && g < 20)) {
+            i && i.focus();
+            return;
+          }
+          if (!st.gsdExtra.includes(g)) st.gsdExtra.push(g);
+          refrescarResultados();
+          return;
+        } else if (a === "quitar-gsd") {
+          const g = Number(b.dataset.g);
+          st.gsdExtra = st.gsdExtra.filter((x) => x !== g);
+          refrescarResultados();
+          return;
+        } else if (a === "copiar-tabla" || a === "excel-tabla") {
+          const r = resultado();
+          if (!r || r.sinArea) return;
+          const filas = filasTablaTexto(r);
+          const pol = polActual();
+          const titulo = `${st.nombrePlan || (pol ? pol.nombre : "Área")} · ${fmt(r.area / 1e4, 2)} ha · ${r.d.nombre} · traslape ${P.traslapeFrontal}/${P.traslapeLateral} %`;
+          if (a === "copiar-tabla") {
+            const anchos = filas[0].map((_, c) => Math.max(...filas.map((f) => f[c].length)));
+            const texto3 = [
+              titulo,
+              "",
+              ...filas.map((f) => f.map((v, c) => c === 0 ? v.padEnd(anchos[c]) : v.padStart(anchos[c])).join("   ")),
+              "",
+              "Tiempo de vuelo estimado; no incluye traslados al lugar ni armado del equipo." + (filas.some((f) => f[1].endsWith("*")) ? " * Sobre 120 m requiere autorización DGAC." : "")
+            ].join("\n");
+            await navigator.clipboard.writeText(texto3);
+            avisar2("Tabla copiada: pégala en el correo.");
+          } else {
+            if (!globalThis.XLSX) await cargarScript("vendor/xlsx.full.min.js");
+            const ws = XLSX.utils.aoa_to_sheet([[titulo], [], ...filas]);
+            ws["!cols"] = [14, 12, 16, 10, 16, 10].map((w) => ({ wch: w }));
+            const libro = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(libro, ws, "Opciones GSD");
+            XLSX.writeFile(libro, `Opciones_GSD_${nombreArchivoSeguro(st.nombrePlan || (pol ? pol.nombre : "area"))}.xlsx`);
+            avisar2("Excel descargado.");
+          }
+        } else if (a === "dibujar") {
+          if (st.dibujando) {
+            st.dibujando = false;
+            st.dibujo = [];
+          } else {
+            st.dibujando = true;
+            st.dibujo = [];
+          }
+        } else if (a === "dibujo-deshacer") {
+          st.dibujo.pop();
+          const barra = raiz.querySelector("#vu-barra");
+          if (barra) barra.innerHTML = htmlBarra(resultado());
+          actualizarMapa();
+          return;
+        } else if (a === "dibujo-cancelar") {
+          st.dibujando = false;
+          st.dibujo = [];
+        } else if (a === "dibujo-terminar") {
+          if (st.dibujo.length < 3) return;
+          const pol = poligonoDesde("Área dibujada", st.dibujo);
+          st.poligonos = [pol];
+          st.polSel = 0;
+          st.archivo = "dibujada en el mapa";
+          st.dibujando = false;
+          st.dibujo = [];
+          P.despegue = null;
+          P.rumbo = "";
+          if (!st.nombrePlan) st.nombrePlan = "Área dibujada";
+          if (pol.cruces) avisar2("El contorno dibujado se cruza consigo mismo: dibújalo de nuevo siguiendo el borde.", "error");
+          else if (pol.area > 2e3 * 1e4) avisar2(`El área dibujada tiene ${fmt(pol.area / 1e4, 0)} ha: acerca el mapa al lugar y dibújala de nuevo.`, "error");
         } else if (a === "descargar-kml" || a === "descargar-kml-plan") {
           const pol = a === "descargar-kml" ? st.kml.poligonos[Number(b.dataset.i)] : polActual();
+          const nombre = a === "descargar-kml-plan" ? st.nombrePlan || pol.nombre : pol.nombre;
           const limpio = limpiarParaDji(pol, { maxVertices: st.maxVertices });
-          descargar(`${nombreArchivoSeguro(pol.nombre)}_DJI.kml`, kmlDePoligono(pol.nombre, limpio.anillo), "application/vnd.google-earth.kml+xml");
+          descargar(`${nombreArchivoSeguro(nombre)}.kml`, kmlDePoligono(nombre, limpio.anillo), "application/vnd.google-earth.kml+xml");
           avisar2(limpio.verticesOriginales > limpio.vertices ? `Descargado: ${limpio.verticesOriginales} → ${limpio.vertices} vértices (tolerancia ${fmt(limpio.toleranciaM, 2)} m).` : `Descargado con ${limpio.vertices} vértices.`);
           if (pol.cruces) avisar2("Descargado, pero el contorno se cruza consigo mismo: corrígelo antes de usarlo en el control.", "error");
         } else if (a === "usar-en-plan") {
@@ -4268,34 +4828,28 @@ Content-Type: ${mime}\r
           st.nombrePlan = pol.nombre;
           st.planId = null;
           st.tab = "planificar";
+          P.despegue = null;
+          P.rumbo = "";
         } else if (a === "pronostico-plan") {
           const pol = polActual();
           if (!pol) return;
+          st.pronModo = "plan";
+          st.pronPlanId = st.planId || "actual";
+          st.pronDron = P.dronId;
+          st.tab = "pronostico";
           const { lat0, lon0 } = proyectar(pol.anillo);
           st.pronLat = lat0.toFixed(5);
           st.pronLon = lon0.toFixed(5);
-          st.pronDron = st.params.dronId;
-          st.pronOrigen = `centro de «${pol.nombre}»`;
-          st.tab = "pronostico";
+          st.pronOrigen = `Centro de «${st.nombrePlan || pol.nombre}»`;
           await consultar();
           return;
-        } else if (a === "gps") {
-          if (!navigator.geolocation) {
-            avisar2("Este navegador no entrega la ubicación.", "error");
-          } else {
-            const pos = await new Promise((ok, mal) => navigator.geolocation.getCurrentPosition(ok, mal, { enableHighAccuracy: false, timeout: 15e3 }));
-            st.pronLat = pos.coords.latitude.toFixed(5);
-            st.pronLon = pos.coords.longitude.toFixed(5);
-            st.pronOrigen = "tu ubicación actual";
-            await consultar();
-            return;
-          }
         } else if (a === "nuevo-plan") {
           st.planId = null;
           st.nombrePlan = "";
           st.poligonos = [];
           st.archivo = "";
           st.params = { ...PARAMS_INICIALES };
+          st.gsdExtra = [];
         } else if (a === "abrir-plan") {
           await abrirPlan(b.dataset.id);
         } else if (a === "eliminar-plan") {
@@ -4320,6 +4874,7 @@ Content-Type: ${mime}\r
     return {
       desmontar() {
         activo2 = false;
+        for (const m of Object.values(mapas)) m.mapa.remove();
         raiz.remove();
       },
       refrescar() {
@@ -4384,12 +4939,12 @@ Content-Type: ${mime}\r
     let ocupado = false;
     let mensaje = null;
     function textoPastilla(e) {
-      if (!e.configurado || !e.carpetaId) return "☁ Conectar nube";
-      if (!e.conectado) return "☁ Reconectar";
-      if (e.sincronizando) return "☁ Sincronizando…";
-      if (e.error) return "☁ Error";
-      if (e.pendiente) return "☁ Pendiente";
-      return `☁ Al día · ${e.ultimaSync ? new Date(e.ultimaSync).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}`;
+      if (!e.configurado || !e.carpetaId) return "Conectar nube";
+      if (!e.conectado) return "Reconectar nube";
+      if (e.sincronizando) return "Sincronizando…";
+      if (e.error) return "Nube con error";
+      if (e.pendiente) return "Nube pendiente";
+      return `Nube al día · ${e.ultimaSync ? new Date(e.ultimaSync).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}`;
     }
     alEstado((e) => {
       pastilla.textContent = textoPastilla(e);
@@ -4550,23 +5105,54 @@ Content-Type: ${mime}\r
     terreno: "Encargado de terreno",
     rrhh: "Administración / RRHH"
   };
-  var TIPOS_TRABAJO = [
-    ["aerofoto", "Dron · aerofotogrametría"],
-    ["lidar", "Dron · LiDAR"],
-    ["termografia", "Dron · termografía"],
-    ["nivelacion", "Nivelación"],
-    ["levantamiento", "Levantamiento / poligonal"],
-    ["rtk", "Levantamiento RTK (GNSS)"],
-    ["replanteo", "Replanteo"],
-    ["cubicacion", "Cubicación"],
-    ["red", "Red geodésica (GNSS estático)"],
-    ["escaneo", "Escaneo 3D estático"],
-    ["slam", "Escaneo 3D móvil (SLAM)"],
-    ["batimetria", "Batimetría"],
-    ["gpr", "GPR"],
-    ["otro", "Otro"]
+  var CATEGORIAS_TRABAJO = [
+    { k: "dron", t: "Dron", det: [["aerofoto", "Aerofotogrametría"], ["lidar", "LiDAR"], ["termografia", "Termografía"]] },
+    { k: "nivelacion", t: "Nivelación", det: [["simple", "Simple"], ["cerrada", "Cerrada"]] },
+    { k: "gnss", t: "GNSS", det: [["rtk", "RTK"], ["estatico", "Estático"], ["red", "Red geodésica"]] },
+    { k: "estacion", t: "Estación total", det: [["levantamiento", "Levantamiento"], ["poligonal", "Poligonal"], ["replanteo", "Replanteo"], ["cubicacion", "Cubicación"], ["catastro", "Catastro"]] },
+    { k: "escaneo", t: "Escaneos", det: [["estatico", "Estático (FARO)"], ["slam", "Móvil (SLAM)"]] },
+    { k: "batimetria", t: "Batimetría", det: [["bote", "Con bote"]] },
+    { k: "otro", t: "Otro", det: [["gpr", "GPR"], ["otro", "Otro"]], texto: true }
   ];
-  var NOMBRE_TIPO = Object.fromEntries(TIPOS_TRABAJO);
+  var NOMBRE_CATEGORIA = Object.fromEntries(CATEGORIAS_TRABAJO.map((c) => [c.k, c.t]));
+  var NOMBRE_DETALLE = Object.fromEntries(CATEGORIAS_TRABAJO.flatMap((c) => c.det.map(([d, t]) => [`${c.k}:${d}`, t])));
+  var TIPO_ANTIGUO = {
+    aerofoto: "dron:aerofoto",
+    lidar: "dron:lidar",
+    termografia: "dron:termografia",
+    levantamiento: "estacion:levantamiento",
+    rtk: "gnss:rtk",
+    replanteo: "estacion:replanteo",
+    cubicacion: "estacion:cubicacion",
+    red: "gnss:red",
+    escaneo: "escaneo:estatico",
+    slam: "escaneo:slam",
+    batimetria: "batimetria:bote",
+    gpr: "otro:gpr"
+  };
+  function tiposDeProyecto(p) {
+    const cats = /* @__PURE__ */ new Set();
+    const det = new Set(p.tiposDetalle || []);
+    for (const t of p.tiposTrabajo || []) {
+      if (NOMBRE_CATEGORIA[t]) cats.add(t);
+      else if (TIPO_ANTIGUO[t]) {
+        const v = TIPO_ANTIGUO[t];
+        cats.add(v.split(":")[0]);
+        det.add(v);
+      }
+    }
+    for (const d of det) cats.add(d.split(":")[0]);
+    const orden = CATEGORIAS_TRABAJO.map((c) => c.k);
+    return { categorias: [...cats].sort((a, b) => orden.indexOf(a) - orden.indexOf(b)), detalles: [...det] };
+  }
+  function textosTipos(p) {
+    const { categorias, detalles } = tiposDeProyecto(p);
+    return categorias.map((c) => {
+      const ds = detalles.filter((d) => d.startsWith(c + ":")).map((d) => d === "otro:otro" && p.tipoOtro ? p.tipoOtro : NOMBRE_DETALLE[d]).filter(Boolean);
+      if (c === "otro" && !ds.length && p.tipoOtro) ds.push(p.tipoOtro);
+      return ds.length ? `${NOMBRE_CATEGORIA[c]} · ${ds.join(", ")}` : NOMBRE_CATEGORIA[c];
+    });
+  }
   var ROLES_PERSONA = [
     ["encargado", "Encargado de terreno"],
     ["ayudante", "Ayudante"],
@@ -4593,10 +5179,17 @@ Content-Type: ${mime}\r
     "Aysén",
     "Magallanes"
   ];
+  var COLORES_MARCA = [
+    ["#1D5C63", "Azul petróleo"],
+    ["#1D4ED8", "Azul"],
+    ["#0F766E", "Verde"],
+    ["#C2410C", "Naranjo"],
+    ["#1C1F23", "Grafito"]
+  ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.2";
-  var MODULOS_INCLUIDOS = "Equipos 0.1f + Vuelos 0.1";
+  var VERSION_SISTEMA = "0.3";
+  var MODULOS_INCLUIDOS = "Equipos 0.1f + Vuelos 0.2";
 
   // app/vistas.js
   var ICONO = {
@@ -4663,24 +5256,25 @@ Content-Type: ${mime}\r
         <a class="sis-kpi ${conAlerta.length ? "rojo" : ""}" href="#/equipos"><span>${ICONO.alerta}Equipos con alerta</span><b>${conAlerta.length}</b></a>
         <a class="sis-kpi" href="#/equipos"><span>${ICONO.equipo}En terreno</span><b>${enTerreno.length}<small> de ${vigentes.length}</small></b></a>
       </div>
-      <div class="sis-columnas">
+      <div class="sis-dos"><div>
         <section class="sis-tarjeta">
           <h2>Calibraciones por revisar</h2>
           ${revisar2.length ? `<div class="sis-lista">${revisar2.slice(0, 10).map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>${revisar2.length > 10 ? `<p class="sis-tenue">y ${revisar2.length - 10} más en Equipos → filtro «Calibración por revisar».</p>` : ""}` : vacio(vigentes.length ? "Todas las calibraciones están al día." : "Aún no hay equipos cargados. Ve a Equipos → Administrar → Importar planilla.")}
         </section>
+        <section class="sis-tarjeta">
+        <h2>Equipos en terreno, por proyecto</h2>
+        ${Object.keys(porProyecto).length ? Object.entries(porProyecto).map(([pid, lista]) => `
+          <div class="sis-grupo"><a class="sis-grupo-cab" href="#/proyecto/${escapar(pid)}">${ICONO.proyecto}${escapar(nomProy(pid))} <span class="sis-tenue">${lista.length} equipo${lista.length > 1 ? "s" : ""}</span></a>
+          <div class="sis-lista">${lista.map((e) => filaEquipo(e)).join("")}</div></div>`).join("") : vacio("No hay equipos fuera de la oficina.")}
+      </section>
+      </div><aside>
         <section class="sis-tarjeta">
           <h2>Alertas abiertas</h2>
           ${conAlerta.length ? `<div class="sis-lista">${conAlerta.map((e) => `<a class="sis-fila" href="#/equipos/${escapar(e.id)}">
               <span class="sis-fila-txt"><b>${escapar(e.nombre)}</b>${e.alertasActivas.map((a) => `<span class="sis-tenue">${escapar(a.descripcion)} · desde ${fechaLegible((a.fechaReporte || "").slice(0, 10))}</span>`).join("")}</span>
               <span class="sis-chips">${e.alertasActivas.map((a) => `<span class="sis-chip rojo">${escapar(estadoAlerta(a.estado))}</span>`).join("")}</span></a>`).join("")}</div>` : vacio("No hay alertas abiertas.")}
         </section>
-      </div>
-      <section class="sis-tarjeta">
-        <h2>Equipos en terreno, por proyecto</h2>
-        ${Object.keys(porProyecto).length ? Object.entries(porProyecto).map(([pid, lista]) => `
-          <div class="sis-grupo"><a class="sis-grupo-cab" href="#/proyecto/${escapar(pid)}">${ICONO.proyecto}${escapar(nomProy(pid))} <span class="sis-tenue">${lista.length} equipo${lista.length > 1 ? "s" : ""}</span></a>
-          <div class="sis-lista">${lista.map((e) => filaEquipo(e)).join("")}</div></div>`).join("") : vacio("No hay equipos fuera de la oficina.")}
-      </section>`;
+      </aside></div>`;
     }
     const aMiCargo = yo ? equipos.filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.personaId === yo.id) : [];
     const avisos = aMiCargo.filter((e) => e.alertasActivas.length || ["vencida", "por_vencer"].includes(e.calibracion.nivel));
@@ -4688,12 +5282,19 @@ Content-Type: ${mime}\r
     const otros = activos.filter((p) => !misProyectos.includes(p));
     const tarjetaProy = (p) => `<a class="sis-proy" href="#/proyecto/${escapar(p.id)}">
       <b>${escapar(p.nombre)}</b><span class="sis-tenue">${escapar(p.mandante || "Sin mandante")}${p.comuna ? ` · ${escapar(p.comuna)}` : ""}</span>
-      <span class="sis-chips">${(p.tiposTrabajo || []).map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_TIPO[t] || t)}</span>`).join("")}</span></a>`;
+      <span class="sis-chips">${tiposDeProyecto(p).categorias.map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_CATEGORIA[t])}</span>`).join("")}</span></a>`;
     return `${saludo}${bienvenida}
+    <div class="sis-dos"><div>
     ${avisos.length ? `<section class="sis-tarjeta sis-aviso"><h2>${ICONO.alerta} Ojo con estos equipos a tu cargo</h2>
       <div class="sis-lista">${avisos.map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>
       <p class="sis-tenue">Se pueden usar igual: el uso con alerta queda registrado.</p></section>` : ""}
-    <div class="sis-columnas">
+      <section class="sis-tarjeta">
+        <div class="sis-cab"><h2>Proyectos activos</h2><a class="sis-btn chico" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
+        ${misProyectos.length ? `<p class="sis-sub">A mi cargo</p><div class="sis-proys">${misProyectos.map(tarjetaProy).join("")}</div>` : ""}
+        ${otros.length ? `${misProyectos.length ? '<p class="sis-sub">Otros</p>' : ""}<div class="sis-proys">${otros.map(tarjetaProy).join("")}</div>` : ""}
+        ${!activos.length ? vacio("Aún no hay proyectos. Crea el primero con el encargo que te llegó.") : ""}
+      </section>
+    </div><aside>
       <section class="sis-tarjeta">
         <h2>Equipos a mi cargo</h2>
         ${aMiCargo.length ? `<div class="sis-lista">${aMiCargo.map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>` : vacio(
@@ -4701,13 +5302,7 @@ Content-Type: ${mime}\r
       yo ? '<a class="sis-btn" href="#/equipos">Ir a Equipos</a>' : ""
     )}
       </section>
-      <section class="sis-tarjeta">
-        <div class="sis-cab"><h2>Proyectos activos</h2><a class="sis-btn chico" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
-        ${misProyectos.length ? `<p class="sis-sub">A mi cargo</p><div class="sis-proys">${misProyectos.map(tarjetaProy).join("")}</div>` : ""}
-        ${otros.length ? `${misProyectos.length ? '<p class="sis-sub">Otros</p>' : ""}<div class="sis-proys">${otros.map(tarjetaProy).join("")}</div>` : ""}
-        ${!activos.length ? vacio("Aún no hay proyectos. Crea el primero con el encargo que te llegó.") : ""}
-      </section>
-    </div>`;
+    </aside></div>`;
   }
   function estadoAlerta(e) {
     return { abierta: "Abierta", en_mantencion: "En mantención", recibida: "Recibida de mantención", cerrada: "Cerrada" }[e] || e;
@@ -4726,7 +5321,7 @@ Content-Type: ${mime}\r
     <div class="sis-proys grande">${visibles.map((p) => `<a class="sis-proy" href="#/proyecto/${escapar(p.id)}">
         <span class="sis-proy-cab"><b>${escapar(p.nombre)}</b>${p.id === OFICINA_ID ? '<span class="sis-chip gris">Especial</span>' : p.estado === "cerrado" ? '<span class="sis-chip gris">Cerrado</span>' : '<span class="sis-chip verde">Activo</span>'}</span>
         <span class="sis-tenue">${escapar(p.mandante || (p.id === OFICINA_ID ? "Trabajo que no es de un contrato" : "Sin mandante"))}${p.comuna ? ` · ${escapar(p.comuna)}` : ""}${p.encargadoId ? ` · ${escapar(nomPers(p.encargadoId))}` : ""}</span>
-        <span class="sis-chips">${(p.tiposTrabajo || []).map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_TIPO[t] || t)}</span>`).join("")}${enProyecto(p.id) ? `<span class="sis-chip azul">${enProyecto(p.id)} equipo${enProyecto(p.id) > 1 ? "s" : ""} en terreno</span>` : ""}</span>
+        <span class="sis-chips">${tiposDeProyecto(p).categorias.map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_CATEGORIA[t])}</span>`).join("")}${enProyecto(p.id) ? `<span class="sis-chip azul">${enProyecto(p.id)} equipo${enProyecto(p.id) > 1 ? "s" : ""} en terreno</span>` : ""}</span>
       </a>`).join("")}</div>
     ${eliminados.length ? `<details class="sis-papelera"><summary>Papelera de proyectos (${eliminados.length})</summary>
       <section class="sis-tarjeta"><div class="sis-lista">${eliminados.map((p) => `<div class="sis-fila">
@@ -4740,49 +5335,50 @@ Content-Type: ${mime}\r
     const nomPers = (pid) => (personas2.find((x) => x.id === pid) || {}).nombre || "";
     const enProyecto = equipos.filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.proyectoId === id);
     const esOficina = id === OFICINA_ID;
-    const dato = (t, v) => v ? `<div class="sis-dato"><span>${t}</span><b>${v}</b></div>` : "";
     const plazo = p.plazo ? (() => {
       const d = diasEntre(hoyISO(), p.plazo);
       return `${fechaLegible(p.plazo)}${d >= 0 ? ` · faltan ${d} d` : ` · vencido hace ${-d} d`}`;
     })() : "";
-    return `<a class="sis-volver" href="#/proyectos">← Proyectos</a>
-    <div class="sis-cab"><div><h1>${escapar(p.nombre)}</h1>
-      <span class="sis-tenue">${escapar(p.mandante || (esOficina ? "Trabajo que no es de un contrato" : "Sin mandante"))}</span></div>
-      ${esOficina ? "" : `<a class="sis-btn" href="#/proyecto-editar/${escapar(p.id)}">Editar</a>`}</div>
-    ${esOficina ? "" : `<section class="sis-tarjeta"><div class="sis-datos">
-      ${dato("Estado", p.estado === "cerrado" ? "Cerrado" : "Activo")}
-      ${dato("Encargado", escapar(nomPers(p.encargadoId)))}
-      ${dato("Ubicación", escapar([p.comuna, p.region].filter(Boolean).join(", ")))}
-      ${dato("Encargado por", escapar(p.solicitadoPor || ""))}
-      ${dato("Fecha del encargo", p.fechaEncargo ? fechaLegible(p.fechaEncargo) : "")}
-      ${dato("Plazo", plazo)}
-      </div>
-      ${(p.tiposTrabajo || []).length ? `<div class="sis-chips">${p.tiposTrabajo.map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_TIPO[t] || t)}</span>`).join("")}</div>` : ""}
-      ${p.notas ? `<p class="sis-notas">${escapar(p.notas)}</p>` : ""}</section>`}
-    <div class="sis-columnas">
-      <section class="sis-tarjeta">
-        <h2>Equipos en ${esOficina ? "Oficina (asignados)" : "el proyecto"}</h2>
-        ${enProyecto.length ? `<div class="sis-lista">${enProyecto.map((e) => filaEquipo(e)).join("")}</div>` : vacio("No hay equipos asignados. Se asignan con el checklist de salida en Equipos.", '<a class="sis-btn" href="#/equipos">Ir a Equipos</a>')}
-      </section>
-      <section class="sis-tarjeta">
-        <h2>Certificados para el mandante</h2>
-        ${certs.length ? `<div class="sis-lista">${certs.map(({ equipo, certificado }) => `<div class="sis-fila">
+    const meta = (t, v) => v ? `<span>${t}: <b>${v}</b></span>` : "";
+    const certsHtml = certs.length ? `<div class="sis-lista">${certs.map(({ equipo, certificado }) => `<div class="sis-fila">
             <span class="sis-fila-txt"><b>${escapar(equipo.nombre)}</b><span class="sis-tenue">${certificado ? `${escapar(certificado.codigo || "Certificado")} · ${fechaLegible(certificado.fecha)}${certificado.laboratorio ? ` · ${escapar(certificado.laboratorio)}` : ""}` : "Sin certificado cargado"}</span></span>
             ${certificado && certificado.archivoId ? `<button class="sis-btn chico" data-accion="abrir-pdf" data-id="${escapar(certificado.archivoId)}">${ICONO.pdf}PDF</button>` : '<span class="sis-chip ambar">Falta PDF</span>'}
           </div>`).join("")}</div>
-          <p class="sis-tenue">Para entregar al mandante los certificados de los equipos que están en este proyecto.</p>` : vacio("Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.")}
-      </section>
+          <p class="sis-tenue">Para entregar al mandante los certificados de los equipos que están en este proyecto.</p>` : vacio("Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.");
+    return `<div class="sis-encabezado">
+      <div>
+        <div class="sis-miga"><a href="#/proyectos">Proyectos</a> / ${escapar(p.nombre)}</div>
+        <h1>${escapar(p.nombre)}</h1>
+        <div class="sis-meta">
+          <span>Mandante: <b>${escapar(p.mandante || (esOficina ? "Trabajo que no es de un contrato" : "—"))}</b></span>
+          ${esOficina ? "" : `${meta("Encargado", escapar(nomPers(p.encargadoId)))}${meta("Ubicación", escapar([p.comuna, p.region].filter(Boolean).join(", ")))}
+          ${meta("Encargado por", escapar(p.solicitadoPor || ""))}${meta("Encargo", p.fechaEncargo ? fechaLegible(p.fechaEncargo) : "")}${meta("Plazo", plazo)}`}
+        </div>
+        ${textosTipos(p).length ? `<div class="sis-chips" style="margin-top:10px">${textosTipos(p).map((t) => `<span class="sis-chip gris">${escapar(t)}</span>`).join("")}</div>` : ""}
+      </div>
+      <div class="sis-acciones">${esOficina ? '<span class="sis-chip gris">Especial</span>' : `<span class="sis-chip ${p.estado === "cerrado" ? "gris" : "verde"}">${p.estado === "cerrado" ? "Cerrado" : "Activo"}</span>
+        <a class="sis-btn chico" href="#/proyecto-editar/${escapar(p.id)}">Editar</a>`}</div>
     </div>
-    <section class="sis-tarjeta">
-      <div class="sis-cab"><h2>Planes de vuelo</h2>${ctx2.rol === "terreno" ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${escapar(id)}">+ Planificar vuelo</a>` : ""}</div>
-      ${planes.length ? `<div class="sis-lista">${planes.map((v) => `<a class="sis-fila" href="#/vuelos/plan/${escapar(v.id)}">
-          <span class="sis-fila-txt"><b>${escapar(v.nombre)}</b><span class="sis-tenue">${escapar(v.dron)}</span></span>
-          <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 1e4).toLocaleString("es-CL", { maximumFractionDigits: 1 })} ha</span>` : ""}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString("es-CL", { maximumFractionDigits: 2 })} cm</span>` : ""}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ""}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? "s" : ""}</span>` : ""}</span></a>`).join("")}</div>` : '<div class="sis-vacio"><p>Sin planes de vuelo. Desde aquí se calcula GSD, líneas, tiempo y baterías con el KMZ del área.</p></div>'}
-    </section>
-    <div class="sis-columnas">
-      <section class="sis-tarjeta sis-pronto"><h2>Gastos y boletas</h2><p>Llega en <b>Sistema v0.2</b>: cada gasto con su boleta, la rendición y el abono de RRHH, dentro del proyecto.</p></section>
-      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llega en <b>Sistema v0.3</b>, cuando Terreno Topografía entre al Sistema.</p></section>
-    </div>`;
+    ${p.notas ? `<p class="sis-notas">${escapar(p.notas)}</p>` : ""}
+    <div class="sis-dos"><div>
+      <section class="sis-tarjeta">
+        <div class="sis-cab"><h2>Planes de vuelo</h2>${ctx2.rol === "terreno" ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${escapar(id)}">+ Planificar vuelo</a>` : ""}</div>
+        ${planes.length ? `<div class="sis-lista">${planes.map((v) => `<a class="sis-fila" href="#/vuelos/plan/${escapar(v.id)}">
+            <span class="sis-fila-txt"><b>${escapar(v.nombre)}</b><span class="sis-tenue">${escapar(v.dron)}</span></span>
+            <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 1e4).toLocaleString("es-CL", { maximumFractionDigits: 1 })} ha</span>` : ""}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString("es-CL", { maximumFractionDigits: 2 })} cm</span>` : ""}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ""}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? "s" : ""}</span>` : ""}</span></a>`).join("")}</div>` : '<div class="sis-vacio"><p>Sin planes de vuelo. Desde aquí se calcula GSD, líneas, tiempo y baterías con el KMZ del área.</p></div>'}
+      </section>
+      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llega cuando Terreno Topografía entre al Sistema.</p></section>
+    </div><aside>
+      <section class="sis-tarjeta">
+        <h2>Equipos ${esOficina ? "asignados" : "en el proyecto"}</h2>
+        ${enProyecto.length ? `<div class="sis-lista">${enProyecto.map((e) => filaEquipo(e)).join("")}</div>` : vacio("No hay equipos asignados. Se asignan con el checklist de salida en Equipos.", '<a class="sis-btn chico" href="#/equipos">Ir a Equipos</a>')}
+      </section>
+      <section class="sis-tarjeta">
+        <h2>Certificados para el mandante</h2>
+        ${certsHtml}
+      </section>
+      <section class="sis-tarjeta sis-pronto"><h2>Gastos del proyecto</h2><p>Cada gasto con su boleta, la rendición y el abono de RRHH. Llega con el módulo Gastos.</p></section>
+    </aside></div>`;
   }
   async function proyectoEditar(ctx2, id) {
     const nuevo = id === "nuevo";
@@ -4794,14 +5390,18 @@ Content-Type: ${mime}\r
       var _a;
       return escapar((_a = p[k]) != null ? _a : "");
     };
+    const tipos = tiposDeProyecto(p);
     return `<a class="sis-volver" href="${nuevo ? "#/proyectos" : `#/proyecto/${escapar(p.id)}`}">← Volver</a>
     <h1>${nuevo ? "Nuevo proyecto" : "Editar proyecto"}</h1>
     <form class="sis-form" data-form="proyecto" data-id="${nuevo ? "" : escapar(p.id)}">
       <fieldset><legend>Proyecto</legend>
         <label class="sis-campo"><span>Nombre *</span><input name="nombre" required value="${val("nombre")}" placeholder="Canal Norte — levantamiento y batimetría"></label>
         <label class="sis-campo"><span>Mandante</span><input name="mandante" value="${val("mandante")}" placeholder="Empresa que encarga el trabajo"></label>
-        <div class="sis-campo"><span>Tipos de trabajo (uno o más)</span>
-          <div class="sis-opciones">${TIPOS_TRABAJO.map(([k, t]) => `<label class="sis-opcion"><input type="checkbox" name="tipos" value="${k}" ${(p.tiposTrabajo || []).includes(k) ? "checked" : ""}> ${t}</label>`).join("")}</div></div>
+        <div class="sis-campo"><span>Tipos de trabajo (uno o más; el detalle es opcional)</span>
+          <div class="sis-categorias">${CATEGORIAS_TRABAJO.map((c) => `<label class="sis-opcion sis-cat"><input type="checkbox" name="tipos" value="${c.k}" ${tipos.categorias.includes(c.k) ? "checked" : ""}> ${c.t}</label>`).join("")}</div>
+          <div class="sis-detalles">${CATEGORIAS_TRABAJO.map((c) => `<div class="sis-detalle" data-cat="${c.k}"><b>${c.t}</b>
+            ${c.det.map(([d, t]) => `<label class="sis-opcion chico"><input type="checkbox" name="detalle" value="${c.k}:${d}" ${tipos.detalles.includes(`${c.k}:${d}`) ? "checked" : ""}> ${t}</label>`).join("")}
+            ${c.texto ? `<input name="tipoOtro" class="sis-detalle-texto" value="${val("tipoOtro")}" placeholder="¿Cuál?" aria-label="Otro tipo de trabajo">` : ""}</div>`).join("")}</div></div>
         <div class="sis-par">
           <label class="sis-campo"><span>Comuna</span><input name="comuna" value="${val("comuna")}"></label>
           <label class="sis-campo"><span>Región</span><select name="region"><option value=""></option>${REGIONES.map((r) => `<option ${p.region === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>
@@ -4848,11 +5448,18 @@ Content-Type: ${mime}\r
         <span class="sis-fila-txt"><b>${escapar(x.nombre)}</b><span class="sis-tenue">${escapar(x.cargo || "Sin cargo")}</span></span>
         <span class="sis-chips">${(x.roles || []).map((r) => `<span class="sis-chip gris">${escapar(NOMBRE_ROL_PERSONA[r] || r)}</span>`).join("")}
         ${editable ? `<button class="sis-btn chico" data-accion="editar-persona" data-id="${escapar(x.id)}">Editar</button>` : ""}</span></div>`).join("")}</div>` : vacio("Aún no hay personas.")}</section>
-    ${editable ? "" : '<p class="sis-tenue">Solo Administración / RRHH edita esta lista.</p>'}`;
+    ${editable ? "" : '<p class="sis-tenue">Solo Administración / RRHH edita esta lista.</p>'}
+    <section class="sis-tarjeta" id="empresa"><h2>Empresa</h2>
+      <form class="sis-form" data-form="empresa">
+        <label class="sis-campo"><span>Nombre que aparece arriba</span><input name="nombre" value="${escapar(ctx2.marca.nombre)}" maxlength="40"></label>
+        <div class="sis-campo"><span>Color de marca</span><div class="sis-colores">${COLORES_MARCA.map(([c, t]) => `<label class="sis-color"><input type="radio" name="color" value="${c}" ${ctx2.marca.color === c ? "checked" : ""}><i style="background:${c}"></i>${t}</label>`).join("")}</div></div>
+        <div class="sis-acciones"><button class="sis-btn primario">Guardar</button></div>
+        <p class="sis-tenue">Por ahora se guarda en este equipo (teléfono o computador). Cuando el Sistema esté en el Nextcloud de la empresa, lo define RRHH para todos, junto con el logo.</p>
+      </form></section>`;
   }
   var PRONTO = {
-    gastos: { titulo: "Gastos", version: "Sistema v0.2", texto: "Cada gasto con la foto de su boleta, dentro de su proyecto (o en «Oficina»). La rendición pasa por borrador → emitida → devuelta → abonada, y RRHH registra el abono. Las boletas quedan respaldadas en la carpeta del proyecto." },
-    terreno: { titulo: "Libreta de terreno", version: "Sistema v0.3", texto: "Terreno Topografía entra al Sistema: jornadas y levantamientos dentro de cada proyecto, con los equipos que salieron en el checklist. Mientras tanto, sigue usando la app de Terreno por separado." }
+    gastos: { titulo: "Gastos", version: "una próxima versión", texto: "Cada gasto con la foto de su boleta, dentro de su proyecto (o en «Oficina»). La rendición pasa por borrador → emitida → devuelta → abonada, y RRHH registra el abono. Las boletas quedan respaldadas en la carpeta del proyecto." },
+    terreno: { titulo: "Libreta de terreno", version: "una próxima versión", texto: "Terreno Topografía entra al Sistema: jornadas y levantamientos dentro de cada proyecto, con los equipos que salieron en el checklist. Mientras tanto, sigue usando la app de Terreno por separado." }
   };
   function pronto(ctx2, clave) {
     const x = PRONTO[clave];
@@ -4875,6 +5482,11 @@ Content-Type: ${mime}\r
       ctx2.avisar("Persona guardada");
       return true;
     }
+    if (form.dataset.form === "empresa") {
+      ctx2.cambiarMarca({ nombre: (datos.get("nombre") || "").trim() || "Topoland", color: datos.get("color") || COLORES_MARCA[0][0] });
+      ctx2.avisar("Marca guardada");
+      return true;
+    }
     if (form.dataset.form === "proyecto") {
       const id = form.dataset.id || void 0;
       const r = await guardarProyecto({
@@ -4882,6 +5494,8 @@ Content-Type: ${mime}\r
         nombre: datos.get("nombre").trim(),
         mandante: (datos.get("mandante") || "").trim(),
         tiposTrabajo: datos.getAll("tipos"),
+        tiposDetalle: datos.getAll("detalle").filter((d) => datos.getAll("tipos").includes(d.split(":")[0])),
+        tipoOtro: datos.getAll("tipos").includes("otro") ? (datos.get("tipoOtro") || "").trim() : "",
         comuna: (datos.get("comuna") || "").trim(),
         region: datos.get("region") || "",
         encargadoId: datos.get("encargadoId") || null,
@@ -5004,6 +5618,17 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       el.hidden = true;
     }, 3e3);
   }
+  var ic = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  var ICONOS_MENU = {
+    inicio: ic('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>'),
+    proyectos: ic('<path d="M3 7h6l2 2h10v10H3z"/>'),
+    equipos: ic('<path d="M12 3v11"/><path d="M5 21l7-7 7 7"/><circle cx="12" cy="3" r="1.5"/>'),
+    vuelos: ic('<path d="M12 9v6M9 12h6"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/>'),
+    gastos: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+    terreno: ic('<path d="M4 20l5-14 5 9 3-5 3 10z"/>'),
+    personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
+    mas: ic('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>')
+  };
   var MENU = [
     { ruta: "inicio", texto: "Inicio", roles: ["terreno", "rrhh"] },
     { ruta: "proyectos", texto: "Proyectos", roles: ["terreno", "rrhh"], tambien: ["proyecto", "proyecto-editar"] },
@@ -5013,18 +5638,45 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     { ruta: "terreno", texto: "Libreta de terreno", roles: ["terreno"], pronto: true },
     { ruta: "personas", texto: "Personas", roles: ["rrhh", "terreno"] }
   ];
+  var CABEN_ABAJO = 5;
   function pintarMenu(base) {
-    menu.innerHTML = MENU.filter((m) => m.roles.includes(selRol.value)).map((m) => {
+    const items = MENU.filter((m) => m.roles.includes(selRol.value));
+    const enlace = (m) => {
       const activo2 = m.ruta === base || (m.tambien || []).includes(base);
-      return `<a href="#/${m.ruta}" class="sis-menu-item${activo2 ? " activo" : ""}${m.pronto ? " pronto" : ""}"${activo2 ? ' aria-current="page"' : ""}>${m.texto}${m.pronto ? "<small>pronto</small>" : ""}</a>`;
-    }).join("");
+      return `<a href="#/${m.ruta}" class="sis-menu-item${activo2 ? " activo" : ""}${m.pronto ? " pronto" : ""}"${activo2 ? ' aria-current="page"' : ""} title="${m.texto}">${ICONOS_MENU[m.ruta] || ""}<span>${m.texto}</span>${m.pronto ? "<small>pronto</small>" : ""}</a>`;
+    };
+    const principales = items.length > CABEN_ABAJO ? items.slice(0, CABEN_ABAJO - 1) : items;
+    const extra = items.slice(principales.length);
+    const extraActivo = extra.some((m) => m.ruta === base || (m.tambien || []).includes(base));
+    menu.classList.remove("abierto");
+    menu.innerHTML = principales.map(enlace).join("") + (extra.length ? `<div class="sis-menu-extra" id="sis-menu-extra">${extra.map(enlace).join("")}</div>
+      <button type="button" class="sis-menu-mas${extraActivo ? " activo" : ""}" aria-expanded="false" aria-controls="sis-menu-extra">${ICONOS_MENU.mas}<span>Más</span></button>` : "");
   }
   async function cargarPersonas(seleccionar) {
     const personas2 = await listarPersonas();
     selPersona.innerHTML = '<option value="">Sin persona</option>' + personas2.map((p) => `<option value="${p.id}">${p.nombre.replace(/</g, "&lt;")}</option>`).join("");
     selPersona.value = seleccionar && personas2.some((p) => p.id === seleccionar) ? seleccionar : "";
   }
+  var MARCA_DEFECTO = { nombre: "Topoland", color: "#1D5C63" };
+  function leerMarca() {
+    try {
+      return { ...MARCA_DEFECTO, ...JSON.parse(leer("env_marca", "{}")) };
+    } catch {
+      return { ...MARCA_DEFECTO };
+    }
+  }
+  function aplicarMarca() {
+    const m = leerMarca();
+    document.documentElement.style.setProperty("--marca", m.color);
+    document.querySelector(".sis-marca b").textContent = m.nombre;
+    document.querySelector(".sis-logo").textContent = (m.nombre.trim()[0] || "T").toUpperCase();
+  }
   var ctx = () => ({
+    marca: leerMarca(),
+    cambiarMarca: (m) => {
+      escribir("env_marca", JSON.stringify(m));
+      aplicarMarca();
+    },
     rol: selRol.value,
     personaId: selPersona.value || null,
     estado: estado2,
@@ -5147,9 +5799,10 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
   });
   async function arrancar() {
     aplicarModo();
+    aplicarMarca();
     $("sis-version").textContent = `v${VERSION_SISTEMA}`;
     $("sis-version").title = `Sistema v${VERSION_SISTEMA} = ${MODULOS_INCLUIDOS}`;
-    document.title = `Topoland · Sistema v${VERSION_SISTEMA}`;
+    document.title = `${leerMarca().nombre} · Sistema v${VERSION_SISTEMA}`;
     selRol.innerHTML = Object.entries(ROLES).map(([k, t]) => `<option value="${k}">${t}</option>`).join("");
     selRol.value = leer("env_rol", "terreno") === "rrhh" ? "rrhh" : "terreno";
     await cargarPersonas(leer("env_persona", ""));
@@ -5166,7 +5819,16 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       mostrar();
     });
     addEventListener("hashchange", mostrar);
+    document.addEventListener("click", (ev) => {
+      if (!ev.target.closest("#sis-menu")) menu.classList.remove("abierto");
+    });
     menu.addEventListener("click", (ev) => {
+      const mas = ev.target.closest(".sis-menu-mas");
+      if (mas) {
+        const abierto = menu.classList.toggle("abierto");
+        mas.setAttribute("aria-expanded", String(abierto));
+        return;
+      }
       const a = ev.target.closest("a[href]");
       if (a && a.getAttribute("href") === location.hash) {
         ev.preventDefault();

@@ -1,4 +1,94 @@
-# Topoland · Sistema de trabajo — v0.2 (Vuelos)
+# Topoland · Sistema de trabajo — v0.3 (paquete de mejoras)
+
+**Sistema v0.3 = envoltorio global + Equipos 0.1f + Vuelos 0.2.**
+
+## Qué cambia en v0.3
+
+### Estética de los bocetos
+- Fondo crema, tarjetas blancas con borde fino y letra IBM Plex. La letra viene incluida en `vendor/fuentes/`, así que funciona sin internet.
+- **Color de marca** azul petróleo por defecto. Se cambia en **Personas → Empresa**, junto con el nombre que aparece arriba. Por ahora se guarda en cada equipo; cuando el Sistema esté en el Nextcloud de la empresa lo define RRHH para todos.
+- **En PC:** encabezado blanco con las secciones subrayadas y contenido en dos columnas: lo principal al centro y una columna lateral.
+- **En el teléfono:** menú abajo con íconos (Inicio, Proyectos, Equipos, Vuelos, Más). Gastos, Libreta y Personas van en «Más».
+- Las pestañas de Equipos y Vuelos quedan como sub-barra arriba en los dos modos.
+- La ficha de proyecto sigue el boceto: ruta, título y datos en una línea; al centro los planes de vuelo y las jornadas; al costado los equipos, los certificados y los gastos.
+
+### Tipos de trabajo por categoría
+- Categorías: Dron, Nivelación, GNSS, Estación total, Escaneos, Batimetría y Otro. Al marcar una aparece su **detalle opcional**:
+  - Dron: aerofotogrametría, LiDAR o termografía.
+  - Nivelación: simple o cerrada.
+  - GNSS: RTK, estático o red geodésica.
+  - Estación total: levantamiento, poligonal, replanteo, cubicación o catastro.
+  - Escaneos: estático (FARO) o móvil (SLAM).
+  - Batimetría: con bote.
+  - Otro: GPR o texto libre.
+- En las listas se ven solo las categorías; en la ficha del proyecto, con su detalle.
+- Los proyectos creados antes se leen solos con las categorías nuevas y quedan guardados así al editarlos.
+
+### Vuelos 0.2: planificador interactivo
+- **Deslizadores:**
+  - GSD y altura van enlazados: mueves uno y cambia el otro.
+  - También hay deslizadores para los traslapes y la velocidad.
+  - El valor se puede escribir encima del deslizador.
+  - La velocidad parte en la sugerida; si la mueves, aparece «usar la sugerida» para volver a ella.
+- **Dron y sensor:** un solo «DJI Matrice 300 RTK» y aparte el **Sensor** (Zenmuse L2 o L1).
+- **Mapa Esri híbrido siempre visible:**
+  - Las **líneas se colorean por batería** y la leyenda muestra los minutos de cada una.
+  - El **punto de despegue** se arrastra; el tiempo incluye ir y volver desde él en cada batería.
+  - Botones del mapa: ⟲ 5°, ⟳ 5°, **Girar 90°**, **Más corto** (prueba todos los rumbos y deja el de menos tiempo) y **Auto**.
+  - **Dibujar en el mapa:** marcas los vértices tocando el mapa y luego Terminar. Sirve cuando no hay KMZ.
+- **Opciones por GSD:**
+  - Tabla de 3,0, 2,5, 2,0 y 1,5 cm, más el GSD actual y los que agregues con «+ GSD».
+  - Muestra la altura y el tiempo de vuelo y las baterías a **dos velocidades editables** (5 y 10 m/s por defecto).
+  - Las filas sobre 120 m quedan marcadas por la DGAC; con * se marca lo que va sobre la velocidad sugerida.
+  - **Copiar para correo** y **Descargar Excel**. Con «usar» ese GSD pasa al plan.
+- El botón ahora dice **«Descargar KML»**: el archivo sirve para DJI Pilot 2, Google Earth u otro programa.
+- **Limpiar KML** muestra los polígonos del archivo en el mapa, numerados.
+- **Pronóstico:**
+  - Eliges dónde consultar: **Plan** (de la lista de planes con área, incluido el que estás armando), **Mi ubicación** o **Coordenadas**. Se muestra el plan elegido y el lugar consultado.
+  - Se arregló **«Sol: — – —»**: ahora muestra la salida y la puesta del sol.
+  - **Kp:** se lee en los dos formatos que entrega NOAA y aparece el «Kp máx.» del día. Si NOAA no responde, se avisa debajo de la tabla.
+
+### Otros arreglos
+- En Vuelos, las unidades (ha, %, m/s) se iban debajo de los campos y el texto se veía chico.
+- El aviso flotante tapaba el menú de abajo en el teléfono.
+
+### Cómo actualizar desde v0.2a
+En `github.dev/CIRG95/Equipos`:
+1. Arrastra todo el contenido del zip (trae la carpeta nueva `vendor/fuentes`) y acepta reemplazar. **No borres tu `config.js`**: el zip no lo trae.
+2. Haz **Commit & Push**.
+3. En el teléfono o en el PC, recarga una vez; si sigue la versión anterior, cierra la app y ábrela de nuevo (la caché ahora se llama `sistema-v0.3`).
+
+### Qué probar
+1. Un KMZ real: compara las líneas, el tiempo y las baterías con DJI Pilot 2, moviendo el despegue a donde realmente despegas.
+2. La tabla de opciones por GSD contra tu tabla de «El Pimiento». Ojo: tu tabla daba alturas de unos 99 m por cada cm de GSD y el Matrice 4E (gran angular) da unos 37,5 m. Revisa con qué dron y cámara se hizo.
+3. El pronóstico desde un plan guardado: que salgan el sol y el Kp.
+4. Crear o editar un proyecto con categorías y detalle.
+
+### Conocido / pendiente
+- El color y el nombre de la empresa se guardan por equipo (hasta pasar a Nextcloud).
+- El tiempo por batería supone el recorrido en zigzag por las líneas; DJI Pilot 2 puede ordenar distinto.
+- El GSD sigue sobre el punto de despegue (sin modelo de elevación).
+- Cambié `modulos/equipos/equipos.css` solo en colores, para la paleta nueva. Hay que avisarle al chat de Equipos, junto con `listarEquiposConEstado`.
+
+---
+
+## Versión anterior: Sistema v0.2a (mapa en Vuelos)
+
+**Sistema v0.2a = envoltorio global + Equipos 0.1f + Vuelos 0.1a.**
+
+## Qué cambia en v0.2a
+- **Mapa satelital híbrido de Esri en Planificar**, en lugar del dibujo esquemático. Es la misma imagen que usa Terreno Topografía, con nombres de lugares y caminos encima.
+  - Muestra el contorno del área (naranjo) y las líneas de vuelo (celeste), así se ve dónde queda el trabajo.
+  - Al cambiar el GSD, los traslapes o el rumbo, las líneas se actualizan sin perder el zoom.
+  - Se puede mover y hacer zoom con los dedos o el mouse.
+- Leaflet 1.9.4 va incluido en `vendor/leaflet/`, así que la app no depende de internet para cargarlo. **La imagen satelital sí necesita conexión.** Sin conexión se ve el fondo gris con el polígono y las líneas.
+
+### Cómo actualizar desde v0.2
+En `github.dev/CIRG95/Equipos`, arrastra todo el contenido del zip (trae la carpeta nueva `vendor/leaflet`), acepta reemplazar y haz **Commit & Push**.
+
+---
+
+## Versión anterior: Sistema v0.2 (Vuelos)
 
 **Sistema v0.2 = envoltorio global + Equipos 0.1f + Vuelos 0.1.**
 

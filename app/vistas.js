@@ -1,11 +1,13 @@
 // app/vistas.js — pantallas propias del Sistema: Inicio, Proyectos, Personas y «Próximamente».
 // Las pantallas de Equipos las pone el propio módulo (montar()); aquí solo se leen sus datos por la puerta de entrada.
 
-import { escapar as esc, fechaLegible, hoyISO, diasEntre } from '../compartido/util.js';
+import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre } from '../compartido/util.js';
+import { enviarAPapelera, enPapelera, restaurar } from '../compartido/papelera.js';
 import {
   listarProyectos, obtenerProyecto, guardarProyecto, listarPersonas, obtenerPersona, guardarPersona, OFICINA_ID,
 } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
+import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import { ROLES, TIPOS_TRABAJO, NOMBRE_TIPO, ROLES_PERSONA, NOMBRE_ROL_PERSONA, REGIONES } from './catalogo.js';
 import { VERSION_SISTEMA } from './version.js';
 
@@ -149,6 +151,7 @@ async function proyectos(ctx) {
   const enProyecto = id => equipos.filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.proyectoId === id).length;
   const visibles = lista.filter(p => p.id === OFICINA_ID || verCerrados || p.estado !== 'cerrado');
   const nCerrados = lista.filter(p => p.estado === 'cerrado').length;
+  const eliminados = (await enPapelera('compartido_proyectos')).map(x => x.registro);
 
   return `<div class="sis-cab"><h1>Proyectos</h1><a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
     <p class="sis-tenue">El proyecto es el eje: de aquí cuelgan los equipos que salen, los certificados para el mandante y, en las próximas versiones, los gastos y las jornadas.</p>
@@ -157,13 +160,17 @@ async function proyectos(ctx) {
         <span class="sis-proy-cab"><b>${esc(p.nombre)}</b>${p.id === OFICINA_ID ? '<span class="sis-chip gris">Especial</span>' : p.estado === 'cerrado' ? '<span class="sis-chip gris">Cerrado</span>' : '<span class="sis-chip verde">Activo</span>'}</span>
         <span class="sis-tenue">${esc(p.mandante || (p.id === OFICINA_ID ? 'Trabajo que no es de un contrato' : 'Sin mandante'))}${p.comuna ? ` · ${esc(p.comuna)}` : ''}${p.encargadoId ? ` · ${esc(nomPers(p.encargadoId))}` : ''}</span>
         <span class="sis-chips">${(p.tiposTrabajo || []).map(t => `<span class="sis-chip gris">${esc(NOMBRE_TIPO[t] || t)}</span>`).join('')}${enProyecto(p.id) ? `<span class="sis-chip azul">${enProyecto(p.id)} equipo${enProyecto(p.id) > 1 ? 's' : ''} en terreno</span>` : ''}</span>
-      </a>`).join('')}</div>`;
+      </a>`).join('')}</div>
+    ${eliminados.length ? `<details class="sis-papelera"><summary>Papelera de proyectos (${eliminados.length})</summary>
+      <section class="sis-tarjeta"><div class="sis-lista">${eliminados.map(p => `<div class="sis-fila">
+        <span class="sis-fila-txt"><b>${esc(p.nombre)}</b><span class="sis-tenue">Eliminado ${fechaHoraLegible(p.eliminadoEn)}</span></span>
+        <button class="sis-btn chico" data-accion="restaurar-proyecto" data-id="${esc(p.id)}">Restaurar</button></div>`).join('')}</div></section></details>` : ''}`;
 }
 
 async function proyecto(ctx, id) {
   const p = await obtenerProyecto(id);
   if (!p || p.eliminadoEn) return vacio('Este proyecto no existe o está en la papelera.', '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
-  const [personas, equipos, certs] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id)]);
+  const [personas, equipos, certs, planes] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id), Vuelos.planesDeProyecto(id)]);
   const nomPers = pid => (personas.find(x => x.id === pid) || {}).nombre || '';
   const enProyecto = equipos.filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.proyectoId === id);
   const esOficina = id === OFICINA_ID;
@@ -200,6 +207,13 @@ async function proyecto(ctx, id) {
           : vacio('Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.')}
       </section>
     </div>
+    <section class="sis-tarjeta">
+      <div class="sis-cab"><h2>Planes de vuelo</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">+ Planificar vuelo</a>` : ''}</div>
+      ${planes.length ? `<div class="sis-lista">${planes.map(v => `<a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
+          <span class="sis-fila-txt"><b>${esc(v.nombre)}</b><span class="sis-tenue">${esc(v.dron)}</span></span>
+          <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>`).join('')}</div>`
+        : '<div class="sis-vacio"><p>Sin planes de vuelo. Desde aquí se calcula GSD, líneas, tiempo y baterías con el KMZ del área.</p></div>'}
+    </section>
     <div class="sis-columnas">
       <section class="sis-tarjeta sis-pronto"><h2>Gastos y boletas</h2><p>Llega en <b>Sistema v0.2</b>: cada gasto con su boleta, la rendición y el abono de RRHH, dentro del proyecto.</p></section>
       <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llega en <b>Sistema v0.3</b>, cuando Terreno Topografía entre al Sistema.</p></section>
@@ -240,7 +254,9 @@ async function proyectoEditar(ctx, id) {
         <label class="sis-campo"><span>Notas</span><textarea name="notas" rows="3" placeholder="Alcance, contacto en terreno, adjuntos recibidos…">${val('notas')}</textarea></label>
       </fieldset>
       <div class="sis-acciones"><button class="sis-btn primario">${nuevo ? 'Crear proyecto' : 'Guardar cambios'}</button>
-        ${nuevo ? '' : `<button type="button" class="sis-btn" data-accion="cerrar-proyecto" data-id="${esc(p.id)}">${p.estado === 'cerrado' ? 'Reabrir' : 'Cerrar proyecto'}</button>`}</div>
+        ${nuevo ? '' : `<button type="button" class="sis-btn" data-accion="cerrar-proyecto" data-id="${esc(p.id)}">${p.estado === 'cerrado' ? 'Reabrir' : 'Cerrar proyecto'}</button>
+        <button type="button" class="sis-btn peligro" data-accion="eliminar-proyecto" data-id="${esc(p.id)}">Eliminar</button>`}</div>
+      ${nuevo ? '' : '<p class="sis-tenue">«Cerrar» es para un trabajo terminado: queda en el historial. «Eliminar» es para un proyecto creado por error: va a la papelera y se puede restaurar desde Proyectos.</p>'}
     </form>`;
 }
 
@@ -334,6 +350,24 @@ export async function manejarClic(boton, ctx) {
     case 'nueva-persona': ctx.estado.personaEditar = 'nueva'; return true;
     case 'editar-persona': ctx.estado.personaEditar = boton.dataset.id; return true;
     case 'cancelar-persona': ctx.estado.personaEditar = null; return true;
+    case 'eliminar-proyecto': {
+      const p = await obtenerProyecto(boton.dataset.id);
+      if (!p || p.id === OFICINA_ID) return false;
+      const enUso = (await Equipos.listarEquiposConEstado()).filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.proyectoId === p.id);
+      if (enUso.length) {
+        alert(`No se puede eliminar «${p.nombre}»: tiene ${enUso.length} equipo${enUso.length > 1 ? 's' : ''} en terreno. Primero registra su regreso o traspaso en Equipos.`);
+        return false;
+      }
+      if (!confirm(`¿Eliminar el proyecto «${p.nombre}»?\n\nVa a la papelera y se puede restaurar desde Proyectos.`)) return false;
+      await enviarAPapelera('compartido_proyectos', p.id, { personaId: ctx.personaId });
+      ctx.avisar('Proyecto eliminado');
+      ctx.ir('#/proyectos');
+      return false;
+    }
+    case 'restaurar-proyecto':
+      await restaurar('compartido_proyectos', boton.dataset.id, { personaId: ctx.personaId });
+      ctx.avisar('Proyecto restaurado');
+      return true;
     case 'cerrar-proyecto': {
       const p = await obtenerProyecto(boton.dataset.id);
       await guardarProyecto({ id: p.id, estado: p.estado === 'cerrado' ? 'activo' : 'cerrado' }, { personaId: ctx.personaId });

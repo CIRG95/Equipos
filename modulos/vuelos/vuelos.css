@@ -1,0 +1,50 @@
+/* modulos/vuelos/vuelos.css — estilos propios del módulo Vuelos (usa también las clases sis- del Sistema). */
+.mod-vuelos .vu-nav{display:flex; gap:4px; overflow-x:auto; background:#E9F0EE; border-radius:12px; padding:4px; margin:0 0 14px; scrollbar-width:none;}
+.mod-vuelos .vu-nav::-webkit-scrollbar{display:none;}
+.vu-pestana{flex:none; border:0; background:none; font:inherit; font-size:14px; font-weight:500; color:var(--primary-dark); padding:9px 14px; border-radius:9px; cursor:pointer; min-height:40px;}
+.vu-pestana.activa{background:#fff; font-weight:600; box-shadow:0 1px 4px rgba(22,35,43,.12);}
+.vu-msg{padding:10px 14px; border-radius:10px; margin:0 0 12px; font-size:14px;} .vu-msg.ok{background:#EAF3EC; color:#1F5A38;} .vu-msg.error{background:#FBEAEA; color:#8F1D17;}
+.vu-planificar{display:grid; gap:0 16px;}
+.vu-form fieldset{margin-bottom:12px;}
+.vu-con-sufijo{display:flex; align-items:center; gap:6px;}
+.vu-con-sufijo em{font-style:normal; color:var(--muted); font-size:13px; min-width:34px;}
+.vu-archivo{position:relative; margin-bottom:8px;}
+.vu-detalles{border:1px solid #D3DDD8; border-radius:var(--radius); background:var(--surface); padding:10px 16px; margin-bottom:14px;}
+.vu-detalles summary{cursor:pointer; font-weight:600; color:var(--primary-dark); padding:4px 0;}
+.vu-detalles[open] summary{margin-bottom:10px;}
+.vu-aviso{background:#FFF8F3; border:1px solid #F1C9A8; color:#5A2A12; border-radius:10px; padding:10px 12px; margin:10px 0; font-size:14px;}
+.vu-aviso ul{margin:4px 0; padding-left:18px;} .vu-aviso span{font-size:12px; color:#7C4A30;}
+.vu-kpis{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:12px;}
+.vu-kpi{background:#F3F7F6; border-radius:10px; padding:10px 12px;}
+.vu-kpi span{display:block; font-size:12px; color:var(--muted);}
+.vu-kpi b{font-size:20px; color:var(--primary-dark);}
+.vu-tabla{margin:12px 0 8px; display:grid; gap:0;}
+.vu-tabla > div{display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid #E3E9E6; font-size:14px;}
+.vu-tabla dt{color:var(--muted);} .vu-tabla dd{margin:0; text-align:right; font-weight:500;}
+.vu-svg{width:100%; height:auto; background:#F3F7F6; border-radius:10px; display:block;}
+.vu-pol{fill:rgba(194,74,23,.12); stroke:var(--accent); stroke-width:2;}
+.vu-lineas line{stroke:var(--primary); stroke-width:1; opacity:.75;}
+.vu-pie{margin-top:4px !important;}
+.vu-guardar .sis-acciones{margin-top:4px;}
+.vu-mini{max-width:180px; margin:0;}
+.vu-problemas{margin:4px 0 0; padding-left:18px; font-size:13px; color:#7C2D12;}
+.vu-kml-fila{align-items:flex-start;}
+.vu-dias{display:flex; gap:6px; flex-wrap:wrap; margin:12px 0 8px;}
+.sis-menu-chip{border:1px solid var(--line); background:#fff; border-radius:999px; padding:7px 14px; font:inherit; font-size:14px; cursor:pointer; min-height:38px; color:var(--ink);}
+.sis-menu-chip.activo{background:var(--primary); border-color:var(--primary); color:#fff; font-weight:600;}
+.vu-resumen-dia{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+.vu-tabla-scroll{overflow-x:auto; margin:0 -4px;}
+.vu-pron{width:100%; min-width:640px; border-collapse:collapse; font-size:13px;}
+.vu-pron th{text-align:left; font-weight:500; color:var(--muted); font-size:12px; padding:6px; border-bottom:1px solid #D3DDD8;}
+.vu-pron td{padding:6px; border-bottom:1px solid #EEF2F0; white-space:nowrap;}
+.vu-pron small{color:var(--muted);}
+.vu-pron tr.vu-noche td{color:#8A948F;}
+.vu-estado{display:inline-block; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; min-width:58px; text-align:center;}
+.vu-e-go{background:#2E7D4F; color:#fff;} .vu-e-marg{background:#FCEDE6; color:#8A3410;} .vu-e-no{background:#B3261E; color:#fff;} .vu-e-noche{background:#ECEFEE; color:#5B6B66;}
+.vu-flecha{display:inline-block; font-weight:700;}
+.vu-enlaces{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+.vu-grilla{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 12px;}
+body[data-modo="pc"] .vu-planificar{grid-template-columns:minmax(0,5fr) minmax(0,6fr); align-items:start;}
+body[data-modo="pc"] .vu-kpis{grid-template-columns:repeat(3, minmax(0,1fr));}
+body[data-modo="pc"] .vu-grilla{grid-template-columns:repeat(4, minmax(0,1fr));}
+.vu-con-sufijo input{flex:1 1 auto; min-width:0; width:auto !important;}

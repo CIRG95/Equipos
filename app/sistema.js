@@ -5,6 +5,7 @@
 
 import { listarPersonas, guardarPersona } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
+import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import { iniciarPanelNube } from './nube-panel.js';
 import { VISTAS, manejarEnvio, manejarClic, manejarCambio } from './vistas.js';
 import { ROLES } from './catalogo.js';
@@ -55,6 +56,7 @@ const MENU = [
   { ruta: 'inicio', texto: 'Inicio', roles: ['terreno', 'rrhh'] },
   { ruta: 'proyectos', texto: 'Proyectos', roles: ['terreno', 'rrhh'], tambien: ['proyecto', 'proyecto-editar'] },
   { ruta: 'equipos', texto: 'Equipos', roles: ['terreno', 'rrhh'] },
+  { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
   { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'], pronto: true },
   { ruta: 'terreno', texto: 'Libreta de terreno', roles: ['terreno'], pronto: true },
   { ruta: 'personas', texto: 'Personas', roles: ['rrhh', 'terreno'] },
@@ -99,6 +101,21 @@ async function mostrar() {
   if (!item || !item.roles.includes(selRol.value)) { location.hash = '#/inicio'; return; }
   pintarMenu(base);
   const clave = `${base}/${arg || ''}/${selRol.value}/${selPersona.value}`;
+
+  if (base === 'vuelos') {
+    // #/vuelos · #/vuelos/plan/<id> · #/vuelos/proyecto/<proyectoId>
+    const partes = location.hash.replace(/^#\/?/, '').split('/');
+    desmontar();
+    contenedor.innerHTML = '';
+    contenedor.dataset.vista = 'modulo';
+    montado = Vuelos.montar(contenedor, {
+      rol: selRol.value, personaId: selPersona.value || null,
+      planId: partes[1] === 'plan' ? partes[2] : null, proyectoId: partes[1] === 'proyecto' ? partes[2] : null,
+    });
+    rutaActual = clave;
+    window.scrollTo(0, 0);
+    return;
+  }
 
   if (base === 'equipos') {
     // El módulo trae su propia sub-barra de pestañas. Se vuelve a montar al cambiar de equipo, rol o persona.
@@ -165,6 +182,7 @@ async function arrancar() {
   selRol.value = leer('env_rol', 'terreno') === 'rrhh' ? 'rrhh' : 'terreno';
   await cargarPersonas(leer('env_persona', ''));
   Equipos.iniciar({ personaId: selPersona.value || null });
+  Vuelos.iniciar({ personaId: selPersona.value || null });
 
   selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; mostrar(); });
   selPersona.addEventListener('change', () => { escribir('env_persona', selPersona.value); rutaActual = ''; mostrar(); });

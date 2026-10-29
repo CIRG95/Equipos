@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.1
+# INTEGRACION.md — Sistema v0.2
 
 ## Qué contiene
 
@@ -6,7 +6,8 @@
 |---|---|---|
 | `compartido/` | Repositorio `cirg95/equipos` | Equipos 0.1f (commit 3302b28, 28-10) |
 | `modulos/equipos/` | Repositorio `cirg95/equipos` | 0.1f + `listarEquiposConEstado()` (ver abajo) |
-| `app/` | Nuevo (chat de integración) | Sistema 0.1 |
+| `modulos/vuelos/` | Nuevo (chat de integración) | Vuelos 0.1 |
+| `app/` | Nuevo (chat de integración) | Sistema 0.2 |
 
 ## Cómo monta los módulos el envoltorio
 
@@ -44,11 +45,24 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 
 - **Sin almacenes nuevos:** la base `topoland` no cambia de versión, así que convive sin problema con la app de Equipos en el mismo dominio.
 - **Nube:** `compartido/nube.js` sin cambios (prefijos `equipos_` y `compartido_`, carpeta «Topoland Equipos (prueba)»). El panel `app/nube-panel.js` es copia de `envoltorio-nube.js`.
-- **Service worker:** caché `sistema-v0.1`, separado del de Equipos (`equipos-…`).
+- **Service worker:** caché `sistema-v0.2`, separado del de Equipos (`equipos-…`).
 
-## Próximo: Sistema v0.2 (Gastos básico)
+## Próximo: Gastos básico (después de Vuelos)
 
 - Almacenes `gastos_gastos` y `gastos_eventos` (rendiciones).
 - Agregar `'gastos_'` a `PREFIJOS` en `compartido/nube.js`.
 - Boletas con `duenoTipo = 'gasto'`.
 - Ruta `#/gastos` y apartado «Gastos y boletas» dentro del proyecto.
+
+## Módulo Vuelos (Sistema v0.2)
+
+- **Puerta de entrada:** `modulos/vuelos/vuelos.js` → `iniciar()`, `montar(contenedor, { rol, personaId, proyectoId?, planId?, tab? })`, `planesDeProyecto(proyectoId)`, `VERSION`, `ALMACENES`.
+- **Almacenes:** `vuelos_planes` (índice `proyectoId`) y `vuelos_drones` (correcciones del catálogo).
+  - Plan: `{ nombre, proyectoId, dronId, params, poligono: { nombre, anillo:[[lon,lat],…] } | null, resumen }`.
+- **Nube:** se agregó `'vuelos_'` a `PREFIJOS` en `compartido/nube.js`.
+- **Rutas del Sistema:** `#/vuelos`, `#/vuelos/plan/<id>`, `#/vuelos/proyecto/<proyectoId>`.
+- **Sin librerías nuevas:** el KMZ se abre con `DecompressionStream` y el KML con `DOMParser`.
+- **Servicios externos:**
+  - `api.open-meteo.com` (pronóstico; uso no comercial gratis).
+  - `services.swpc.noaa.gov` (Kp; si falla, se muestra sin Kp).
+- **Usa las clases `sis-` del Sistema** además de `vu-` (`vuelos.css`). No está pensado para funcionar fuera del Sistema.

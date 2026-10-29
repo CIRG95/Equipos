@@ -111,13 +111,16 @@ a.sis-fila:hover{background:#F6F8F7;}
 .sis-form legend{font-weight:600; color:var(--primary-dark); padding:0 4px;}
 .sis-campo{display:block; margin-bottom:12px;}
 .sis-campo > span{display:block; font-size:12px; font-weight:500; color:#44534E; margin-bottom:5px;}
-.sis-campo input, .sis-campo select, .sis-campo textarea, .sis-form-linea input{width:100%; min-height:44px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; font:inherit; background:#fff; color:var(--ink);}
+.sis-campo input:not([type=checkbox]):not([type=radio]), .sis-campo select, .sis-campo textarea, .sis-form-linea input{width:100%; min-height:44px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; font:inherit; background:#fff; color:var(--ink);}
 .sis-campo textarea{resize:vertical;}
 .sis-par{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 12px;}
 .sis-opciones{display:flex; flex-wrap:wrap; gap:6px;}
 .sis-opcion{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; background:#fff; min-height:36px;}
 .sis-opcion:has(input:checked){background:#E4F0EE; border-color:var(--primary); color:var(--primary-dark); font-weight:600;}
-.sis-opcion input{accent-color:var(--primary);}
+.sis-opcion input{accent-color:var(--primary); width:18px; height:18px; margin:0; flex:none;}
+.sis-btn.peligro{border-color:var(--danger); color:var(--danger);}
+.sis-papelera{margin-top:18px;}
+.sis-papelera summary{cursor:pointer; color:var(--muted); font-size:14px; padding:6px 0;}
 .sis-acciones{display:flex; gap:8px; flex-wrap:wrap;}
 .sis-form-linea{display:flex; gap:8px; flex-wrap:wrap;}
 .sis-form-linea input{flex:1 1 160px; width:auto;}

@@ -15,7 +15,7 @@ import { dispositivoId, ahoraISO } from './util.js';
 import { crearAdaptadorDrive, idDeEnlaceDrive } from './nube-drive.js';
 
 const CLAVE = 'topoland_nube';
-const PREFIJOS = ['equipos_', 'compartido_'];
+const PREFIJOS = ['equipos_', 'compartido_', 'vuelos_'];
 const ALM_ARCHIVOS = 'compartido_archivos';
 export const NOMBRE_CARPETA_PRUEBA = 'Topoland Equipos (prueba)';
 

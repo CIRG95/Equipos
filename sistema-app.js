@@ -568,8 +568,8 @@ Content-Type: ${mime}\r
       descargar: descargar2
     };
   }
-  function idDeEnlaceDrive(texto2) {
-    const t = String(texto2 || "").trim();
+  function idDeEnlaceDrive(texto3) {
+    const t = String(texto3 || "").trim();
     const m = t.match(/folders\/([\w-]{10,})/) || t.match(/[?&]id=([\w-]{10,})/);
     if (m) return m[1];
     return /^[\w-]{10,}$/.test(t) ? t : null;
@@ -577,7 +577,7 @@ Content-Type: ${mime}\r
 
   // compartido/nube.js
   var CLAVE = "topoland_nube";
-  var PREFIJOS = ["equipos_", "compartido_"];
+  var PREFIJOS = ["equipos_", "compartido_", "vuelos_"];
   var ALM_ARCHIVOS = "compartido_archivos";
   var NOMBRE_CARPETA_PRUEBA = "Topoland Equipos (prueba)";
   var cfg = leerCfg();
@@ -1185,8 +1185,8 @@ Content-Type: ${mime}\r
       ...datos
     };
   }
-  function inferirMarca(texto2) {
-    const t = normalizarTexto(texto2);
+  function inferirMarca(texto3) {
+    const t = normalizarTexto(texto3);
     return MARCAS_CONOCIDAS.find((m) => t.includes(normalizarTexto(m))) || "";
   }
   function categoriaDeFila(equipo, resto = "") {
@@ -1244,8 +1244,8 @@ Content-Type: ${mime}\r
     }
     return periodos.reverse();
   }
-  function inferirCategoria(texto2) {
-    const t = " " + normalizarTexto(texto2) + " ";
+  function inferirCategoria(texto3) {
+    const t = " " + normalizarTexto(texto3) + " ";
     const reglas = [
       ["GNSS", /GNSS|GPS|HIPER|\bR10\b|\bR12\b|\bR8\b|\bR2\b|GS1\d|GS0\d|RECEPTOR|ZENITH/],
       ["Estación total", /ESTACION|\bET\b|TOTAL STATION|\bTS ?\d|\bGTS|\bGPT|\bGM ?\d|\bOS ?\d|\bES ?\d|ZOOM|FLEXLINE|NIKON N/],
@@ -1607,8 +1607,8 @@ Content-Type: ${mime}\r
   async function listarNotas(equipoId) {
     return (await porIndice(ALM2.notas, "equipoId", equipoId)).filter(vivo).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
   }
-  async function agregarNota(equipoId, texto2) {
-    return guardar(ALM2.notas, sello({ equipoId, texto: texto2.trim(), archivada: false }));
+  async function agregarNota(equipoId, texto3) {
+    return guardar(ALM2.notas, sello({ equipoId, texto: texto3.trim(), archivada: false }));
   }
   async function archivarNota(id, archivada = true) {
     const n = await obtener(ALM2.notas, id);
@@ -1665,18 +1665,18 @@ Content-Type: ${mime}\r
 
   // compartido/planilla.js
   var urlSheetJS = "vendor/xlsx.full.min.js";
-  function leerCSV(texto2) {
-    texto2 = texto2.replace(/^﻿/, "");
-    const primera = texto2.split(/\r?\n/)[0] || "";
+  function leerCSV(texto3) {
+    texto3 = texto3.replace(/^﻿/, "");
+    const primera = texto3.split(/\r?\n/)[0] || "";
     const sep = (primera.match(/;/g) || []).length >= (primera.match(/,/g) || []).length ? ";" : ",";
     const filas = [];
     let fila = [];
     let campo = "";
     let entreComillas = false;
-    for (let i = 0; i < texto2.length; i++) {
-      const c = texto2[i];
+    for (let i = 0; i < texto3.length; i++) {
+      const c = texto3[i];
       if (entreComillas) {
-        if (c === '"' && texto2[i + 1] === '"') {
+        if (c === '"' && texto3[i + 1] === '"') {
           campo += '"';
           i++;
         } else if (c === '"') entreComillas = false;
@@ -1686,7 +1686,7 @@ Content-Type: ${mime}\r
         fila.push(campo);
         campo = "";
       } else if (c === "\n" || c === "\r") {
-        if (c === "\r" && texto2[i + 1] === "\n") i++;
+        if (c === "\r" && texto3[i + 1] === "\n") i++;
         fila.push(campo);
         filas.push(fila);
         fila = [];
@@ -2177,11 +2177,11 @@ Content-Type: ${mime}\r
       <input name="acc-serie" value="${esc2(a.serie || "")}" placeholder="opcional">
       <button type="button" class="eq-x" data-accion="acc-quitar" title="Quitar">✕</button></div>`;
     }
-    async function qrSVG(texto2) {
+    async function qrSVG(texto3) {
       try {
         if (!globalThis.qrcode) await cargarScript(urlQR);
         const q = globalThis.qrcode(0, "M");
-        q.addData(texto2);
+        q.addData(texto3);
         q.make();
         return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
       } catch (e) {
@@ -2467,8 +2467,8 @@ Content-Type: ${mime}\r
   ];
   function montarPantallas(contenedor2, contexto) {
     const esRRHH = contexto.rol === "rrhh";
-    const persona = contexto.personaId || null;
-    fijarPersona(persona);
+    const persona2 = contexto.personaId || null;
+    fijarPersona(persona2);
     const raiz = document.createElement("div");
     raiz.className = "mod-equipos";
     raiz.innerHTML = '<div class="eq-zona"></div><div class="eq-aviso" role="status" hidden></div>';
@@ -2495,8 +2495,8 @@ Content-Type: ${mime}\r
     let timerAviso2 = null;
     const proy = (id) => id === OFICINA_ID ? "Oficina" : nombres.proyecto[id] || (id ? "Proyecto desconocido" : "—");
     const pers = (id) => nombres.persona[id] || (id ? "Persona desconocida" : "sin responsable");
-    function avisar2(texto2, tipo = "ok") {
-      avisoEl.textContent = texto2;
+    function avisar2(texto3, tipo = "ok") {
+      avisoEl.textContent = texto3;
       avisoEl.dataset.tipo = tipo;
       avisoEl.hidden = false;
       clearTimeout(timerAviso2);
@@ -2602,10 +2602,10 @@ Content-Type: ${mime}\r
                <button class="eq-btn" data-accion="nuevo-equipo">Nuevo equipo</button></div>` : "<p>RRHH todavía no carga los equipos de la empresa.</p>"}
         </section>`;
         }
-        const chips = FILTROS.map(([id, texto2, fn]) => {
+        const chips = FILTROS.map(([id, texto3, fn]) => {
           const n = cacheLista.filter(fn).length;
           if (!n && id !== "todos" && id !== st.filtro) return "";
-          return `<button class="eq-filtro${st.filtro === id ? " activo" : ""}" data-accion="filtro" data-filtro="${id}">${texto2} <span>${n}</span></button>`;
+          return `<button class="eq-filtro${st.filtro === id ? " activo" : ""}" data-accion="filtro" data-filtro="${id}">${texto3} <span>${n}</span></button>`;
         }).join("");
         return `
         <div class="eq-barra">
@@ -2674,7 +2674,7 @@ Content-Type: ${mime}\r
           <fieldset><legend>1. Destino</legend>
             <label class="eq-campo"><span>Proyecto</span><select name="proyectoId" required>${opcionesProyectos(proyectos2, "")}</select></label>
             ${catalogosEditables() ? '<button type="button" class="eq-btn chico" data-accion="nuevo-proyecto">+ Proyecto nuevo</button>' : ""}
-            <label class="eq-campo"><span>Responsable (encargado del trabajo)</span><select name="personaId" required>${opcionesPersonas(personas2, persona)}</select></label>
+            <label class="eq-campo"><span>Responsable (encargado del trabajo)</span><select name="personaId" required>${opcionesPersonas(personas2, persona2)}</select></label>
           </fieldset>
           <fieldset><legend>2. Equipos en oficina (${disponibles.length})</legend>
             ${disponibles.map((e) => item(e, false)).join("") || '<p class="eq-tenue">No hay equipos en oficina.</p>'}
@@ -2755,8 +2755,8 @@ Content-Type: ${mime}\r
         </form>`;
       },
       async admin() {
-        const item = (accion, vista, ico, titulo, texto2) => `<button class="eq-menu-item" data-accion="${accion}"${vista ? ` data-vista="${vista}"` : ""}>
-          <span class="eq-menu-ico">${ico}</span><span class="eq-menu-txt"><b>${titulo}</b><span>${texto2}</span></span><span class="eq-menu-flecha">›</span></button>`;
+        const item = (accion, vista, ico, titulo, texto3) => `<button class="eq-menu-item" data-accion="${accion}"${vista ? ` data-vista="${vista}"` : ""}>
+          <span class="eq-menu-ico">${ico}</span><span class="eq-menu-txt"><b>${titulo}</b><span>${texto3}</span></span><span class="eq-menu-flecha">›</span></button>`;
         return `<div class="eq-intro"><h2>Administrar</h2><p class="eq-tenue">Altas, carga de la planilla y mantención de los datos del módulo.</p></div>
         <div class="eq-menu">
           ${item("ir", "importar", "📊", "Importar planilla", "Excel o CSV con las columnas que ya usa RRHH")}
@@ -2842,7 +2842,7 @@ Content-Type: ${mime}\r
       }
     };
     const enlaceEquipo = contexto.enlaceEquipo || ((id) => `${location.href.split("#")[0]}#equipo=${id}`);
-    const ficha = crearFicha({ st, esc: escapar, proy, pers, avisar: avisar2, ir, render: () => render(), esRRHH, persona, chipUbicacion, chipCalibracion, describirEvento, enlaceEquipo });
+    const ficha = crearFicha({ st, esc: escapar, proy, pers, avisar: avisar2, ir, render: () => render(), esRRHH, persona: persona2, chipUbicacion, chipCalibracion, describirEvento, enlaceEquipo });
     Object.assign(VISTAS2, ficha.VISTAS);
     function celdasPlanilla(d) {
       return COLUMNAS_PLANILLA.map((c) => {
@@ -2936,7 +2936,7 @@ Content-Type: ${mime}\r
             await ir("lista");
             break;
           case "restaurar":
-            await restaurar(el.dataset.almacen, id, { personaId: persona });
+            await restaurar(el.dataset.almacen, id, { personaId: persona2 });
             avisar2("Restaurado");
             await render();
             break;
@@ -2952,7 +2952,7 @@ Content-Type: ${mime}\r
             const nombre = prompt("Nombre del proyecto");
             if (!nombre) return;
             const mandante = prompt("Mandante (opcional)", "") || "";
-            await guardarProyecto({ nombre: nombre.trim(), mandante: mandante.trim() }, { personaId: persona });
+            await guardarProyecto({ nombre: nombre.trim(), mandante: mandante.trim() }, { personaId: persona2 });
             avisar2("Proyecto agregado");
             await render();
             break;
@@ -3072,17 +3072,17 @@ Content-Type: ${mime}\r
             break;
           }
           case "reportar":
-            await reportarAnomalia({ equipoId: fd.equipoId, descripcion: fd.descripcion.trim(), personaId: persona });
+            await reportarAnomalia({ equipoId: fd.equipoId, descripcion: fd.descripcion.trim(), personaId: persona2 });
             avisar2("Alerta enviada a RRHH");
             if (st.reporteDesdeFicha && fd.equipoId === st.equipoId) await ir("ficha", { fichaTab: "mantencion", reporteDesdeFicha: false });
             else await ir("alertas");
             break;
           case "proyecto":
-            await guardarProyecto({ nombre: fd.nombre.trim(), mandante: fd.mandante.trim() }, { personaId: persona });
+            await guardarProyecto({ nombre: fd.nombre.trim(), mandante: fd.mandante.trim() }, { personaId: persona2 });
             await render();
             break;
           case "persona":
-            await guardarPersona({ nombre: fd.nombre.trim(), cargo: fd.cargo.trim() }, { personaId: persona });
+            await guardarPersona({ nombre: fd.nombre.trim(), cargo: fd.cargo.trim() }, { personaId: persona2 });
             await render();
             break;
         }
@@ -3184,6 +3184,1167 @@ Content-Type: ${mime}\r
   async function listarEquiposConEstado({ incluirBaja = false } = {}) {
     iniciar2();
     return (await listarConEstado()).filter((e) => incluirBaja || e.ubicacion.lugar !== "baja").map(resumen);
+  }
+
+  // modulos/vuelos/drones.js
+  var DRONES_BASE = [
+    {
+      id: "m4e",
+      nombre: "DJI Matrice 4E (cámara gran angular)",
+      sensorAnchoMm: 17.3,
+      sensorAltoMm: 13,
+      focalMm: 12.29,
+      pixelesAncho: 5280,
+      pixelesAlto: 3956,
+      obturador: "mecanico",
+      velocidadMaxMs: 21,
+      autonomiaMin: 49,
+      intervaloMinS: 0.5,
+      vientoMaxMs: 12,
+      rafagaMaxMs: 12,
+      lidar: null
+    },
+    {
+      id: "m300-l2",
+      nombre: "DJI Matrice 300 RTK + Zenmuse L2",
+      sensorAnchoMm: 17.3,
+      sensorAltoMm: 13,
+      focalMm: 12.29,
+      pixelesAncho: 5280,
+      pixelesAlto: 3956,
+      obturador: "mecanico",
+      velocidadMaxMs: 15,
+      autonomiaMin: 30,
+      intervaloMinS: 0.7,
+      vientoMaxMs: 12,
+      rafagaMaxMs: 15,
+      lidar: { puntosPorSegundo: 24e4, fovGrados: 70 }
+    },
+    {
+      id: "m300-l1",
+      nombre: "DJI Matrice 300 RTK + Zenmuse L1",
+      sensorAnchoMm: 13.2,
+      sensorAltoMm: 8.8,
+      focalMm: 8.8,
+      pixelesAncho: 5472,
+      pixelesAlto: 3648,
+      obturador: "mecanico",
+      velocidadMaxMs: 15,
+      autonomiaMin: 30,
+      intervaloMinS: 1,
+      vientoMaxMs: 12,
+      rafagaMaxMs: 15,
+      lidar: { puntosPorSegundo: 24e4, fovGrados: 70.4 }
+    },
+    {
+      id: "p4rtk",
+      nombre: "DJI Phantom 4 RTK",
+      sensorAnchoMm: 13.2,
+      sensorAltoMm: 8.8,
+      focalMm: 8.8,
+      pixelesAncho: 5472,
+      pixelesAlto: 3648,
+      obturador: "mecanico",
+      velocidadMaxMs: 14,
+      autonomiaMin: 30,
+      intervaloMinS: 2,
+      vientoMaxMs: 10,
+      rafagaMaxMs: 10,
+      lidar: null
+    }
+  ];
+  var CAMPOS_DRON = [
+    ["sensorAnchoMm", "Ancho del sensor", "mm"],
+    ["sensorAltoMm", "Alto del sensor", "mm"],
+    ["focalMm", "Distancia focal real", "mm"],
+    ["pixelesAncho", "Ancho de la imagen", "px"],
+    ["pixelesAlto", "Alto de la imagen", "px"],
+    ["velocidadMaxMs", "Velocidad máxima de misión", "m/s"],
+    ["autonomiaMin", "Autonomía por batería (ficha)", "min"],
+    ["intervaloMinS", "Intervalo mínimo entre fotos", "s"],
+    ["vientoMaxMs", "Viento sostenido máximo", "m/s"],
+    ["rafagaMaxMs", "Ráfaga máxima", "m/s"]
+  ];
+
+  // modulos/vuelos/datos.js
+  var SCHEMA_VERSION2 = 1;
+  var ALM3 = { planes: "vuelos_planes", drones: "vuelos_drones" };
+  var persona = null;
+  function iniciarDatos2({ personaId = null } = {}) {
+    registrarAlmacenes([{ nombre: ALM3.planes, indices: [["proyectoId", "proyectoId"]] }, { nombre: ALM3.drones }]);
+    persona = personaId;
+  }
+  function fijarPersona2(p) {
+    persona = p;
+  }
+  var sello2 = (r) => sellar(r, { personaId: persona, schemaVersion: SCHEMA_VERSION2 });
+  var vivo2 = (r) => !r.eliminadoEn;
+  async function listarDrones() {
+    const cambios = Object.fromEntries((await todos(ALM3.drones)).filter(vivo2).map((d) => [d.id, d]));
+    return DRONES_BASE.map((d) => ({ ...d, ...cambios[d.id] ? limpiarCambios(cambios[d.id]) : {}, corregido: !!cambios[d.id] }));
+  }
+  function limpiarCambios(c) {
+    const { creadoEn, creadoPor, actualizadoEn, dispositivoId: dispositivoId2, modificadoPor, schemaVersion, ...resto } = c;
+    return resto;
+  }
+  async function guardarDron(id, valores) {
+    const actual = await obtener(ALM3.drones, id) || { id };
+    delete actual.eliminadoEn;
+    delete actual.eliminadoPor;
+    return guardar(ALM3.drones, sello2({ ...actual, ...valores, id }));
+  }
+  async function restablecerDron(id) {
+    return enviarAPapelera(ALM3.drones, id, { personaId: persona });
+  }
+  async function listarPlanes() {
+    return (await todos(ALM3.planes)).filter(vivo2).sort((a, b) => (b.actualizadoEn || "").localeCompare(a.actualizadoEn || ""));
+  }
+  async function planesDeProyecto(proyectoId) {
+    return (await porIndice(ALM3.planes, "proyectoId", proyectoId)).filter(vivo2);
+  }
+  async function obtenerPlan(id) {
+    const p = await obtener(ALM3.planes, id);
+    return p && vivo2(p) ? p : null;
+  }
+  async function guardarPlan(plan) {
+    return guardar(ALM3.planes, sello2({ ...plan }));
+  }
+  async function eliminarPlan(id) {
+    return enviarAPapelera(ALM3.planes, id, { personaId: persona });
+  }
+
+  // modulos/vuelos/calculo.js
+  var R_LAT = 110540;
+  var R_LON = 111320;
+  function proyectar(anillo) {
+    const lat0 = anillo.reduce((s, p) => s + p[1], 0) / anillo.length;
+    const lon0 = anillo.reduce((s, p) => s + p[0], 0) / anillo.length;
+    const k = Math.cos(lat0 * Math.PI / 180) * R_LON;
+    return { lat0, lon0, puntos: anillo.map(([lon, lat]) => [(lon - lon0) * k, (lat - lat0) * R_LAT]) };
+  }
+  function areaM2(pts) {
+    let s = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length];
+      s += x1 * y2 - x2 * y1;
+    }
+    return Math.abs(s) / 2;
+  }
+  function rumboLadoMasLargo(pts) {
+    let mejor = 0, ang = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length];
+      const l = Math.hypot(x2 - x1, y2 - y1);
+      if (l > mejor) {
+        mejor = l;
+        ang = Math.atan2(x2 - x1, y2 - y1) * 180 / Math.PI;
+      }
+    }
+    return (ang % 180 + 180) % 180;
+  }
+  function lineasDeVuelo(pts, rumboGrados, sep) {
+    const a = (90 - rumboGrados) * Math.PI / 180;
+    const c = Math.cos(-a), s = Math.sin(-a);
+    const rot = pts.map(([x, y]) => [x * c - y * s, x * s + y * c]);
+    const ys = rot.map((p) => p[1]);
+    const ymin = Math.min(...ys), ymax = Math.max(...ys);
+    const ancho = ymax - ymin;
+    const n = Math.max(1, Math.ceil(ancho / sep));
+    const inicio2 = ymin + (ancho - (n - 1) * sep) / 2;
+    const lineas = [];
+    for (let k = 0; k < n; k++) {
+      const y = inicio2 + k * sep;
+      const xs = [];
+      for (let i = 0; i < rot.length; i++) {
+        const [x1, y1] = rot[i], [x2, y2] = rot[(i + 1) % rot.length];
+        if (y1 <= y && y2 > y || y2 <= y && y1 > y) xs.push(x1 + (y - y1) * (x2 - x1) / (y2 - y1));
+      }
+      xs.sort((p, q) => p - q);
+      for (let j = 0; j + 1 < xs.length; j += 2) lineas.push({ y, x1: xs[j], x2: xs[j + 1], largo: xs[j + 1] - xs[j] });
+    }
+    return { lineas, n, ancho };
+  }
+  var gsdCm = (d, alturaM) => d.sensorAnchoMm * alturaM * 100 / (d.focalMm * d.pixelesAncho);
+  var alturaParaGsd = (d, gsd) => gsd * d.focalMm * d.pixelesAncho / (d.sensorAnchoMm * 100);
+  function calcularPlan(p) {
+    var _a;
+    const d = p.dron;
+    const gsd = gsdCm(d, p.altura);
+    const huellaAncho = gsd * d.pixelesAncho / 100;
+    const huellaLargo = gsd * d.pixelesAlto / 100;
+    const sepFotos = huellaLargo * (1 - p.traslapeFrontal);
+    const barrido = p.modo === "lidar" && d.lidar ? 2 * p.altura * Math.tan(d.lidar.fovGrados / 2 * Math.PI / 180) : null;
+    const sepLineas = (barrido || huellaAncho) * (1 - p.traslapeLateral);
+    let area, distanciaLineas, nLineas, segmentos = [], rumbo = null;
+    if (p.puntos && p.puntos.length >= 3) {
+      area = areaM2(p.puntos);
+      rumbo = (_a = p.rumbo) != null ? _a : rumboLadoMasLargo(p.puntos);
+      const r = lineasDeVuelo(p.puntos, rumbo, sepLineas);
+      segmentos = r.lineas;
+      nLineas = r.lineas.length;
+      distanciaLineas = r.lineas.reduce((s, l) => s + l.largo, 0);
+    } else {
+      area = (p.areaHa || 0) * 1e4;
+      distanciaLineas = area / sepLineas;
+      nLineas = Math.max(1, Math.round(Math.sqrt(area) / sepLineas));
+    }
+    const distanciaGiros = Math.max(0, nLineas - 1) * sepLineas;
+    const distancia = distanciaLineas + distanciaGiros;
+    const fotos = p.modo === "lidar" && !p.fotosEnLidar ? 0 : segmentos.length ? segmentos.reduce((s, l) => s + Math.ceil(l.largo / sepFotos) + 1, 0) : Math.ceil(distanciaLineas / sepFotos);
+    const velBarrido = 0.5 * (gsd / 100) / p.exposicion;
+    const velIntervalo = sepFotos / d.intervaloMinS;
+    const limites = [
+      ["máxima del dron", d.velocidadMaxMs],
+      ...p.modo === "foto" || p.fotosEnLidar ? [["sin barrido (½ px)", velBarrido], ["intervalo de la cámara", velIntervalo]] : []
+    ];
+    const velSugerida = Math.min(...limites.map((l) => l[1]));
+    const v = p.velocidad;
+    const segMision = distancia / v + nLineas * p.segGiro;
+    const minUtiles = d.autonomiaMin * (1 - p.reserva) - p.minDespegue;
+    const vuelos = Math.max(1, Math.ceil(segMision / 60 / Math.max(1, minUtiles)));
+    const minTotal = segMision / 60 + vuelos * p.minDespegue + (vuelos - 1) * p.minCambio;
+    const intervalo2 = sepFotos / v;
+    const densidad = barrido ? d.lidar.puntosPorSegundo / (v * sepLineas) : null;
+    const densidadPasada = barrido ? d.lidar.puntosPorSegundo / (v * barrido) : null;
+    const avisos = [];
+    if (v > d.velocidadMaxMs) avisos.push(`La velocidad supera la máxima de misión del dron (${fmt(d.velocidadMaxMs, 1)} m/s).`);
+    if ((p.modo === "foto" || p.fotosEnLidar) && v > velBarrido) avisos.push(`A ${fmt(v, 1)} m/s la foto se arrastra más de medio píxel: baja a ${fmt(velBarrido, 1)} m/s o usa una exposición más corta.`);
+    if ((p.modo === "foto" || p.fotosEnLidar) && intervalo2 < d.intervaloMinS) avisos.push(`Habría que disparar cada ${fmt(intervalo2, 2)} s y la cámara necesita ${fmt(d.intervaloMinS, 1)} s: baja la velocidad a ${fmt(velIntervalo, 1)} m/s o el traslape frontal.`);
+    if (p.altura > 120) avisos.push("La altura supera los 120 m (400 ft): revisa la autorización DGAC.");
+    if (minUtiles <= 0) avisos.push("Con la reserva elegida no queda tiempo útil por batería: revisa autonomía y reserva.");
+    return {
+      gsd,
+      huellaAncho,
+      huellaLargo,
+      sepFotos,
+      sepLineas,
+      barrido,
+      area,
+      rumbo,
+      segmentos,
+      nLineas,
+      distancia,
+      fotos,
+      intervalo: intervalo2,
+      velBarrido,
+      velIntervalo,
+      velSugerida,
+      limites,
+      minMision: segMision / 60,
+      minUtiles,
+      vuelos,
+      minTotal,
+      densidad,
+      densidadPasada,
+      avisos
+    };
+  }
+  function fmt(n, dec = 0) {
+    if (n == null || !isFinite(n)) return "—";
+    return n.toLocaleString("es-CL", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+  function fmtDuracion(min) {
+    if (!isFinite(min)) return "—";
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
+    return h ? `${h} h ${String(m).padStart(2, "0")} min` : `${m} min`;
+  }
+
+  // modulos/vuelos/kml.js
+  async function leerArchivo(archivo) {
+    const buf = new Uint8Array(await archivo.arrayBuffer());
+    const esZip = buf[0] === 80 && buf[1] === 75;
+    if (!esZip) return new TextDecoder("utf-8").decode(buf);
+    return extraerKmlDeZip(buf);
+  }
+  async function extraerKmlDeZip(buf) {
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    let fin = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 101010256) {
+      fin = i;
+      break;
+    }
+    if (fin < 0) throw new Error("El KMZ está dañado: no se encontró el índice del zip.");
+    const total = dv.getUint16(fin + 10, true);
+    let p = dv.getUint32(fin + 16, true);
+    const entradas = [];
+    for (let k = 0; k < total; k++) {
+      if (dv.getUint32(p, true) !== 33639248) break;
+      const metodo = dv.getUint16(p + 10, true);
+      const comprimido = dv.getUint32(p + 20, true);
+      const largoNombre = dv.getUint16(p + 28, true);
+      const largoExtra = dv.getUint16(p + 30, true);
+      const largoComent = dv.getUint16(p + 32, true);
+      const local = dv.getUint32(p + 42, true);
+      const nombre = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + largoNombre));
+      entradas.push({ nombre, metodo, comprimido, local });
+      p += 46 + largoNombre + largoExtra + largoComent;
+    }
+    const kml = entradas.find((e) => /(^|\/)doc\.kml$/i.test(e.nombre)) || entradas.find((e) => /\.kml$/i.test(e.nombre));
+    if (!kml) throw new Error("El KMZ no trae ningún archivo .kml adentro.");
+    const ini = kml.local + 30 + dv.getUint16(kml.local + 26, true) + dv.getUint16(kml.local + 28, true);
+    const datos = buf.subarray(ini, ini + kml.comprimido);
+    if (kml.metodo === 0) return new TextDecoder("utf-8").decode(datos);
+    if (kml.metodo !== 8) throw new Error("El KMZ usa una compresión que no reconozco.");
+    if (typeof DecompressionStream === "undefined") throw new Error("Este navegador no puede abrir KMZ. Actualiza Chrome o descomprime el KMZ y carga el .kml.");
+    const flujo = new Blob([datos]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Response(flujo).text();
+  }
+  var hijos = (el, nombre) => [...el.getElementsByTagNameNS("*", nombre)];
+  var texto2 = (el, nombre) => {
+    const x = el.getElementsByTagNameNS("*", nombre)[0];
+    return x ? x.textContent.trim() : "";
+  };
+  function leerCoordenadas(t) {
+    return t.trim().split(/\s+/).filter(Boolean).map((c) => c.split(",").map(Number)).filter((c) => c.length >= 2 && c.every(isFinite));
+  }
+  function analizarKml(textoKml, nombreArchivo = "") {
+    const doc = new DOMParser().parseFromString(textoKml, "application/xml");
+    if (doc.getElementsByTagName("parsererror").length) throw new Error("El archivo no es un KML válido.");
+    const placemarks = hijos(doc, "Placemark");
+    const res = { archivo: nombreArchivo, poligonos: [], lineas: 0, puntos: 0, carpetas: hijos(doc, "Folder").length, placemarks: placemarks.length };
+    let n = 0;
+    for (const pm of placemarks) {
+      const nombre = texto2(pm, "name") || "";
+      const modo = texto2(pm, "altitudeMode");
+      for (const pol of hijos(pm, "Polygon")) {
+        const ext = pol.getElementsByTagNameNS("*", "outerBoundaryIs")[0];
+        const coords = ext ? leerCoordenadas(texto2(ext, "coordinates")) : [];
+        const hoyos = pol.getElementsByTagNameNS("*", "innerBoundaryIs").length;
+        if (coords.length >= 3) res.poligonos.push(revisar(coords, { nombre: nombre || `Polígono ${++n}`, hoyos, modo, origen: "poligono" }));
+      }
+      for (const ls of hijos(pm, "LineString")) {
+        res.lineas++;
+        const coords = leerCoordenadas(texto2(ls, "coordinates"));
+        if (coords.length >= 3) res.poligonos.push(revisar(coords, { nombre: nombre || `Línea ${++n}`, hoyos: 0, modo, origen: "linea" }));
+      }
+      res.puntos += hijos(pm, "Point").length;
+    }
+    return res;
+  }
+  var igual = (a, b) => Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9;
+  function revisar(coords, info) {
+    const conAltura = coords.some((c) => c.length > 2 && c[2] !== 0) || info.modo && info.modo !== "clampToGround";
+    const cerrado = igual(coords[0], coords[coords.length - 1]);
+    let duplicados = 0;
+    for (let i = 1; i < coords.length; i++) if (igual(coords[i], coords[i - 1])) duplicados++;
+    const anillo = limpiarAnillo(coords);
+    const { puntos } = proyectar(anillo);
+    const cruces = autoInterseccion(puntos);
+    const lonLat = coords.every((c) => Math.abs(c[0]) <= 180 && Math.abs(c[1]) <= 90);
+    const problemas = [];
+    if (info.origen === "linea") problemas.push("Es una línea, no un polígono: se cierra al limpiar.");
+    if (conAltura) problemas.push("Trae altura o un modo de altitud distinto de «sobre el terreno».");
+    if (info.hoyos) problemas.push(`Tiene ${info.hoyos} hoyo${info.hoyos > 1 ? "s" : ""} interior${info.hoyos > 1 ? "es" : ""}: el control no los usa y se quitan.`);
+    if (!cerrado && info.origen === "poligono") problemas.push("El contorno no está cerrado.");
+    if (duplicados) problemas.push(`${duplicados} vértice${duplicados > 1 ? "s" : ""} repetido${duplicados > 1 ? "s" : ""}.`);
+    if (anillo.length > 200) problemas.push(`${anillo.length} vértices: muchos para el control; se simplifica.`);
+    if (cruces) problemas.push("El contorno se cruza consigo mismo: hay que corregirlo a mano (no se arregla solo).");
+    if (!lonLat) problemas.push("Las coordenadas no parecen latitud/longitud (WGS84). ¿Viene en UTM?");
+    return { ...info, coords, anillo, vertices: anillo.length, area: areaM2(puntos), conAltura, cerrado, duplicados, cruces, lonLat, problemas };
+  }
+  function limpiarAnillo(coords) {
+    const out = [];
+    for (const c of coords) {
+      const p = [c[0], c[1]];
+      if (!out.length || !igual(out[out.length - 1], p)) out.push(p);
+    }
+    if (out.length > 1 && igual(out[0], out[out.length - 1])) out.pop();
+    return out;
+  }
+  function seCruzan(a, b, c, d) {
+    const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+  }
+  function autoInterseccion(pts) {
+    const n = pts.length;
+    if (n > 3e3) return false;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        if (seCruzan(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])) return true;
+      }
+    }
+    return false;
+  }
+  function dp(pts, tol) {
+    if (pts.length < 3) return pts;
+    const [a, b] = [pts[0], pts[pts.length - 1]];
+    let max = 0, idx = 0;
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const d = L < 1e-9 ? Math.hypot(pts[i][0] - a[0], pts[i][1] - a[1]) : Math.abs(dy * pts[i][0] - dx * pts[i][1] + b[0] * a[1] - b[1] * a[0]) / L;
+      if (d > max) {
+        max = d;
+        idx = i;
+      }
+    }
+    if (max <= tol) return [a, b];
+    return [...dp(pts.slice(0, idx + 1), tol).slice(0, -1), ...dp(pts.slice(idx), tol)];
+  }
+  function limpiarParaDji(pol, { maxVertices = 200 } = {}) {
+    let anillo = limpiarAnillo(pol.coords);
+    const { puntos, lat0, lon0 } = proyectar(anillo);
+    let tolerancia = 0;
+    let simplificado = puntos;
+    if (puntos.length > maxVertices) {
+      tolerancia = 0.05;
+      const cerrado = [...puntos, puntos[0]];
+      while (simplificado.length > maxVertices && tolerancia < 50) {
+        const prueba = dp(cerrado, tolerancia).slice(0, -1);
+        if (prueba.length < 3) break;
+        simplificado = prueba;
+        tolerancia *= 1.5;
+      }
+      const k = Math.cos(lat0 * Math.PI / 180) * 111320;
+      anillo = simplificado.map(([x, y]) => [lon0 + x / k, lat0 + y / 110540]);
+    }
+    if (firmaArea(anillo) < 0) anillo = anillo.slice().reverse();
+    return { ...pol, anillo, vertices: anillo.length, toleranciaM: tolerancia ? tolerancia / 1.5 : 0, verticesOriginales: pol.vertices };
+  }
+  function firmaArea(r) {
+    let s = 0;
+    for (let i = 0; i < r.length; i++) s += r[i][0] * r[(i + 1) % r.length][1] - r[(i + 1) % r.length][0] * r[i][1];
+    return s / 2;
+  }
+  var escXml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]);
+  function kmlDePoligono(nombre, anillo) {
+    const coords = [...anillo, anillo[0]].map(([lon, lat]) => `${lon.toFixed(8)},${lat.toFixed(8)},0`).join(" ");
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+<name>${escXml(nombre)}</name>
+<Placemark>
+<name>${escXml(nombre)}</name>
+<Polygon>
+<altitudeMode>clampToGround</altitudeMode>
+<outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs>
+</Polygon>
+</Placemark>
+</Document>
+</kml>
+`;
+  }
+  function nombreArchivoSeguro(t) {
+    return (String(t || "area").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") || "area").slice(0, 60);
+  }
+
+  // modulos/vuelos/pronostico.js
+  var MODELOS = [["ecmwf_ifs025", "ECMWF"], ["gfs_seamless", "GFS"], ["icon_seamless", "ICON"]];
+  var VARIABLES = [
+    "wind_speed_10m",
+    "wind_speed_80m",
+    "wind_speed_100m",
+    "wind_speed_120m",
+    "wind_direction_120m",
+    "wind_direction_100m",
+    "wind_gusts_10m",
+    "precipitation",
+    "precipitation_probability",
+    "cloud_cover",
+    "temperature_2m"
+  ];
+  async function pedirPronostico(lat, lon, dias = 3) {
+    const url = "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+      latitude: lat.toFixed(4),
+      longitude: lon.toFixed(4),
+      hourly: VARIABLES.join(","),
+      models: MODELOS.map((m) => m[0]).join(","),
+      wind_speed_unit: "ms",
+      timezone: "America/Santiago",
+      forecast_days: String(dias),
+      daily: "sunrise,sunset"
+    });
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Open-Meteo respondió ${r.status}`);
+    return ordenar(await r.json(), lat, lon);
+  }
+  function serie(h, variable, modelo) {
+    return h[`${variable}_${modelo}`] || h[variable] || [];
+  }
+  var primero = (...vals) => {
+    var _a;
+    return (_a = vals.find((v) => v != null && isFinite(v))) != null ? _a : null;
+  };
+  function ordenar(json, lat, lon) {
+    var _a;
+    const h = json.hourly || {};
+    const horas = (h.time || []).map((t, i) => {
+      const porModelo = MODELOS.map(([m, nombre]) => {
+        const v10 = serie(h, "wind_speed_10m", m)[i];
+        const vAlt = primero(serie(h, "wind_speed_120m", m)[i], serie(h, "wind_speed_100m", m)[i], serie(h, "wind_speed_80m", m)[i]);
+        const g10 = serie(h, "wind_gusts_10m", m)[i];
+        const gAlt = g10 != null && vAlt != null && v10 ? Math.max(vAlt, g10 * vAlt / v10) : primero(g10);
+        return {
+          nombre,
+          v: vAlt,
+          g: gAlt,
+          dir: primero(serie(h, "wind_direction_120m", m)[i], serie(h, "wind_direction_100m", m)[i]),
+          lluvia: serie(h, "precipitation", m)[i],
+          prob: serie(h, "precipitation_probability", m)[i],
+          nubes: serie(h, "cloud_cover", m)[i],
+          temp: serie(h, "temperature_2m", m)[i]
+        };
+      }).filter((x) => x.v != null);
+      const prom = (k) => {
+        const xs = porModelo.map((x) => x[k]).filter((v) => v != null && isFinite(v));
+        return xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : null;
+      };
+      const vs = porModelo.map((x) => x.v);
+      return {
+        t,
+        fecha: t.slice(0, 10),
+        hora: Number(t.slice(11, 13)),
+        v: prom("v"),
+        vMin: vs.length ? Math.min(...vs) : null,
+        vMax: vs.length ? Math.max(...vs) : null,
+        g: prom("g"),
+        dir: prom("dir"),
+        lluvia: prom("lluvia"),
+        prob: prom("prob"),
+        nubes: prom("nubes"),
+        temp: prom("temp"),
+        modelos: porModelo.length,
+        sol: elevacionSol(t, lat, lon)
+      };
+    });
+    const dias = (((_a = json.daily) == null ? void 0 : _a.time) || []).map((f, i) => {
+      var _a2, _b;
+      return { fecha: f, salida: (_a2 = json.daily.sunrise) == null ? void 0 : _a2[i], puesta: (_b = json.daily.sunset) == null ? void 0 : _b[i] };
+    });
+    return { lat, lon, horas, dias, elevacionModelo: json.elevation };
+  }
+  async function pedirKp() {
+    try {
+      const r = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json");
+      if (!r.ok) return null;
+      const filas = await r.json();
+      return filas.slice(1).map((f) => ({ t: String(f[0]).replace(" ", "T") + "Z", kp: Number(f[1]) })).filter((x) => isFinite(x.kp));
+    } catch {
+      return null;
+    }
+  }
+  function kpEnHora(kps, horaLocalIso) {
+    if (!kps || !kps.length) return null;
+    const t = (/* @__PURE__ */ new Date(horaLocalIso + ":00-03:00")).getTime();
+    const fila = kps.filter((k) => {
+      const ini = new Date(k.t).getTime();
+      return t >= ini && t < ini + 3 * 36e5;
+    });
+    return fila.length ? Math.max(...fila.map((f) => f.kp)) : null;
+  }
+  function elevacionSol(horaLocalIso, lat, lon) {
+    const d = /* @__PURE__ */ new Date(horaLocalIso + ":00-03:00");
+    const dia = (Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5;
+    const g = 2 * Math.PI / 365 * (dia - 1 + (d.getUTCHours() - 12) / 24);
+    const decl = 6918e-6 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 6758e-6 * Math.cos(2 * g) + 907e-6 * Math.sin(2 * g) - 2697e-6 * Math.cos(3 * g) + 148e-5 * Math.sin(3 * g);
+    const eqt = 229.18 * (75e-6 + 1868e-6 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+    const minutosSolares = d.getUTCHours() * 60 + d.getUTCMinutes() + eqt + 4 * lon;
+    const ha = (minutosSolares / 4 - 180) * Math.PI / 180;
+    const la = lat * Math.PI / 180;
+    const cosZ = Math.sin(la) * Math.sin(decl) + Math.cos(la) * Math.cos(decl) * Math.cos(ha);
+    return 90 - Math.acos(Math.min(1, Math.max(-1, cosZ))) * 180 / Math.PI;
+  }
+  function evaluarHora(h, dron, { kp = null, solMin = 0 } = {}) {
+    if (h.sol != null && h.sol < solMin) return { estado: "noche", motivos: ["Sin luz suficiente"] };
+    const no = [], marg = [];
+    if (h.v != null && h.v > dron.vientoMaxMs) no.push(`Viento ${h.v.toFixed(1)} m/s`);
+    else if (h.v != null && h.v > 0.8 * dron.vientoMaxMs) marg.push(`Viento ${h.v.toFixed(1)} m/s`);
+    if (h.g != null && h.g > dron.rafagaMaxMs) no.push(`Ráfaga ${h.g.toFixed(1)} m/s`);
+    else if (h.g != null && h.g > 0.8 * dron.rafagaMaxMs) marg.push(`Ráfaga ${h.g.toFixed(1)} m/s`);
+    if (h.lluvia != null && h.lluvia >= 0.2) no.push("Lluvia");
+    else if (h.prob != null && h.prob >= 40) marg.push(`Prob. lluvia ${Math.round(h.prob)} %`);
+    if (h.vMax != null && h.vMin != null && h.vMax - h.vMin > 4) marg.push("Modelos no coinciden");
+    if (h.temp != null && h.temp < 0) marg.push("Bajo 0 °C (baterías)");
+    if (kp != null && kp >= 5) marg.push(`Kp ${kp} (GNSS)`);
+    return { estado: no.length ? "no" : marg.length ? "marg" : "go", motivos: [...no, ...marg] };
+  }
+  var ENLACES_CONSULTA = [
+    ["NOTAM — AIP Chile (oficial)", "https://aipchile.dgac.gob.cl/notam"],
+    ["Mapa interactivo — AIP Chile", "https://aipchile.dgac.gob.cl/"],
+    ["UAS Control (zonas)", "https://uascontrol.io/"],
+    ["Visor de zonas — Vuelatudrone", "https://vuelatudrone.cl/visor-zonas-vuelo/index.html?v=2"],
+    ["Windy", "https://www.windy.com/"]
+  ];
+
+  // modulos/vuelos/pantallas.js
+  var PESTANAS2 = [
+    ["planificar", "Planificar"],
+    ["kml", "Limpiar KML"],
+    ["pronostico", "Pronóstico"],
+    ["planes", "Planes guardados"],
+    ["drones", "Drones"]
+  ];
+  var PARAMS_INICIALES = {
+    dronId: "m4e",
+    modo: "foto",
+    porGsd: true,
+    gsd: 2.5,
+    altura: 100,
+    traslapeFrontal: 80,
+    traslapeLateral: 70,
+    velocidad: "",
+    exposicion: 1e3,
+    reserva: 25,
+    minDespegue: 3,
+    minCambio: 5,
+    segGiro: 8,
+    areaHa: "",
+    rumbo: ""
+  };
+  function montarPantallas2(contenedor2, ctx2) {
+    fijarPersona2(ctx2.personaId || null);
+    const raiz = document.createElement("div");
+    raiz.className = "mod-vuelos";
+    contenedor2.appendChild(raiz);
+    let activo2 = true;
+    const st = {
+      tab: ctx2.planId ? "planificar" : ctx2.tab || "planificar",
+      params: { ...PARAMS_INICIALES },
+      poligonos: [],
+      polSel: 0,
+      archivo: "",
+      proyectoId: ctx2.proyectoId || "",
+      nombrePlan: "",
+      planId: null,
+      kml: null,
+      kmlError: "",
+      maxVertices: 200,
+      pron: null,
+      pronError: "",
+      pronCargando: false,
+      kps: null,
+      dia: hoyISO(),
+      pronLat: "",
+      pronLon: "",
+      pronDron: "m4e",
+      pronOrigen: "",
+      mensaje: null
+    };
+    let drones = [], proyectos2 = [];
+    const dronActual = () => drones.find((d) => d.id === st.params.dronId) || drones[0];
+    const polActual = () => st.poligonos[st.polSel] || null;
+    const avisar2 = (texto3, tipo = "ok") => {
+      st.mensaje = { texto: texto3, tipo };
+    };
+    async function cargarBase() {
+      [drones, proyectos2] = await Promise.all([listarDrones(), listarProyectos()]);
+    }
+    async function abrirPlan(id) {
+      const p = await obtenerPlan(id);
+      if (!p) return;
+      st.planId = p.id;
+      st.nombrePlan = p.nombre;
+      st.proyectoId = p.proyectoId || "";
+      st.params = { ...PARAMS_INICIALES, ...p.params };
+      st.poligonos = p.poligono ? [{ nombre: p.poligono.nombre, anillo: p.poligono.anillo, coords: p.poligono.anillo, vertices: p.poligono.anillo.length, problemas: [] }] : [];
+      st.polSel = 0;
+      st.archivo = p.poligono ? "guardado en el plan" : "";
+      st.tab = "planificar";
+    }
+    function resultado() {
+      const d = dronActual();
+      if (!d) return null;
+      const P = st.params;
+      const modo = P.modo === "lidar" && d.lidar ? "lidar" : "foto";
+      const altura = P.porGsd ? alturaParaGsd(d, Number(P.gsd) || 1) : Number(P.altura) || 1;
+      const pol = polActual();
+      const puntos = pol ? proyectar(pol.anillo).puntos : null;
+      const base = {
+        dron: d,
+        modo,
+        altura,
+        traslapeFrontal: (Number(P.traslapeFrontal) || 0) / 100,
+        traslapeLateral: (Number(P.traslapeLateral) || 0) / 100,
+        exposicion: 1 / (Number(P.exposicion) || 1e3),
+        reserva: (Number(P.reserva) || 0) / 100,
+        minDespegue: Number(P.minDespegue) || 0,
+        minCambio: Number(P.minCambio) || 0,
+        segGiro: Number(P.segGiro) || 0,
+        puntos,
+        areaHa: Number(P.areaHa) || 0,
+        rumbo: P.rumbo === "" ? void 0 : Number(P.rumbo),
+        fotosEnLidar: false
+      };
+      if (!puntos && !base.areaHa) return { sinArea: true, altura, modo, d };
+      const previo = calcularPlan({ ...base, velocidad: 10 });
+      const velocidad = Number(P.velocidad) || Math.floor(previo.velSugerida * 10) / 10;
+      return { ...calcularPlan({ ...base, velocidad }), altura, modo, velocidad, d, auto: !Number(P.velocidad) };
+    }
+    const opcionesProyectos = (sel) => `<option value="">Sin proyecto</option>` + proyectos2.map((p) => `<option value="${escapar(p.id)}" ${p.id === sel ? "selected" : ""}>${escapar(p.id === OFICINA_ID ? "Oficina" : p.nombre)}</option>`).join("");
+    const campo = (nombre, etiqueta, valor, extra = "", sufijo = "") => `<label class="sis-campo"><span>${etiqueta}</span>
+    <span class="vu-con-sufijo"><input name="${nombre}" value="${escapar(valor)}" inputmode="decimal" ${extra}>${sufijo ? `<em>${sufijo}</em>` : ""}</span></label>`;
+    function vistaPlanificar() {
+      const P = st.params, d = dronActual(), pol = polActual();
+      return `<div class="vu-planificar">
+      <form class="vu-form sis-form" data-form="plan" autocomplete="off">
+        <fieldset><legend>Área</legend>
+          <label class="sis-btn vu-archivo">Cargar KML / KMZ<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="plan" hidden></label>
+          ${st.archivo ? `<p class="sis-tenue">Archivo: <b>${escapar(st.archivo)}</b></p>` : ""}
+          ${st.poligonos.length > 1 ? `<label class="sis-campo"><span>Polígono</span><select data-campo="polSel">${st.poligonos.map((p, i) => `<option value="${i}" ${i === st.polSel ? "selected" : ""}>${escapar(p.nombre)} · ${fmt(p.area / 1e4, 2)} ha</option>`).join("")}</select></label>` : ""}
+          ${pol && pol.problemas && pol.problemas.length ? `<div class="vu-aviso"><b>Este polígono tiene detalles para el control:</b><ul>${pol.problemas.map((t) => `<li>${escapar(t)}</li>`).join("")}</ul><span>Al descargar el KML limpio se corrigen, salvo los cruces.</span></div>` : ""}
+          ${pol ? "" : campo("areaHa", "O escribe el área (sin polígono)", P.areaHa, 'placeholder="0"', "ha")}
+        </fieldset>
+        <fieldset><legend>Dron y vuelo</legend>
+          <label class="sis-campo"><span>Dron</span><select name="dronId">${drones.map((x) => `<option value="${x.id}" ${x.id === P.dronId ? "selected" : ""}>${escapar(x.nombre)}</option>`).join("")}</select></label>
+          ${d && d.lidar ? `<div class="sis-campo"><span>Producto</span><div class="sis-opciones">
+            <label class="sis-opcion"><input type="radio" name="modo" value="foto" ${P.modo !== "lidar" ? "checked" : ""}> Fotogrametría</label>
+            <label class="sis-opcion"><input type="radio" name="modo" value="lidar" ${P.modo === "lidar" ? "checked" : ""}> LiDAR</label></div></div>` : ""}
+          <div class="sis-campo"><span>Definir por</span><div class="sis-opciones">
+            <label class="sis-opcion"><input type="radio" name="porGsd" value="1" ${P.porGsd ? "checked" : ""}> GSD objetivo</label>
+            <label class="sis-opcion"><input type="radio" name="porGsd" value="0" ${!P.porGsd ? "checked" : ""}> Altura</label></div></div>
+          ${P.porGsd ? campo("gsd", "GSD objetivo", P.gsd, "", "cm/px") : campo("altura", "Altura sobre el terreno", P.altura, "", "m")}
+          <div class="sis-par">
+            ${campo("traslapeFrontal", "Traslape frontal", P.traslapeFrontal, "", "%")}
+            ${campo("traslapeLateral", "Traslape lateral", P.traslapeLateral, "", "%")}
+          </div>
+          <div class="sis-par">
+            ${campo("velocidad", "Velocidad", P.velocidad, 'placeholder="automática"', "m/s")}
+            ${campo("rumbo", "Rumbo de las líneas", P.rumbo, 'placeholder="automático"', "°")}
+          </div>
+        </fieldset>
+        <details class="vu-detalles"><summary>Supuestos de terreno y cámara</summary>
+          <div class="sis-par">
+            ${campo("reserva", "Reserva por batería", P.reserva, "", "%")}
+            ${campo("minDespegue", "Despegue y aterrizaje", P.minDespegue, "", "min")}
+          </div>
+          <div class="sis-par">
+            ${campo("minCambio", "Cambio de batería", P.minCambio, "", "min")}
+            ${campo("segGiro", "Giro entre líneas", P.segGiro, "", "s")}
+          </div>
+          ${campo("exposicion", "Exposición 1/…", P.exposicion, "", "s")}
+        </details>
+      </form>
+      <div class="vu-resultado" id="vu-resultado">${htmlResultado()}</div>
+    </div>`;
+    }
+    function htmlResultado() {
+      const r = resultado();
+      if (!r) return "";
+      if (r.sinArea) return `<section class="sis-tarjeta"><h2>Resultado</h2>
+      <p class="sis-tenue">Carga un KML/KMZ del área o escribe las hectáreas para calcular líneas, fotos, tiempo y baterías.</p>
+      <div class="vu-kpis">${kpi("Altura", `${fmt(r.altura, 0)} m`)}${kpi("GSD", `${fmt(gsdCm(r.d, r.altura), 2)} cm/px`)}</div></section>`;
+      const pol = polActual();
+      return `<section class="sis-tarjeta">
+      <h2>Resultado${r.d.corregido ? ' <span class="sis-chip gris">datos del dron corregidos</span>' : ""}</h2>
+      <div class="vu-kpis">
+        ${kpi("Altura", `${fmt(r.altura, 0)} m`)}
+        ${kpi("GSD", `${fmt(r.gsd, 2)} cm/px`)}
+        ${r.densidad ? kpi("Densidad LiDAR", `${fmt(r.densidad, 0)} pts/m²`) : kpi("Fotos", fmt(r.fotos))}
+        ${kpi("Vuelos / baterías", fmt(r.vuelos))}
+        ${kpi("Tiempo en el aire", fmtDuracion(r.minMision))}
+        ${kpi("Jornada de vuelo", fmtDuracion(r.minTotal))}
+      </div>
+      ${r.avisos.length ? `<div class="vu-aviso"><ul>${r.avisos.map((a) => `<li>${escapar(a)}</li>`).join("")}</ul></div>` : ""}
+      ${pol ? svgPreview(pol, r) : ""}
+      <dl class="vu-tabla">
+        ${fila("Área", `${fmt(r.area / 1e4, 2)} ha`)}
+        ${r.rumbo != null ? fila("Rumbo de las líneas", `${fmt(r.rumbo, 0)}°${st.params.rumbo === "" ? " (lado más largo)" : ""}`) : ""}
+        ${fila("Huella de la foto", `${fmt(r.huellaAncho, 0)} × ${fmt(r.huellaLargo, 0)} m`)}
+        ${r.barrido ? fila("Ancho de barrido LiDAR", `${fmt(r.barrido, 0)} m`) : ""}
+        ${fila("Separación entre líneas", `${fmt(r.sepLineas, 1)} m · ${fmt(r.nLineas)} líneas`)}
+        ${r.modo === "foto" ? fila("Distancia entre fotos", `${fmt(r.sepFotos, 1)} m · cada ${fmt(r.intervalo, 1)} s`) : fila("Densidad en una pasada", `${fmt(r.densidadPasada, 0)} pts/m²`)}
+        ${fila("Distancia de vuelo", `${fmt(r.distancia / 1e3, 2)} km`)}
+        ${fila("Velocidad", `${fmt(r.velocidad, 1)} m/s${r.auto ? " (sugerida)" : ""}`)}
+        ${fila("Límites de velocidad", r.limites.map(([t, v]) => `${t}: ${fmt(v, 1)}`).join(" · ") + " m/s")}
+        ${fila("Tiempo útil por batería", `${fmt(r.minUtiles, 0)} min`)}
+      </dl>
+      <p class="sis-tenue">Estimación para planificar y cotizar. El GSD es sobre el punto de despegue: en terreno con desnivel cambia. El vuelo se programa en DJI Pilot 2.</p>
+    </section>
+    <section class="sis-tarjeta">
+      <h2>Guardar y exportar</h2>
+      <form class="vu-guardar" data-form="guardar">
+        <label class="sis-campo"><span>Nombre del plan</span><input name="nombrePlan" value="${escapar(st.nombrePlan || (pol ? pol.nombre : ""))}" required></label>
+        <label class="sis-campo"><span>Proyecto</span><select name="proyectoId">${opcionesProyectos(st.proyectoId)}</select></label>
+        <div class="sis-acciones">
+          <button class="sis-btn primario">${st.planId ? "Guardar cambios" : "Guardar plan"}</button>
+          ${pol ? '<button type="button" class="sis-btn" data-accion="descargar-kml-plan">Descargar KML limpio</button>' : ""}
+          ${pol ? '<button type="button" class="sis-btn" data-accion="pronostico-plan">Ver pronóstico</button>' : ""}
+          ${st.planId ? '<button type="button" class="sis-btn" data-accion="nuevo-plan">Nuevo plan</button>' : ""}
+        </div>
+      </form>
+    </section>`;
+    }
+    const kpi = (t, v) => `<div class="vu-kpi"><span>${t}</span><b>${v}</b></div>`;
+    const fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
+    function svgPreview(pol, r) {
+      const { puntos } = proyectar(pol.anillo);
+      const xs = puntos.map((p) => p[0]), ys = puntos.map((p) => p[1]);
+      const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
+      const W = 360, H = 220, m = 12;
+      const k = Math.min((W - 2 * m) / (maxx - minx || 1), (H - 2 * m) / (maxy - miny || 1));
+      const ox = (W - (maxx - minx) * k) / 2, oy = (H - (maxy - miny) * k) / 2;
+      const tx = ([x, y]) => [ox + (x - minx) * k, H - (oy + (y - miny) * k)];
+      const pts = puntos.map(tx).map((p) => p.map((v) => v.toFixed(1)).join(",")).join(" ");
+      let lineas = "";
+      if (r.segmentos && r.segmentos.length && r.rumbo != null) {
+        const a = (90 - r.rumbo) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+        const desrot = (x, y) => [x * c - y * s, x * s + y * c];
+        lineas = r.segmentos.slice(0, 400).map((l) => {
+          const [p1, p2] = [tx(desrot(l.x1, l.y)), tx(desrot(l.x2, l.y))];
+          return `<line x1="${p1[0].toFixed(1)}" y1="${p1[1].toFixed(1)}" x2="${p2[0].toFixed(1)}" y2="${p2[1].toFixed(1)}"/>`;
+        }).join("");
+      }
+      return `<svg class="vu-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Polígono del área con ${r.nLineas} líneas de vuelo">
+      <polygon points="${pts}" class="vu-pol"/><g class="vu-lineas">${lineas}</g></svg>
+      <p class="sis-tenue vu-pie">Vista esquemática (norte arriba): contorno y líneas de vuelo.</p>`;
+    }
+    function vistaKml() {
+      const a = st.kml;
+      return `<section class="sis-tarjeta">
+      <h2>Limpiar un KML o KMZ para DJI Pilot 2</h2>
+      <p>Revisa el archivo que te enviaron y deja cada polígono como lo lee el control: un solo contorno por archivo, sin altura, cerrado, sin vértices repetidos y con pocos vértices.</p>
+      <div class="sis-acciones">
+        <label class="sis-btn primario vu-archivo">Elegir archivo<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="kml" hidden></label>
+        <label class="sis-campo vu-mini"><span>Máximo de vértices</span><input data-campo="maxVertices" value="${st.maxVertices}" inputmode="numeric"></label>
+      </div>
+      ${st.kmlError ? `<div class="sis-error">${escapar(st.kmlError)}</div>` : ""}
+    </section>
+    ${a ? `<section class="sis-tarjeta">
+      <h2>${escapar(a.archivo)}</h2>
+      <p class="sis-tenue">${a.placemarks} elemento${a.placemarks === 1 ? "" : "s"} · ${a.poligonos.length} polígono${a.poligonos.length === 1 ? "" : "s"} utilizable${a.poligonos.length === 1 ? "" : "s"}${a.lineas ? ` · ${a.lineas} línea${a.lineas > 1 ? "s" : ""}` : ""}${a.puntos ? ` · ${a.puntos} punto${a.puntos > 1 ? "s" : ""} (se ignoran)` : ""}${a.carpetas ? ` · ${a.carpetas} carpeta${a.carpetas > 1 ? "s" : ""}` : ""}</p>
+      ${a.poligonos.length ? `<div class="sis-lista">${a.poligonos.map((p, i) => `<div class="sis-fila vu-kml-fila">
+        <span class="sis-fila-txt"><b>${escapar(p.nombre)}</b><span class="sis-tenue">${fmt(p.area / 1e4, 2)} ha · ${p.vertices} vértices</span>
+          ${p.problemas.length ? `<ul class="vu-problemas">${p.problemas.map((t) => `<li>${escapar(t)}</li>`).join("")}</ul>` : '<span class="sis-chip verde">Sin problemas</span>'}</span>
+        <span class="sis-acciones"><button class="sis-btn chico" data-accion="descargar-kml" data-i="${i}">Descargar limpio</button>
+          <button class="sis-btn chico" data-accion="usar-en-plan" data-i="${i}">Planificar</button></span></div>`).join("")}</div>
+        <p class="sis-tenue">Cada polígono se descarga como un archivo aparte, que es lo que el control importa mejor.</p>` : '<div class="sis-vacio"><p>No encontré polígonos ni polilíneas de 3 o más vértices en este archivo.</p></div>'}
+    </section>` : ""}`;
+    }
+    function vistaPronostico() {
+      var _a, _b, _c;
+      const p = st.pron;
+      const dron = drones.find((d) => d.id === st.pronDron) || drones[0];
+      let cuerpo = "";
+      if (st.pronCargando) cuerpo = '<p class="sis-tenue">Consultando el pronóstico…</p>';
+      else if (st.pronError) cuerpo = `<div class="sis-error">${escapar(st.pronError)}</div>`;
+      else if (p) {
+        const dias = [...new Set(p.horas.map((h) => h.fecha))];
+        const horas = p.horas.filter((h) => h.fecha === st.dia && h.hora >= 6 && h.hora <= 21);
+        const filas = horas.map((h) => ({ h, kp: kpEnHora(st.kps, h.t), ev: null })).map((x) => ({ ...x, ev: evaluarHora(x.h, dron, { kp: x.kp, solMin: 5 }) }));
+        const ventana = mejorVentana(filas);
+        const sol = p.dias.find((d) => d.fecha === st.dia);
+        cuerpo = `<div class="vu-dias">${dias.map((d) => `<button class="sis-menu-chip${d === st.dia ? " activo" : ""}" data-accion="dia" data-dia="${d}">${fechaLegible(d)}</button>`).join("")}</div>
+        <div class="vu-resumen-dia">
+          ${ventana ? `<span class="sis-chip verde">Ventana GO: ${ventana[0]}:00 – ${ventana[1] + 1}:00</span>` : '<span class="sis-chip rojo">Sin ventana GO este día</span>'}
+          ${sol ? `<span class="sis-chip gris">Sol: ${((_a = sol.salida) == null ? void 0 : _a.slice(11, 16)) || "—"} – ${((_b = sol.puesta) == null ? void 0 : _b.slice(11, 16)) || "—"}</span>` : ""}
+          <span class="sis-chip gris">Límites ${escapar(dron.nombre.replace("DJI ", ""))}: viento ${dron.vientoMaxMs} · ráfaga ${dron.rafagaMaxMs} m/s</span>
+        </div>
+        <div class="vu-tabla-scroll"><table class="vu-pron">
+          <thead><tr><th>Hora</th><th>Estado</th><th>Viento a 120 m</th><th>Ráfaga est.</th><th>Dir.</th><th>Lluvia</th><th>Nubes</th><th>Temp.</th><th>Sol</th><th>Kp</th></tr></thead>
+          <tbody>${filas.map(({ h, kp, ev }) => `<tr class="vu-${ev.estado}">
+            <td>${String(h.hora).padStart(2, "0")}:00</td>
+            <td><span class="vu-estado vu-e-${ev.estado}" title="${escapar(ev.motivos.join(" · "))}">${{ go: "GO", marg: "Marginal", no: "NO", noche: "Sin luz" }[ev.estado]}</span></td>
+            <td>${fmt(h.v, 1)} <small>(${fmt(h.vMin, 1)}–${fmt(h.vMax, 1)})</small></td>
+            <td>${fmt(h.g, 1)}</td>
+            <td>${h.dir != null ? `<span class="vu-flecha" style="transform:rotate(${Math.round(h.dir + 180)}deg)" aria-label="${Math.round(h.dir)}°">↑</span>` : "—"}</td>
+            <td>${h.prob != null ? `${fmt(h.prob)} %` : "—"}${h.lluvia >= 0.1 ? ` · ${fmt(h.lluvia, 1)} mm` : ""}</td>
+            <td>${fmt(h.nubes)} %</td><td>${fmt(h.temp, 0)}°</td><td>${fmt(h.sol, 0)}°</td><td>${kp != null ? fmt(kp, 1) : "—"}</td>
+          </tr>`).join("")}</tbody></table></div>
+        <p class="sis-tenue">Viento: promedio de ${((_c = p.horas[0]) == null ? void 0 : _c.modelos) || 0} modelos (ECMWF, GFS, ICON) y entre paréntesis el rango entre ellos; si el rango es amplio, el pronóstico es inseguro. La ráfaga a 120 m es estimada. La flecha indica hacia dónde sopla. ${st.kps ? "" : "No se pudo leer el índice Kp (NOAA). "}Modelos globales: en valles y faenas de cordillera el viento real puede diferir; mide en terreno.</p>`;
+      }
+      return `<section class="sis-tarjeta">
+      <h2>Pronóstico para volar</h2>
+      <form class="vu-pron-form" data-form="pronostico">
+        <div class="sis-par">
+          <label class="sis-campo"><span>Latitud</span><input name="lat" value="${escapar(st.pronLat)}" placeholder="-32.83" inputmode="decimal" required></label>
+          <label class="sis-campo"><span>Longitud</span><input name="lon" value="${escapar(st.pronLon)}" placeholder="-70.60" inputmode="decimal" required></label>
+        </div>
+        <label class="sis-campo"><span>Dron (para sus límites)</span><select name="pronDron">${drones.map((x) => `<option value="${x.id}" ${x.id === st.pronDron ? "selected" : ""}>${escapar(x.nombre)}</option>`).join("")}</select></label>
+        ${st.pronOrigen ? `<p class="sis-tenue">Ubicación: ${escapar(st.pronOrigen)}</p>` : ""}
+        <div class="sis-acciones"><button class="sis-btn primario">Consultar pronóstico</button>
+          <button type="button" class="sis-btn" data-accion="gps">Usar mi ubicación</button>
+          ${polActual() ? '<button type="button" class="sis-btn" data-accion="pronostico-plan">Centro del polígono</button>' : ""}</div>
+      </form>
+      ${cuerpo}
+    </section>
+    <section class="sis-tarjeta"><h2>Antes de volar, revisa también</h2>
+      <div class="vu-enlaces">${ENLACES_CONSULTA.map(([t, u]) => `<a class="sis-btn chico" href="${u}" target="_blank" rel="noopener">${escapar(t)} ↗</a>`).join("")}</div>
+      <p class="sis-tenue">Ayuda para planificar con datos de Open-Meteo y NOAA. No reemplaza la evaluación del piloto, los NOTAM ni la autorización de la DGAC.</p>
+    </section>`;
+    }
+    function mejorVentana(filas) {
+      let mejor = null, ini = null;
+      filas.forEach((f, i) => {
+        if (f.ev.estado === "go") {
+          if (ini == null) ini = i;
+        }
+        if (f.ev.estado !== "go" || i === filas.length - 1) {
+          const fin = f.ev.estado === "go" ? i : i - 1;
+          if (ini != null && (!mejor || fin - ini > mejor[1] - mejor[0])) mejor = [ini, fin];
+          if (f.ev.estado !== "go") ini = null;
+        }
+      });
+      return mejor ? [filas[mejor[0]].h.hora, filas[mejor[1]].h.hora] : null;
+    }
+    async function vistaPlanes() {
+      const planes = await listarPlanes();
+      const nomProy = (id) => (proyectos2.find((p) => p.id === id) || {}).nombre || (id === OFICINA_ID ? "Oficina" : "Sin proyecto");
+      return `<section class="sis-tarjeta"><h2>Planes guardados</h2>
+      ${planes.length ? `<div class="sis-lista">${planes.map((p) => {
+        const d = drones.find((x) => x.id === p.dronId);
+        const r = p.resumen || {};
+        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(p.nombre)}</b>
+          <span class="sis-tenue">${escapar(nomProy(p.proyectoId))} · ${escapar(d ? d.nombre.replace("DJI ", "") : p.dronId)}</span>
+          <span class="sis-chips">${r.area ? `<span class="sis-chip gris">${fmt(r.area / 1e4, 1)} ha</span>` : ""}${r.gsd ? `<span class="sis-chip gris">GSD ${fmt(r.gsd, 2)} cm</span>` : ""}${r.densidad ? `<span class="sis-chip gris">${fmt(r.densidad)} pts/m²</span>` : ""}${r.vuelos ? `<span class="sis-chip azul">${r.vuelos} vuelo${r.vuelos > 1 ? "s" : ""} · ${fmtDuracion(r.minTotal)}</span>` : ""}</span></span>
+          <span class="sis-acciones"><button class="sis-btn chico" data-accion="abrir-plan" data-id="${p.id}">Abrir</button>
+          <button class="sis-btn chico peligro" data-accion="eliminar-plan" data-id="${p.id}">Eliminar</button></span></div>`;
+      }).join("")}</div>` : '<div class="sis-vacio"><p>Todavía no hay planes. Arma uno en «Planificar» y guárdalo en su proyecto.</p></div>'}
+    </section>`;
+    }
+    function vistaDrones() {
+      return `<p class="sis-tenue">Valores de referencia tomados de las fichas técnicas. Revísalos con la ficha de tu equipo: si corriges uno, se usa tu valor en todos los cálculos. Los Mavic 2 Enterprise no están porque se usan solo para termografía.</p>
+      ${drones.map((d) => `<section class="sis-tarjeta"><div class="sis-cab"><h2>${escapar(d.nombre)}</h2>${d.corregido ? '<span class="sis-chip ambar">Corregido</span>' : ""}</div>
+        <form class="sis-form vu-dron" data-form="dron" data-id="${d.id}"><div class="vu-grilla">
+          ${CAMPOS_DRON.map(([k, t, u]) => campo(k, t, d[k], "", u)).join("")}
+          ${d.lidar ? campo("lidarPps", "LiDAR: puntos por segundo", d.lidar.puntosPorSegundo, "", "pts/s") + campo("lidarFov", "LiDAR: campo de visión", d.lidar.fovGrados, "", "°") : ""}
+        </div><div class="sis-acciones"><button class="sis-btn chico primario">Guardar</button>
+        ${d.corregido ? `<button type="button" class="sis-btn chico" data-accion="restablecer-dron" data-id="${d.id}">Volver a los valores de fábrica</button>` : ""}</div></form>
+      </section>`).join("")}`;
+    }
+    async function render() {
+      if (!activo2) return;
+      await cargarBase();
+      const vistas = { planificar: vistaPlanificar, kml: vistaKml, pronostico: vistaPronostico, planes: vistaPlanes, drones: vistaDrones };
+      const html = await vistas[st.tab]();
+      if (!activo2) return;
+      raiz.innerHTML = `<nav class="vu-nav" aria-label="Vuelos">${PESTANAS2.map(([id, t]) => `<button class="vu-pestana${id === st.tab ? " activa" : ""}" data-accion="tab" data-tab="${id}">${t}</button>`).join("")}</nav>
+      ${st.mensaje ? `<div class="vu-msg ${st.mensaje.tipo}">${escapar(st.mensaje.texto)}</div>` : ""}
+      <div class="sis-vista">${html}</div>`;
+      st.mensaje = null;
+    }
+    function leerFormPlan(form) {
+      const fd = new FormData(form);
+      const P = st.params;
+      for (const k of ["dronId", "gsd", "altura", "traslapeFrontal", "traslapeLateral", "velocidad", "rumbo", "reserva", "minDespegue", "minCambio", "segGiro", "exposicion", "areaHa"]) {
+        if (fd.has(k)) P[k] = String(fd.get(k)).replace(",", ".").trim();
+      }
+      if (fd.has("modo")) P.modo = fd.get("modo");
+      if (fd.has("porGsd")) P.porGsd = fd.get("porGsd") === "1";
+    }
+    raiz.addEventListener("input", (ev) => {
+      const form = ev.target.closest('form[data-form="plan"]');
+      if (form) {
+        leerFormPlan(form);
+        const r = raiz.querySelector("#vu-resultado");
+        if (r) r.innerHTML = htmlResultado();
+        return;
+      }
+      if (ev.target.dataset.campo === "maxVertices") st.maxVertices = Math.max(4, Number(ev.target.value) || 200);
+      if (ev.target.name === "nombrePlan") st.nombrePlan = ev.target.value;
+    });
+    raiz.addEventListener("change", async (ev) => {
+      const t = ev.target;
+      const form = t.closest('form[data-form="plan"]');
+      if (t.dataset.archivo && t.files && t.files[0]) {
+        const archivo = t.files[0];
+        try {
+          const analisis = analizarKml(await leerArchivo(archivo), archivo.name);
+          if (t.dataset.archivo === "kml") {
+            st.kml = analisis;
+            st.kmlError = "";
+          } else {
+            if (!analisis.poligonos.length) throw new Error("El archivo no tiene polígonos ni polilíneas de 3 o más vértices.");
+            st.poligonos = analisis.poligonos;
+            st.polSel = 0;
+            st.archivo = archivo.name;
+            if (!st.nombrePlan) st.nombrePlan = analisis.poligonos[0].nombre;
+          }
+        } catch (e) {
+          if (t.dataset.archivo === "kml") {
+            st.kml = null;
+            st.kmlError = e.message;
+          } else avisar2(e.message, "error");
+        }
+        await render();
+        return;
+      }
+      if (t.dataset.campo === "polSel") {
+        st.polSel = Number(t.value);
+        await render();
+        return;
+      }
+      if (form && (t.name === "dronId" || t.name === "modo" || t.name === "porGsd")) {
+        leerFormPlan(form);
+        if (t.name === "porGsd") {
+          const d = dronActual();
+          const r = resultado();
+          if (r && !st.params.porGsd) st.params.altura = String(Math.round(r.altura));
+          if (r && st.params.porGsd && r.gsd) st.params.gsd = String(Math.round(r.gsd * 100) / 100);
+          if (!d) return;
+        }
+        if (t.name === "modo" && st.params.modo === "lidar" && Number(st.params.traslapeLateral) > 60) st.params.traslapeLateral = "50";
+        if (t.name === "modo" && st.params.modo === "foto" && Number(st.params.traslapeLateral) < 60) st.params.traslapeLateral = "70";
+        await render();
+      }
+      if (t.name === "proyectoId") st.proyectoId = t.value;
+    });
+    raiz.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const form = ev.target;
+      try {
+        if (form.dataset.form === "guardar") {
+          const r = resultado();
+          const pol = polActual();
+          const fd = new FormData(form);
+          const limpio = pol ? limpiarParaDji(pol, { maxVertices: st.maxVertices }) : null;
+          const plan = await guardarPlan({
+            ...st.planId ? { id: st.planId } : {},
+            nombre: String(fd.get("nombrePlan")).trim(),
+            proyectoId: fd.get("proyectoId") || null,
+            dronId: st.params.dronId,
+            params: { ...st.params },
+            poligono: limpio ? { nombre: pol.nombre, anillo: limpio.anillo } : null,
+            resumen: r && !r.sinArea ? { area: r.area, gsd: r.modo === "foto" ? r.gsd : null, altura: r.altura, densidad: r.densidad, vuelos: r.vuelos, minTotal: r.minTotal, fotos: r.fotos, modo: r.modo } : null
+          });
+          st.planId = plan.id;
+          st.nombrePlan = plan.nombre;
+          st.proyectoId = plan.proyectoId || "";
+          avisar2("Plan guardado");
+        } else if (form.dataset.form === "pronostico") {
+          const fd = new FormData(form);
+          st.pronLat = String(fd.get("lat")).replace(",", ".");
+          st.pronLon = String(fd.get("lon")).replace(",", ".");
+          st.pronDron = fd.get("pronDron");
+          st.pronOrigen = st.pronOrigen || "coordenadas escritas";
+          await consultar();
+          return;
+        } else if (form.dataset.form === "dron") {
+          const fd = new FormData(form);
+          const num = (k) => Number(String(fd.get(k)).replace(",", "."));
+          const valores = Object.fromEntries(CAMPOS_DRON.map(([k]) => [k, num(k)]));
+          if (fd.has("lidarPps")) valores.lidar = { puntosPorSegundo: num("lidarPps"), fovGrados: num("lidarFov") };
+          if (Object.values(valores).some((v) => typeof v === "number" && !(v > 0))) throw new Error("Todos los valores deben ser números mayores que 0.");
+          await guardarDron(form.dataset.id, valores);
+          avisar2("Datos del dron guardados");
+        }
+      } catch (e) {
+        console.error(e);
+        avisar2(e.message, "error");
+      }
+      await render();
+    });
+    async function consultar() {
+      var _a;
+      const lat = Number(st.pronLat), lon = Number(st.pronLon);
+      if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        st.pronError = "Revisa la latitud y la longitud (grados decimales, por ejemplo -32.83 y -70.60).";
+        await render();
+        return;
+      }
+      st.pronCargando = true;
+      st.pronError = "";
+      await render();
+      try {
+        const [p, kps] = await Promise.all([pedirPronostico(lat, lon), st.kps ? Promise.resolve(st.kps) : pedirKp()]);
+        st.pron = p;
+        st.kps = kps;
+        if (!p.horas.some((h) => h.fecha === st.dia)) st.dia = ((_a = p.horas[0]) == null ? void 0 : _a.fecha) || st.dia;
+      } catch (e) {
+        st.pronError = `No se pudo consultar el pronóstico (${e.message}). Revisa la conexión a internet.`;
+      }
+      st.pronCargando = false;
+      await render();
+    }
+    raiz.addEventListener("click", async (ev) => {
+      const b = ev.target.closest("[data-accion]");
+      if (!b) return;
+      const a = b.dataset.accion;
+      try {
+        if (a === "tab") {
+          st.tab = b.dataset.tab;
+        } else if (a === "dia") {
+          st.dia = b.dataset.dia;
+        } else if (a === "descargar-kml" || a === "descargar-kml-plan") {
+          const pol = a === "descargar-kml" ? st.kml.poligonos[Number(b.dataset.i)] : polActual();
+          const limpio = limpiarParaDji(pol, { maxVertices: st.maxVertices });
+          descargar(`${nombreArchivoSeguro(pol.nombre)}_DJI.kml`, kmlDePoligono(pol.nombre, limpio.anillo), "application/vnd.google-earth.kml+xml");
+          avisar2(limpio.verticesOriginales > limpio.vertices ? `Descargado: ${limpio.verticesOriginales} → ${limpio.vertices} vértices (tolerancia ${fmt(limpio.toleranciaM, 2)} m).` : `Descargado con ${limpio.vertices} vértices.`);
+          if (pol.cruces) avisar2("Descargado, pero el contorno se cruza consigo mismo: corrígelo antes de usarlo en el control.", "error");
+        } else if (a === "usar-en-plan") {
+          const pol = st.kml.poligonos[Number(b.dataset.i)];
+          st.poligonos = [pol];
+          st.polSel = 0;
+          st.archivo = st.kml.archivo;
+          st.nombrePlan = pol.nombre;
+          st.planId = null;
+          st.tab = "planificar";
+        } else if (a === "pronostico-plan") {
+          const pol = polActual();
+          if (!pol) return;
+          const { lat0, lon0 } = proyectar(pol.anillo);
+          st.pronLat = lat0.toFixed(5);
+          st.pronLon = lon0.toFixed(5);
+          st.pronDron = st.params.dronId;
+          st.pronOrigen = `centro de «${pol.nombre}»`;
+          st.tab = "pronostico";
+          await consultar();
+          return;
+        } else if (a === "gps") {
+          if (!navigator.geolocation) {
+            avisar2("Este navegador no entrega la ubicación.", "error");
+          } else {
+            const pos = await new Promise((ok, mal) => navigator.geolocation.getCurrentPosition(ok, mal, { enableHighAccuracy: false, timeout: 15e3 }));
+            st.pronLat = pos.coords.latitude.toFixed(5);
+            st.pronLon = pos.coords.longitude.toFixed(5);
+            st.pronOrigen = "tu ubicación actual";
+            await consultar();
+            return;
+          }
+        } else if (a === "nuevo-plan") {
+          st.planId = null;
+          st.nombrePlan = "";
+          st.poligonos = [];
+          st.archivo = "";
+          st.params = { ...PARAMS_INICIALES };
+        } else if (a === "abrir-plan") {
+          await abrirPlan(b.dataset.id);
+        } else if (a === "eliminar-plan") {
+          if (!confirm("¿Eliminar este plan de vuelo?")) return;
+          await eliminarPlan(b.dataset.id);
+          if (st.planId === b.dataset.id) st.planId = null;
+          avisar2("Plan eliminado");
+        } else if (a === "restablecer-dron") {
+          await restablecerDron(b.dataset.id);
+          avisar2("Valores de fábrica restablecidos");
+        } else return;
+      } catch (e) {
+        console.error(e);
+        avisar2(e.message || "No se pudo completar", "error");
+      }
+      await render();
+    });
+    (async () => {
+      if (ctx2.planId) await abrirPlan(ctx2.planId);
+      await render();
+    })();
+    return {
+      desmontar() {
+        activo2 = false;
+        raiz.remove();
+      },
+      refrescar() {
+        if (st.tab === "planes" || st.tab === "drones") render();
+      }
+    };
+  }
+
+  // modulos/vuelos/vuelos.js
+  var ALMACENES2 = Object.values(ALM3);
+  var iniciado2 = false;
+  function iniciar3({ personaId } = {}) {
+    if (!iniciado2) {
+      iniciarDatos2({ personaId: personaId != null ? personaId : null });
+      iniciado2 = true;
+    } else if (personaId !== void 0) fijarPersona2(personaId);
+  }
+  function montar2(contenedor2, contexto) {
+    iniciar3({ personaId: contexto.personaId });
+    return montarPantallas2(contenedor2, contexto);
+  }
+  async function planesDeProyecto2(proyectoId) {
+    iniciar3();
+    const [planes, drones] = await Promise.all([planesDeProyecto(proyectoId), listarDrones()]);
+    return planes.map((p) => ({ id: p.id, nombre: p.nombre, dronId: p.dronId, dron: (drones.find((d) => d.id === p.dronId) || {}).nombre || p.dronId, resumen: p.resumen || {} }));
   }
 
   // app/nube-panel.js
@@ -3434,8 +4595,8 @@ Content-Type: ${mime}\r
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.1";
-  var MODULOS_INCLUIDOS = "Equipos 0.1f";
+  var VERSION_SISTEMA = "0.2";
+  var MODULOS_INCLUIDOS = "Equipos 0.1f + Vuelos 0.1";
 
   // app/vistas.js
   var ICONO = {
@@ -3462,7 +4623,7 @@ Content-Type: ${mime}\r
     <span class="sis-chips">${lugar}${chipCal(e.calibracion)}${chipAlertas(e.alertasActivas.length)}</span>
   </a>`;
   }
-  var vacio = (texto2, extra = "") => `<div class="sis-vacio"><p>${texto2}</p>${extra}</div>`;
+  var vacio = (texto3, extra = "") => `<div class="sis-vacio"><p>${texto3}</p>${extra}</div>`;
   async function inicio(ctx2) {
     var _a;
     const [personas2, proyectos2, equipos] = await Promise.all([listarPersonas(), listarProyectos(), listarEquiposConEstado()]);
@@ -3494,7 +4655,7 @@ Content-Type: ${mime}\r
       const enTerreno = vigentes.filter((e) => e.ubicacion.lugar === "terreno");
       const porProyecto = {};
       for (const e of enTerreno) (porProyecto[_a = e.ubicacion.proyectoId] || (porProyecto[_a] = [])).push(e);
-      const revisar = [...vencidas, ...porVencer, ...sinDato];
+      const revisar2 = [...vencidas, ...porVencer, ...sinDato];
       return `${saludo}${bienvenida}
       <div class="sis-kpis">
         <a class="sis-kpi ${vencidas.length ? "rojo" : ""}" href="#/equipos"><span>${ICONO.calib}Calibraciones vencidas</span><b>${vencidas.length}</b></a>
@@ -3505,7 +4666,7 @@ Content-Type: ${mime}\r
       <div class="sis-columnas">
         <section class="sis-tarjeta">
           <h2>Calibraciones por revisar</h2>
-          ${revisar.length ? `<div class="sis-lista">${revisar.slice(0, 10).map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>${revisar.length > 10 ? `<p class="sis-tenue">y ${revisar.length - 10} más en Equipos → filtro «Calibración por revisar».</p>` : ""}` : vacio(vigentes.length ? "Todas las calibraciones están al día." : "Aún no hay equipos cargados. Ve a Equipos → Administrar → Importar planilla.")}
+          ${revisar2.length ? `<div class="sis-lista">${revisar2.slice(0, 10).map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>${revisar2.length > 10 ? `<p class="sis-tenue">y ${revisar2.length - 10} más en Equipos → filtro «Calibración por revisar».</p>` : ""}` : vacio(vigentes.length ? "Todas las calibraciones están al día." : "Aún no hay equipos cargados. Ve a Equipos → Administrar → Importar planilla.")}
         </section>
         <section class="sis-tarjeta">
           <h2>Alertas abiertas</h2>
@@ -3558,6 +4719,7 @@ Content-Type: ${mime}\r
     const enProyecto = (id) => equipos.filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.proyectoId === id).length;
     const visibles = lista.filter((p) => p.id === OFICINA_ID || verCerrados || p.estado !== "cerrado");
     const nCerrados = lista.filter((p) => p.estado === "cerrado").length;
+    const eliminados = (await enPapelera("compartido_proyectos")).map((x) => x.registro);
     return `<div class="sis-cab"><h1>Proyectos</h1><a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
     <p class="sis-tenue">El proyecto es el eje: de aquí cuelgan los equipos que salen, los certificados para el mandante y, en las próximas versiones, los gastos y las jornadas.</p>
     ${nCerrados ? `<label class="sis-check"><input type="checkbox" data-accion="ver-cerrados" ${verCerrados ? "checked" : ""}> Mostrar cerrados (${nCerrados})</label>` : ""}
@@ -3565,12 +4727,16 @@ Content-Type: ${mime}\r
         <span class="sis-proy-cab"><b>${escapar(p.nombre)}</b>${p.id === OFICINA_ID ? '<span class="sis-chip gris">Especial</span>' : p.estado === "cerrado" ? '<span class="sis-chip gris">Cerrado</span>' : '<span class="sis-chip verde">Activo</span>'}</span>
         <span class="sis-tenue">${escapar(p.mandante || (p.id === OFICINA_ID ? "Trabajo que no es de un contrato" : "Sin mandante"))}${p.comuna ? ` · ${escapar(p.comuna)}` : ""}${p.encargadoId ? ` · ${escapar(nomPers(p.encargadoId))}` : ""}</span>
         <span class="sis-chips">${(p.tiposTrabajo || []).map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_TIPO[t] || t)}</span>`).join("")}${enProyecto(p.id) ? `<span class="sis-chip azul">${enProyecto(p.id)} equipo${enProyecto(p.id) > 1 ? "s" : ""} en terreno</span>` : ""}</span>
-      </a>`).join("")}</div>`;
+      </a>`).join("")}</div>
+    ${eliminados.length ? `<details class="sis-papelera"><summary>Papelera de proyectos (${eliminados.length})</summary>
+      <section class="sis-tarjeta"><div class="sis-lista">${eliminados.map((p) => `<div class="sis-fila">
+        <span class="sis-fila-txt"><b>${escapar(p.nombre)}</b><span class="sis-tenue">Eliminado ${fechaHoraLegible(p.eliminadoEn)}</span></span>
+        <button class="sis-btn chico" data-accion="restaurar-proyecto" data-id="${escapar(p.id)}">Restaurar</button></div>`).join("")}</div></section></details>` : ""}`;
   }
   async function proyecto(ctx2, id) {
     const p = await obtenerProyecto(id);
     if (!p || p.eliminadoEn) return vacio("Este proyecto no existe o está en la papelera.", '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
-    const [personas2, equipos, certs] = await Promise.all([listarPersonas(), listarEquiposConEstado(), certificadosDeProyecto(id)]);
+    const [personas2, equipos, certs, planes] = await Promise.all([listarPersonas(), listarEquiposConEstado(), certificadosDeProyecto(id), planesDeProyecto2(id)]);
     const nomPers = (pid) => (personas2.find((x) => x.id === pid) || {}).nombre || "";
     const enProyecto = equipos.filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.proyectoId === id);
     const esOficina = id === OFICINA_ID;
@@ -3607,6 +4773,12 @@ Content-Type: ${mime}\r
           <p class="sis-tenue">Para entregar al mandante los certificados de los equipos que están en este proyecto.</p>` : vacio("Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.")}
       </section>
     </div>
+    <section class="sis-tarjeta">
+      <div class="sis-cab"><h2>Planes de vuelo</h2>${ctx2.rol === "terreno" ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${escapar(id)}">+ Planificar vuelo</a>` : ""}</div>
+      ${planes.length ? `<div class="sis-lista">${planes.map((v) => `<a class="sis-fila" href="#/vuelos/plan/${escapar(v.id)}">
+          <span class="sis-fila-txt"><b>${escapar(v.nombre)}</b><span class="sis-tenue">${escapar(v.dron)}</span></span>
+          <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 1e4).toLocaleString("es-CL", { maximumFractionDigits: 1 })} ha</span>` : ""}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString("es-CL", { maximumFractionDigits: 2 })} cm</span>` : ""}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ""}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? "s" : ""}</span>` : ""}</span></a>`).join("")}</div>` : '<div class="sis-vacio"><p>Sin planes de vuelo. Desde aquí se calcula GSD, líneas, tiempo y baterías con el KMZ del área.</p></div>'}
+    </section>
     <div class="sis-columnas">
       <section class="sis-tarjeta sis-pronto"><h2>Gastos y boletas</h2><p>Llega en <b>Sistema v0.2</b>: cada gasto con su boleta, la rendición y el abono de RRHH, dentro del proyecto.</p></section>
       <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llega en <b>Sistema v0.3</b>, cuando Terreno Topografía entre al Sistema.</p></section>
@@ -3649,7 +4821,9 @@ Content-Type: ${mime}\r
         <label class="sis-campo"><span>Notas</span><textarea name="notas" rows="3" placeholder="Alcance, contacto en terreno, adjuntos recibidos…">${val("notas")}</textarea></label>
       </fieldset>
       <div class="sis-acciones"><button class="sis-btn primario">${nuevo ? "Crear proyecto" : "Guardar cambios"}</button>
-        ${nuevo ? "" : `<button type="button" class="sis-btn" data-accion="cerrar-proyecto" data-id="${escapar(p.id)}">${p.estado === "cerrado" ? "Reabrir" : "Cerrar proyecto"}</button>`}</div>
+        ${nuevo ? "" : `<button type="button" class="sis-btn" data-accion="cerrar-proyecto" data-id="${escapar(p.id)}">${p.estado === "cerrado" ? "Reabrir" : "Cerrar proyecto"}</button>
+        <button type="button" class="sis-btn peligro" data-accion="eliminar-proyecto" data-id="${escapar(p.id)}">Eliminar</button>`}</div>
+      ${nuevo ? "" : '<p class="sis-tenue">«Cerrar» es para un trabajo terminado: queda en el historial. «Eliminar» es para un proyecto creado por error: va a la papelera y se puede restaurar desde Proyectos.</p>'}
     </form>`;
   }
   async function personas(ctx2) {
@@ -3737,6 +4911,26 @@ Content-Type: ${mime}\r
       case "cancelar-persona":
         ctx2.estado.personaEditar = null;
         return true;
+      case "eliminar-proyecto": {
+        const p = await obtenerProyecto(boton.dataset.id);
+        if (!p || p.id === OFICINA_ID) return false;
+        const enUso = (await listarEquiposConEstado()).filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.proyectoId === p.id);
+        if (enUso.length) {
+          alert(`No se puede eliminar «${p.nombre}»: tiene ${enUso.length} equipo${enUso.length > 1 ? "s" : ""} en terreno. Primero registra su regreso o traspaso en Equipos.`);
+          return false;
+        }
+        if (!confirm(`¿Eliminar el proyecto «${p.nombre}»?
+
+Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
+        await enviarAPapelera("compartido_proyectos", p.id, { personaId: ctx2.personaId });
+        ctx2.avisar("Proyecto eliminado");
+        ctx2.ir("#/proyectos");
+        return false;
+      }
+      case "restaurar-proyecto":
+        await restaurar("compartido_proyectos", boton.dataset.id, { personaId: ctx2.personaId });
+        ctx2.avisar("Proyecto restaurado");
+        return true;
       case "cerrar-proyecto": {
         const p = await obtenerProyecto(boton.dataset.id);
         await guardarProyecto({ id: p.id, estado: p.estado === "cerrado" ? "activo" : "cerrado" }, { personaId: ctx2.personaId });
@@ -3801,9 +4995,9 @@ Content-Type: ${mime}\r
     avisar(`Modo ${NOMBRE_MODO[sig]}`);
   });
   addEventListener("resize", aplicarModo);
-  function avisar(texto2) {
+  function avisar(texto3) {
     const el = $("sis-aviso");
-    el.textContent = texto2;
+    el.textContent = texto3;
     el.hidden = false;
     clearTimeout(timerAviso);
     timerAviso = setTimeout(() => {
@@ -3814,6 +5008,7 @@ Content-Type: ${mime}\r
     { ruta: "inicio", texto: "Inicio", roles: ["terreno", "rrhh"] },
     { ruta: "proyectos", texto: "Proyectos", roles: ["terreno", "rrhh"], tambien: ["proyecto", "proyecto-editar"] },
     { ruta: "equipos", texto: "Equipos", roles: ["terreno", "rrhh"] },
+    { ruta: "vuelos", texto: "Vuelos", roles: ["terreno"] },
     { ruta: "gastos", texto: "Gastos", roles: ["terreno", "rrhh"], pronto: true },
     { ruta: "terreno", texto: "Libreta de terreno", roles: ["terreno"], pronto: true },
     { ruta: "personas", texto: "Personas", roles: ["rrhh", "terreno"] }
@@ -3861,6 +5056,21 @@ Content-Type: ${mime}\r
     }
     pintarMenu(base);
     const clave = `${base}/${arg || ""}/${selRol.value}/${selPersona.value}`;
+    if (base === "vuelos") {
+      const partes = location.hash.replace(/^#\/?/, "").split("/");
+      desmontar();
+      contenedor.innerHTML = "";
+      contenedor.dataset.vista = "modulo";
+      montado = montar2(contenedor, {
+        rol: selRol.value,
+        personaId: selPersona.value || null,
+        planId: partes[1] === "plan" ? partes[2] : null,
+        proyectoId: partes[1] === "proyecto" ? partes[2] : null
+      });
+      rutaActual = clave;
+      window.scrollTo(0, 0);
+      return;
+    }
     if (base === "equipos") {
       desmontar();
       contenedor.innerHTML = "";
@@ -3944,6 +5154,7 @@ Content-Type: ${mime}\r
     selRol.value = leer("env_rol", "terreno") === "rrhh" ? "rrhh" : "terreno";
     await cargarPersonas(leer("env_persona", ""));
     iniciar2({ personaId: selPersona.value || null });
+    iniciar3({ personaId: selPersona.value || null });
     selRol.addEventListener("change", () => {
       escribir("env_rol", selRol.value);
       rutaActual = "";

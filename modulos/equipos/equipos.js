@@ -102,3 +102,11 @@ export async function certificadosDeProyecto(proyectoId) {
 
 /** Abre un archivo del módulo (por ejemplo el PDF de un certificado) en otra pestaña. */
 export { abrirArchivo };
+
+/** Todos los equipos vigentes (no de baja ni en papelera) con su estado. Agregado en Sistema v0.1 para la portada. */
+export async function listarEquiposConEstado({ incluirBaja = false } = {}) {
+  iniciar();
+  return (await listarConEstado())
+    .filter(e => incluirBaja || e.ubicacion.lugar !== 'baja')
+    .map(resumen);
+}

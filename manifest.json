@@ -1,7 +1,7 @@
 {
-  "name": "Equipos — prueba del módulo",
-  "short_name": "Equipos",
-  "description": "Inventario de equipos topográficos: calibraciones, checklist de salida y alertas.",
+  "name": "Topoland · Sistema de trabajo",
+  "short_name": "Topoland",
+  "description": "Sistema de trabajo de Topoland: proyectos, equipos y, pronto, gastos y libreta de terreno.",
   "lang": "es-CL",
   "start_url": "./index.html",
   "scope": "./",

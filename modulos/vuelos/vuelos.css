@@ -108,20 +108,147 @@ body[data-modo="pc"] .vu-mapa{height:470px;}
 .vu-kml{display:grid; gap:0 20px;}
 body[data-modo="pc"] .vu-kml{grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start;}
 .vu-kml-mapa{border-radius:10px; overflow:hidden; border:1px solid var(--borde); margin-bottom:14px;}
-/* Teléfono: área, mapa y resultados arriba; los controles después (el mapa queda a la vista al cargar el KMZ). */
-body:not([data-modo="pc"]) .vu-planificar{display:flex; flex-direction:column;}
-body:not([data-modo="pc"]) .vu-izquierda, body:not([data-modo="pc"]) .vu-derecha, body:not([data-modo="pc"]) .vu-planificar .vu-form{display:contents;}
-body:not([data-modo="pc"]) .vu-t-area{order:1;}
-body:not([data-modo="pc"]) #vu-kpis{order:2;}
-body:not([data-modo="pc"]) .vu-mapa-caja{order:3;}
-body:not([data-modo="pc"]) #vu-leyenda{order:4; margin-bottom:14px;}
-body:not([data-modo="pc"]) .vu-t-dron{order:5;}
-body:not([data-modo="pc"]) #vu-detalle{order:6; margin-top:0;}
-body:not([data-modo="pc"]) .vu-t-guardar{order:7;}
-body:not([data-modo="pc"]) .vu-mapa-caja{margin-bottom:0;}
 body:not([data-modo="pc"]) .vu-barra-txt{flex:1 1 100%;}
 .vu-mapa-caja{isolation:isolate; z-index:0;}
 body:not([data-modo="pc"]) .vu-kpis{grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px;}
 body:not([data-modo="pc"]) .vu-kpi{padding:6px 8px;}
 body:not([data-modo="pc"]) .vu-kpi span{font-size:11px;}
 body:not([data-modo="pc"]) .vu-kpi b{font-size:16px; white-space:nowrap;}
+
+/* ---------- Vuelos 0.3: hojas de vuelo ---------- */
+.vu-filtro{max-width:320px;}
+.vu-hoja-cab{margin-bottom:12px;}
+.vu-tira{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:12px;}
+body[data-modo="pc"] .vu-tira{grid-template-columns:repeat(6, minmax(0,1fr));}
+.vu-kpi small{display:block; font-size:12px; color:var(--muted); line-height:1.3;}
+.vu-kpi.bien{border-color:#9FD3C7; background:#F2FAF8;} .vu-kpi.bien b{color:#0F5F58;}
+.vu-tira .vu-kpi b{font-size:17px;}
+.vu-pasos{display:flex; gap:0; overflow-x:auto; border-bottom:1px solid var(--borde); margin:0 0 16px; scrollbar-width:none;}
+.vu-pasos::-webkit-scrollbar{display:none;}
+.vu-paso{flex:none; background:none; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; padding:10px 14px; font:inherit; font-size:14px; color:var(--muted); cursor:pointer; min-height:44px;}
+.vu-paso.activo{color:var(--ink); font-weight:600; border-bottom-color:var(--marca);}
+.vu-ok{font-style:normal; color:#0F766E; font-weight:700;} .vu-alerta{font-style:normal; color:#C2410C; font-weight:700;}
+.vu-dos{display:grid; gap:0 20px;}
+body[data-modo="pc"] .vu-dos{grid-template-columns:minmax(320px, 400px) minmax(0,1fr); align-items:start;}
+body[data-modo="pc"] .vu-dos.ancho{grid-template-columns:minmax(0,1fr) 380px;}
+.vu-res-grilla{display:grid; gap:0 16px;}
+body[data-modo="pc"] .vu-res-grilla{grid-template-columns:repeat(2, minmax(0,1fr));}
+.vu-res-cab{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+.vu-res-cab h2{margin:0 !important;}
+.vu-res-cab .vu-link{margin-left:auto; font-size:13px; font-weight:600; text-decoration:none;}
+.vu-num{width:24px; height:24px; border-radius:50%; background:var(--marca); color:#fff; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex:none;}
+.vu-datos-grilla{display:grid; gap:0 12px; grid-template-columns:repeat(2, minmax(0,1fr));}
+body[data-modo="pc"] .vu-datos-grilla{grid-template-columns:2fr 2fr 1fr 1.5fr;}
+.vu-mini-kpis{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; margin-bottom:6px;}
+.vu-mini-kpis .vu-kpi{padding:6px 8px;} .vu-mini-kpis .vu-kpi b{font-size:15px;}
+.vu-verde{color:#0F5F58; font-weight:600;} .vu-rojo{color:#9A3412; font-weight:600;}
+.vu-banner{display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; padding:12px 16px; border-radius:10px; background:#FFF8F3; border:1px solid #F1C9A8; margin:0 0 14px;}
+.vu-banner > div{flex:1 1 420px; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.vu-banner b{color:#7C2D12;} .vu-banner span{font-size:13px; color:#5A2A12;}
+.vu-pildoras{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px;}
+.vu-pildora{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:#fff; border-radius:999px; padding:5px 12px; font:inherit; font-size:13px; cursor:pointer; min-height:34px; color:var(--ink);}
+.vu-pildora.activo{background:var(--marca); border-color:var(--marca); color:#fff; font-weight:600;}
+.vu-pildora i{width:10px; height:10px; border-radius:3px; display:inline-block;}
+.vu-candidatos{margin:12px 0 0; padding:10px 12px; border-radius:10px; background:var(--marca-suave); font-size:14px;}
+.vu-candidatos p{margin:0 0 6px !important;}
+.vu-sectores{display:flex; flex-direction:column;}
+.vu-sector{display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid #EFEDE8; flex-wrap:wrap;}
+.vu-sector:first-child{border-top:0;}
+.vu-sector > i{width:12px; height:12px; border-radius:3px; flex:none;}
+.vu-sector-nombre{width:110px; min-height:34px; border:1px solid var(--line); border-radius:8px; padding:4px 8px; font:inherit; font-weight:600;}
+.vu-sector-dato{font-size:13px; color:#43484E; flex:1 1 120px;}
+.vu-sector-acc{display:inline-flex; gap:10px;}
+.vu-total{margin:8px 0 !important; font-weight:600; font-size:14px;}
+.vu-zonas-res{display:flex; flex-direction:column; gap:6px; margin-bottom:10px;}
+.vu-zonas-res > div{display:flex; gap:8px; align-items:flex-start; font-size:14px;}
+.vu-zonas-res i, .vu-capas i{width:10px; height:10px; border-radius:50%; display:inline-block; flex:none; margin-top:5px;}
+.vu-zonas-res small{display:block; color:var(--muted); font-size:12px; font-weight:400;}
+.vu-capas{border:1px solid var(--borde); border-radius:10px; padding:6px 12px 2px; margin:0 0 10px;}
+.vu-capas legend{font-size:12px; font-weight:600; color:var(--muted); padding:0 4px;}
+.vu-capas .sis-check{margin:0 0 4px; min-height:32px; font-size:14px;}
+.vu-capas .sis-check i{margin-top:0;}
+.vu-capas small{color:var(--muted); font-size:12px;}
+.vu-capa-form{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px;}
+.vu-capa-form select{min-height:34px; border:1px solid var(--line); border-radius:8px; padding:0 8px; font:inherit; font-size:13px; background:#fff;}
+.vu-vertice span{display:block; width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid #1C1F23; cursor:grab;}
+.leaflet-tooltip.vu-etiqueta{background:rgba(28,31,35,.82); color:#fff; border:0; box-shadow:none; font-weight:700; font-size:13px; padding:3px 8px;}
+.leaflet-tooltip.vu-etiqueta::before{display:none;}
+.vu-sector-chips{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 12px;}
+.vu-sector-chips .sis-tenue{margin-left:auto;}
+/* Leyenda compacta dentro del mapa */
+.vu-leyenda-mapa{position:absolute; left:10px; bottom:10px; z-index:500; max-width:calc(100% - 20px);}
+.vu-leyenda-caja{display:block; background:rgba(255,255,255,.96); border-radius:8px; padding:7px 10px; box-shadow:0 1px 6px rgba(0,0,0,.25); font:inherit; font-size:12px; color:var(--ink); text-align:left; border:0;}
+.vu-leyenda-caja > b{display:block; margin-bottom:4px;}
+.vu-leyenda-caja.plegada{display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;}
+.vu-leyenda-caja.plegada b{display:inline; margin:0;}
+.vu-leyenda-caja.alerta{background:#FFF8F3; color:#5A2A12; max-width:260px;}
+.vu-leyenda-caja.alerta span{display:block;}
+.vu-ley-cab{display:flex; justify-content:space-between; gap:12px; width:100%; background:none; border:0; padding:0 0 4px; font:inherit; font-size:12px; cursor:pointer; color:var(--ink);}
+.vu-ley-cab span{color:var(--enlace); font-weight:600;}
+.vu-ley-lista{display:flex; flex-direction:column; gap:2px;}
+.vu-ley-lista.dos{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:2px 14px; max-height:160px; overflow:auto;}
+.vu-ley-item{display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);}
+.vu-ley-item i{width:14px; height:3px; border-radius:2px; box-shadow:0 0 0 1px rgba(0,0,0,.15); display:inline-block;}
+.vu-ley-item i.vu-punto{width:10px; height:10px; border-radius:50%; background:var(--marca); border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.3);}
+.vu-ley-item em{font-style:normal; margin-left:auto; padding-left:8px; color:#43484E;}
+.vu-ley-colores{display:inline-flex; gap:2px;} .vu-ley-colores i{width:8px; height:8px; border-radius:2px; display:inline-block;}
+.vu-mapa-caja .vu-mapa-barra{bottom:auto; top:10px; left:54px;}
+/* Pronóstico gráfico */
+.vu-graf{overflow-x:auto; margin:4px -4px 8px; padding:0 4px;}
+.vu-graf-svg{display:block;}
+.vu-graf-fila{display:grid; gap:2px; align-items:center; margin-top:2px;}
+.vu-graf-tit{font-size:11px; color:var(--muted);}
+.vu-graf-celda{text-align:center; font-size:11px; font-family:var(--mono); padding:3px 0; border-radius:4px; display:flex; flex-direction:column; align-items:center; gap:2px;}
+.vu-graf-celda.azul{background:#E6ECF8;} .vu-graf-celda.gris{background:#ECEDEF;} .vu-graf-celda.ambar{background:#FCEDE6;}
+.vu-graf-estado{color:#fff; font-size:9px; font-weight:700; border-radius:3px; padding:0 3px; font-family:var(--sans);}
+.vu-graf-ley{margin:8px 0 2px !important;}
+.vu-metar{white-space:pre-wrap; font-family:var(--mono); font-size:12px; background:#FAFAF8; border:1px solid var(--borde-suave); border-radius:8px; padding:8px 10px; margin:6px 0;}
+.vu-viento{display:flex; flex-wrap:wrap; gap:6px;}
+.vu-viento input{min-height:36px; border:1px solid var(--line); border-radius:8px; padding:4px 8px; font:inherit; width:80px;}
+.vu-viento input[name=nota]{flex:1 1 140px; width:auto;}
+/* Permisos */
+.vu-hitos{display:flex; flex-direction:column; gap:2px; margin:0 0 12px;}
+.vu-hito{display:grid; grid-template-columns:18px 1fr auto; align-items:center; gap:10px; padding:6px 0; border-left:2px solid #E2E0DA; margin-left:7px; padding-left:12px; position:relative;}
+.vu-hito-punto{position:absolute; left:-8px; width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid #B9B5AC;}
+.vu-hito.hecho .vu-hito-punto{background:#0F766E; border-color:#0F766E;}
+.vu-hito > span:nth-child(2){grid-column:1 / 3; font-size:14px;}
+.vu-hito input{min-height:36px; border:1px solid var(--line); border-radius:8px; padding:4px 8px; font:inherit; font-size:14px;}
+.vu-doc{display:flex; margin:0 0 6px;}
+.vu-consulta{display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; padding:10px 0; border-top:1px solid #EFEDE8;}
+.vu-consulta:first-of-type{border-top:0;}
+.vu-consulta > div:first-child{display:flex; flex-direction:column; gap:2px;}
+.vu-consulta a{text-decoration:none; color:var(--ink);}
+/* Hoja impresa */
+#vu-impresion{display:none;}
+@media print{
+  body.vu-imprimiendo > *:not(#vu-impresion){display:none !important;}
+  body.vu-imprimiendo #vu-impresion{display:block;}
+  body.vu-imprimiendo{background:#fff;}
+  @page{size:A4; margin:12mm;}
+}
+.vu-imp{font-family:var(--sans); color:#1C1F23; font-size:11px; line-height:1.35;}
+.vu-imp header{display:flex; justify-content:space-between; border-bottom:2px solid #1C1F23; padding-bottom:4px; margin-bottom:8px; font-size:14px;}
+.vu-imp h3{font-size:12px; margin:10px 0 4px; text-transform:uppercase; letter-spacing:.04em;}
+.vu-imp table{border-collapse:collapse; width:100%;}
+.vu-imp-datos th{text-align:left; width:110px; color:#5B6168; font-weight:500; padding:2px 0;}
+.vu-imp-datos td{padding:2px 0;}
+.vu-imp-mapa{border:1px solid #D6D3CC; margin:8px 0; page-break-inside:avoid;}
+.vu-imp-mapa svg{display:block; max-height:95mm;}
+.vu-imp-tabla th, .vu-imp-tabla td{border:1px solid #D6D3CC; padding:3px 5px; text-align:left;}
+.vu-imp-tabla th{background:#EFEDE8;}
+.vu-imp-tabla.chica td{height:15px;}
+.vu-imp-dos{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+.vu-imp-chk{list-style:none; padding:0; margin:0;}
+.vu-imp-obs{border:1px solid #D6D3CC; height:40mm;}
+.vu-imp .mono{font-family:var(--mono); font-size:10px;}
+.vu-imp footer{margin-top:10px; font-size:9px; color:#5B6168; border-top:1px solid #D6D3CC; padding-top:4px;}
+/* Teléfono: mapa y resultados antes de los controles */
+body:not([data-modo="pc"]) .vu-dos{display:flex; flex-direction:column;}
+body:not([data-modo="pc"]) .vu-dos .vu-izquierda, body:not([data-modo="pc"]) .vu-dos .vu-derecha, body:not([data-modo="pc"]) .vu-dos .vu-form{display:contents;}
+body:not([data-modo="pc"]) .vu-dos #vu-kpis{order:1;}
+body:not([data-modo="pc"]) .vu-dos .vu-mapa-caja{order:2;}
+body:not([data-modo="pc"]) .vu-dos .vu-mapa-caja + .vu-pie{order:3; margin-bottom:14px !important;}
+body:not([data-modo="pc"]) .vu-dos > .vu-izquierda > *, body:not([data-modo="pc"]) .vu-dos .vu-form > *{order:4;}
+body:not([data-modo="pc"]) .vu-dos #vu-detalle{order:5;}
+body:not([data-modo="pc"]) .vu-dos.ancho .vu-izquierda > *{order:1;}
+body:not([data-modo="pc"]) .vu-dos.ancho .vu-derecha > *{order:2;}

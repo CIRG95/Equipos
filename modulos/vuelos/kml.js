@@ -50,7 +50,8 @@ const hijos = (el, nombre) => [...el.getElementsByTagNameNS('*', nombre)];
 const texto = (el, nombre) => { const x = el.getElementsByTagNameNS('*', nombre)[0]; return x ? x.textContent.trim() : ''; };
 
 function leerCoordenadas(t) {
-  return t.trim().split(/\s+/).filter(Boolean).map(c => c.split(',').map(Number)).filter(c => c.length >= 2 && c.every(isFinite));
+  // Global Mapper y otros a veces escriben «lon, lat» con espacio después de la coma: se normaliza.
+  return t.trim().replace(/\s*,\s*/g, ',').split(/\s+/).filter(Boolean).map(c => c.split(',').map(Number)).filter(c => c.length >= 2 && c.every(isFinite));
 }
 
 /** Devuelve { poligonos: [...], lineas, puntos, carpetas, error? } */
@@ -58,7 +59,7 @@ export function analizarKml(textoKml, nombreArchivo = '') {
   const doc = new DOMParser().parseFromString(textoKml, 'application/xml');
   if (doc.getElementsByTagName('parsererror').length) throw new Error('El archivo no es un KML válido.');
   const placemarks = hijos(doc, 'Placemark');
-  const res = { archivo: nombreArchivo, poligonos: [], lineas: 0, puntos: 0, carpetas: hijos(doc, 'Folder').length, placemarks: placemarks.length };
+  const res = { archivo: nombreArchivo, poligonos: [], ejes: [], lineas: 0, puntos: 0, carpetas: hijos(doc, 'Folder').length, placemarks: placemarks.length };
   let n = 0;
   for (const pm of placemarks) {
     const nombre = texto(pm, 'name') || '';
@@ -72,12 +73,88 @@ export function analizarKml(textoKml, nombreArchivo = '') {
     for (const ls of hijos(pm, 'LineString')) {
       res.lineas++;
       const coords = leerCoordenadas(texto(ls, 'coordinates'));
-      // Una polilínea de 3 o más vértices (típica de AutoCAD) puede usarse como polígono cerrándola.
-      if (coords.length >= 3) res.poligonos.push(revisar(coords, { nombre: nombre || `Línea ${++n}`, hoyos: 0, modo, origen: 'linea' }));
+      const nom = nombre || `Línea ${++n}`;
+      const abierta = coords.length >= 2 && !igual(coords[0], coords[coords.length - 1]);
+      // Una línea abierta puede ser el eje de un corredor; con 3 o más vértices también puede cerrarse como contorno (polilínea de AutoCAD).
+      if (abierta) res.ejes.push(revisarEje(coords, { nombre: nom, modo }));
+      if (coords.length >= 3) res.poligonos.push({ ...revisar(coords, { nombre: nom, hoyos: 0, modo, origen: 'linea' }), abierta });
     }
     res.puntos += hijos(pm, 'Point').length;
   }
   return res;
+}
+
+/** Eje (línea abierta): 2D, sin vértices repetidos, con su largo. */
+function revisarEje(coords, info) {
+  const conAltura = coords.some(c => c.length > 2 && c[2] !== 0) || (info.modo && info.modo !== 'clampToGround');
+  const linea = [];
+  let duplicados = 0;
+  for (const c of coords) { const p = [c[0], c[1]]; if (linea.length && igual(linea[linea.length - 1], p)) duplicados++; else linea.push(p); }
+  const { puntos } = proyectar(linea);
+  let largo = 0; for (let i = 1; i < puntos.length; i++) largo += Math.hypot(puntos[i][0] - puntos[i - 1][0], puntos[i][1] - puntos[i - 1][1]);
+  const problemas = [];
+  if (conAltura) problemas.push('Trae altura o un modo de altitud distinto de «sobre el terreno».');
+  if (duplicados) problemas.push(`${duplicados} vértice${duplicados > 1 ? 's' : ''} repetido${duplicados > 1 ? 's' : ''}.`);
+  if (linea.length > 200) problemas.push(`${linea.length} vértices: muchos para el control; se simplifica.`);
+  if (!coords.every(c => Math.abs(c[0]) <= 180 && Math.abs(c[1]) <= 90)) problemas.push('Las coordenadas no parecen latitud/longitud (WGS84). ¿Viene en UTM?');
+  return { ...info, linea, vertices: linea.length, largo, problemas };
+}
+
+/** Lee todas las geometrías de una capa de referencia (zonas): puntos, líneas y polígonos, con su nombre. */
+export function leerCapa(textoKml) {
+  const doc = new DOMParser().parseFromString(textoKml, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('El archivo no es un KML válido.');
+  const elementos = [];
+  for (const pm of hijos(doc, 'Placemark')) {
+    const nombre = texto(pm, 'name') || '';
+    for (const pol of hijos(pm, 'Polygon')) {
+      const ext = pol.getElementsByTagNameNS('*', 'outerBoundaryIs')[0];
+      const c = ext ? leerCoordenadas(texto(ext, 'coordinates')).map(x => [x[0], x[1]]) : [];
+      if (c.length >= 3) elementos.push({ tipo: 'poligono', nombre, coords: c });
+    }
+    for (const ls of hijos(pm, 'LineString')) {
+      const c = leerCoordenadas(texto(ls, 'coordinates')).map(x => [x[0], x[1]]);
+      if (c.length >= 2) elementos.push({ tipo: 'linea', nombre, coords: c });
+    }
+    for (const pt of hijos(pm, 'Point')) {
+      const c = leerCoordenadas(texto(pt, 'coordinates'));
+      if (c.length) elementos.push({ tipo: 'punto', nombre, coords: [c[0][0], c[0][1]] });
+    }
+  }
+  return elementos;
+}
+
+/** Limpia un eje para el modo corredor de DJI Pilot 2: 2D, sin repetidos y con ≤ maxVertices. */
+export function limpiarEje(eje, { maxVertices = 200 } = {}) {
+  const { puntos, lat0, lon0 } = proyectar(eje.linea);
+  let simplificado = puntos, tolerancia = 0;
+  if (puntos.length > maxVertices) {
+    tolerancia = 0.05;
+    while (simplificado.length > maxVertices && tolerancia < 50) { const prueba = dp(puntos, tolerancia); if (prueba.length < 2) break; simplificado = prueba; tolerancia *= 1.5; }
+  }
+  const k = Math.cos(lat0 * Math.PI / 180) * 111320;
+  const linea = tolerancia ? simplificado.map(([x, y]) => [lon0 + x / k, lat0 + y / 110540]) : eje.linea;
+  return { ...eje, linea, vertices: linea.length, verticesOriginales: eje.vertices, toleranciaM: tolerancia ? tolerancia / 1.5 : 0 };
+}
+
+/** KML con una sola línea sobre el terreno (para el modo corredor del control). */
+export function kmlDeLinea(nombre, linea) {
+  const coords = linea.map(([lon, lat]) => `${lon.toFixed(8)},${lat.toFixed(8)},0`).join(' ');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+<name>${escXml(nombre)}</name>
+<Placemark>
+<name>${escXml(nombre)}</name>
+<LineString>
+<tessellate>1</tessellate>
+<altitudeMode>clampToGround</altitudeMode>
+<coordinates>${coords}</coordinates>
+</LineString>
+</Placemark>
+</Document>
+</kml>
+`;
 }
 
 const igual = (a, b) => Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9;
@@ -92,7 +169,7 @@ function revisar(coords, info) {
   const cruces = autoInterseccion(puntos);
   const lonLat = coords.every(c => Math.abs(c[0]) <= 180 && Math.abs(c[1]) <= 90);
   const problemas = [];
-  if (info.origen === 'linea') problemas.push('Es una línea, no un polígono: se cierra al limpiar.');
+  if (info.origen === 'linea') problemas.push('Es una línea, no un polígono: se cierra al limpiar (o úsala como eje de corredor).');
   if (conAltura) problemas.push('Trae altura o un modo de altitud distinto de «sobre el terreno».');
   if (info.hoyos) problemas.push(`Tiene ${info.hoyos} hoyo${info.hoyos > 1 ? 's' : ''} interior${info.hoyos > 1 ? 'es' : ''}: el control no los usa y se quitan.`);
   if (!cerrado && info.origen === 'poligono') problemas.push('El contorno no está cerrado.');

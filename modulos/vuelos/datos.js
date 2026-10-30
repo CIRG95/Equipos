@@ -1,17 +1,19 @@
 // modulos/vuelos/datos.js — almacenes del módulo Vuelos (prefijo vuelos_).
 
-import { registrarAlmacenes, obtener, todos, porIndice, guardar } from '../../compartido/almacen.js';
+import { registrarAlmacenes, obtener, todos, porIndice, guardar, borrarDefinitivo } from '../../compartido/almacen.js';
 import { sellar } from '../../compartido/util.js';
 import { enviarAPapelera } from '../../compartido/papelera.js';
 import { DRONES_BASE } from './drones.js';
 
-export const VERSION_MODULO = '0.2';
-export const SCHEMA_VERSION = 1;
+export const VERSION_MODULO = '0.3';
+export const SCHEMA_VERSION = 2; // 2: hoja de vuelo (área, clima, permisos)
 export const ALM = { planes: 'vuelos_planes', drones: 'vuelos_drones' };
+// Las capas de zonas pueden pesar varios MB: quedan solo en este equipo (sin prefijo vuelos_, la nube no las sube).
+const ALM_CAPAS = 'local_vuelos_capas';
 
 let persona = null;
 export function iniciarDatos({ personaId = null } = {}) {
-  registrarAlmacenes([{ nombre: ALM.planes, indices: [['proyectoId', 'proyectoId']] }, { nombre: ALM.drones }]);
+  registrarAlmacenes([{ nombre: ALM.planes, indices: [['proyectoId', 'proyectoId']] }, { nombre: ALM.drones }, { nombre: ALM_CAPAS }]);
   persona = personaId;
 }
 export function fijarPersona(p) { persona = p; }
@@ -39,3 +41,8 @@ export async function planesDeProyecto(proyectoId) { return (await porIndice(ALM
 export async function obtenerPlan(id) { const p = await obtener(ALM.planes, id); return p && vivo(p) ? p : null; }
 export async function guardarPlan(plan) { return guardar(ALM.planes, sello({ ...plan })); }
 export async function eliminarPlan(id) { return enviarAPapelera(ALM.planes, id, { personaId: persona }); }
+
+// ─────────── Capas de zonas cargadas por el usuario ───────────
+export async function listarCapasUsuario() { return (await todos(ALM_CAPAS)).filter(vivo); }
+export async function guardarCapaUsuario(capa) { return guardar(ALM_CAPAS, sello({ ...capa }), { silencioso: true }); }
+export async function borrarCapaUsuario(id) { return borrarDefinitivo(ALM_CAPAS, id); }

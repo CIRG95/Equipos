@@ -203,11 +203,11 @@ async function proyecto(ctx, id) {
     ${p.notas ? `<p class="sis-notas">${esc(p.notas)}</p>` : ''}
     <div class="sis-dos"><div>
       <section class="sis-tarjeta">
-        <div class="sis-cab"><h2>Planes de vuelo</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">+ Planificar vuelo</a>` : ''}</div>
+        <div class="sis-cab"><h2>Hojas de vuelo</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">+ Hoja de vuelo</a>` : ''}</div>
         ${planes.length ? `<div class="sis-lista">${planes.map(v => `<a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
             <span class="sis-fila-txt"><b>${esc(v.nombre)}</b><span class="sis-tenue">${esc(v.dron)}</span></span>
             <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>`).join('')}</div>`
-          : '<div class="sis-vacio"><p>Sin planes de vuelo. Desde aquí se calcula GSD, líneas, tiempo y baterías con el KMZ del área.</p></div>'}
+          : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
       </section>
       <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llega cuando Terreno Topografía entre al Sistema.</p></section>
     </div><aside>

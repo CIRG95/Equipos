@@ -1,4 +1,70 @@
-# Topoland · Sistema de trabajo — v0.3 (paquete de mejoras)
+# Topoland · Sistema de trabajo — v0.4 (hojas de vuelo)
+
+**Sistema v0.4 = envoltorio global + Equipos 0.1f + Vuelos 0.3.**
+
+## Qué cambia en v0.4: Vuelos se ordena en **hojas de vuelo**
+Cada trabajo de vuelo es una hoja con su encabezado: fecha, piloto, dron, GSD y altura. Debajo hay 6 indicadores: área, vuelo, ventana GO, ráfaga máxima, Kp y luz, y permiso DGAC. La hoja tiene un **Resumen** y cuatro pasos (✓ = listo, ! = revisar).
+
+La hoja **se guarda sola** al cargar el área o al ponerle nombre. Arriba del módulo hay cuatro pestañas: **Hojas de vuelo**, **Pronóstico rápido** (sin hoja), **Limpiar KML** y **Drones**. Los planes de la v0.3 se abren como hojas sin perder nada.
+
+1. **Área**
+   - Cargar KML/KMZ, **dibujar el área** o **dibujar un eje**.
+   - Si el archivo trae una **línea abierta**, pregunta si es el **eje de un corredor** o si hay que cerrarla como contorno.
+   - **Margen hacia afuera:** de 0 a 100 m, con accesos rápidos a 20, 30 y 50 m, y esquinas rectas o redondeadas. El polígono del mandante queda guardado tal cual.
+   - **Corredor:** ancho hacia la izquierda y la derecha (o el mismo a los dos lados), con la opción de invertir. Las pasadas siguen el eje.
+   - **Sectores:**
+     - Con «Trazar corte» se divide el área a mano siguiendo un camino o una quebrada. Los vértices del corte se arrastran.
+     - Cada sector tiene nombre, hectáreas, baterías y tiempo, y su KML.
+     - Si el área es grande (más de 6 baterías, o parte del recorrido fuera del alcance de una batería), aparece **«Dividir en sectores»**.
+   - **Zonas de referencia:**
+     - Viene incluida la capa de **aeródromos** (774, del visor de Vuelatudrone). Dice a qué distancia queda el más cercano o si el área lo toca.
+     - Se pueden cargar más capas (KMZ, KML o JSON): zonas restringidas, áreas protegidas o caminos.
+     - Es referencial: lo oficial es AIP Chile.
+2. **Vuelo:** el planificador de la v0.3 con estos cambios:
+   - **Un sector a la vez**, con el total de la hoja arriba.
+   - **Despegue y rumbo propios** para cada sector.
+   - **Las líneas largas se reparten entre baterías:** antes una línea más larga que una batería sumaba una batería entera; ahora la batería siguiente retoma desde donde quedó la anterior.
+   - **Leyenda compacta dentro del mapa:** hasta 6 baterías a la vista; si son más, queda plegada en una línea.
+   - **Corredor:** simula las pasadas, el tiempo y las baterías, y descarga el **eje limpio para el modo corredor de DJI Pilot 2**.
+3. **Clima**
+   - Gráfico por hora: barra de viento a 120 m con el color del estado, línea de ráfaga, banda con la diferencia entre modelos y límites del dron.
+   - Debajo, filas de dirección, lluvia, nubes, temperatura y Kp.
+   - **Checklist meteorológico** sobre la ventana GO.
+   - **METAR/TAF** del aeródromo con reporte más cercano (NOAA). Si no responde, deja el enlace para revisarlo a mano.
+   - **Viento medido en terreno** con el anemómetro.
+4. **Permisos y consultas**
+   - Solicitud DGAC por etapas (preparada, enviada, aprobada, vigente hasta) y el número.
+   - Avisa si se envió con menos de 7 días hábiles y calcula la fecha límite.
+   - Checklist de documentos.
+   - Para **NOTAM** y **mapa AIP**: «Marcar revisado», que guarda fecha y persona, y «+ Captura».
+
+**Hoja para terreno (PDF):** abre la impresión con los datos, un esquema del área (sectores, líneas por batería, despegues, norte y escala), una tabla por sector con las coordenadas de despegue, el clima, el checklist, los permisos y una tabla en blanco para el viento medido. En el teléfono o el PC, elige «Guardar como PDF».
+
+**Limpiar KML** también acepta líneas: corrige la altura, los vértices repetidos y el exceso de vértices, y descarga **la línea limpia**. Con «Nueva hoja» crea una hoja de vuelo con ese elemento. Lee mejor los archivos de Global Mapper (coordenadas con espacios).
+
+### Cómo actualizar desde la v0.3
+**Importante:** la subida de la v0.3 quedó a medias, porque solo se actualizaron los archivos de la raíz. Esta vez:
+1. Descomprime el zip **en el PC**.
+2. En `github.dev/CIRG95/Equipos`, arrastra **todo el contenido, carpetas incluidas** (`app`, `compartido`, `modulos`, `vendor`) y acepta reemplazar. No borres tu `config.js`.
+3. Haz **Commit & Push**.
+4. Revisa que debajo de «Topoland» diga **v0.4** y que el encabezado sea blanco.
+
+### Qué probar
+1. Un KMZ real de Global Mapper que antes fallara en el control: descargarlo limpio y cargarlo en DJI Pilot 2.
+2. Margen de 30 m más un corte por un camino: comparar el tiempo por sector con DJI Pilot 2.
+3. Un eje de canal o camino como corredor, y llevar el eje limpio al modo corredor del control.
+4. El pronóstico y el METAR de un día real; anotar el viento medido.
+5. Imprimir la hoja como PDF desde el teléfono.
+
+### Conocido / pendiente
+- Las capas de zonas restringidas o prohibidas y de áreas protegidas no vienen incluidas: hay que cargarlas (ideal: los JSON del visor de Vuelatudrone).
+- METAR desde NOAA: si el servicio no deja consultarlo desde la página, aparece el enlace. Hay que probarlo en terreno.
+- El tiempo por batería supone el recorrido en zigzag; DJI Pilot 2 puede ordenar distinto.
+- El GSD sigue siendo sobre el punto de despegue (sin modelo de elevación).
+
+---
+
+## Versión anterior: Topoland · Sistema de trabajo — v0.3 (paquete de mejoras)
 
 **Sistema v0.3 = envoltorio global + Equipos 0.1f + Vuelos 0.2.**
 

@@ -1,0 +1,11 @@
+{
+ "capas": [
+  {
+   "archivo": "aerodromos.json",
+   "nombre": "Aeródromos",
+   "tipo": "aerodromo",
+   "fecha": "al 14-may-2026",
+   "fuente": "Visor de zonas Vuelatudrone (referencial)"
+  }
+ ]
+}

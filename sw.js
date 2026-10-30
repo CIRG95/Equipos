@@ -1,12 +1,13 @@
 // sw.js — service worker del Sistema. Guarda los archivos para usar la app sin conexión.
 // Al publicar una versión nueva, cambia CACHE para que los teléfonos tomen los archivos nuevos.
 // También borra la caché de la app de Equipos sola (equipos-…), porque el Sistema la reemplaza en el mismo repositorio.
-const CACHE = 'sistema-v0.3';
+const CACHE = 'sistema-v0.4';
 const ARCHIVOS = [
   './', './index.html', './config.js', './sistema-app.js', './manifest.json',
   './app/sistema.css', './modulos/equipos/equipos.css', './modulos/vuelos/vuelos.css',
   './iconos/icono-192.png', './iconos/icono-512.png', './iconos/icono-512-maskable.png',
   './vendor/xlsx.full.min.js', './vendor/qrcode.js', './vendor/leaflet/leaflet.js', './vendor/leaflet/leaflet.css',
+  './vendor/capas/indice.json', './vendor/capas/aerodromos.json',
   './vendor/fuentes/fuentes.css', './vendor/fuentes/ibm-plex-sans-latin-400-normal.woff2', './vendor/fuentes/ibm-plex-sans-latin-500-normal.woff2',
   './vendor/fuentes/ibm-plex-sans-latin-600-normal.woff2', './vendor/fuentes/ibm-plex-sans-latin-700-normal.woff2',
   './vendor/fuentes/ibm-plex-mono-latin-400-normal.woff2', './vendor/fuentes/ibm-plex-mono-latin-500-normal.woff2',

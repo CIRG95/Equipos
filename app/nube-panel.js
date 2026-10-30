@@ -29,12 +29,12 @@ export function iniciarPanelNube({ pastilla, alLlegarDatos }) {
   let mensaje = null;
 
   function textoPastilla(e) {
-    if (!e.configurado || !e.carpetaId) return '☁ Conectar nube';
-    if (!e.conectado) return '☁ Reconectar';
-    if (e.sincronizando) return '☁ Sincronizando…';
-    if (e.error) return '☁ Error';
-    if (e.pendiente) return '☁ Pendiente';
-    return `☁ Al día · ${e.ultimaSync ? new Date(e.ultimaSync).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}`;
+    if (!e.configurado || !e.carpetaId) return 'Conectar nube';
+    if (!e.conectado) return 'Reconectar nube';
+    if (e.sincronizando) return 'Sincronizando…';
+    if (e.error) return 'Nube con error';
+    if (e.pendiente) return 'Nube pendiente';
+    return `Nube al día · ${e.ultimaSync ? new Date(e.ultimaSync).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}`;
   }
 
   nube.alEstado(e => {

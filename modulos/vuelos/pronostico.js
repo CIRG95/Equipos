@@ -45,7 +45,11 @@ function ordenar(json, lat, lon) {
       modelos: porModelo.length, sol: elevacionSol(t, lat, lon),
     };
   });
-  const dias = (json.daily?.time || []).map((f, i) => ({ fecha: f, salida: json.daily.sunrise?.[i], puesta: json.daily.sunset?.[i] }));
+  // Con varios modelos, Open-Meteo entrega «sunrise_<modelo>» en vez de «sunrise»: se toma la primera serie que exista.
+  const d = json.daily || {};
+  const serieDiaria = nombre => d[nombre] || d[Object.keys(d).find(k => k.startsWith(nombre + '_')) || ''] || [];
+  const salidas = serieDiaria('sunrise'), puestas = serieDiaria('sunset');
+  const dias = (d.time || []).map((f, i) => ({ fecha: f, salida: salidas[i] || null, puesta: puestas[i] || null }));
   return { lat, lon, horas, dias, elevacionModelo: json.elevation };
 }
 
@@ -55,7 +59,13 @@ export async function pedirKp() {
     const r = await fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json');
     if (!r.ok) return null;
     const filas = await r.json();
-    return filas.slice(1).map(f => ({ t: String(f[0]).replace(' ', 'T') + 'Z', kp: Number(f[1]) })).filter(x => isFinite(x.kp));
+    // NOAA ha entregado este archivo en dos formatos: lista de listas (con encabezado) o lista de objetos { time_tag, kp }.
+    const aIso = t => { const x = String(t).trim().replace(' ', 'T'); return /Z|[+-]\d\d:?\d\d$/.test(x) ? x : x + 'Z'; };
+    const kps = (Array.isArray(filas) ? filas : [])
+      .map(f => Array.isArray(f) ? { t: f[0], kp: f[1] } : { t: f && (f.time_tag ?? f.time), kp: f && (f.kp ?? f.Kp ?? f.kp_index) })
+      .filter(x => x.t && x.t !== 'time_tag' && x.kp != null && isFinite(Number(x.kp)))
+      .map(x => ({ t: aIso(x.t), kp: Number(x.kp) }));
+    return kps.length ? kps : null;
   } catch { return null; }
 }
 

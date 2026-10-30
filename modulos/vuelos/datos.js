@@ -5,7 +5,7 @@ import { sellar } from '../../compartido/util.js';
 import { enviarAPapelera } from '../../compartido/papelera.js';
 import { DRONES_BASE } from './drones.js';
 
-export const VERSION_MODULO = '0.1';
+export const VERSION_MODULO = '0.2';
 export const SCHEMA_VERSION = 1;
 export const ALM = { planes: 'vuelos_planes', drones: 'vuelos_drones' };
 

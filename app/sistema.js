@@ -52,6 +52,17 @@ function avisar(texto) {
 }
 
 // ── Menú por rol ──
+const ic = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONOS_MENU = {
+  inicio: ic('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>'),
+  proyectos: ic('<path d="M3 7h6l2 2h10v10H3z"/>'),
+  equipos: ic('<path d="M12 3v11"/><path d="M5 21l7-7 7 7"/><circle cx="12" cy="3" r="1.5"/>'),
+  vuelos: ic('<path d="M12 9v6M9 12h6"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/>'),
+  gastos: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  terreno: ic('<path d="M4 20l5-14 5 9 3-5 3 10z"/>'),
+  personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
+  mas: ic('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'),
+};
 const MENU = [
   { ruta: 'inicio', texto: 'Inicio', roles: ['terreno', 'rrhh'] },
   { ruta: 'proyectos', texto: 'Proyectos', roles: ['terreno', 'rrhh'], tambien: ['proyecto', 'proyecto-editar'] },
@@ -61,12 +72,21 @@ const MENU = [
   { ruta: 'terreno', texto: 'Libreta de terreno', roles: ['terreno'], pronto: true },
   { ruta: 'personas', texto: 'Personas', roles: ['rrhh', 'terreno'] },
 ];
+const CABEN_ABAJO = 5; // en el teléfono, si hay más secciones, las últimas van en «Más»
 
 function pintarMenu(base) {
-  menu.innerHTML = MENU.filter(m => m.roles.includes(selRol.value)).map(m => {
+  const items = MENU.filter(m => m.roles.includes(selRol.value));
+  const enlace = m => {
     const activo = m.ruta === base || (m.tambien || []).includes(base);
-    return `<a href="#/${m.ruta}" class="sis-menu-item${activo ? ' activo' : ''}${m.pronto ? ' pronto' : ''}"${activo ? ' aria-current="page"' : ''}>${m.texto}${m.pronto ? '<small>pronto</small>' : ''}</a>`;
-  }).join('');
+    return `<a href="#/${m.ruta}" class="sis-menu-item${activo ? ' activo' : ''}${m.pronto ? ' pronto' : ''}"${activo ? ' aria-current="page"' : ''} title="${m.texto}">${ICONOS_MENU[m.ruta] || ''}<span>${m.texto}</span>${m.pronto ? '<small>pronto</small>' : ''}</a>`;
+  };
+  const principales = items.length > CABEN_ABAJO ? items.slice(0, CABEN_ABAJO - 1) : items;
+  const extra = items.slice(principales.length);
+  const extraActivo = extra.some(m => m.ruta === base || (m.tambien || []).includes(base));
+  menu.classList.remove('abierto');
+  menu.innerHTML = principales.map(enlace).join('') +
+    (extra.length ? `<div class="sis-menu-extra" id="sis-menu-extra">${extra.map(enlace).join('')}</div>
+      <button type="button" class="sis-menu-mas${extraActivo ? ' activo' : ''}" aria-expanded="false" aria-controls="sis-menu-extra">${ICONOS_MENU.mas}<span>Más</span></button>` : '');
 }
 
 // ── Persona y rol ──
@@ -77,7 +97,21 @@ async function cargarPersonas(seleccionar) {
   selPersona.value = seleccionar && personas.some(p => p.id === seleccionar) ? seleccionar : '';
 }
 
+// ── Marca de la empresa (nombre y color). Por ahora por equipo, en localStorage. ──
+const MARCA_DEFECTO = { nombre: 'Topoland', color: '#1D5C63' };
+function leerMarca() {
+  try { return { ...MARCA_DEFECTO, ...JSON.parse(leer('env_marca', '{}')) }; } catch { return { ...MARCA_DEFECTO }; }
+}
+function aplicarMarca() {
+  const m = leerMarca();
+  document.documentElement.style.setProperty('--marca', m.color);
+  document.querySelector('.sis-marca b').textContent = m.nombre;
+  document.querySelector('.sis-logo').textContent = (m.nombre.trim()[0] || 'T').toUpperCase();
+}
+
 const ctx = () => ({
+  marca: leerMarca(),
+  cambiarMarca: m => { escribir('env_marca', JSON.stringify(m)); aplicarMarca(); },
   rol: selRol.value,
   personaId: selPersona.value || null,
   estado,
@@ -175,9 +209,10 @@ contenedor.addEventListener('change', async ev => {
 
 async function arrancar() {
   aplicarModo();
+  aplicarMarca();
   $('sis-version').textContent = `v${VERSION_SISTEMA}`;
   $('sis-version').title = `Sistema v${VERSION_SISTEMA} = ${MODULOS_INCLUIDOS}`;
-  document.title = `Topoland · Sistema v${VERSION_SISTEMA}`;
+  document.title = `${leerMarca().nombre} · Sistema v${VERSION_SISTEMA}`;
   selRol.innerHTML = Object.entries(ROLES).map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
   selRol.value = leer('env_rol', 'terreno') === 'rrhh' ? 'rrhh' : 'terreno';
   await cargarPersonas(leer('env_persona', ''));
@@ -187,8 +222,11 @@ async function arrancar() {
   selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; mostrar(); });
   selPersona.addEventListener('change', () => { escribir('env_persona', selPersona.value); rutaActual = ''; mostrar(); });
   addEventListener('hashchange', mostrar);
+  document.addEventListener('click', ev => { if (!ev.target.closest('#sis-menu')) menu.classList.remove('abierto'); });
   // Tocar la sección en la que ya se está vuelve a su pantalla inicial (p. ej. de la ficha de un equipo a la lista).
   menu.addEventListener('click', ev => {
+    const mas = ev.target.closest('.sis-menu-mas');
+    if (mas) { const abierto = menu.classList.toggle('abierto'); mas.setAttribute('aria-expanded', String(abierto)); return; }
     const a = ev.target.closest('a[href]');
     if (a && a.getAttribute('href') === location.hash) { ev.preventDefault(); estado.personaEditar = null; rutaActual = ''; mostrar(); }
   });

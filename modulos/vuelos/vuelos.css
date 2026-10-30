@@ -1,27 +1,25 @@
 /* modulos/vuelos/vuelos.css — estilos propios del módulo Vuelos (usa también las clases sis- del Sistema). */
-.mod-vuelos .vu-nav{display:flex; gap:4px; overflow-x:auto; background:#E9F0EE; border-radius:12px; padding:4px; margin:0 0 14px; scrollbar-width:none;}
+.mod-vuelos .vu-nav{display:flex; gap:4px; overflow-x:auto; background:#EAE8E2; border-radius:8px; padding:3px; margin:0 0 16px; scrollbar-width:none;}
 .mod-vuelos .vu-nav::-webkit-scrollbar{display:none;}
-.vu-pestana{flex:none; border:0; background:none; font:inherit; font-size:14px; font-weight:500; color:var(--primary-dark); padding:9px 14px; border-radius:9px; cursor:pointer; min-height:40px;}
-.vu-pestana.activa{background:#fff; font-weight:600; box-shadow:0 1px 4px rgba(22,35,43,.12);}
-.vu-msg{padding:10px 14px; border-radius:10px; margin:0 0 12px; font-size:14px;} .vu-msg.ok{background:#EAF3EC; color:#1F5A38;} .vu-msg.error{background:#FBEAEA; color:#8F1D17;}
-.vu-planificar{display:grid; gap:0 16px;}
+.vu-pestana{flex:none; border:0; background:none; font:inherit; font-size:13px; font-weight:500; color:var(--muted); padding:7px 12px; border-radius:6px; cursor:pointer; min-height:34px;}
+.vu-pestana.activa{background:#fff; color:var(--ink); font-weight:600;}
+.vu-msg{padding:10px 14px; border-radius:10px; margin:0 0 12px; font-size:14px;} .vu-msg.ok{background:#E3F2EF; color:#0F5F58;} .vu-msg.error{background:#FBEAEA; color:#8F1D17;}
 .vu-form fieldset{margin-bottom:12px;}
-.vu-con-sufijo{display:flex; align-items:center; gap:6px;}
+.vu-con-sufijo, .sis-campo > .vu-con-sufijo{display:flex; align-items:center; gap:6px; margin:0; font-size:15px; font-weight:400; color:var(--ink);}
 .vu-con-sufijo em{font-style:normal; color:var(--muted); font-size:13px; min-width:34px;}
 .vu-archivo{position:relative; margin-bottom:8px;}
-.vu-detalles{border:1px solid #D3DDD8; border-radius:var(--radius); background:var(--surface); padding:10px 16px; margin-bottom:14px;}
+.vu-detalles{border:1px solid #E2E0DA; border-radius:var(--radius); background:var(--surface); padding:10px 16px; margin-bottom:14px;}
 .vu-detalles summary{cursor:pointer; font-weight:600; color:var(--primary-dark); padding:4px 0;}
 .vu-detalles[open] summary{margin-bottom:10px;}
 .vu-aviso{background:#FFF8F3; border:1px solid #F1C9A8; color:#5A2A12; border-radius:10px; padding:10px 12px; margin:10px 0; font-size:14px;}
 .vu-aviso ul{margin:4px 0; padding-left:18px;} .vu-aviso span{font-size:12px; color:#7C4A30;}
-.vu-kpis{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:12px;}
-.vu-kpi{background:#F3F7F6; border-radius:10px; padding:10px 12px;}
+.vu-kpi{background:#F6F5F1; border-radius:10px; padding:10px 12px;}
 .vu-kpi span{display:block; font-size:12px; color:var(--muted);}
 .vu-kpi b{font-size:20px; color:var(--primary-dark);}
 .vu-tabla{margin:12px 0 8px; display:grid; gap:0;}
-.vu-tabla > div{display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid #E3E9E6; font-size:14px;}
+.vu-tabla > div{display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid #EFEDE8; font-size:14px;}
 .vu-tabla dt{color:var(--muted);} .vu-tabla dd{margin:0; text-align:right; font-weight:500;}
-.vu-svg{width:100%; height:auto; background:#F3F7F6; border-radius:10px; display:block;}
+.vu-svg{width:100%; height:auto; background:#F6F5F1; border-radius:10px; display:block;}
 .vu-pol{fill:rgba(194,74,23,.12); stroke:var(--accent); stroke-width:2;}
 .vu-lineas line{stroke:var(--primary); stroke-width:1; opacity:.75;}
 .vu-pie{margin-top:4px !important;}
@@ -35,16 +33,95 @@
 .vu-resumen-dia{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
 .vu-tabla-scroll{overflow-x:auto; margin:0 -4px;}
 .vu-pron{width:100%; min-width:640px; border-collapse:collapse; font-size:13px;}
-.vu-pron th{text-align:left; font-weight:500; color:var(--muted); font-size:12px; padding:6px; border-bottom:1px solid #D3DDD8;}
-.vu-pron td{padding:6px; border-bottom:1px solid #EEF2F0; white-space:nowrap;}
+.vu-pron th{text-align:left; font-weight:500; color:var(--muted); font-size:12px; padding:6px; border-bottom:1px solid #E2E0DA;}
+.vu-pron td{padding:6px; border-bottom:1px solid #F6F5F1; white-space:nowrap;}
 .vu-pron small{color:var(--muted);}
-.vu-pron tr.vu-noche td{color:#8A948F;}
+.vu-pron tr.vu-noche td{color:#8A8F96;}
 .vu-estado{display:inline-block; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; min-width:58px; text-align:center;}
-.vu-e-go{background:#2E7D4F; color:#fff;} .vu-e-marg{background:#FCEDE6; color:#8A3410;} .vu-e-no{background:#B3261E; color:#fff;} .vu-e-noche{background:#ECEFEE; color:#5B6B66;}
+.vu-e-go{background:#0F766E; color:#fff;} .vu-e-marg{background:#FCEDE6; color:#8A3410;} .vu-e-no{background:#B42318; color:#fff;} .vu-e-noche{background:#ECEDEF; color:#5B6168;}
 .vu-flecha{display:inline-block; font-weight:700;}
 .vu-enlaces{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
 .vu-grilla{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 12px;}
-body[data-modo="pc"] .vu-planificar{grid-template-columns:minmax(0,5fr) minmax(0,6fr); align-items:start;}
-body[data-modo="pc"] .vu-kpis{grid-template-columns:repeat(3, minmax(0,1fr));}
 body[data-modo="pc"] .vu-grilla{grid-template-columns:repeat(4, minmax(0,1fr));}
 .vu-con-sufijo input{flex:1 1 auto; min-width:0; width:auto !important;}
+.vu-mapa{height:340px; border-radius:10px; overflow:hidden; background:#E2E0DA; position:relative; z-index:0; isolation:isolate;}
+.vu-mapa .leaflet-control-attribution{font-size:10px;}
+
+/* ---------- Planificador interactivo (Sistema v0.3) ---------- */
+.vu-planificar{display:grid; gap:0 20px;}
+.vu-izquierda, .vu-derecha{min-width:0;}
+body[data-modo="pc"] .vu-planificar{grid-template-columns:minmax(320px, 400px) minmax(0,1fr); align-items:start;}
+.vu-area-info{margin:10px 0 0 !important;}
+.vu-desl{margin:0 0 12px;}
+.vu-desl-cab{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:2px;}
+.vu-desl-cab label{font-size:13px; font-weight:500; color:#43484E;}
+.vu-desl-cab small{font-weight:400; color:var(--muted);}
+.vu-desl-valor{display:inline-flex; align-items:baseline; gap:4px; font-size:13px; color:var(--muted);}
+.vu-desl-valor input{width:72px; border:0; border-bottom:1px dashed var(--line); background:transparent; font:inherit; font-size:17px; font-weight:700; color:var(--ink); text-align:right; padding:0 2px; -moz-appearance:textfield;}
+.vu-desl-valor input::-webkit-inner-spin-button{display:none;}
+.vu-desl-valor input:focus{outline:none; border-bottom-color:var(--marca);}
+.vu-desl input[type=range]{width:100%; accent-color:var(--marca); height:28px; margin:0;}
+.vu-enlazados{background:#FAFAF8; border:1px solid var(--borde-suave); border-radius:10px; padding:10px 12px 0; margin:0 0 12px;}
+.vu-desl-pie{font-size:12px; color:var(--muted); margin:-6px 0 12px;}
+.vu-link{background:none; border:0; padding:0; font:inherit; font-size:12px; color:var(--enlace); text-decoration:underline; cursor:pointer;}
+.vu-kpis{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin-bottom:12px;}
+body[data-modo="pc"] .vu-kpis{grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));}
+.vu-kpi{background:var(--surface); border:1px solid var(--borde); border-radius:10px; padding:8px 12px;}
+.vu-kpi b{font-size:19px; color:var(--ink);}
+.vu-kpi.alerta{border-color:#F1C9A8; background:#FFF8F3;} .vu-kpi.alerta b{color:#8A3410;}
+.vu-mapa-caja{position:relative; border-radius:10px; overflow:hidden; border:1px solid var(--borde); background:#E2E0DA;}
+.vu-mapa-lugar .vu-mapa{border-radius:0;}
+.vu-mapa{height:360px;}
+body[data-modo="pc"] .vu-mapa{height:470px;}
+.vu-mapa.dibujando, .vu-mapa.dibujando .leaflet-interactive{cursor:crosshair !important;}
+.vu-mapa-barra{position:absolute; left:10px; right:10px; bottom:10px; z-index:500; display:flex; flex-wrap:wrap; align-items:center; gap:6px; pointer-events:none;}
+.vu-mapa-barra > *{pointer-events:auto;}
+.vu-barra-txt{background:rgba(28,31,35,.82); color:#fff; font-size:13px; font-weight:600; padding:6px 10px; border-radius:8px; margin-right:auto;}
+.vu-barra-btn{background:rgba(255,255,255,.95); border:0; border-radius:8px; padding:7px 11px; font:inherit; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; min-height:34px;}
+.vu-barra-btn.fuerte{background:var(--marca); color:#fff;}
+.vu-barra-btn:disabled{opacity:.5; cursor:default;}
+.vu-sin-mapa{padding:40px 16px; text-align:center; margin:0;}
+.vu-leyenda{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:13px; margin:10px 0 0;}
+.vu-leyenda span{display:inline-flex; align-items:center; gap:6px;}
+.vu-leyenda i{display:inline-block; width:18px; height:4px; border-radius:2px; box-shadow:0 0 0 1px rgba(0,0,0,.12);}
+.vu-leyenda i.vu-punto{width:12px; height:12px; border-radius:50%; background:var(--marca); border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.25);}
+.vu-despegue span{display:block; width:22px; height:22px; border-radius:50%; background:var(--marca); border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.45); cursor:grab;}
+#vu-detalle{margin-top:14px;}
+.vu-opciones-cab{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:10px;}
+.vu-opciones-cab h2{margin:0 !important;}
+.vu-vel{margin-left:auto; font-size:13px; color:#43484E; display:inline-flex; align-items:center; gap:6px;}
+.vu-vel input, .vu-agregar input{width:62px; min-height:34px; border:1px solid var(--line); border-radius:8px; text-align:center; font:inherit;}
+.vu-gsd{width:100%; min-width:560px; border-collapse:collapse; font-size:14px;}
+.vu-gsd th{background:#EFEDE8; color:#43484E; font-weight:600; font-size:12px; padding:8px; text-align:right;}
+.vu-gsd th:first-child, .vu-gsd td:first-child{text-align:left;}
+.vu-gsd td{padding:8px; border-bottom:1px solid #EFEDE8; text-align:right; white-space:nowrap;}
+.vu-gsd tr.actual td{background:var(--marca-suave); font-weight:600;}
+.vu-gsd tr.sobre120 td:nth-child(2){color:#8A3410; font-weight:600;}
+.vu-ojo{color:#8A3410; font-weight:700; cursor:help;}
+.vu-opciones-pie{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 6px;}
+.vu-agregar{display:inline-flex; gap:6px; align-items:center;}
+.vu-segmentos{display:inline-flex; gap:3px; background:#EAE8E2; border-radius:8px; padding:3px; flex-wrap:wrap;}
+.vu-seg{border:0; background:none; font:inherit; font-size:14px; padding:7px 14px; border-radius:6px; cursor:pointer; color:var(--muted); min-height:36px;}
+.vu-seg.activo{background:#fff; color:var(--ink); font-weight:600;}
+.vu-plan-tarjeta, .vu-pron-origen{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:10px; background:var(--marca-suave); margin:0 0 12px;}
+.vu-pron-origen{margin:14px 0 0;}
+.vu-kml{display:grid; gap:0 20px;}
+body[data-modo="pc"] .vu-kml{grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start;}
+.vu-kml-mapa{border-radius:10px; overflow:hidden; border:1px solid var(--borde); margin-bottom:14px;}
+/* Teléfono: área, mapa y resultados arriba; los controles después (el mapa queda a la vista al cargar el KMZ). */
+body:not([data-modo="pc"]) .vu-planificar{display:flex; flex-direction:column;}
+body:not([data-modo="pc"]) .vu-izquierda, body:not([data-modo="pc"]) .vu-derecha, body:not([data-modo="pc"]) .vu-planificar .vu-form{display:contents;}
+body:not([data-modo="pc"]) .vu-t-area{order:1;}
+body:not([data-modo="pc"]) #vu-kpis{order:2;}
+body:not([data-modo="pc"]) .vu-mapa-caja{order:3;}
+body:not([data-modo="pc"]) #vu-leyenda{order:4; margin-bottom:14px;}
+body:not([data-modo="pc"]) .vu-t-dron{order:5;}
+body:not([data-modo="pc"]) #vu-detalle{order:6; margin-top:0;}
+body:not([data-modo="pc"]) .vu-t-guardar{order:7;}
+body:not([data-modo="pc"]) .vu-mapa-caja{margin-bottom:0;}
+body:not([data-modo="pc"]) .vu-barra-txt{flex:1 1 100%;}
+.vu-mapa-caja{isolation:isolate; z-index:0;}
+body:not([data-modo="pc"]) .vu-kpis{grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px;}
+body:not([data-modo="pc"]) .vu-kpi{padding:6px 8px;}
+body:not([data-modo="pc"]) .vu-kpi span{font-size:11px;}
+body:not([data-modo="pc"]) .vu-kpi b{font-size:16px; white-space:nowrap;}

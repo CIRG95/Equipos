@@ -38,6 +38,47 @@ export function rumboLadoMasLargo(pts) {
   return ((ang % 180) + 180) % 180;
 }
 
+/** Pasa un punto del plano local al sistema girado de las líneas (líneas a lo largo de x) y de vuelta. */
+export function giro(rumboGrados) {
+  const a = (90 - rumboGrados) * Math.PI / 180;
+  const c = Math.cos(-a), s = Math.sin(-a);
+  return {
+    ida: ([x, y]) => [x * c - y * s, x * s + y * c],
+    vuelta: ([x, y]) => [x * c + y * s, -x * s + y * c],
+  };
+}
+
+/**
+ * Recorrido en zigzag por las líneas y reparto por batería.
+ * segmentos (sistema girado), despegue [x, y] (girado) o null.
+ * Cada batería: ir desde el despegue al inicio de su primera línea, volar sus líneas y volver.
+ */
+export function repartirBaterias(segmentos, { v, segGiro, segUtiles, despegue }) {
+  const tramos = segmentos.map((l, i) => (i % 2 === 0 ? { ...l, a: [l.x1, l.y], b: [l.x2, l.y] } : { ...l, a: [l.x2, l.y], b: [l.x1, l.y] }));
+  const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const baterias = [];
+  let actual = null;
+  const cerrar = () => {
+    if (!actual) return;
+    const vuelta = despegue ? dist(actual.fin, despegue) / v : 0;
+    actual.seg += vuelta; actual.traslado += vuelta;
+    baterias.push(actual); actual = null;
+  };
+  tramos.forEach((t, i) => {
+    const vuelo = t.largo / v + segGiro;
+    if (actual) {
+      const enlace = dist(actual.fin, t.a) / v;
+      const vuelta = despegue ? dist(t.b, despegue) / v : 0;
+      if (actual.seg + enlace + vuelo + vuelta > segUtiles && actual.lineas.length) cerrar();
+      else { actual.seg += enlace + vuelo; actual.fin = t.b; actual.lineas.push(i); return; }
+    }
+    const ida = despegue ? dist(despegue, t.a) / v : 0;
+    actual = { lineas: [i], seg: ida + vuelo, traslado: ida, inicio: t.a, fin: t.b };
+  });
+  cerrar();
+  return { tramos, baterias };
+}
+
 /** Segmentos de las líneas de vuelo que caen dentro del polígono, con líneas paralelas al rumbo y separadas `sep` m. */
 export function lineasDeVuelo(pts, rumboGrados, sep) {
   // Se rota el polígono para que las líneas queden horizontales (a lo largo de x).
@@ -109,10 +150,22 @@ export function calcularPlan(p) {
   const velSugerida = Math.min(...limites.map(l => l[1]));
   const v = p.velocidad;
 
-  // Tiempos
-  const segMision = distancia / v + nLineas * p.segGiro;
+  // Tiempos. Con polígono: recorrido real en zigzag, repartido por batería, con ida y vuelta al despegue.
   const minUtiles = d.autonomiaMin * (1 - p.reserva) - p.minDespegue;
-  const vuelos = Math.max(1, Math.ceil(segMision / 60 / Math.max(1, minUtiles)));
+  let segMision, vuelos, baterias = [], tramos = [], trasladoM = 0, despegueGirado = null;
+  if (segmentos.length) {
+    const g = giro(rumbo);
+    despegueGirado = p.despegue ? g.ida(p.despegue) : null;
+    const rep = repartirBaterias(segmentos, { v, segGiro: p.segGiro, segUtiles: Math.max(60, minUtiles * 60), despegue: despegueGirado });
+    baterias = rep.baterias.map(b => ({ ...b, min: b.seg / 60 }));
+    tramos = rep.tramos;
+    segMision = baterias.reduce((s, b) => s + b.seg, 0);
+    trasladoM = baterias.reduce((s, b) => s + b.traslado, 0) * v;
+    vuelos = Math.max(1, baterias.length);
+  } else {
+    segMision = distancia / v + nLineas * p.segGiro;
+    vuelos = Math.max(1, Math.ceil(segMision / 60 / Math.max(1, minUtiles)));
+  }
   const minTotal = segMision / 60 + vuelos * p.minDespegue + (vuelos - 1) * p.minCambio;
 
   const intervalo = sepFotos / v;
@@ -125,12 +178,23 @@ export function calcularPlan(p) {
   if ((p.modo === 'foto' || p.fotosEnLidar) && intervalo < d.intervaloMinS) avisos.push(`Habría que disparar cada ${fmt(intervalo, 2)} s y la cámara necesita ${fmt(d.intervaloMinS, 1)} s: baja la velocidad a ${fmt(velIntervalo, 1)} m/s o el traslape frontal.`);
   if (p.altura > 120) avisos.push('La altura supera los 120 m (400 ft): revisa la autorización DGAC.');
   if (minUtiles <= 0) avisos.push('Con la reserva elegida no queda tiempo útil por batería: revisa autonomía y reserva.');
+  if (baterias.some(b => b.min > minUtiles + 0.05)) avisos.push('Hay una línea que no alcanza a volarse con una sola batería: divide el área o acerca el despegue.');
 
   return {
     gsd, huellaAncho, huellaLargo, sepFotos, sepLineas, barrido, area, rumbo, segmentos,
     nLineas, distancia, fotos, intervalo, velBarrido, velIntervalo, velSugerida, limites,
     minMision: segMision / 60, minUtiles, vuelos, minTotal, densidad, densidadPasada, avisos,
+    baterias, tramos, trasladoM, despegueGirado,
   };
+}
+
+/** Prueba rumbos cada 5° (y afina de a 1°) y devuelve el que da menos minutos de jornada. */
+export function rumboMasCorto(p) {
+  const prueba = r => calcularPlan({ ...p, rumbo: r }).minTotal;
+  let mejor = 0, minimo = Infinity;
+  for (let r = 0; r < 180; r += 5) { const m = prueba(r); if (m < minimo - 1e-6) { minimo = m; mejor = r; } }
+  for (let r = mejor - 4; r <= mejor + 4; r++) { const rr = (r + 180) % 180; const m = prueba(rr); if (m < minimo - 1e-6) { minimo = m; mejor = rr; } }
+  return mejor;
 }
 
 export function fmt(n, dec = 0) {

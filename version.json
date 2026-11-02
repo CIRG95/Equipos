@@ -1,6 +1,6 @@
 {
- "version": "0.5",
- "armado": "2026-11-02T13:50:26.928Z",
+ "version": "0.7",
+ "armado": "2026-11-02T17:16:09.933Z",
  "archivos": [
   "./index.html",
   "./sistema-app.js",
@@ -18,6 +18,7 @@
   "./vendor/leaflet/leaflet.css",
   "./vendor/capas/indice.json",
   "./vendor/capas/aerodromos.json",
+  "./vendor/capas/redvial/indice.json",
   "./vendor/fuentes/fuentes.css",
   "./vendor/fuentes/ibm-plex-sans-latin-400-normal.woff2",
   "./vendor/fuentes/ibm-plex-sans-latin-500-normal.woff2",

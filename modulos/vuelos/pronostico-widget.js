@@ -4,13 +4,14 @@
 // La fuente de verdad es este módulo (Vuelos): si cambia el pronóstico, se rearma el paquete y se copia a Terreno.
 
 import { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, ENLACES_CONSULTA } from './pronostico.js';
-import { metarCercano, vientoDeMetar, enlaceMetar } from './metar.js';
+import { cercanas, decodificar, comparar } from './metar.js';
+import { htmlPanelMetar } from './metar-ui.js';
 import { graficoPronostico, checklistClima } from './graficos.js';
 import { DRONES_BASE } from './drones.js';
 
-export const VERSION = '1.0 (Vuelos 0.4)';
+export const VERSION = '1.1 (Vuelos 0.5)';
 export const DRONES = DRONES_BASE.map(d => ({ id: d.id, nombre: d.nombre, vientoMaxMs: d.vientoMaxMs, rafagaMaxMs: d.rafagaMaxMs }));
-export const piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, metarCercano, vientoDeMetar, enlaceMetar, graficoPronostico, checklistClima };
+export const piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, cercanas, decodificar, comparar, graficoPronostico, checklistClima };
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const dos = n => String(n).padStart(2, '0');
@@ -52,7 +53,7 @@ export function analizarDia(p, dron, kps, dia) {
  */
 export function montar(el, opciones = {}) {
   const o = { dronId: 'm4e', ...opciones };
-  const st = { pron: null, kps: null, metar: null, dia: null, cargando: false, error: '', errorMetar: '' };
+  const st = { pron: null, kps: null, metar: (opciones.ultimo && opciones.ultimo.metar && opciones.ultimo.metar.texto) ? opciones.ultimo.metar : null, dia: null, cargando: false, error: '' };
   const dron = () => o.dron || DRONES.find(d => d.id === o.dronId) || DRONES[0];
   el.classList.add('pv');
 
@@ -67,20 +68,15 @@ export function montar(el, opciones = {}) {
       sol: b.sol && b.sol.salida ? [b.sol.salida.slice(11, 16), b.sol.puesta ? b.sol.puesta.slice(11, 16) : '—'] : null,
       modelos: st.pron.horas[0]?.modelos || 0, checklist: b.checklist,
       horas: b.filas.map(f => ({ hora: f.h.hora, v: f.h.v, g: f.h.g, dir: f.h.dir, prob: f.h.prob, nubes: f.h.nubes, temp: f.h.temp, kp: f.kp, estado: f.ev.estado })),
-      metar: st.metar ? { icao: st.metar.icao, nombre: st.metar.nombre, km: st.metar.km, metar: st.metar.metar, taf: st.metar.taf } : null,
+      metar: st.metar, // { texto, leidoEn }: el METAR pegado
     };
   }
 
   const checklistHtml = (chk, titulo) => `<div class="pv-caja"><h3>${esc(titulo)}</h3><ul class="pv-chk">${chk.map(x =>
     `<li class="${x.cumple ? 'si' : 'no'}"><span>${esc(x.texto)}</span><b>${esc(x.detalle)}</b></li>`).join('')}</ul></div>`;
 
-  function metarHtml() {
-    const m = st.metar;
-    if (m) return `<div class="pv-caja"><h3>METAR · TAF</h3><p class="pv-tenue">${esc(m.icao)} · ${esc(m.nombre)} · a ${Math.round(m.km)} km${m.viento ? ` · viento ${m.viento.dir != null ? m.viento.dir + '°' : 'variable'} ${n1(m.viento.v)} m/s${m.viento.g ? ` ráf. ${n1(m.viento.g)}` : ''}` : ''}</p>
-      <pre class="pv-metar">${esc(m.metar)}${m.taf ? '\n\n' + esc(m.taf) : ''}</pre><a class="pv-link" href="${enlaceMetar(m.icao)}" target="_blank" rel="noopener">Ver en NOAA ↗</a></div>`;
-    if (st.errorMetar) return `<div class="pv-caja"><h3>METAR · TAF</h3><p class="pv-tenue">${esc(st.errorMetar)}</p><a class="pv-link" href="https://aipchile.dgac.gob.cl/" target="_blank" rel="noopener">Revisar en AIP Chile ↗</a></div>`;
-    return '';
-  }
+  // METAR: los servicios no dejan leerlo desde la app; se muestran los aeródromos cercanos y se pega el reporte.
+  const metarHtml = () => `<div class="pv-caja">${htmlPanelMetar({ lat: o.lat, lon: o.lon, elevArea: st.pron ? st.pron.elevacionModelo : null, guardado: st.metar, dron: dron(), horasPron: st.pron ? st.pron.horas : null, acc: 'data-pv' })}</div>`;
 
   function render() {
     const d = dron();
@@ -108,7 +104,8 @@ export function montar(el, opciones = {}) {
         <div class="pv-dos">${checklistHtml(b.checklist, b.ventana ? `Checklist · ventana ${dos(b.ventana[0])}–${dos(b.ventana[1] + 1)} h` : 'Checklist · horas con luz')}${metarHtml()}</div>
         ${o.alGuardar ? '<button type="button" class="pv-btn" data-pv="guardar">Guardar en la jornada</button>' : ''}`;
     } else if (o.ultimo) cuerpo = ultimoHtml(o.ultimo);
-    else cuerpo = '<p class="pv-tenue">Consulta los próximos 3 días: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR cercano.</p>';
+    else cuerpo = '<p class="pv-tenue">Consulta los próximos 3 días: viento a 120 m, ráfagas, lluvia, nubes, temperatura y Kp.</p>';
+    if (o.lat != null && !st.pron) cuerpo += metarHtml();
     el.innerHTML = cab + cuerpo + `<div class="pv-enlaces">${ENLACES_CONSULTA.map(([t, u]) => `<a class="pv-link" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join('')}</div>`;
   }
 
@@ -119,13 +116,11 @@ export function montar(el, opciones = {}) {
 
   async function consultar() {
     if (o.lat == null || o.lon == null) return;
-    st.cargando = true; st.error = ''; st.errorMetar = ''; render();
+    st.cargando = true; st.error = ''; render();
     try {
       const [p, kps] = await Promise.all([pedirPronostico(o.lat, o.lon), st.kps ? Promise.resolve(st.kps) : pedirKp()]);
       st.pron = p; st.kps = kps;
     } catch (e) { st.pron = null; st.error = `No se pudo consultar el pronóstico (${e.message}). Revisa la conexión a internet.`; }
-    try { st.metar = await metarCercano(o.lat, o.lon); if (!st.metar) st.errorMetar = 'No hay aeródromos con METAR a menos de ~120 km.'; }
-    catch { st.metar = null; st.errorMetar = 'No se pudo leer el METAR (sin conexión o el servicio no respondió).'; }
     st.cargando = false; render();
   }
 
@@ -133,6 +128,8 @@ export function montar(el, opciones = {}) {
     const b = e.target.closest('[data-pv]'); if (!b || !el.contains(b)) return;
     if (b.dataset.pv === 'consultar') consultar();
     else if (b.dataset.pv === 'dia') { st.dia = b.dataset.dia; render(); }
+    else if (b.dataset.pv === 'metar-leer') { const ta = el.querySelector('[data-metar-texto]'); const t = (ta && ta.value || '').trim(); if (!t) return; st.metar = { texto: t, leidoEn: new Date().toISOString() }; render(); if (o.alGuardar && st.pron) { const r = resumen(); if (r) o.alGuardar(r); } }
+    else if (b.dataset.pv === 'metar-borrar') { st.metar = null; render(); }
     else if (b.dataset.pv === 'guardar' && o.alGuardar) { const r = resumen(); if (r) { o.alGuardar(r); b.textContent = 'Guardado ✓'; } }
   }
   function alCambiar(e) {

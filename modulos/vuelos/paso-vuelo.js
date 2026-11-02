@@ -52,6 +52,14 @@ export function crearPasoVuelo(v) {
             </details>
           </section>
           </form>
+          <section class="sis-tarjeta"><h2>Despegue sugerido</h2>
+            <div id="vu-desp-sug">${htmlDespegueSugerido()}</div>
+            <div class="sis-acciones">
+              <button class="sis-btn chico primario" data-accion="despegue-buscar" data-todos="0">Buscar sobre un camino</button>
+              ${g.sectores.length > 1 ? '<button class="sis-btn chico" data-accion="despegue-buscar" data-todos="1">Para todos los sectores</button>' : ''}
+            </div>
+            <p class="sis-tenue">Prueba puntos de la red vial del MOP y de los caminos agregados en Área (hasta 1,5 km del sector) y elige el de menos tiempo de jornada. Es una referencia: el acceso, la propiedad y la línea de vista se confirman en terreno.</p>
+          </section>
           <section class="sis-tarjeta"><h2>Exportar</h2>
             <div class="sis-acciones">
               ${g.tipo === 'corredor' ? `<button class="sis-btn primario" data-accion="kml-eje-sector" data-i="${i}">Descargar eje (KML para el control)</button><button class="sis-btn" data-accion="kml-sector" data-i="${i}">Corredor como polígono</button>` : `<button class="sis-btn primario" data-accion="kml-sector" data-i="${i}">Descargar KML${g.sectores.length > 1 ? ' del sector' : ''}</button>`}
@@ -70,6 +78,23 @@ export function crearPasoVuelo(v) {
           <div id="vu-detalle">${htmlDetalle(r)}</div>
         </div>
       </div>`;
+  }
+
+  function htmlDespegueSugerido() {
+    const s = st.sugDesp, h = st.hoja;
+    if (!s || s.hojaId !== (h.id || 'nueva')) return '';
+    if (s.cargando) return '<p class="sis-tenue">Buscando en los caminos cercanos…</p>';
+    const g = geo(); if (!g) return '';
+    return `<ul class="vu-sug">${s.lista.map(({ i, res, usado }) => {
+      const nom = esc(nombreSector(h, i, g.sectores.length));
+      if (!res) return `<li><b>${nom}</b>: no hay caminos a menos de 1,5 km. Dibuja uno en Área → Caminos.</li>`;
+      const mop = [res.camino.rol, res.camino.carpeta].filter(Boolean).join(' · ');
+      const cam = mop ? `${esc(mop)}<small>${esc(res.camino.nombre || '')}</small>` : `${esc(res.camino.nombre || 'Camino')}<br>`;
+      const lugar = res.distSector < 1 ? 'dentro del sector' : `a ${fmt(res.distSector, 0)} m del sector`;
+      const ahorro = res.ahorro >= 0.5 ? `ahorra <b>${fmtDuracion(res.ahorro)}</b>` : res.ahorro > -0.5 ? 'igual que el despegue actual' : `${fmtDuracion(-res.ahorro)} más que el despegue actual`;
+      return `<li><b>${nom}</b>: ${cam}${lugar} · ${fmtDuracion(res.minTotal)} de jornada (${ahorro})
+        ${usado ? '<span class="vu-verde">✓ en uso</span>' : `<button class="sis-btn chico" data-accion="despegue-usar" data-i="${i}">Usar</button>`}</li>`;
+    }).join('')}</ul>`;
   }
 
   function htmlTotalHoja() {

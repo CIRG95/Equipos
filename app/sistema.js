@@ -8,7 +8,7 @@ import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import { iniciarPanelNube } from './nube-panel.js';
-import { VISTAS, manejarEnvio, manejarClic, manejarCambio } from './vistas.js';
+import { VISTAS, manejarEnvio, manejarClic, manejarCambio, avisosPara } from './vistas.js';
 import { ROLES } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
 import { revisarInstalacion, mostrarAvisoInstalacion } from './revision.js';
@@ -67,13 +67,12 @@ const ICONOS_MENU = {
   mas: ic('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'),
 };
 const MENU = [
-  { ruta: 'inicio', texto: 'Inicio', roles: ['terreno', 'rrhh'] },
+  { ruta: 'inicio', texto: 'Inicio', roles: ['terreno', 'rrhh'], tambien: ['avisos'] },
   { ruta: 'proyectos', texto: 'Proyectos', roles: ['terreno', 'rrhh'], tambien: ['proyecto', 'proyecto-editar'] },
   { ruta: 'equipos', texto: 'Equipos', roles: ['terreno', 'rrhh'] },
   { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
   { ruta: 'seguimiento', texto: 'Seguimiento', roles: ['terreno'] },
   { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'], pronto: true },
-  { ruta: 'terreno', texto: 'Libreta de terreno', roles: ['terreno'], pronto: true },
   { ruta: 'personas', texto: 'Personas', roles: ['rrhh', 'terreno'] },
 ];
 const CABEN_ABAJO = 5; // en el teléfono, si hay más secciones, las últimas van en «Más»
@@ -133,11 +132,25 @@ function leerRuta() {
   return { base: partes[0] || 'inicio', arg: partes[1] || null };
 }
 
+// ── Campanita de avisos de equipos (problemas reportados desde terreno) ──
+async function pintarAvisos() {
+  const b = $('sis-avisos');
+  if (!b) return;
+  try {
+    const { nuevos, lista } = await avisosPara(ctx());
+    b.hidden = !lista.length && selRol.value !== 'rrhh';
+    b.querySelector('b').textContent = nuevos || '';
+    b.classList.toggle('con-nuevos', nuevos > 0);
+    b.setAttribute('aria-label', nuevos ? `${nuevos} aviso${nuevos > 1 ? 's' : ''} nuevo${nuevos > 1 ? 's' : ''} de equipos` : 'Avisos de equipos');
+  } catch (e) { console.warn(e); }
+}
+
 async function mostrar() {
   const { base, arg } = leerRuta();
   const item = MENU.find(m => m.ruta === base || (m.tambien || []).includes(base));
   if (!item || !item.roles.includes(selRol.value)) { location.hash = '#/inicio'; return; }
   pintarMenu(base);
+  pintarAvisos();
   const clave = `${base}/${arg || ''}/${selRol.value}/${selPersona.value}`;
 
   if (base === 'vuelos') {
@@ -253,6 +266,7 @@ async function arrancar() {
     pastilla: $('sis-nube'),
     alLlegarDatos: async () => {
       await cargarPersonas(selPersona.value || leer('env_persona', ''));
+      pintarAvisos();
       if (montado && montado.refrescar) montado.refrescar();
       else if (!contenedor.querySelector('form')) { rutaActual = ''; mostrar(); } // no borrar lo que se está escribiendo
     },

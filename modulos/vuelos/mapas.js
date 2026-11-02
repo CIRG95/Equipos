@@ -5,6 +5,7 @@ import { calcularSector, metaSector, nombreSector } from './hoja.js';
 import { TIPOS_CAPA } from './capas.js';
 import { COLORES_BATERIA, COLORES_SECTOR } from './ui.js';
 import { agregarMapaBase } from './mapa-base.js';
+import { caminosEn, recuadro, COLOR_CARPETA, describirCamino, ATRIBUCION } from './redvial.js';
 
 export function crearMapas(v) {
   const ref = n => (...a) => v[n](...a);
@@ -71,6 +72,34 @@ export function crearMapas(v) {
     m.el.classList.toggle('dibujando', !!st.dibujo);
     pintarArea(m);
     pintarDibujo(m);
+    redVialYRepintar(m, pintarArea);
+  }
+
+  // Red vial del MOP (si está activada) y caminos propios de la hoja. Se baja solo la región del área.
+  async function asegurarRedVial() {
+    const g = geo();
+    if (!st.redVial || !g) return false;
+    const bb = recuadro(g.vuelo.map(g.marco.aLonLat), 3);
+    const clave = bb.map(x => x.toFixed(2)).join(',');
+    if (st.redVialClave === clave) return false;
+    st.redVialClave = clave;
+    try { st.redVialDatos = await caminosEn(bb); st.redVialInfo = `${st.redVialDatos.length} caminos del MOP cerca del área. ${ATRIBUCION}.`; }
+    catch { st.redVialDatos = []; st.redVialInfo = 'No se pudo leer la red vial (falta vendor/capas/redvial).'; st.redVialClave = null; }
+    return true;
+  }
+  function pintarCaminos(m) {
+    const { L, mapa } = m;
+    quitar(m, 'caminos');
+    const capas = [];
+    const mop = st.redVial ? (st.redVialDatos || []) : [];
+    for (const c of mop.slice(0, 4000)) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: '#3A3A3A', weight: /pavimento/i.test(c.carpeta) ? 5 : 4, opacity: 0.55, interactive: false }));
+    for (const c of mop.slice(0, 4000)) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: COLOR_CARPETA(c.carpeta), weight: /pavimento/i.test(c.carpeta) ? 3 : 2, opacity: 0.85, dashArray: /suelo/i.test(c.carpeta) ? '4 4' : null }).bindTooltip(describirCamino(c) || 'Camino', { sticky: true }));
+    for (const c of (st.hoja && st.hoja.area.caminos) || []) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: '#FFD54F', weight: 3, opacity: 0.95 }).bindTooltip(c.nombre || 'Camino agregado', { sticky: true }));
+    if (capas.length) m.capas.caminos = L.layerGroup(capas).addTo(mapa);
+    if (mapa.attributionControl) { mapa.attributionControl.removeAttribution(ATRIBUCION); if (mop.length) mapa.attributionControl.addAttribution(ATRIBUCION); }
+  }
+  async function redVialYRepintar(m, pintar) {
+    if (await asegurarRedVial()) { pintar(m); const info = raiz.querySelector('.vu-caminos-info'); if (info) info.textContent = st.redVialInfo; }
   }
 
   function pintarArea(m) {
@@ -78,6 +107,7 @@ export function crearMapas(v) {
     const g = geo(), h = st.hoja;
     quitar(m, 'original', 'sectores', 'cortes', 'eje');
     pintarZonas(m);
+    pintarCaminos(m);
     if (!g) return;
     const LL = aLL(g);
     if (g.tipo === 'poligono' && Number(h.area.margen)) m.capas.original = L.polygon(g.original.map(LL), { color: '#FFFFFF', weight: 2, dashArray: '6 5', fill: false, interactive: false }).addTo(mapa);
@@ -130,14 +160,18 @@ export function crearMapas(v) {
     const m = await mapaEn(lugar, 'vuelo');
     if (!m) { lugar.innerHTML = '<p class="sis-tenue vu-sin-mapa">El mapa necesita internet. El cálculo funciona igual.</p>'; return; }
     pintarVuelo(m);
+    redVialYRepintar(m, pintarVuelo);
   }
 
   function pintarVuelo(m) {
     const { L, mapa } = m;
     const g = geo(), h = st.hoja;
-    quitar(m, 'sectores', 'lineas', 'traslados');
+    quitar(m, 'sectores', 'lineas', 'traslados', 'sugerido');
     if (!g) return;
+    pintarCaminos(m);
     const LL = aLL(g), i = secSel();
+    const sug = st.sugDesp && st.sugDesp.lista && st.sugDesp.lista.find(x => x.i === i && x.res && !x.usado);
+    if (sug) m.capas.sugerido = L.circleMarker([sug.res.lonLat[1], sug.res.lonLat[0]], { radius: 8, color: '#FFFFFF', weight: 2, fillColor: '#2E7D32', fillOpacity: 1 }).bindTooltip('Despegue sugerido sobre el camino', { direction: 'top' }).addTo(mapa);
     const r = calcularSector(h, dron(), g, i);
     m.capas.sectores = L.layerGroup(g.sectores.map((s, k) => L.polygon(s.poligono.map(LL), { color: '#E8611C', weight: k === i ? 3 : 1.5, opacity: k === i ? 1 : 0.6, fillColor: '#E8611C', fillOpacity: k === i ? 0.1 : 0.03, interactive: k !== i })
       .on('click', () => { if (k !== i) { h.area.sel = k; cambio(); render(); } }))).addTo(mapa);

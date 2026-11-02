@@ -11,7 +11,10 @@ import { CAMPOS_DRON } from './drones.js';
 import { alturaParaGsd, gsdCm, fmt, fmtDuracion, proyectar, areaM2 } from './calculo.js';
 import { leerArchivo, analizarKml, limpiarParaDji, kmlDePoligono, kmlDeLinea, limpiarEje, nombreArchivoSeguro, limpiarAnillo, autoInterseccion } from './kml.js';
 import { listarCapas, cargarCapaDesdeArchivo, quitarCapa } from './capas.js';
-import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto } from './hoja.js';
+import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, kmADm, distanciasCorte, cortesDeCorredor, distanciasPorBaterias } from './hoja.js';
+import * as Seguimiento from '../seguimiento/seguimiento.js';
+import { largo } from './geom.js';
+import { caminosEn, caminosDeHoja, recuadro, despegueSobreCamino } from './redvial.js';
 import { TIPO_KML } from './ui.js';
 import { crearVistaHojas } from './vista-hojas.js';
 import { crearPasoArea } from './paso-area.js';
@@ -43,7 +46,7 @@ export function montarPantallas(contenedor, ctx) {
     metar: null, metarError: '',
     rapLat: '', rapLon: '', rapOrigen: '', rapDron: 'm4e',
     kml: null, kmlError: '', maxVertices: 200,
-    capas: null, capasActivas: leerLS('vu_capas_activas', null),
+    capas: null, capasActivas: leerLS('vu_capas_activas', null), redVial: leerLS('vu_red_vial', false), redVialInfo: '', sugDesp: null,
     mensaje: null, filtroProyecto: ctx.proyectoId || '',
   };
   const base = { drones: [], proyectos: [], personas: [], hojas: [] };
@@ -116,6 +119,50 @@ export function montarPantallas(contenedor, ctx) {
     if (r && st.hoja.params.velocidad === '') ponerValor('velocidad', Math.round(r.velocidad * 10) / 10);
     if (mapas.vuelo && mapas.vuelo.el.isConnected) pintarVuelo(mapas.vuelo);
   }
+  async function buscarDespegue(h, todos) {
+    const g = geo(); if (!g) return;
+    const lista = todos ? g.sectores.map((_, k) => k) : [secSel()];
+    st.sugDesp = { hojaId: h.id || 'nueva', cargando: true, lista: [] };
+    poner('vu-desp-sug', '<p class="sis-tenue">Buscando en los caminos cercanos…</p>');
+    let mop = [];
+    try { mop = await caminosEn(recuadro(lista.flatMap(k => g.sectores[k].poligono.map(g.marco.aLonLat)), 2)); }
+    catch { avisar('No se pudo leer la red vial del MOP: se usan solo los caminos agregados en la hoja.', 'error'); }
+    const caminos = [...caminosDeHoja(h), ...mop];
+    st.sugDesp = { hojaId: h.id || 'nueva', lista: lista.map(i => ({ i, res: caminos.length ? despegueSobreCamino(h, dron(), g, i, caminos) : null })) };
+    const n = st.sugDesp.lista.filter(x => x.res).length;
+    if (!n) avisar('No hay caminos a menos de 1,5 km. Dibuja uno en Área → Caminos.', 'error');
+    else if (!st.mensaje || st.mensaje.tipo !== 'error') avisar(`Despegue sugerido para ${n} sector${n === 1 ? '' : 'es'}: revisa y toca «Usar».`);
+  }
+
+  async function cortarAutomatico(h) {
+    const a = h.area, au = a.auto || {}, dm = a.dm || {}, modo = au.modo || 'inicio';
+    const g = geometria(h); if (!g || a.tipo !== 'corredor') return;
+    const L = largo(a.eje.linea.map(g.marco.aXY));
+    let dist;
+    if (modo === 'baterias') {
+      const n = Number(au.bat) || 4;
+      avisar('Calculando cortes por baterías…');
+      dist = distanciasPorBaterias(h, dron(), n);
+    } else {
+      if ((modo === 'dm' || modo === 'tramos') && dm.inicio == null) { avisar('Escribe primero el DM del inicio del eje (ej. 10+000).', 'error'); return; }
+      let tramosKm = [];
+      if (modo === 'tramos') {
+        if (!h.proyectoId) { avisar('La hoja no tiene proyecto: elígelo en el encabezado para usar sus tramos.', 'error'); return; }
+        const t = await Seguimiento.tramosDeProyecto(h.proyectoId);
+        if (!t) { avisar('El proyecto no tiene seguimiento con tramos.', 'error'); return; }
+        for (const ar of t.areas) for (const x of ar.tramos) { if (x.ini != null) tramosKm.push(x.ini); if (x.fin != null) tramosKm.push(x.fin); }
+        if (!tramosKm.length) { avisar('Los tramos del seguimiento no tienen DM (como 45+200) en su nombre.', 'error'); return; }
+      }
+      dist = distanciasCorte(L, { modo, cada: au.cada || 1000, dmInicio: dm.inicio, desc: !!dm.desc, primerDM: au.primer ? dmAKm(au.primer) : null, tramosKm });
+    }
+    if (!dist.length && modo === 'baterias') { avisar(`Todo el corredor se vuela con ${Number(au.bat) || 4} batería${Number(au.bat) === 1 ? '' : 's'} o menos: no hace falta cortar.`); return; }
+    if (!dist.length) { avisar(modo === 'tramos' ? 'Ningún DM de los tramos cae dentro del eje: revisa el DM del inicio y si baja.' : 'Con esos datos no hay cortes dentro del eje.', 'error'); return; }
+    a.cortes = cortesDeCorredor(h, dist); a.sectores = []; a.sel = 0;
+    cambio();
+    const n = geometria(h).sectores.length;
+    avisar(`Listo: ${dist.length} cortes, ${n} sectores${dm.inicio != null ? ` (${kmADm(Math.min(dm.inicio, dm.desc ? dm.inicio - L / 1000 : dm.inicio + L / 1000))} – ${kmADm(Math.max(dm.inicio, dm.desc ? dm.inicio - L / 1000 : dm.inicio + L / 1000))})` : ''}.`);
+  }
+
   function refrescarArea() {
     const g = geo();
     poner('vu-sectores', htmlSectores()); poner('vu-zonas', htmlZonas());
@@ -182,6 +229,13 @@ export function montarPantallas(contenedor, ctx) {
       avisar(`Capa cargada: ${n} elemento${n === 1 ? '' : 's'}.`); return;
     }
     const analisis = analizarKml(await leerArchivo(archivo), archivo.name);
+    if (tipo === 'camino') {
+      const lineas = analisis.ejes;
+      if (!lineas.length) throw new Error('El archivo no trae líneas (caminos).');
+      const h = st.hoja; h.area.caminos = h.area.caminos || [];
+      for (const l of lineas) h.area.caminos.push({ nombre: l.nombre || archivo.name, linea: l.linea });
+      avisar(`${lineas.length} camino${lineas.length === 1 ? '' : 's'} agregado${lineas.length === 1 ? '' : 's'}.`); cambio(); return;
+    }
     if (tipo === 'kml') { st.kml = analisis; st.kmlError = ''; return; }
     const contornos = analisis.poligonos.filter(p => !p.abierta);
     if (!contornos.length && !analisis.ejes.length) throw new Error('El archivo no trae polígonos ni líneas.');
@@ -254,8 +308,17 @@ export function montarPantallas(contenedor, ctx) {
       if (t.name === 'familia') { const alt = alturaDe(h.params, dron()); const x = base.drones.find(d => (d.familia || d.id) === t.value); if (x) h.dronId = x.id; if (!h.params.porGsd) h.params.altura = String(Math.round(alt)); if (Number(h.params.velocidad) > dron().velocidadMaxMs) h.params.velocidad = ''; cambio(); await render(); return; }
       if (t.name === 'dronId') { h.dronId = t.value; cambio(); await render(); return; }
       if (t.name === 'modo') { h.params.modo = t.value; if (t.value === 'lidar' && Number(h.params.traslapeLateral) > 60) h.params.traslapeLateral = '50'; if (t.value === 'foto' && Number(h.params.traslapeLateral) < 60) h.params.traslapeLateral = '70'; cambio(); await render(); return; }
+      if (t.dataset.auto) {
+        const a = h.area, k = t.dataset.auto;
+        a.dm = a.dm || {}; a.auto = a.auto || {};
+        if (k === 'dm') { const km = dmAKm(t.value); a.dm.texto = t.value.trim(); a.dm.inicio = t.value.trim() ? km : null; if (t.value.trim() && km == null) avisar('No entendí el DM: escríbelo como 10+000.', 'error'); }
+        else if (k === 'desc') a.dm.desc = t.checked;
+        else a.auto[k] = t.value.trim();
+        cambio(); refrescarArea(); return;
+      }
       if (t.dataset.area === 'rectas') { h.area.rectas = t.checked; cambio(); refrescarArea(); return; }
       if (t.dataset.area === 'mismo') { h.area.corredor.mismo = t.checked; if (!t.checked) h.area.corredor.der = h.area.corredor.izq; cambio(); await render(); return; }
+      if (t.hasAttribute('data-redvial')) { st.redVial = t.checked; escribirLS('vu_red_vial', st.redVial); await render(); return; }
       if (t.dataset.capa) { const todas = capasActivas(); st.capasActivas = t.checked ? [...new Set([...todas, t.dataset.capa])] : todas.filter(x => x !== t.dataset.capa); escribirLS('vu_capas_activas', st.capasActivas); refrescarArea(); return; }
       if (t.dataset.dgac && t.dataset.dgac !== 'numero') { h.permisos.dgac[t.dataset.dgac] = t.value; cambio(); await render(); return; }
       if (t.dataset.doc) { h.permisos.docs[t.dataset.doc] = t.checked; cambio(); return; }
@@ -338,6 +401,10 @@ export function montarPantallas(contenedor, ctx) {
           const coords = limpiarAnillo(puntos); const { puntos: xy } = proyectar(coords);
           usarPoligono({ nombre: 'Área dibujada', coords, area: areaM2(xy), problemas: [] }, 'dibujada en el mapa');
           if (autoInterseccion(xy)) avisar('El contorno dibujado se cruza consigo mismo: dibújalo de nuevo siguiendo el borde.', 'error');
+        } else if (modo === 'camino') {
+          if (puntos.length < 2) { avisar('Marca al menos dos puntos del camino.', 'error'); return; }
+          h.area.caminos = h.area.caminos || []; h.area.caminos.push({ nombre: `Camino dibujado ${h.area.caminos.length + 1}`, linea: puntos });
+          avisar('Camino agregado: se usa para sugerir el despegue en el paso Vuelo.'); cambio();
         } else if (modo === 'eje') {
           const { puntos: xy } = proyectar(puntos); let L = 0; for (let k = 1; k < xy.length; k++) L += Math.hypot(xy[k][0] - xy[k - 1][0], xy[k][1] - xy[k - 1][1]);
           usarEje({ nombre: 'Eje dibujado', linea: puntos, largo: L }, 'dibujado en el mapa');
@@ -348,6 +415,14 @@ export function montarPantallas(contenedor, ctx) {
         }
         st.dibujo = null;
       }
+      else if (a === 'quitar-camino') { h.area.caminos.splice(Number(b.dataset.i), 1); cambio(); }
+      else if (a === 'despegue-buscar') { await buscarDespegue(h, b.dataset.todos === '1'); }
+      else if (a === 'despegue-usar') {
+        const i = Number(b.dataset.i), e = st.sugDesp && st.sugDesp.lista.find(x => x.i === i);
+        if (e && e.res) { metaSector(h, i).despegue = e.res.lonLat; e.usado = true; h.area.sel = i; avisar(`Despegue de ${nombreSector(h, i, geo().sectores.length)} movido al camino.`); cambio(); }
+      }
+      else if (a === 'auto-modo') { h.area.auto = { ...(h.area.auto || {}), modo: b.dataset.m }; cambio(); }
+      else if (a === 'auto-cortar') await cortarAutomatico(h);
       else if (a === 'deshacer-corte') { h.area.cortes.pop(); cambio(); }
       else if (a === 'quitar-cortes') { h.area.cortes = []; h.area.sel = 0; cambio(); }
       else if (a === 'margen') { h.area.margen = Number(b.dataset.m); cambio(); }
@@ -410,6 +485,12 @@ export function montarPantallas(contenedor, ctx) {
         }
       }
       // Clima y permisos
+      else if (a === 'metar-leer' || a === 'metar-borrar') {
+        const ta = raiz.querySelector('[data-metar-texto]');
+        const valor = a === 'metar-borrar' ? null : { texto: (ta && ta.value || '').trim(), leidoEn: new Date().toISOString() };
+        if (valor && !valor.texto) { if (ta) ta.focus(); return; }
+        if (st.vista === 'hoja' && h) { h.metar = valor; cambio(); } else st.rapMetar = valor;
+      }
       else if (a === 'quitar-viento') { h.viento.splice(Number(b.dataset.k), 1); cambio(); }
       else if (a === 'consulta') { h.permisos.consultas.push({ id: globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), tipo: b.dataset.tipo, fecha: new Date().toISOString(), personaId: ctx.personaId }); avisar('Consulta registrada'); cambio(); }
       else if (a === 'ver-captura') { await abrirArchivo(b.dataset.id); return; }

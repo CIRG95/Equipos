@@ -3,7 +3,7 @@
 
 import { hoyISO } from '../../compartido/util.js';
 import { proyectar, calcularPlan, alturaParaGsd, gsdCm, areaM2 } from './calculo.js';
-import { margenPoligono, aplicarCortes, cortarEje, poligonoCorredor, largo } from './geom.js';
+import { margenPoligono, aplicarCortes, cortarEje, poligonoCorredor, largo, cortesTransversales, distanciaEnEje, puntoEnEje } from './geom.js';
 
 const R_LAT = 110540, R_LON = 111320;
 
@@ -19,6 +19,7 @@ export const DOCUMENTOS_DGAC = [
 export const CONSULTAS = [
   ['notam', 'NOTAM en AIP Chile', 'https://aipchile.dgac.gob.cl/notam'],
   ['aip', 'Mapa interactivo AIP Chile', 'https://aipchile.dgac.gob.cl/'],
+  ['uas', 'UAS Control: zonas y «Verificar conformidad» del área', 'https://uascontrol.io/'],
 ];
 
 export function nuevaHoja({ proyectoId = '', personaId = null, dronId = 'm4e' } = {}) {
@@ -74,7 +75,7 @@ export function geometria(hoja) {
   const a = hoja.area;
   const fuente = a.tipo === 'corredor' ? (a.eje && a.eje.linea) : (a.original && a.original.anillo);
   if (!fuente || fuente.length < 2) return null;
-  const clave = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes]); // con todos los vértices: dos áreas con el mismo primer y último punto no deben compartir caché
+  const clave = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes, a.dm]); // con todos los vértices: dos áreas con el mismo primer y último punto no deben compartir caché
   if (cacheGeo.clave === clave) return cacheGeo.valor;
   const marco = marcoDe(fuente);
   const cortes = (a.cortes || []).map(c => c.map(marco.aXY));
@@ -86,6 +87,14 @@ export function geometria(hoja) {
     const tramos = cortarEje(eje, cortes);
     const sectores = tramos.map(t => ({ eje: t, poligono: poligonoCorredor(t, izq, der), largo: largo(t) }));
     sectores.forEach(s => { s.area = areaM2(s.poligono); });
+    // DM de cada sector (si la hoja tiene el DM del inicio del eje): sirve para nombrarlos «10+200 – 15+200».
+    const ejeOrig = fuente.map(marco.aXY);
+    if (a.dm && a.dm.inicio != null) for (const s of sectores) {
+      const s0 = distanciaEnEje(ejeOrig, s.eje[0]), s1 = distanciaEnEje(ejeOrig, s.eje[s.eje.length - 1]);
+      const km = x => a.dm.desc ? a.dm.inicio - x / 1000 : a.dm.inicio + x / 1000;
+      const [k0, k1] = [km(s0), km(s1)].sort((x, y) => x - y);
+      s.dm = [k0, k1];
+    }
     valor = { marco, tipo: 'corredor', eje, izq, der, vuelo: poligonoCorredor(eje, izq, der), original: null, sectores, fallidos: cortes.length && tramos.length < cortes.length + 1 ? ['algún corte no cruza el eje'] : [] };
   } else {
     const original = fuente.map(marco.aXY);
@@ -108,7 +117,63 @@ export function metaSector(hoja, i) {
 export function nombreSector(hoja, i, total) {
   const m = hoja.area.sectores[i];
   if (m && m.nombre) return m.nombre;
+  const g = hoja.area.dm ? geometria(hoja) : null;
+  const s = g && g.sectores[i];
+  if (s && s.dm && total > 1) return `${kmADm(s.dm[0])} – ${kmADm(s.dm[1])}`;
   return total > 1 ? `S${i + 1}` : 'Área completa';
+}
+
+// ─────────── Cadenamiento (DM) y cortes automáticos del corredor ───────────
+/** «45+200» → 45.2 (km); null si no se entiende. */
+export function dmAKm(t) { const m = /^\s*(\d+)\s*\+\s*(\d{1,3})(?:[.,](\d+))?\s*$/.exec(String(t)); if (m) return Number(m[1]) + Number(m[2].padEnd(3, '0')) / 1000; const n = Number(String(t).replace(',', '.')); return isFinite(n) && String(t).trim() !== '' ? n : null; }
+export function kmADm(x) { const k = Math.floor(x + 1e-9); return `${k}+${String(Math.round((x - k) * 1000)).padStart(3, '0')}`; }
+
+/**
+ * Distancias (m desde el inicio del eje, en su sentido original) donde cortar.
+ * op: { modo: 'inicio'|'dm'|'tramos', cada (m), dmInicio (km), desc (el DM baja en el sentido del eje), primerDM (km), tramosKm: [km…] }
+ */
+export function distanciasCorte(L, op) {
+  const out = [];
+  const aS = km => (op.desc ? op.dmInicio - km : km - op.dmInicio) * 1000;
+  if (op.modo === 'inicio') { const c = Number(op.cada); if (c > 10) for (let s = c; s < L; s += c) out.push(s); }
+  else if (op.modo === 'dm') {
+    const c = Number(op.cada); if (!(c > 10) || op.dmInicio == null) return out;
+    const ref = op.primerDM != null ? op.primerDM : 0; // sin primer DM: múltiplos redondos (11+000, 12+000…)
+    const kmFin = op.desc ? op.dmInicio - L / 1000 : op.dmInicio + L / 1000;
+    const [a, b] = [op.dmInicio, kmFin].sort((x, y) => x - y);
+    const paso = c / 1000;
+    for (let k = ref + Math.ceil((a - ref) / paso) * paso; k <= b + 1e-9; k += paso) out.push(aS(k));
+  } else if (op.modo === 'tramos' && op.dmInicio != null) out.push(...(op.tramosKm || []).map(aS));
+  return [...new Set(out.map(s => Math.round(s * 10) / 10))].filter(s => s > 1 && s < L - 1).sort((x, y) => x - y);
+}
+
+/** Cortes (en lon, lat) para guardar en la hoja: perpendiculares al eje original, un poco más largos que el corredor. */
+export function cortesDeCorredor(hoja, distancias) {
+  const a = hoja.area, marco = marcoDe(a.eje.linea), eje = a.eje.linea.map(marco.aXY);
+  const semi = Math.max(Number(a.corredor.izq) || 0, a.corredor.mismo ? 0 : Number(a.corredor.der) || 0) + 40;
+  return cortesTransversales(eje, distancias, semi).map(c => c.map(marco.aLonLat));
+}
+
+/** Cortes para que cada sector se vuele con a lo más n baterías desde un despegue en su centro. Devuelve distancias. */
+export function distanciasPorBaterias(hoja, d, n) {
+  const a = hoja.area, marco = marcoDe(a.eje.linea), eje = a.eje.linea.map(marco.aXY), L = largo(eje);
+  const izq = Number(a.corredor.izq) || 0, der = a.corredor.mismo ? izq : (Number(a.corredor.der) || 0);
+  const pedazo = (s0, s1) => { const pts = [puntoEnEje(eje, s0).p]; let acum = 0; for (let i = 0; i + 1 < eje.length; i++) { acum += Math.hypot(eje[i + 1][0] - eje[i][0], eje[i + 1][1] - eje[i][1]); if (acum > s0 && acum < s1) pts.push(eje[i + 1]); } pts.push(puntoEnEje(eje, s1).p); return pts; };
+  const baterias = (s0, s1) => {
+    const sub = pedazo(s0, s1), medio = puntoEnEje(eje, (s0 + s1) / 2).p;
+    const b = baseCalculo(hoja, d, { eje: sub, izq, der, despegue: medio });
+    const v = Number(hoja.params.velocidad) || Math.floor(calcularPlan({ ...b, velocidad: 10 }).velSugerida * 10) / 10;
+    return calcularPlan({ ...b, velocidad: v }).vuelos;
+  };
+  const out = []; let s0 = 0;
+  while (L - s0 > 1 && out.length < 200) {
+    if (baterias(s0, L) <= n) break;
+    let lo = s0 + 20, hi = L;
+    if (baterias(s0, lo) > n) { out.push(lo); s0 = lo; continue; }
+    while (hi - lo > 25) { const m = (lo + hi) / 2; if (baterias(s0, m) <= n) lo = m; else hi = m; }
+    out.push(Math.round(lo)); s0 = lo;
+  }
+  return out;
 }
 
 export const alturaDe = (P, d) => P.porGsd ? alturaParaGsd(d, Number(P.gsd) || 1) : Number(P.altura) || 1;
@@ -133,7 +198,7 @@ export function calcularSector(hoja, d, geo, i, extra = {}) {
   const geomSector = geo.tipo === 'corredor'
     ? { eje: sec.eje, izq: geo.izq, der: geo.der }
     : { puntos: sec.poligono, rumbo: meta.rumbo === '' || meta.rumbo == null ? undefined : Number(meta.rumbo) };
-  const despegue = meta.despegue ? geo.marco.aXY(meta.despegue) : centroide(sec.poligono);
+  const despegue = extra.despegue || (meta.despegue ? geo.marco.aXY(meta.despegue) : centroide(sec.poligono));
   const b = baseCalculo(hoja, d, { ...geomSector, despegue, ...extra });
   const P = hoja.params;
   if (extra.velocidad) return { ...calcularPlan(b), velocidad: extra.velocidad, despegueXY: despegue, altura: b.altura, modo: b.modo };

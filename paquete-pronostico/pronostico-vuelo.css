@@ -1,0 +1,23 @@
+
+/* Tarjeta del METAR (metar-ui.js), también en el paquete del pronóstico */
+.pv .mt-panel{display:flex; flex-direction:column; gap:8px;}
+.pv .mt-tit{margin:0; font-size:16px;}
+.pv .mt-tenue{color:var(--pv-muted); font-size:13px;}
+.pv .mt-lista{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+.pv .mt-lista li{border:1px solid var(--pv-line2); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; font-size:14px;}
+.pv .mt-icao{font-family:var(--pv-mono); user-select:all;}
+.pv .mt-ref{display:block; font-size:12px; color:#9A3A0B;}
+.pv .mt-enlaces{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:13px;}
+.pv .mt-pegar{display:flex; flex-direction:column; gap:4px; font-size:13px;}
+.pv .mt-pegar textarea{width:100%; font-family:var(--pv-mono); font-size:12px; border:1px solid var(--pv-line); border-radius:8px; padding:8px;}
+.pv .mt-btn{align-self:flex-start; border:1px solid var(--pv-line); background:var(--pv-sup); border-radius:9px; padding:7px 12px; min-height:38px; cursor:pointer; font:inherit;}
+.pv .mt-btn.mt-pri{background:var(--pv-marca); border-color:var(--pv-marca); color:#fff; font-weight:600;}
+.pv .mt-leido{border-top:1px solid var(--pv-line2); padding-top:8px; display:flex; flex-direction:column; gap:6px;}
+.pv .mt-cab{display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center;}
+.pv .mt-chip{font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px;}
+.pv .mt-chip.mt-ok{background:#E3F2EE; color:#0B5A53;} .mt-chip.mt-aviso{background:#FFF4EC; color:#9A3A0B;} .mt-chip.mt-no{background:#FDE8E6; color:#8A1C12;}
+.pv .mt-comp{margin:0; padding-left:18px; font-size:13px; display:flex; flex-direction:column; gap:2px;}
+.pv .mt-comp li.mt-ok::marker{color:#0F766E;} .mt-comp li.mt-aviso{color:#9A3A0B;} .mt-comp li.mt-no{color:#B42318; font-weight:600;}
+.pv p.mt-aviso{color:#9A3A0B; font-size:13px; margin:0;} p.mt-no{color:#B42318; font-size:13px; margin:0;}
+.pv .mt-crudo{white-space:pre-wrap; font-family:var(--pv-mono); font-size:12px; background:#FAFAF8; border:1px solid var(--pv-line2); border-radius:8px; padding:8px 10px; margin:0;}
+

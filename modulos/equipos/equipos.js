@@ -3,10 +3,10 @@
 // Nadie lee los almacenes equipos_… directamente.
 
 import {
-  iniciarDatos, fijarPersona, estadoDeEquipo, listarConEstado, registrarUso, listarCertificados,
+  iniciarDatos, fijarPersona, estadoDeEquipo, listarConEstado, registrarUso, listarCertificados, reportarAnomalia, todasLasAlertas,
 } from './datos.js';
 import { abrirArchivo } from '../../compartido/archivos.js';
-import { VERSION_MODULO, ALM } from './modelo.js';
+import { VERSION_MODULO, ALM, alertaActiva } from './modelo.js';
 import { montarPantallas } from './pantallas.js';
 
 export const VERSION = VERSION_MODULO;
@@ -109,4 +109,26 @@ export async function listarEquiposConEstado({ incluirBaja = false } = {}) {
   return (await listarConEstado())
     .filter(e => incluirBaja || e.ubicacion.lugar !== 'baja')
     .map(resumen);
+}
+
+/**
+ * Problema o aviso de un equipo que está en terreno (lo usa la app de Terreno vía el paquete de conexión).
+ * tipo: 'problema' (algo falla) | 'aviso' (para saber, no detiene). Queda como alerta del equipo: la ve RRHH en
+ * Equipos → Alertas y el encargado del proyecto en la bandeja de avisos. Agregado en Sistema v0.6.
+ */
+export async function reportarProblema({ equipoId, descripcion, tipo = 'problema', proyectoId = null, personaId = null, origen = 'app-terreno' }) {
+  iniciar();
+  const a = await reportarAnomalia({ equipoId, descripcion, tipo: tipo === 'aviso' ? 'aviso' : 'problema', proyectoId, personaId, origen });
+  return { id: a.id, estado: a.estado, fechaReporte: a.fechaReporte };
+}
+
+/** Alertas de todos los equipos con el nombre del equipo (para la bandeja de avisos). Agregado en Sistema v0.6. */
+export async function listarAlertas({ soloActivas = true } = {}) {
+  iniciar();
+  const [alertas, equipos] = await Promise.all([todasLasAlertas(), listarConEstado()]);
+  const nombre = id => { const e = equipos.find(x => x.equipo.id === id); return e ? e.nombre : 'Equipo'; };
+  return alertas.filter(a => !a.eliminadoEn && (!soloActivas || alertaActiva(a)))
+    .sort((a, b) => (b.fechaReporte || '').localeCompare(a.fechaReporte || ''))
+    .map(a => ({ id: a.id, equipoId: a.equipoId, equipo: nombre(a.equipoId), tipo: a.tipo || 'problema', estado: a.estado, descripcion: a.descripcion,
+      proyectoId: a.proyectoId || null, reportadaPor: a.reportadaPor || null, fechaReporte: a.fechaReporte, origen: a.origen || null }));
 }

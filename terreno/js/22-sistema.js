@@ -34,6 +34,7 @@ function sisPersona() {
 }
 function sisRefrescar() {
   sisRenderConfig();
+  if (state.herramienta === "monografias" && !state.monografiaEnEdicionId && state.tabActual === "monografias") sisDespuesDeListado();
   if (!jornadaActiva() && state.tabActual === "jornada") sisCargarProyectosJornada();
 }
 
@@ -120,3 +121,125 @@ document.addEventListener("click", async (ev) => {
   sisRefrescar();
 });
 document.getElementById("btnConfig").addEventListener("click", sisRenderConfig);
+
+
+/* =========================================================================
+   v0.5.7 — MONOGRAFÍAS Y JORNADAS HACIA EL SISTEMA (paquete 1.2)
+   Los botones solo aparecen si el paquete trae publicarMonografia y el teléfono
+   está vinculado. La monografía, su chequeo y su PDF no cambian; lo único nuevo
+   en el registro es proyectoId (opcional). El estado que devuelve el Sistema se
+   guarda aparte, en localStorage (sisMonoEstados), para no tocar el registro.
+   ========================================================================= */
+const SIS_ESTADOS_KEY = "sisMonoEstados";
+const SIS_ETIQUETAS = { enviada: "Enviada", "en-revision": "En revisión", lista: "Lista", "con-observacion": "Con observación" };
+const SIS_COLORES = { enviada: "#5B6B66", "en-revision": "#B4500F", lista: "#2e8b57", "con-observacion": "#B42318" };
+
+function sisPuedePublicar() {
+  try { return SIS.listo && !!sisPersona() && typeof TopolandConexion.publicarMonografia === "function"; } catch (_) { return false; }
+}
+function sisLeerEstados() { try { return JSON.parse(localStorage.getItem(SIS_ESTADOS_KEY) || "{}") || {}; } catch (_) { return {}; } }
+function sisGuardarEstados(c) { try { localStorage.setItem(SIS_ESTADOS_KEY, JSON.stringify(c)); } catch (_) {} }
+
+async function sisEnviarMonografia(m) {
+  if (!m.proyectoId) throw new Error("Elige el proyecto del Sistema de esta monografía.");
+  const r = await TopolandConexion.publicarMonografia(m, { proyectoId: m.proyectoId });
+  const c = sisLeerEstados();
+  c[m.id] = { estado: (r && r.estado) || "enviada", observacion: "", revisadoPor: null, fecha: nowISO(), enviadaEn: nowISO() };
+  sisGuardarEstados(c);
+  return r;
+}
+/* Trae el estado de cada proyecto con monografías enviadas; true si algo cambió. */
+async function sisActualizarEstados() {
+  if (!sisPuedePublicar() || typeof TopolandConexion.estadoMonografias !== "function") return false;
+  const c = sisLeerEstados();
+  const proyectos = [...new Set(state.monografias.filter((m) => m.proyectoId && c[m.id]).map((m) => m.proyectoId))];
+  const antes = JSON.stringify(c);
+  for (const pid of proyectos) {
+    try {
+      (await TopolandConexion.estadoMonografias(pid)).forEach((e) => {
+        if (c[e.id]) c[e.id] = { ...c[e.id], estado: e.estado, observacion: e.observacion || "", revisadoPor: e.revisadoPor || null, fecha: e.fecha || c[e.id].fecha };
+      });
+    } catch (_) {}
+  }
+  const cambio = JSON.stringify(c) !== antes;
+  if (cambio) sisGuardarEstados(c);
+  return cambio;
+}
+function sisEstadoMonoHtml(m) {
+  if (!sisPuedePublicar()) return "";
+  const e = sisLeerEstados()[m.id];
+  if (!e) return "";
+  const col = SIS_COLORES[e.estado] || "#5B6B66";
+  return `<div style="margin-top:4px;"><span style="display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid ${col}; color:${col};">${escapeHtml(SIS_ETIQUETAS[e.estado] || e.estado)}</span></div>` +
+    (e.estado === "con-observacion" && e.observacion ? `<div style="margin-top:4px; font-size:12px; color:#B42318;">⚠ ${escapeHtml(e.observacion)}</div>` : "");
+}
+function sisBotonMonoHtml(m) {
+  return sisPuedePublicar() && m.proyectoId ? `<button class="btn btn-outline btn-sm" data-sis-mono="${m.id}" type="button" style="margin-top:6px;">⬆ Enviar al Sistema</button>` : "";
+}
+function sisBotonTodasHtml() {
+  return sisPuedePublicar() ? `<button class="btn btn-outline" id="btnSisEnviarTodas" type="button" style="width:100%; margin-top:8px;">⬆ Enviar todas al Sistema</button>` : "";
+}
+/* Tras pintar el listado: pide los estados y, si cambiaron, repinta el listado. */
+function sisDespuesDeListado() {
+  if (!sisPuedePublicar()) return;
+  sisActualizarEstados().then((cambio) => {
+    if (cambio && state.herramienta === "monografias" && !state.monografiaEnEdicionId && state.tabActual === "monografias") renderMonografias();
+  });
+}
+
+/* Selector de proyecto y botón enviar dentro de la ficha de la monografía */
+async function sisMonoEditor(m, leerCampos) {
+  const cont = document.getElementById("mProyectoSistema");
+  if (!cont || !sisPersona()) return;
+  let lista = [];
+  try { lista = await TopolandConexion.misProyectos(); } catch (_) {}
+  if (!document.getElementById("mProyectoSistema")) return;
+  const opciones = lista.map((x) => [x.id, x.nombre]).concat([["oficina", "Oficina (sin proyecto de terreno)"]]);
+  if (m.proyectoId && !opciones.some(([id]) => id === m.proyectoId)) opciones.push([m.proyectoId, "(proyecto actual)"]);
+  cont.innerHTML = `<label>Proyecto del Sistema</label>
+    <select id="mSelProyectoSistema"><option value="">— sin elegir —</option>${opciones.map(([id, n]) => `<option value="${escapeHtml(id)}" ${id === m.proyectoId ? "selected" : ""}>${escapeHtml(n)}</option>`).join("")}</select>`;
+  if (sisPuedePublicar()) {
+    cont.insertAdjacentHTML("beforeend", `<button class="btn btn-outline" id="btnEnviarSistema" type="button" style="width:100%; margin-top:8px;">⬆ Enviar al Sistema</button><div id="mEstadoSistema">${sisEstadoMonoHtml(m)}</div>`);
+    document.getElementById("btnEnviarSistema").addEventListener("click", async () => {
+      leerCampos();
+      await dbPut("monografias", m);
+      try { toast("Enviando…"); await sisEnviarMonografia(m); toast("Monografía enviada al Sistema"); }
+      catch (e) { toast(e && e.message ? e.message : "No se pudo enviar"); }
+      const est = document.getElementById("mEstadoSistema"); if (est) est.innerHTML = sisEstadoMonoHtml(m);
+    });
+  }
+}
+
+/* Jornada: al cerrar, ofrecer enviarla (con confirmación) */
+async function sisPreguntarEnviarJornada(j) {
+  if (!sisPuedePublicar() || !j.proyectoId || typeof TopolandConexion.publicarJornada !== "function") return;
+  if (!confirm("¿Enviar esta jornada al Sistema (con sus levantamientos y fotos)?")) return;
+  try {
+    toast("Enviando jornada…");
+    const r = await TopolandConexion.publicarJornada(j, state.levantamientos.filter((l) => l.jornadaId === j.id && !l.eliminado), { proyectoId: j.proyectoId });
+    toast("Jornada enviada al Sistema" + (r && r.fotos ? " (" + r.fotos + " fotos)" : ""));
+  } catch (e) { toast(e && e.message ? e.message : "No se pudo enviar la jornada"); }
+}
+
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-sis-mono], #btnSisEnviarTodas");
+  if (!b || !sisPuedePublicar()) return;
+  try {
+    if (b.id === "btnSisEnviarTodas") {
+      const con = state.monografias.filter((m) => m.proyectoId), sin = state.monografias.length - con.length;
+      if (!con.length) return toast("Ninguna monografía tiene proyecto del Sistema. Elígelo en su ficha.");
+      if (!confirm("Se enviarán " + con.length + " monografía(s) al Sistema." + (sin ? "\n" + sin + " sin proyecto del Sistema no se envían." : "") + "\n\n¿Continuar?")) return;
+      let ok = 0, fallos = 0;
+      toast("Enviando…");
+      for (const m of con) { try { await sisEnviarMonografia(m); ok++; } catch (_) { fallos++; } }
+      toast(ok + " enviada(s)" + (fallos ? ", " + fallos + " con error" : ""));
+    } else {
+      const m = state.monografias.find((x) => x.id === b.dataset.sisMono);
+      if (!m) return;
+      toast("Enviando…");
+      await sisEnviarMonografia(m);
+      toast("Monografía enviada al Sistema");
+    }
+  } catch (err) { toast(err && err.message ? err.message : "No se pudo enviar"); }
+  if (state.herramienta === "monografias" && !state.monografiaEnEdicionId) renderMonografias();
+});

@@ -171,6 +171,7 @@ function renderJornada() {
     state.jornadaActivaId = null;
     marcarPendienteSync(j.id);
     toast("Jornada terminada — " + j.horas.toFixed(2) + " h");
+    if (typeof sisPreguntarEnviarJornada === "function") await sisPreguntarEnviarJornada(j);
     renderTabActual();
   });
   wireObjetivosJornada(j);

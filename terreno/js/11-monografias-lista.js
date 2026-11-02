@@ -85,6 +85,8 @@ function crearMonografiaDesdeDefaults() {
   };
   const com = cargarMonoComunes();
   if (com.activo) aplicarComunesA(m0, com);
+  const ja = typeof jornadaActiva === "function" ? jornadaActiva() : null;
+  m0.proyectoId = (ja && ja.proyectoId) || null;   // v0.5.7: proyecto del Sistema (el de la jornada en curso, si lo hay)
   return m0;
 }
 

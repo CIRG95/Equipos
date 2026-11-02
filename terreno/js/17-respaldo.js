@@ -112,10 +112,10 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.7.1: arreglo en ⚙ → Sistema Topoland. Si la app ya tenía sesión de Google pero no la carpeta de la nube del Sistema, el botón decía «Sincronizar» y no hacía nada. Ahora dice «Conectar nube del Sistema» mientras falte la carpeta, y trae un campo para pegar el enlace de la carpeta de Drive (por si no puedes usar el QR). Si abres la app desde el QR con la sesión ya iniciada, termina de conectar sola."
+    "Versión 0.5.7.2: Ajustes ahora tiene 4 subpestañas (General, Marca, Sistema, Datos). La conexión con el Sistema es un paso a paso: 1 entrar con Google, 2 carpeta, 3 sincronizar, 4 vincular. Cada paso muestra si está hecho y, si algo falla, el error completo queda visible en pantalla."
   ],
   probar: [
-    "En un teléfono nuevo: pega el enlace de la carpeta, toca «Usar esta carpeta», espera que sincronice y vincula con el código de 6 letras."
+    "Ajustes → Sistema: sigue los 4 pasos en orden y, si se corta, mándame captura del recuadro rojo «Último error» y de «Datos para diagnóstico»."
   ],
   conocidos: [
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",

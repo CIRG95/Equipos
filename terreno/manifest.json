@@ -1,0 +1,26 @@
+{
+  "name": "Terreno Topografía",
+  "short_name": "Terreno",
+  "description": "Registro de jornadas y levantamientos topográficos en terreno",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#EEF2F0",
+  "theme_color": "#1D5C63",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "id": "./index.html"
+}

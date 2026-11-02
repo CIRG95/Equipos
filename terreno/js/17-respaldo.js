@@ -112,11 +112,10 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.7: monografías y jornadas hacia el Sistema (paquete de conexión 1.2). Estando vinculado: cada monografía guarda el proyecto del Sistema (por defecto el de la jornada en curso o de la que nace) y tiene el botón «Enviar al Sistema» (en la ficha, en el listado y «Enviar todas»). Al terminar una jornada con proyecto del Sistema se ofrece enviarla. En el listado se ve el estado que devuelve gabinete: En revisión, Lista o Con observación, con el texto de la observación.",
-    "La monografía, su chequeo y su PDF no cambian. Sin vincular o con un paquete antiguo, los botones no aparecen y todo sigue como antes."
+    "Versión 0.5.7.1: arreglo en ⚙ → Sistema Topoland. Si la app ya tenía sesión de Google pero no la carpeta de la nube del Sistema, el botón decía «Sincronizar» y no hacía nada. Ahora dice «Conectar nube del Sistema» mientras falte la carpeta, y trae un campo para pegar el enlace de la carpeta de Drive (por si no puedes usar el QR). Si abres la app desde el QR con la sesión ya iniciada, termina de conectar sola."
   ],
   probar: [
-    "Con datos ficticios: vincula, elige proyecto en una monografía, envíala, y revisa el estado en el listado. Después de que gabinete marque una observación, sincroniza y debe verse el texto."
+    "En un teléfono nuevo: pega el enlace de la carpeta, toca «Usar esta carpeta», espera que sincronice y vincula con el código de 6 letras."
   ],
   conocidos: [
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",

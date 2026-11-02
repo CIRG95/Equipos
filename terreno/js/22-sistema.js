@@ -26,7 +26,7 @@ function sisIniciar() {
       if (e.conectado) {
         TopolandConexion.conectarNube().then(() => { toast("Nube del Sistema conectada"); sisRefrescar(); })
           .catch((err) => toast(err && err.message ? err.message : "No se pudo conectar la nube del Sistema"));
-      } else toast("Abre ⚙ → Sistema Topoland y toca «Conectar nube del Sistema» para terminar.");
+      } else toast("Abre ⚙ → Sistema y sigue los pasos para terminar.");
     }
     if (info.codigoPendiente && !info.persona) {
       TopolandConexion.vincular(info.codigoPendiente).then((p) => {
@@ -54,7 +54,7 @@ async function sisCargarProyectosJornada() {
   if (!p) {
     cont.innerHTML = SIS.listo ? '<p class="muted" style="margin-top:6px;">Sin vincular con el Sistema. <a href="#" id="lnkVincularSistema">Vincular</a></p>' : "";
     const a = document.getElementById("lnkVincularSistema");
-    if (a) a.addEventListener("click", (e) => { e.preventDefault(); document.getElementById("btnConfig").click(); });
+    if (a) a.addEventListener("click", (e) => { e.preventDefault(); document.getElementById("btnConfig").click(); cfgIrA("sistema"); });
     return;
   }
   let lista = [];
@@ -89,61 +89,111 @@ function sisRenderConfig() {
   const p = sisPersona();
   let n = {};
   try { n = TopolandConexion.estadoNube() || {}; } catch (_) {}
-  const hora = n.ultimaSync ? new Date(n.ultimaSync).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : "";
-  const sinCarpeta = !n.carpetaId;
-  const btnNube = `<button class="btn btn-outline" data-sis="nube" type="button" style="flex:1;">${sinCarpeta ? "Conectar nube del Sistema" : "Sincronizar ahora"}</button>`;
-  const campoCarpeta = sinCarpeta ? `
-    <label style="margin-top:12px;">Carpeta de la nube del Sistema</label>
-    <p class="muted" style="font-size:12px;">Si no puedes usar el QR: en Google Drive abre la carpeta del Sistema, copia su enlace y pégalo aquí (con la misma cuenta de Google).</p>
-    <input type="text" id="inpCarpetaSistema" placeholder="https://drive.google.com/drive/folders/…" autocapitalize="off" autocorrect="off">
-    <button class="btn btn-outline" data-sis="carpeta" type="button" style="width:100%; margin-top:8px;">Usar esta carpeta</button>` : "";
-  el.innerHTML = p ? `
-    <p>Vinculado como <strong>${escapeHtml(p.nombre)}</strong>${p.cargo ? " · " + escapeHtml(p.cargo) : ""}.</p>
-    <p class="muted">${n.carpetaId ? "Nube del Sistema: " + escapeHtml(n.carpetaNombre || "conectada") + (hora ? " · última sincronización " + hora : "") + (n.pendiente ? " · hay cambios por subir" : "") : "Sin carpeta de la nube del Sistema: los proyectos que ves son los de este teléfono."}</p>
-    <div class="row" style="gap:8px; margin-top:8px;">
-      ${btnNube}
-      <button class="btn btn-outline" data-sis="desvincular" type="button" style="flex:1;">Desvincular</button>
-    </div>${campoCarpeta}`
-  : `
-    <p class="muted">Escanea el QR del Sistema (Personas → Vincular teléfono) o escribe el código de 6 letras.</p>
-    <input type="text" id="inpCodigoSistema" maxlength="8" autocapitalize="characters" placeholder="ABC234" style="text-transform:uppercase; letter-spacing:.2em; font-family:var(--mono);">
-    <div class="row" style="gap:8px; margin-top:8px;">
-      <button class="btn btn-accent" data-sis="vincular" type="button" style="flex:1;">Vincular</button>
-      ${btnNube}
+  const cid = !!sisClienteId();
+  const hora = n.ultimaSync ? new Date(n.ultimaSync).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+  const ok1 = !!n.conectado, ok2 = !!n.carpetaId, ok3 = !!n.ultimaSync && ok2, ok4 = !!p;
+  const actual = !cid ? 0 : !ok1 ? 1 : !ok2 ? 2 : !ok3 ? 3 : !ok4 ? 4 : 5;
+  const cls = (k, ok) => "sis-paso" + (ok ? " hecho" : actual === k ? " actual" : "");
+  const marca = (ok) => ok ? "✔" : "○";
+  const err = [SIS.ultimoError, n.error].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
+  const resumen = ok4
+    ? `<p><strong>Listo.</strong> Vinculado como <strong>${escapeHtml(p.nombre)}</strong>${p.cargo ? " · " + escapeHtml(p.cargo) : ""}.</p>`
+    : "";
+  el.innerHTML = `
+    <p class="muted">Conecta este teléfono con el Sistema en 4 pasos. Haz cada uno en orden.</p>
+    ${resumen}
+    ${!cid ? `<div class="sis-err">Falta el ID de cliente de Google (el del Sistema). Sin él no se puede conectar la nube. Avisa a quien administra el Sistema.</div>` : ""}
+
+    <div class="${cls(1, ok1)}">
+      <h4>${marca(ok1)} Paso 1 · Entrar con Google</h4>
+      <p class="muted" style="font-size:12px;">Usa la misma cuenta de Google que usa el Sistema en el computador. Si el navegador bloquea la ventana de Google, permítela (en Brave: desactiva «Shields» para este sitio).</p>
+      ${ok1 ? "" : `<button class="btn btn-accent" data-sis="google" type="button" style="width:100%;">Entrar con Google</button>`}
     </div>
-    <p class="muted" style="font-size:12px; margin-top:6px;">En un teléfono nuevo, primero conecta la nube del Sistema (necesita la carpeta) para traer las personas.</p>${campoCarpeta}`;
+
+    <div class="${cls(2, ok2)}">
+      <h4>${marca(ok2)} Paso 2 · Carpeta de la nube del Sistema</h4>
+      ${ok2 ? `<p class="muted" style="font-size:12px;">Carpeta: <strong>${escapeHtml(n.carpetaNombre || "conectada")}</strong></p>`
+        : `<p class="muted" style="font-size:12px;">En el computador, abre esa carpeta en Google Drive, copia su enlace y pégalo aquí. La carpeta debe estar compartida contigo como «Editor».</p>
+      <input type="text" id="inpCarpetaSistema" placeholder="https://drive.google.com/drive/folders/…" autocapitalize="off" autocorrect="off">
+      <button class="btn btn-accent" data-sis="carpeta" type="button" style="width:100%; margin-top:8px;">Usar esta carpeta</button>`}
+    </div>
+
+    <div class="${cls(3, ok3)}">
+      <h4>${marca(ok3)} Paso 3 · Traer los datos del Sistema</h4>
+      <p class="muted" style="font-size:12px;">${ok3 ? "Última sincronización: " + hora + (n.pendiente ? " · hay cambios por subir" : "") : "Descarga las personas y proyectos que subió el Sistema. Antes, en el computador, sincroniza el Sistema."}</p>
+      ${ok2 ? `<button class="btn btn-outline" data-sis="sync" type="button" style="width:100%;">${n.sincronizando ? "Sincronizando…" : "Sincronizar ahora"}</button>` : ""}
+    </div>
+
+    <div class="${cls(4, ok4)}">
+      <h4>${marca(ok4)} Paso 4 · Vincular tu persona</h4>
+      ${ok4 ? `<button class="btn btn-outline" data-sis="desvincular" type="button" style="width:100%;">Desvincular este teléfono</button>`
+        : `<p class="muted" style="font-size:12px;">En el Sistema: Personas → Vincular teléfono. Escribe aquí el código de 6 letras.</p>
+      <input type="text" id="inpCodigoSistema" maxlength="8" autocapitalize="characters" placeholder="ABC234" style="text-transform:uppercase; letter-spacing:.2em; font-family:var(--mono);">
+      <button class="btn btn-accent" data-sis="vincular" type="button" style="width:100%; margin-top:8px;">Vincular</button>`}
+    </div>
+
+    ${err.length ? `<div class="sis-err"><strong>Último error:</strong><br>${err.map(escapeHtml).join("<br>")}</div>` : ""}
+    <details style="margin-top:12px; font-size:12px;" class="muted">
+      <summary>Datos para diagnóstico</summary>
+      <div>Sitio: ${escapeHtml(location.origin)}<br>Internet: ${navigator.onLine ? "sí" : "no"}<br>ID de cliente Google: ${cid ? "sí" : "no"}<br>Sesión de Google: ${ok1 ? "sí" : "no"}<br>Carpeta: ${ok2 ? "sí" : "no"}<br>Sincronizada: ${ok3 ? "sí (" + hora + ")" : "no"}<br>Persona vinculada: ${ok4 ? "sí" : "no"}</div>
+    </details>`;
 }
 document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-sis]");
   if (!b || !SIS.listo) return;
+  SIS.ultimoError = "";
   try {
-    if (b.dataset.sis === "vincular") {
-      const r = await TopolandConexion.vincular(document.getElementById("inpCodigoSistema").value);
-      toast(r ? "Vinculado: " + r.nombre : "No encontré ese código en este teléfono. Si es nuevo, conecta la nube primero.");
-    } else if (b.dataset.sis === "nube" || b.dataset.sis === "carpeta") {
-      if (!sisClienteId()) return toast("Falta el ID de cliente de Google (el del Sistema).");
-      if (b.dataset.sis === "carpeta") {
+    const k = b.dataset.sis;
+    if (k === "vincular") {
+      const cod = (document.getElementById("inpCodigoSistema").value || "").trim();
+      if (!cod) return toast("Escribe el código de 6 letras.");
+      const r = await TopolandConexion.vincular(cod);
+      if (!r) throw new Error("No encontré ese código. Revisa que el paso 3 haya terminado y que el código esté vigente en el Sistema.");
+      toast("Vinculado: " + r.nombre);
+    } else if (k === "google" || k === "carpeta" || k === "sync") {
+      if (!sisClienteId()) throw new Error("Falta el ID de cliente de Google (el del Sistema).");
+      if (k === "carpeta") {
         const v = (document.getElementById("inpCarpetaSistema").value || "").trim();
-        if (!v) return toast("Pega el enlace de la carpeta de Drive.");
+        if (!v) throw new Error("Pega el enlace de la carpeta de Drive.");
         // El paquete 1.2 toma la carpeta que dejó el QR en esta clave; aquí se deja la que pegó la persona.
         try { localStorage.setItem("topoland_conexion_carpeta", JSON.stringify(v)); } catch (_) {}
       }
       toast("Conectando…");
       const e = TopolandConexion.estadoNube() || {};
-      if (e.carpetaId && e.conectado) { await TopolandConexion.sincronizar(); toast("Nube del Sistema al día"); }
-      else {
+      if (k === "sync" && e.carpetaId && e.conectado) {
+        const r = await TopolandConexion.sincronizar();
+        if (r === null) throw new Error("No se pudo sincronizar: falta sesión de Google o carpeta.");
+        toast("Nube del Sistema al día");
+      } else {
         await TopolandConexion.conectarNube();
         const n2 = TopolandConexion.estadoNube() || {};
-        toast(n2.carpetaId ? "Nube del Sistema conectada" : "Falta la carpeta: escanea el QR del Sistema o pega el enlace de la carpeta.");
+        if (k === "carpeta" && !n2.carpetaId) throw new Error("No se pudo usar esa carpeta. Revisa el enlace y que esté compartida contigo como Editor.");
+        toast(n2.carpetaId ? "Nube del Sistema conectada" : "Sesión de Google lista. Sigue con el paso 2.");
       }
-    } else if (b.dataset.sis === "desvincular") {
+    } else if (k === "desvincular") {
       if (!confirm("¿Desvincular este teléfono de la persona del Sistema?")) return;
       TopolandConexion.desvincular();
       toast("Teléfono desvinculado");
     }
-  } catch (err) { toast(err && err.message ? err.message : "No se pudo"); }
+  } catch (err) {
+    SIS.ultimoError = err && err.message ? err.message : String(err || "Error desconocido");
+    toast(SIS.ultimoError);
+  }
   sisRefrescar();
 });
+try { TopolandConexion.alCambiarNube(() => { if (SIS.listo) sisRenderConfig(); }); } catch (_) {}
+
+/* ---------- Subpestañas de Ajustes ---------- */
+function cfgIrA(tab) {
+  document.querySelectorAll(".cfg-pane").forEach((p) => { p.style.display = p.dataset.cfgpane === tab ? "" : "none"; });
+  document.querySelectorAll(".cfg-tab").forEach((t) => t.classList.toggle("on", t.dataset.cfgtab === tab));
+  if (tab === "sistema") sisRenderConfig();
+}
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest("[data-cfgtab]");
+  if (t) cfgIrA(t.dataset.cfgtab);
+});
+document.getElementById("btnConfig").addEventListener("click", () => cfgIrA("general"));
 document.getElementById("btnConfig").addEventListener("click", sisRenderConfig);
 
 

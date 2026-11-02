@@ -278,6 +278,14 @@ body[data-modo="pc"] nav.tabbar button.active{background:#fff;}
 body[data-modo="pc"] header.app-header{border-radius:12px;}
 
 /* v0.5 jornada guiada */
+.cfg-tabs{display:flex; gap:6px; margin:8px 0 4px; border-bottom:1px solid var(--line);}
+.cfg-tab{flex:1; min-height:40px; border:0; background:none; font-size:14px; color:var(--muted,#667); cursor:pointer; border-bottom:3px solid transparent;}
+.cfg-tab.on{color:var(--primary); font-weight:700; border-bottom-color:var(--primary);}
+.sis-paso{border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-top:10px;}
+.sis-paso.hecho{background:#eef7f1;}
+.sis-paso.actual{border-color:var(--primary); border-width:2px;}
+.sis-paso h4{margin:0 0 4px; font-size:14px;}
+.sis-err{background:#fdecea; border:1px solid #e57373; color:#7a1c1c; border-radius:8px; padding:8px 10px; margin-top:10px; font-size:12px; word-break:break-word;}
 .chip-trabajo{min-height:40px; padding:0 14px; border:1px solid #9FB0AA; background:#fff; color:var(--ink); border-radius:999px; font-size:13px; cursor:pointer;}
 .grupos-trabajo{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:8px;}
 .grupo-trabajo{min-height:48px; border:1px solid #9FB0AA; background:#fff; color:var(--ink); border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;}
@@ -435,8 +443,23 @@ window.addEventListener("unhandledrejection", function (e) {
 <div class="modal-overlay hidden" id="configModal">
   <div class="modal-sheet">
     <button class="close-x" id="configModalClose">&times;</button>
-    <h3>Configuración</h3>
-
+    <h3>Ajustes</h3>
+    <div class="cfg-tabs" id="cfgTabs">
+      <button type="button" class="cfg-tab on" data-cfgtab="general">General</button>
+      <button type="button" class="cfg-tab" data-cfgtab="marca">Marca</button>
+      <button type="button" class="cfg-tab" data-cfgtab="sistema">Sistema</button>
+      <button type="button" class="cfg-tab" data-cfgtab="datos">Datos</button>
+    </div>
+    <div class="cfg-pane" data-cfgpane="general">
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Modo de la app</h3>
+    <p class="muted">Una sola app con dos vistas: teléfono (terreno) y computador (gabinete, más ancha). En automático se elige según el dispositivo.</p>
+    <select id="selModoApp">
+      <option value="auto">Automático (según el dispositivo)</option>
+      <option value="telefono">Teléfono</option>
+      <option value="pc">Computador</option>
+    </select>
+    <p class="muted" id="modoAppActual" style="margin-top:4px;"></p>
     <div class="divider"></div>
     <h3 style="font-size:14px;">Semáforo de doble posición (por tramo)</h3>
     <p class="muted">Chequeo en vivo apenas ingresas las 4 lecturas de un tramo — independiente del cierre total. (La tolerancia de cierre ahora se elige en cada nivelación, con la clase del MOP.)</p>
@@ -445,6 +468,14 @@ window.addEventListener("unhandledrejection", function (e) {
     <label>Amarillo hasta (mm) — sobre este valor, rojo</label>
     <input type="number" step="any" id="inpToleranciaAmarilla" placeholder="Ej: 10">
 
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Catastro — tipos de elemento</h3>
+    <p class="muted">Una línea por tipo: <code>Nombre: atributo 1, atributo 2…</code>. Los atributos aparecen en el formulario según el tipo elegido.</p>
+    <textarea id="txtCatastroTipos" rows="8" style="font-size:13px;"></textarea>
+    <button class="btn btn-outline btn-sm" id="btnCatastroTiposDefault" type="button" style="margin-top:6px;">Restablecer lista de fábrica</button>
+
+    </div>
+    <div class="cfg-pane" data-cfgpane="marca" style="display:none;">
     <div class="divider"></div>
     <h3 style="font-size:14px;">Marca para Monografías</h3>
     <p class="muted">Tu logo aparece fijo en todas las monografías GNSS que generes. El logo del cliente se sube aparte, por proyecto.</p>
@@ -477,26 +508,11 @@ window.addEventListener("unhandledrejection", function (e) {
       <div class="muted" id="fuenteBoldNombre" style="font-size:12px; margin-top:4px;">Sin archivo</div>
     </div>
 
-    <div class="divider"></div>
-    <h3 style="font-size:14px;">Modo de la app</h3>
-    <p class="muted">Una sola app con dos vistas: teléfono (terreno) y computador (gabinete, más ancha). En automático se elige según el dispositivo.</p>
-    <select id="selModoApp">
-      <option value="auto">Automático (según el dispositivo)</option>
-      <option value="telefono">Teléfono</option>
-      <option value="pc">Computador</option>
-    </select>
-    <p class="muted" id="modoAppActual" style="margin-top:4px;"></p>
-    <div class="divider"></div>
-    <h3 style="font-size:14px;">Catastro — tipos de elemento</h3>
-    <p class="muted">Una línea por tipo: <code>Nombre: atributo 1, atributo 2…</code>. Los atributos aparecen en el formulario según el tipo elegido.</p>
-    <textarea id="txtCatastroTipos" rows="8" style="font-size:13px;"></textarea>
-    <button class="btn btn-outline btn-sm" id="btnCatastroTiposDefault" type="button" style="margin-top:6px;">Restablecer lista de fábrica</button>
-
-    <div class="divider"></div>
-    <label>Sistema Topoland</label>
-    <div id="sistemaConfig"></div>
-
-    <div class="divider"></div>
+    </div>
+    <div class="cfg-pane" data-cfgpane="sistema" style="display:none;">
+      <div id="sistemaConfig"></div>
+    </div>
+    <div class="cfg-pane" data-cfgpane="datos" style="display:none;">
     <label>Respaldo de datos</label>
     <p class="muted">Guarda todas tus jornadas, levantamientos, fotos y monografías en un archivo, para pasarlas a otra versión de la app o tener un respaldo.</p>
     <div class="row" style="gap:8px; margin-top:8px;">
@@ -513,6 +529,9 @@ window.addEventListener("unhandledrejection", function (e) {
     <div class="divider"></div>
     <div id="acercaVersion" style="font-size:13px;"></div>
 
+    </div>
+
+    <div class="divider"></div>
     <div class="modal-actions">
       <button class="btn btn-accent" id="btnGuardarConfig" type="button">Guardar</button>
     </div>

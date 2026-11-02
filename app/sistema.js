@@ -6,10 +6,12 @@
 import { listarPersonas, guardarPersona } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
+import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import { iniciarPanelNube } from './nube-panel.js';
 import { VISTAS, manejarEnvio, manejarClic, manejarCambio } from './vistas.js';
 import { ROLES } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
+import { revisarInstalacion, mostrarAvisoInstalacion } from './revision.js';
 
 window.ModuloEquipos = Equipos; // puerta de entrada para scripts clásicos (Terreno, más adelante)
 
@@ -58,6 +60,7 @@ const ICONOS_MENU = {
   proyectos: ic('<path d="M3 7h6l2 2h10v10H3z"/>'),
   equipos: ic('<path d="M12 3v11"/><path d="M5 21l7-7 7 7"/><circle cx="12" cy="3" r="1.5"/>'),
   vuelos: ic('<path d="M12 9v6M9 12h6"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/>'),
+  seguimiento: ic('<path d="M4 18h4V9H4zM10 18h4V5h-4zM16 18h4v-6h-4z"/><path d="M3 21h18"/>'),
   gastos: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
   terreno: ic('<path d="M4 20l5-14 5 9 3-5 3 10z"/>'),
   personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
@@ -68,6 +71,7 @@ const MENU = [
   { ruta: 'proyectos', texto: 'Proyectos', roles: ['terreno', 'rrhh'], tambien: ['proyecto', 'proyecto-editar'] },
   { ruta: 'equipos', texto: 'Equipos', roles: ['terreno', 'rrhh'] },
   { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
+  { ruta: 'seguimiento', texto: 'Seguimiento', roles: ['terreno'] },
   { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'], pronto: true },
   { ruta: 'terreno', texto: 'Libreta de terreno', roles: ['terreno'], pronto: true },
   { ruta: 'personas', texto: 'Personas', roles: ['rrhh', 'terreno'] },
@@ -151,6 +155,18 @@ async function mostrar() {
     return;
   }
 
+  if (base === 'seguimiento') {
+    // #/seguimiento · #/seguimiento/<proyectoId>[/marcar|/config]
+    const partes = location.hash.replace(/^#\/?/, '').split('/');
+    desmontar();
+    contenedor.innerHTML = '';
+    contenedor.dataset.vista = 'modulo';
+    montado = Seguimiento.montar(contenedor, { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, tab: partes[2] || null });
+    rutaActual = clave;
+    window.scrollTo(0, 0);
+    return;
+  }
+
   if (base === 'equipos') {
     // El módulo trae su propia sub-barra de pestañas. Se vuelve a montar al cambiar de equipo, rol o persona.
     desmontar();
@@ -218,6 +234,7 @@ async function arrancar() {
   await cargarPersonas(leer('env_persona', ''));
   Equipos.iniciar({ personaId: selPersona.value || null });
   Vuelos.iniciar({ personaId: selPersona.value || null });
+  Seguimiento.iniciar({ personaId: selPersona.value || null });
 
   selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; mostrar(); });
   selPersona.addEventListener('change', () => { escribir('env_persona', selPersona.value); rutaActual = ''; mostrar(); });
@@ -241,6 +258,7 @@ async function arrancar() {
     },
   });
   window.__sistemaCargado = true;
+  revisarInstalacion(VERSION_SISTEMA).then(mostrarAvisoInstalacion).catch(() => {});
 }
 
 arrancar().catch(err => {

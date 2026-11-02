@@ -213,8 +213,8 @@
     if (f.getDate() !== d) f.setDate(0);
     return hoyISO(f);
   }
-  function diasEntre(aISO, bISO) {
-    const a = /* @__PURE__ */ new Date(aISO + "T12:00:00");
+  function diasEntre(aISO2, bISO) {
+    const a = /* @__PURE__ */ new Date(aISO2 + "T12:00:00");
     const b = /* @__PURE__ */ new Date(bISO + "T12:00:00");
     return Math.round((b - a) / 864e5);
   }
@@ -584,7 +584,7 @@ Content-Type: ${mime}\r
 
   // compartido/nube.js
   var CLAVE = "topoland_nube";
-  var PREFIJOS = ["equipos_", "compartido_", "vuelos_"];
+  var PREFIJOS = ["equipos_", "compartido_", "vuelos_", "seguimiento_", "terreno_", "gastos_"];
   var ALM_ARCHIVOS = "compartido_archivos";
   var NOMBRE_CARPETA_PRUEBA = "Topoland Equipos (prueba)";
   var cfg = leerCfg();
@@ -1509,10 +1509,10 @@ Content-Type: ${mime}\r
   var carpetaEquipo = (eq) => `Equipos/${[eq.marca, eq.modelo, eq.numeroSerie].filter(Boolean).join(" ")}`;
   async function fijarFoto(equipoId, rol, archivo) {
     const eq = await leerEquipo(equipoId);
-    const campo = rol === "placa" ? "placaId" : "fotoId";
+    const campo2 = rol === "placa" ? "placaId" : "fotoId";
     const a = await guardarArchivo(archivo, { modulo: "equipos", duenoTipo: "equipo", duenoId: equipoId, rol, carpeta: `${carpetaEquipo(eq)}/Fotos` }, { personaId: personaActual });
-    if (eq[campo]) await archivoAPapelera(eq[campo], { personaId: personaActual });
-    eq[campo] = a.id;
+    if (eq[campo2]) await archivoAPapelera(eq[campo2], { personaId: personaActual });
+    eq[campo2] = a.id;
     await guardar(ALM2.equipos, sello(eq));
     return a;
   }
@@ -1677,32 +1677,32 @@ Content-Type: ${mime}\r
     const primera = texto3.split(/\r?\n/)[0] || "";
     const sep = (primera.match(/;/g) || []).length >= (primera.match(/,/g) || []).length ? ";" : ",";
     const filas = [];
-    let fila = [];
-    let campo = "";
+    let fila2 = [];
+    let campo2 = "";
     let entreComillas = false;
     for (let i = 0; i < texto3.length; i++) {
       const c = texto3[i];
       if (entreComillas) {
         if (c === '"' && texto3[i + 1] === '"') {
-          campo += '"';
+          campo2 += '"';
           i++;
         } else if (c === '"') entreComillas = false;
-        else campo += c;
+        else campo2 += c;
       } else if (c === '"') entreComillas = true;
       else if (c === sep) {
-        fila.push(campo);
-        campo = "";
+        fila2.push(campo2);
+        campo2 = "";
       } else if (c === "\n" || c === "\r") {
         if (c === "\r" && texto3[i + 1] === "\n") i++;
-        fila.push(campo);
-        filas.push(fila);
-        fila = [];
-        campo = "";
-      } else campo += c;
+        fila2.push(campo2);
+        filas.push(fila2);
+        fila2 = [];
+        campo2 = "";
+      } else campo2 += c;
     }
-    if (campo !== "" || fila.length) {
-      fila.push(campo);
-      filas.push(fila);
+    if (campo2 !== "" || fila2.length) {
+      fila2.push(campo2);
+      filas.push(fila2);
     }
     return filas;
   }
@@ -1768,11 +1768,11 @@ Content-Type: ${mime}\r
       const encabezado = String(h != null ? h : "").trim();
       return { indice, encabezado, campo: null, ignorar: informativas.has(normalizarTexto(encabezado)) };
     });
-    for (const { campo, claves } of CLAVES) {
+    for (const { campo: campo2, claves } of CLAVES) {
       const col = columnas.find((c) => !c.campo && !c.ignorar && c.encabezado && claves.some((k) => normalizarTexto(c.encabezado).includes(k)));
-      if (col && !usados.has(campo)) {
-        col.campo = campo;
-        usados.add(campo);
+      if (col && !usados.has(campo2)) {
+        col.campo = campo2;
+        usados.add(campo2);
       }
     }
     const faltan = COLUMNAS_PLANILLA.filter((c) => !usados.has(c.campo)).map((c) => c.etiqueta);
@@ -1789,13 +1789,13 @@ Content-Type: ${mime}\r
     const vistosEnArchivo = /* @__PURE__ */ new Map();
     const registros = [];
     for (let i = iEnc + 1; i < filas.length; i++) {
-      const fila = filas[i];
-      if (!fila || fila.every((c) => texto(c) === "")) continue;
+      const fila2 = filas[i];
+      if (!fila2 || fila2.every((c) => texto(c) === "")) continue;
       const datos = { equipo: "", marca: "", modelo: "", descripcion: "", numeroSerie: "", fechaUltimaCalibracion: null, calibracionNoAplica: false };
       const extra = {};
       const problemas = [];
       for (const col of columnas) {
-        const v = fila[col.indice];
+        const v = fila2[col.indice];
         if (col.ignorar) continue;
         if (!col.campo) {
           if (texto(v) !== "" && col.encabezado) extra[col.encabezado] = texto(v);
@@ -2474,8 +2474,8 @@ Content-Type: ${mime}\r
   ];
   function montarPantallas(contenedor2, contexto) {
     const esRRHH = contexto.rol === "rrhh";
-    const persona2 = contexto.personaId || null;
-    fijarPersona(persona2);
+    const persona3 = contexto.personaId || null;
+    fijarPersona(persona3);
     const raiz = document.createElement("div");
     raiz.className = "mod-equipos";
     raiz.innerHTML = '<div class="eq-zona"></div><div class="eq-aviso" role="status" hidden></div>';
@@ -2550,8 +2550,8 @@ Content-Type: ${mime}\r
       return `<span class="eq-chip verde">Calibración al día · ${fechaLegible(c.proxima)}</span>`;
     }
     const chipAlertas2 = (n) => n ? `<span class="eq-chip rojo">⚠ ${n} alerta${n > 1 ? "s" : ""}</span>` : "";
-    function opcionesProyectos(lista, seleccionado, { vacio: vacio2 = "Elige proyecto…" } = {}) {
-      return `<option value="">${vacio2}</option>` + lista.map((p) => `<option value="${escapar(p.id)}"${p.id === seleccionado ? " selected" : ""}>${escapar(p.nombre)}${p.mandante && p.id !== OFICINA_ID ? " — " + escapar(p.mandante) : ""}</option>`).join("");
+    function opcionesProyectos(lista, seleccionado, { vacio: vacio3 = "Elige proyecto…" } = {}) {
+      return `<option value="">${vacio3}</option>` + lista.map((p) => `<option value="${escapar(p.id)}"${p.id === seleccionado ? " selected" : ""}>${escapar(p.nombre)}${p.mandante && p.id !== OFICINA_ID ? " — " + escapar(p.mandante) : ""}</option>`).join("");
     }
     function opcionesPersonas(lista, seleccionado) {
       return '<option value="">Elige persona…</option>' + lista.map((p) => `<option value="${escapar(p.id)}"${p.id === seleccionado ? " selected" : ""}>${escapar(p.nombre)}${p.cargo ? " — " + escapar(p.cargo) : ""}</option>`).join("");
@@ -2626,7 +2626,7 @@ Content-Type: ${mime}\r
         var _a;
         const eq = st.equipoId ? (_a = await estadoDeEquipo(st.equipoId)) == null ? void 0 : _a.equipo : nuevoEquipo();
         if (!eq) return "<p>El equipo no existe.</p>";
-        const campo = (nombre, etiqueta, tipo = "text", extra = "") => {
+        const campo2 = (nombre, etiqueta, tipo = "text", extra = "") => {
           var _a2;
           return `<label class="eq-campo"><span>${etiqueta}</span><input type="${tipo}" name="${nombre}" value="${escapar((_a2 = eq[nombre]) != null ? _a2 : "")}" ${extra}></label>`;
         };
@@ -2635,21 +2635,21 @@ Content-Type: ${mime}\r
         <h2>${st.equipoId ? "Editar equipo" : "Nuevo equipo"}</h2>
         <form class="eq-form" data-form="equipo">
           <fieldset><legend>Columnas de la planilla</legend>
-            ${campo("equipo", "EQUIPO", "text", 'required list="eq-tipos" placeholder="Estacion Total, GNSS, Nivel Topografico…"')}
+            ${campo2("equipo", "EQUIPO", "text", 'required list="eq-tipos" placeholder="Estacion Total, GNSS, Nivel Topografico…"')}
             <datalist id="eq-tipos">${[...new Set(cacheLista.map((x) => x.equipo.equipo).filter(Boolean))].map((v) => `<option value="${escapar(v)}">`).join("")}</datalist>
-            ${campo("marca", "MARCA", "text", 'list="eq-marcas"')}
+            ${campo2("marca", "MARCA", "text", 'list="eq-marcas"')}
             <datalist id="eq-marcas">${[...new Set(cacheLista.map((x) => x.equipo.marca).filter(Boolean))].map((v) => `<option value="${escapar(v)}">`).join("")}</datalist>
-            ${campo("modelo", "MODELO")}
-            ${campo("descripcion", "DESCRIPCIÓN", "text", 'placeholder="1&quot; R500 · Aumento 32x · Base · Rover · Control…"')}
-            ${campo("numeroSerie", "N° SERIE")}
-            ${campo("fechaUltimaCalibracion", "FECHA CALIBRACIÓN", "date")}
+            ${campo2("modelo", "MODELO")}
+            ${campo2("descripcion", "DESCRIPCIÓN", "text", 'placeholder="1&quot; R500 · Aumento 32x · Base · Rover · Control…"')}
+            ${campo2("numeroSerie", "N° SERIE")}
+            ${campo2("fechaUltimaCalibracion", "FECHA CALIBRACIÓN", "date")}
             <label class="eq-comp"><input type="checkbox" name="calibracionNoAplica"${eq.calibracionNoAplica ? " checked" : ""}> No requiere calibración (en la planilla: «-»)</label>
           </fieldset>
           <fieldset><legend>Datos del módulo</legend>
             <label class="eq-campo"><span>Categoría</span><select name="categoria">${CATEGORIAS.map((c) => `<option${c === eq.categoria ? " selected" : ""}>${c}</option>`).join("")}</select></label>
-            ${campo("codigoInterno", "Código interno (etiqueta)")}
-            ${campo("periodoCalibracionMeses", "Calibrar cada (meses)", "number", 'min="1" max="60"')}
-            ${campo("fechaAlta", "Fecha de alta", "date")}
+            ${campo2("codigoInterno", "Código interno (etiqueta)")}
+            ${campo2("periodoCalibracionMeses", "Calibrar cada (meses)", "number", 'min="1" max="60"')}
+            ${campo2("fechaAlta", "Fecha de alta", "date")}
             <p class="eq-tenue" style="margin-top:12px">Accesorios, certificados, fotos y especificaciones se editan en la ficha del equipo.</p>
             <label class="eq-campo"><span>Observaciones</span><textarea name="observaciones" rows="2">${escapar(eq.observaciones)}</textarea></label>
           </fieldset>
@@ -2681,7 +2681,7 @@ Content-Type: ${mime}\r
           <fieldset><legend>1. Destino</legend>
             <label class="eq-campo"><span>Proyecto</span><select name="proyectoId" required>${opcionesProyectos(proyectos2, "")}</select></label>
             ${catalogosEditables() ? '<button type="button" class="eq-btn chico" data-accion="nuevo-proyecto">+ Proyecto nuevo</button>' : ""}
-            <label class="eq-campo"><span>Responsable (encargado del trabajo)</span><select name="personaId" required>${opcionesPersonas(personas2, persona2)}</select></label>
+            <label class="eq-campo"><span>Responsable (encargado del trabajo)</span><select name="personaId" required>${opcionesPersonas(personas2, persona3)}</select></label>
           </fieldset>
           <fieldset><legend>2. Equipos en oficina (${disponibles.length})</legend>
             ${disponibles.map((e) => item(e, false)).join("") || '<p class="eq-tenue">No hay equipos en oficina.</p>'}
@@ -2849,7 +2849,7 @@ Content-Type: ${mime}\r
       }
     };
     const enlaceEquipo = contexto.enlaceEquipo || ((id) => `${location.href.split("#")[0]}#equipo=${id}`);
-    const ficha = crearFicha({ st, esc: escapar, proy, pers, avisar: avisar2, ir, render: () => render(), esRRHH, persona: persona2, chipUbicacion, chipCalibracion, describirEvento, enlaceEquipo });
+    const ficha = crearFicha({ st, esc: escapar, proy, pers, avisar: avisar2, ir, render: () => render(), esRRHH, persona: persona3, chipUbicacion, chipCalibracion, describirEvento, enlaceEquipo });
     Object.assign(VISTAS2, ficha.VISTAS);
     function celdasPlanilla(d) {
       return COLUMNAS_PLANILLA.map((c) => {
@@ -2943,7 +2943,7 @@ Content-Type: ${mime}\r
             await ir("lista");
             break;
           case "restaurar":
-            await restaurar(el.dataset.almacen, id, { personaId: persona2 });
+            await restaurar(el.dataset.almacen, id, { personaId: persona3 });
             avisar2("Restaurado");
             await render();
             break;
@@ -2959,7 +2959,7 @@ Content-Type: ${mime}\r
             const nombre = prompt("Nombre del proyecto");
             if (!nombre) return;
             const mandante = prompt("Mandante (opcional)", "") || "";
-            await guardarProyecto({ nombre: nombre.trim(), mandante: mandante.trim() }, { personaId: persona2 });
+            await guardarProyecto({ nombre: nombre.trim(), mandante: mandante.trim() }, { personaId: persona3 });
             avisar2("Proyecto agregado");
             await render();
             break;
@@ -3079,17 +3079,17 @@ Content-Type: ${mime}\r
             break;
           }
           case "reportar":
-            await reportarAnomalia({ equipoId: fd.equipoId, descripcion: fd.descripcion.trim(), personaId: persona2 });
+            await reportarAnomalia({ equipoId: fd.equipoId, descripcion: fd.descripcion.trim(), personaId: persona3 });
             avisar2("Alerta enviada a RRHH");
             if (st.reporteDesdeFicha && fd.equipoId === st.equipoId) await ir("ficha", { fichaTab: "mantencion", reporteDesdeFicha: false });
             else await ir("alertas");
             break;
           case "proyecto":
-            await guardarProyecto({ nombre: fd.nombre.trim(), mandante: fd.mandante.trim() }, { personaId: persona2 });
+            await guardarProyecto({ nombre: fd.nombre.trim(), mandante: fd.mandante.trim() }, { personaId: persona3 });
             await render();
             break;
           case "persona":
-            await guardarPersona({ nombre: fd.nombre.trim(), cargo: fd.cargo.trim() }, { personaId: persona2 });
+            await guardarPersona({ nombre: fd.nombre.trim(), cargo: fd.cargo.trim() }, { personaId: persona3 });
             await render();
             break;
         }
@@ -4043,6 +4043,727 @@ Content-Type: ${mime}\r
     return (String(t || "area").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") || "area").slice(0, 60);
   }
 
+  // modulos/vuelos/capas.js
+  var TIPOS_CAPA = {
+    aerodromo: { nombre: "Aeródromos", color: "#1D4ED8" },
+    restringida: { nombre: "Zonas restringidas o prohibidas", color: "#B42318" },
+    protegida: { nombre: "Áreas protegidas", color: "#3F7D3A" },
+    referencia: { nombre: "Referencia (caminos, otros)", color: "#8A8F96" }
+  };
+  var cache = null;
+  async function listarCapas() {
+    if (cache) return cache;
+    const deApp = [];
+    try {
+      const r = await fetch("vendor/capas/indice.json", { cache: "no-cache" });
+      if (r.ok) {
+        const indice = await r.json();
+        for (const c of indice.capas || []) {
+          try {
+            const blob = await (await fetch(`vendor/capas/${c.archivo}`)).blob();
+            const elementos = await elementosDeArchivo(new File([blob], c.archivo));
+            deApp.push({ id: `app:${c.archivo}`, nombre: c.nombre, tipo: c.tipo, fecha: c.fecha || "", fuente: c.fuente || "", origen: "app", elementos });
+          } catch (e) {
+            console.warn("Capa no leída", c.archivo, e);
+          }
+        }
+      }
+    } catch {
+    }
+    const delUsuario = (await listarCapasUsuario()).map((c) => ({ ...c, origen: "usuario" }));
+    cache = [...deApp, ...delUsuario];
+    return cache;
+  }
+  function leerGeoJSON(json) {
+    const out = [];
+    const nombreDe = (p) => p && (p.name || p.nombre || p.Name || p.NOMBRE) || "";
+    const agregar = (g, nombre) => {
+      if (!g) return;
+      if (g.type === "Point") out.push({ tipo: "punto", nombre, coords: g.coordinates.slice(0, 2) });
+      else if (g.type === "MultiPoint") g.coordinates.forEach((c) => out.push({ tipo: "punto", nombre, coords: c.slice(0, 2) }));
+      else if (g.type === "LineString") out.push({ tipo: "linea", nombre, coords: g.coordinates.map((c) => c.slice(0, 2)) });
+      else if (g.type === "MultiLineString") g.coordinates.forEach((l) => out.push({ tipo: "linea", nombre, coords: l.map((c) => c.slice(0, 2)) }));
+      else if (g.type === "Polygon") out.push({ tipo: "poligono", nombre, coords: g.coordinates[0].map((c) => c.slice(0, 2)) });
+      else if (g.type === "MultiPolygon") g.coordinates.forEach((p) => out.push({ tipo: "poligono", nombre, coords: p[0].map((c) => c.slice(0, 2)) }));
+      else if (g.type === "GeometryCollection") g.geometries.forEach((x) => agregar(x, nombre));
+    };
+    for (const f of json.features || []) agregar(f.geometry, nombreDe(f.properties));
+    return out;
+  }
+  async function elementosDeArchivo(archivo) {
+    if (/\.(geo)?json$/i.test(archivo.name)) return leerGeoJSON(JSON.parse(await archivo.text()));
+    return leerCapa(await leerArchivo(archivo));
+  }
+  async function cargarCapaDesdeArchivo(archivo, tipo, nombre) {
+    const elementos = await elementosDeArchivo(archivo);
+    if (!elementos.length) throw new Error("El archivo no trae puntos, líneas ni polígonos.");
+    await guardarCapaUsuario({ nombre: nombre || archivo.name.replace(/\.(kmz|kml|geojson|json)$/i, ""), tipo, fecha: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), fuente: archivo.name, elementos });
+    cache = null;
+    return elementos.length;
+  }
+  async function quitarCapa(id) {
+    await borrarCapaUsuario(id);
+    cache = null;
+  }
+  function revisarZonas(area, marco, capas, activas) {
+    const A = area.map(marco.aXY);
+    const resultados = [];
+    for (const c of capas) {
+      if (!activas.includes(c.id) || c.tipo === "referencia") continue;
+      let mejor = null;
+      for (const el of c.elementos) {
+        const ref = el.tipo === "punto" ? el.coords : el.coords[0];
+        const [x0, y0] = marco.aXY(ref);
+        if (Math.hypot(x0, y0) > 6e4 + 5e4) continue;
+        let d;
+        if (el.tipo === "punto") d = distPuntoPoligono(marco.aXY(el.coords), A);
+        else if (el.tipo === "poligono") d = distPoligonos(A, el.coords.map(marco.aXY));
+        else {
+          const L = el.coords.map(marco.aXY);
+          d = Infinity;
+          for (const p of A) for (let i = 0; i + 1 < L.length; i++) d = Math.min(d, distPuntoSegmento(p, L[i], L[i + 1]));
+        }
+        if (!mejor || d < mejor.distancia) mejor = { tipo: c.tipo, nombre: el.nombre || c.nombre, capa: c.nombre, distancia: d, toca: d === 0 };
+      }
+      if (mejor && mejor.distancia < 6e4) resultados.push(mejor);
+    }
+    return resultados.sort((a, b) => a.distancia - b.distancia);
+  }
+
+  // modulos/vuelos/hoja.js
+  var R_LAT2 = 110540;
+  var R_LON2 = 111320;
+  var PARAMS_INICIALES = {
+    modo: "foto",
+    porGsd: true,
+    gsd: 2.5,
+    altura: 100,
+    traslapeFrontal: 80,
+    traslapeLateral: 70,
+    velocidad: "",
+    exposicion: 1e3,
+    reserva: 25,
+    minDespegue: 3,
+    minCambio: 5,
+    segGiro: 8
+  };
+  var DOCUMENTOS_DGAC = [
+    ["kmz", "KMZ de la zona"],
+    ["carta", "Carta o autorización del mandante"],
+    ["seguro", "Seguro aprobado por la JAC"],
+    ["credencial", "Credencial del piloto vigente"],
+    ["inscripcion", "Inscripción del dron"]
+  ];
+  var CONSULTAS = [
+    ["notam", "NOTAM en AIP Chile", "https://aipchile.dgac.gob.cl/notam"],
+    ["aip", "Mapa interactivo AIP Chile", "https://aipchile.dgac.gob.cl/"]
+  ];
+  function nuevaHoja({ proyectoId = "", personaId = null, dronId = "m4e" } = {}) {
+    return {
+      nombre: "",
+      proyectoId: proyectoId || null,
+      fecha: hoyISO(),
+      pilotoId: personaId,
+      estado: "borrador",
+      dronId,
+      params: { ...PARAMS_INICIALES },
+      area: {
+        tipo: null,
+        original: null,
+        eje: null,
+        archivo: "",
+        margen: 0,
+        rectas: true,
+        corredor: { izq: 40, der: 40, mismo: true, invertir: false },
+        cortes: [],
+        sectores: [],
+        sel: 0
+      },
+      clima: null,
+      permisos: { dgac: { preparado: "", enviado: "", aprobado: "", vence: "", numero: "" }, docs: {}, consultas: [] },
+      viento: []
+    };
+  }
+  function migrarHoja(p) {
+    if (p.area) {
+      const h2 = nuevaHoja();
+      return { ...h2, ...p, params: { ...PARAMS_INICIALES, ...p.params }, area: { ...h2.area, ...p.area, corredor: { ...h2.area.corredor, ...p.area.corredor || {} } }, permisos: { ...h2.permisos, ...p.permisos || {}, dgac: { ...h2.permisos.dgac, ...(p.permisos || {}).dgac || {} } } };
+    }
+    const h = nuevaHoja({ proyectoId: p.proyectoId, dronId: p.dronId || "m4e" });
+    const { despegue = null, rumbo = "", dronId, areaHa, ...params } = p.params || {};
+    return {
+      ...h,
+      id: p.id,
+      nombre: p.nombre || "",
+      creadoEn: p.creadoEn,
+      creadoPor: p.creadoPor,
+      dronId: p.dronId || dronId || "m4e",
+      params: { ...PARAMS_INICIALES, ...params },
+      area: { ...h.area, tipo: p.poligono ? "poligono" : null, original: p.poligono ? { nombre: p.poligono.nombre, anillo: p.poligono.anillo } : null, archivo: p.poligono ? "guardado en el plan" : "", sectores: [{ despegue, rumbo }], areaHa: areaHa || "" }
+    };
+  }
+  function marcoDe(coords) {
+    const { lat0, lon0 } = proyectar(coords);
+    const k = Math.cos(lat0 * Math.PI / 180) * R_LON2;
+    return {
+      lat0,
+      lon0,
+      aXY: ([lon, lat]) => [(lon - lon0) * k, (lat - lat0) * R_LAT2],
+      aLonLat: ([x, y]) => [lon0 + x / k, lat0 + y / R_LAT2],
+      aLatLng: ([x, y]) => [lat0 + y / R_LAT2, lon0 + x / k]
+    };
+  }
+  var centroide = (pts) => [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length];
+  var cacheGeo = { clave: "", valor: null };
+  function geometria(hoja2) {
+    const a = hoja2.area;
+    const fuente = a.tipo === "corredor" ? a.eje && a.eje.linea : a.original && a.original.anillo;
+    if (!fuente || fuente.length < 2) return null;
+    const clave2 = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes]);
+    if (cacheGeo.clave === clave2) return cacheGeo.valor;
+    const marco = marcoDe(fuente);
+    const cortes = (a.cortes || []).map((c) => c.map(marco.aXY));
+    let valor;
+    if (a.tipo === "corredor") {
+      let eje = fuente.map(marco.aXY);
+      if (a.corredor.invertir) eje = eje.slice().reverse();
+      const izq = Number(a.corredor.izq) || 0, der = a.corredor.mismo ? izq : Number(a.corredor.der) || 0;
+      const tramos = cortarEje(eje, cortes);
+      const sectores = tramos.map((t) => ({ eje: t, poligono: poligonoCorredor(t, izq, der), largo: largo(t) }));
+      sectores.forEach((s) => {
+        s.area = areaM2(s.poligono);
+      });
+      valor = { marco, tipo: "corredor", eje, izq, der, vuelo: poligonoCorredor(eje, izq, der), original: null, sectores, fallidos: cortes.length && tramos.length < cortes.length + 1 ? ["algún corte no cruza el eje"] : [] };
+    } else {
+      const original = fuente.map(marco.aXY);
+      const vuelo = Number(a.margen) > 0 ? margenPoligono(original, Number(a.margen), { rectas: a.rectas !== false }) : original;
+      const { sectores, fallidos } = aplicarCortes(vuelo, cortes);
+      valor = { marco, tipo: "poligono", original, vuelo, sectores: sectores.map((p) => ({ poligono: p, area: areaM2(p) })), fallidos };
+    }
+    valor.areaVuelo = areaM2(valor.vuelo);
+    cacheGeo = { clave: clave2, valor };
+    return valor;
+  }
+  function metaSector(hoja2, i) {
+    const s = hoja2.area.sectores;
+    while (s.length <= i) s.push({ despegue: null, rumbo: "", nombre: "" });
+    return s[i];
+  }
+  function nombreSector(hoja2, i, total) {
+    const m = hoja2.area.sectores[i];
+    if (m && m.nombre) return m.nombre;
+    return total > 1 ? `S${i + 1}` : "Área completa";
+  }
+  var alturaDe = (P, d) => P.porGsd ? alturaParaGsd(d, Number(P.gsd) || 1) : Number(P.altura) || 1;
+  function baseCalculo(hoja2, d, extra = {}) {
+    const P = hoja2.params;
+    return {
+      dron: d,
+      modo: P.modo === "lidar" && d.lidar ? "lidar" : "foto",
+      altura: alturaDe(P, d),
+      traslapeFrontal: (Number(P.traslapeFrontal) || 0) / 100,
+      traslapeLateral: (Number(P.traslapeLateral) || 0) / 100,
+      exposicion: 1 / (Number(P.exposicion) || 1e3),
+      reserva: (Number(P.reserva) || 0) / 100,
+      minDespegue: Number(P.minDespegue) || 0,
+      minCambio: Number(P.minCambio) || 0,
+      segGiro: Number(P.segGiro) || 0,
+      fotosEnLidar: false,
+      ...extra
+    };
+  }
+  function calcularSector(hoja2, d, geo, i, extra = {}) {
+    const sec = geo.sectores[i];
+    if (!sec) return null;
+    const meta = metaSector(hoja2, i);
+    const geomSector = geo.tipo === "corredor" ? { eje: sec.eje, izq: geo.izq, der: geo.der } : { puntos: sec.poligono, rumbo: meta.rumbo === "" || meta.rumbo == null ? void 0 : Number(meta.rumbo) };
+    const despegue = meta.despegue ? geo.marco.aXY(meta.despegue) : centroide(sec.poligono);
+    const b = baseCalculo(hoja2, d, { ...geomSector, despegue, ...extra });
+    const P = hoja2.params;
+    if (extra.velocidad) return { ...calcularPlan(b), velocidad: extra.velocidad, despegueXY: despegue, altura: b.altura, modo: b.modo };
+    const previo = calcularPlan({ ...b, velocidad: 10 });
+    const sugerida = Math.floor(previo.velSugerida * 10) / 10;
+    const velocidad = Number(P.velocidad) || sugerida;
+    return { ...calcularPlan({ ...b, velocidad }), velocidad, sugerida, auto: !Number(P.velocidad), despegueXY: despegue, modo: b.modo, altura: b.altura };
+  }
+  function rumboMasCorto(hoja2, d, geo, i, velocidad) {
+    const prueba = (r) => calcularSector(hoja2, d, geo, i, { rumbo: r, velocidad }).minTotal;
+    let mejor = 0, minimo = Infinity;
+    for (let r = 0; r < 180; r += 5) {
+      const m = prueba(r);
+      if (m < minimo - 1e-6) {
+        minimo = m;
+        mejor = r;
+      }
+    }
+    for (let r = mejor - 4; r <= mejor + 4; r++) {
+      const rr = (r + 180) % 180;
+      const m = prueba(rr);
+      if (m < minimo - 1e-6) {
+        minimo = m;
+        mejor = rr;
+      }
+    }
+    return { rumbo: mejor, minTotal: minimo };
+  }
+  function totales(hoja2, d, geo) {
+    if (!geo || !d) return null;
+    const rs = geo.sectores.map((_, i) => calcularSector(hoja2, d, geo, i));
+    return {
+      sectores: rs,
+      baterias: rs.reduce((s, r) => s + (r ? r.vuelos : 0), 0),
+      minVuelo: rs.reduce((s, r) => s + (r ? r.minMision : 0), 0),
+      minJornada: rs.reduce((s, r) => s + (r ? r.minTotal : 0), 0),
+      fotos: rs.reduce((s, r) => s + (r ? r.fotos : 0), 0),
+      gsd: rs[0] ? rs[0].gsd : gsdCm(d, alturaDe(hoja2.params, d)),
+      altura: rs[0] ? rs[0].altura : alturaDe(hoja2.params, d),
+      excede: rs.some((r) => r && r.baterias.some((b) => b.excede))
+    };
+  }
+  function diasHabiles(desde, hasta) {
+    if (!desde || !hasta) return null;
+    let n = 0;
+    const d = /* @__PURE__ */ new Date(desde + "T12:00:00"), f = /* @__PURE__ */ new Date(hasta + "T12:00:00");
+    if (f <= d) return 0;
+    while (d < f) {
+      d.setDate(d.getDate() + 1);
+      const w = d.getDay();
+      if (w !== 0 && w !== 6) n++;
+    }
+    return n;
+  }
+  function estadoPermiso(hoja2) {
+    const g = hoja2.permisos.dgac;
+    if (g.aprobado) {
+      if (g.vence && g.vence < hoja2.fecha) return { texto: "Vencido", nivel: "aviso", detalle: `venció ${g.vence}` };
+      return { texto: "Aprobado", nivel: "ok", detalle: g.vence ? `vigente hasta ${g.vence}` : "sin fecha de término" };
+    }
+    if (g.enviado) {
+      const h = diasHabiles(g.enviado, hoja2.fecha);
+      return { texto: "Enviado", nivel: "aviso", detalle: h != null && h < 7 ? `solo ${h} días hábiles antes del vuelo (piden 7)` : "esperando respuesta" };
+    }
+    if (g.preparado) return { texto: "En preparación", nivel: "aviso", detalle: "falta enviarlo" };
+    return { texto: "Sin iniciar", nivel: "gris", detalle: "mín. 7 días hábiles antes" };
+  }
+  function resumenHoja(hoja2, d, geo) {
+    const t = totales(hoja2, d, geo);
+    if (!t) return null;
+    return { area: geo.areaVuelo, gsd: hoja2.params.modo === "lidar" ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === "corredor", modo: hoja2.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null };
+  }
+
+  // modulos/vuelos/ui.js
+  var COLORES_BATERIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4", "#FFAB40", "#B0BEC5"];
+  var COLORES_SECTOR = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4"];
+  var ESTADOS_HOJA = { borrador: ["Borrador", "gris"], lista: ["Lista para volar", "verde"], volada: ["Volada", "azul"] };
+  var PASOS = [["resumen", "Resumen"], ["area", "1 · Área"], ["vuelo", "2 · Vuelo"], ["clima", "3 · Clima"], ["permisos", "4 · Permisos"]];
+  var GSD_TABLA = [3, 2.5, 2, 1.5];
+  var UMBRAL_BATERIAS = 6;
+  var TIPO_KML = "application/vnd.google-earth.kml+xml";
+  var dosD = (n) => String(n).padStart(2, "0");
+  var chip = (t, clase = "gris") => `<span class="sis-chip ${clase}">${t}</span>`;
+  var campo = (nombre, etiqueta, valor, extra = "", sufijo = "") => `<label class="sis-campo"><span>${etiqueta}</span>
+    <span class="vu-con-sufijo"><input name="${nombre}" value="${escapar(valor)}" inputmode="decimal" ${extra}>${sufijo ? `<em>${sufijo}</em>` : ""}</span></label>`;
+  var deslizador = (nombre, etiqueta, valor, { min, max, paso, sufijo, nota = "" }) => `<div class="vu-desl">
+      <div class="vu-desl-cab"><label for="vu-${nombre}">${etiqueta}${nota ? ` <small>${nota}</small>` : ""}</label>
+        <span class="vu-desl-valor"><input type="number" data-espejo="${nombre}" value="${escapar(valor)}" step="${paso}" min="${min}" max="${max}" aria-label="${etiqueta}">${sufijo}</span></div>
+      <input type="range" id="vu-${nombre}" name="${nombre}" min="${min}" max="${max}" step="${paso}" value="${escapar(valor)}">
+    </div>`;
+  var kpi = (t, v, d = "", clase = "") => `<div class="vu-kpi ${clase}"><span>${t}</span><b>${v}</b>${d ? `<small>${d}</small>` : ""}</div>`;
+  var fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
+  var fechaHora = (iso) => new Date(iso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
+
+  // modulos/vuelos/vista-hojas.js
+  function crearVistaHojas(v) {
+    const ref = (n) => (...a) => v[n](...a);
+    const { st, base } = v;
+    const geo = ref("geo");
+    const dron = ref("dron");
+    const nomProy = ref("nomProy");
+    const nomPers = ref("nomPers");
+    const zonasDeHoja = ref("zonasDeHoja");
+    const opcionesProyectos = (sel) => `<option value="">Sin proyecto</option>` + base.proyectos.map((p) => `<option value="${escapar(p.id)}" ${p.id === sel ? "selected" : ""}>${escapar(p.id === OFICINA_ID ? "Oficina" : p.nombre)}</option>`).join("");
+    function vistaHojas() {
+      const lista = base.hojas.filter((h) => !st.filtroProyecto || h.proyectoId === st.filtroProyecto);
+      return `<div class="sis-cab"><h1>Hojas de vuelo</h1><button class="sis-btn primario" data-accion="nueva-hoja">+ Nueva hoja de vuelo</button></div>
+      <p class="sis-tenue">Una hoja por trabajo de vuelo: área, plan de vuelo, clima y permisos en un solo lugar, con la hoja para terreno.</p>
+      <label class="sis-campo vu-filtro"><span>Proyecto</span><select data-campo="filtroProyecto"><option value="">Todos</option>${base.proyectos.map((p) => `<option value="${escapar(p.id)}" ${p.id === st.filtroProyecto ? "selected" : ""}>${escapar(p.id === OFICINA_ID ? "Oficina" : p.nombre)}</option>`).join("")}</select></label>
+      <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map((h) => {
+        const r = h.resumen || {};
+        const [et, cl] = ESTADOS_HOJA[h.estado] || ESTADOS_HOJA.borrador;
+        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(h.nombre || "Hoja sin nombre")}</b>
+          <span class="sis-tenue">${escapar(nomProy(h.proyectoId))} · ${h.fecha ? fechaLegible(h.fecha) : "sin fecha"}${h.pilotoId ? ` · ${escapar(nomPers(h.pilotoId))}` : ""}</span>
+          <span class="sis-chips">${chip(et, cl)}${r.area ? chip(`${fmt(r.area / 1e4, 1)} ha`) : ""}${r.sectores > 1 ? chip(`${r.sectores} sectores`) : ""}${r.corredor ? chip("Corredor") : ""}${r.vuelos ? chip(`${r.vuelos} batería${r.vuelos > 1 ? "s" : ""} · ${fmtDuracion(r.minTotal)}`, "azul") : ""}</span></span>
+          <span class="sis-acciones"><button class="sis-btn chico" data-accion="abrir-hoja" data-id="${h.id}">Abrir</button>
+          <button class="sis-btn chico peligro" data-accion="eliminar-hoja" data-id="${h.id}">Eliminar</button></span></div>`;
+      }).join("")}</div>` : '<div class="sis-vacio"><p>Todavía no hay hojas de vuelo. Crea una y carga el KMZ del área (o la línea del corredor).</p></div>'}</section>`;
+    }
+    const consultasHechas = (h) => CONSULTAS.every(([k]) => h.permisos.consultas.some((c) => c.tipo === k));
+    const ultimaConsulta = (h, tipo) => h.permisos.consultas.filter((c) => c.tipo === tipo).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+    function encabezadoHoja() {
+      const h = st.hoja, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null;
+      const [et, cl] = ESTADOS_HOJA[h.estado] || ESTADOS_HOJA.borrador;
+      const perm = estadoPermiso(h);
+      const c = h.clima;
+      const climaObs = c && c.checklist && c.checklist.some((x) => !x.cumple);
+      const marcas = {
+        area: g ? g.fallidos.length ? "aviso" : "ok" : "",
+        vuelo: t ? t.excede ? "aviso" : "ok" : "",
+        clima: c ? climaObs ? "aviso" : "ok" : "",
+        permisos: perm.nivel === "ok" && consultasHechas(h) ? "ok" : h.permisos.dgac.preparado || h.permisos.consultas.length ? "aviso" : ""
+      };
+      return `<div class="sis-encabezado vu-hoja-cab">
+        <div>
+          <div class="sis-miga"><a href="#/vuelos" data-accion="volver-lista">Hojas de vuelo</a>${h.proyectoId ? ` / <a href="#/proyecto/${escapar(h.proyectoId)}">${escapar(nomProy(h.proyectoId))}</a>` : ""}</div>
+          <h1>Hoja de vuelo · ${escapar(h.nombre || "sin nombre")}</h1>
+          <div class="sis-meta">
+            <span>Fecha: <b>${h.fecha ? fechaLegible(h.fecha) : "—"}</b></span>
+            <span>Piloto: <b>${escapar(nomPers(h.pilotoId) || "—")}</b></span>
+            <span>Dron: <b>${escapar(d ? (d.familiaNombre || d.nombre).replace("DJI ", "") : "—")}</b></span>
+            ${t ? `<span>${h.params.modo === "lidar" ? "LiDAR" : "Fotogrametría"} · GSD ${fmt(t.gsd, 2)} cm · ${fmt(t.altura, 0)} m</span>` : ""}
+            <span class="sis-tenue" id="vu-guardado">${h.id ? "Guardado" : "Se guarda sola al cargar el área o ponerle nombre"}</span>
+          </div>
+        </div>
+        <div class="sis-acciones">${chip(et, cl)}
+          <button class="sis-btn chico" data-accion="imprimir" ${g ? "" : "disabled"}>Hoja para terreno (PDF)</button>
+          ${h.estado === "borrador" ? '<button class="sis-btn chico primario" data-accion="estado" data-e="lista">Marcar lista</button>' : h.estado === "lista" ? '<button class="sis-btn chico primario" data-accion="estado" data-e="volada">Marcar volada</button>' : '<button class="sis-btn chico" data-accion="estado" data-e="borrador">Volver a borrador</button>'}
+        </div>
+      </div>
+      <div class="vu-tira">
+        ${kpi("Área de vuelo", g ? `${fmt(g.areaVuelo / 1e4, 1)} ha` : "—", g ? g.tipo === "corredor" ? `corredor de ${fmt(g.izq + g.der, 0)} m` : Number(h.area.margen) ? `+${h.area.margen} m de margen` : "sin margen" : "falta el área")}
+        ${kpi("Vuelo", t ? `${t.baterias} bat. · ${fmtDuracion(t.minVuelo)}` : "—", t ? `jornada ${fmtDuracion(t.minJornada)}${g.sectores.length > 1 ? ` · ${g.sectores.length} sectores` : ""}` : "", t && t.excede ? "alerta" : "")}
+        ${kpi("Ventana GO", c ? c.ventana || "Sin ventana" : "—", c ? fechaLegible(c.fecha) : "consulta el clima", c ? c.ventana ? "bien" : "alerta" : "")}
+        ${kpi("Ráfaga máx.", c && c.rafaga ? `${fmt(c.rafaga.v, 1)} m/s` : "—", c && c.rafaga ? `${dosD(c.rafaga.hora)}:00 · límite ${d ? fmt(d.rafagaMaxMs, 0) : "—"}` : "", c && c.rafaga && d && c.rafaga.v > d.rafagaMaxMs ? "alerta" : "")}
+        ${kpi("Kp · luz", c ? `${c.kpMax != null ? fmt(c.kpMax, 0) : "—"} · ${c.sol ? c.sol.join("–") : "—"}` : "—", c ? "Kp ≤ 4 para GNSS" : "")}
+        ${kpi("Permiso DGAC", perm.texto, perm.detalle, perm.nivel === "ok" ? "bien" : perm.nivel === "aviso" ? "alerta" : "")}
+      </div>
+      <nav class="vu-pasos" aria-label="Pasos de la hoja">${PASOS.map(([k, t2]) => `<button class="vu-paso${st.paso === k ? " activo" : ""}" data-accion="paso" data-paso="${k}">${t2}${marcas[k] === "ok" ? ' <i class="vu-ok" aria-label="listo">✓</i>' : marcas[k] === "aviso" ? ' <i class="vu-alerta" aria-label="revisar">!</i>' : ""}</button>`).join("")}</nav>`;
+    }
+    function vistaResumen() {
+      const h = st.hoja, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null, c = h.clima, perm = estadoPermiso(h);
+      const cab = (n, titulo, estado3, clase, paso, accion) => `<div class="vu-res-cab"><span class="vu-num">${n}</span><h2>${titulo}</h2>${estado3 ? chip(estado3, clase) : ""}<button class="vu-link" data-accion="paso" data-paso="${paso}">${accion} →</button></div>`;
+      const zonas = g ? zonasDeHoja() : [];
+      const climaObs = c && c.checklist && c.checklist.some((x) => !x.cumple);
+      return `<section class="sis-tarjeta vu-datos-hoja"><h2>Datos de la hoja</h2>
+        <div class="vu-datos-grilla">
+          <label class="sis-campo"><span>Nombre</span><input data-hoja="nombre" value="${escapar(h.nombre)}" placeholder="El Pimiento — vuelo 1"></label>
+          <label class="sis-campo"><span>Proyecto</span><select data-hoja="proyectoId">${opcionesProyectos(h.proyectoId)}</select></label>
+          <label class="sis-campo"><span>Fecha del vuelo</span><input type="date" data-hoja="fecha" value="${escapar(h.fecha || "")}"></label>
+          <label class="sis-campo"><span>Piloto</span><select data-hoja="pilotoId"><option value="">—</option>${base.personas.map((p) => `<option value="${escapar(p.id)}" ${p.id === h.pilotoId ? "selected" : ""}>${escapar(p.nombre)}</option>`).join("")}</select></label>
+        </div>
+      </section>
+      <div class="vu-res-grilla">
+        <section class="sis-tarjeta">${cab(1, "Área", g ? g.fallidos.length ? "Revisar cortes" : "Lista" : "Falta el área", g ? g.fallidos.length ? "ambar" : "verde" : "gris", "area", g ? "Editar área" : "Cargar área")}
+          ${g ? `<dl class="vu-tabla">
+            ${fila("Origen", escapar(h.area.archivo || "—"))}
+            ${g.tipo === "corredor" ? fila("Corredor", `${fmt(g.izq, 0)} m izq. · ${fmt(g.der, 0)} m der. · ${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1e3, 2)} km`) : fila("Margen", Number(h.area.margen) ? `+${h.area.margen} m · ${fmt(areaM2(g.original) / 1e4, 2)} → ${fmt(g.areaVuelo / 1e4, 2)} ha` : "sin margen")}
+            ${fila("Sectores", g.sectores.length > 1 ? g.sectores.map((_, i) => escapar(nombreSector(h, i, g.sectores.length))).join(" · ") : "uno (área completa)")}
+            ${fila("Zonas", zonas === null ? "sin capas cargadas" : zonas.length ? zonas.slice(0, 2).map((z) => `${z.toca ? '<b class="vu-rojo">toca</b> ' : ""}${escapar(z.nombre)}${z.toca ? "" : ` a ${fmt(z.distancia / 1e3, 1)} km`}`).join(" · ") : "no toca zonas cargadas")}
+          </dl>` : '<p class="sis-tenue">Carga el KMZ/KML del área (o la línea del corredor), o dibújala en el mapa.</p>'}
+        </section>
+        <section class="sis-tarjeta">${cab(2, "Vuelo", t ? t.excede ? "Revisar" : "Listo" : "", t ? t.excede ? "ambar" : "verde" : "gris", "vuelo", "Ajustar")}
+          ${t ? `<div class="vu-mini-kpis">${kpi("GSD", `${fmt(t.gsd, 2)} cm`)}${kpi("Altura", `${fmt(t.altura, 0)} m`)}${kpi("Baterías", t.baterias)}${kpi("Fotos", fmt(t.fotos))}</div>
+            <dl class="vu-tabla">${fila("Traslapes · velocidad", `${h.params.traslapeFrontal}/${h.params.traslapeLateral} % · ${t.sectores[0] ? fmt(t.sectores[0].velocidad, 1) : "—"} m/s${h.params.velocidad === "" ? " (sugerida)" : ""}`)}
+            ${fila("En el aire · jornada", `${fmtDuracion(t.minVuelo)} · ${fmtDuracion(t.minJornada)}`)}
+            ${g.sectores.length > 1 ? fila("Por sector", t.sectores.map((r, i) => `${escapar(nombreSector(h, i, g.sectores.length))} ${r ? fmtDuracion(r.minTotal) : "—"}`).join(" · ")) : ""}</dl>` : '<p class="sis-tenue">Cuando cargues el área, aquí aparece el plan de vuelo.</p>'}
+        </section>
+        <section class="sis-tarjeta">${cab(3, "Clima", c ? climaObs ? "Con observaciones" : "Cumple" : "", c ? climaObs ? "ambar" : "verde" : "gris", "clima", c ? "Ver pronóstico" : "Consultar")}
+          ${c ? `<p class="sis-tenue">Consultado ${fechaHora(c.consultadoEn)} para el ${fechaLegible(c.fecha)}.</p>
+            <dl class="vu-tabla">${(c.checklist || []).map((x) => fila(escapar(x.texto), `<span class="${x.cumple ? "vu-verde" : "vu-rojo"}">${escapar(x.detalle)}</span>`)).join("")}
+            ${c.metar ? fila(`METAR ${escapar(c.metar.icao)}`, `a ${fmt(c.metar.km, 0)} km`) : ""}</dl>` : '<p class="sis-tenue">Consulta el pronóstico del día del vuelo: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR.</p>'}
+        </section>
+        <section class="sis-tarjeta">${cab(4, "Permisos y consultas", perm.texto, perm.nivel === "ok" ? "verde" : perm.nivel === "aviso" ? "ambar" : "gris", "permisos", "Abrir")}
+          <dl class="vu-tabla">
+            ${fila("Solicitud DGAC", `${escapar(perm.texto)} · ${escapar(perm.detalle)}`)}
+            ${fila("Documentos", `${DOCUMENTOS_DGAC.filter(([k]) => h.permisos.docs[k]).length} de ${DOCUMENTOS_DGAC.length}`)}
+            ${CONSULTAS.map(([k, tt]) => {
+        const x = ultimaConsulta(h, k);
+        return fila(tt, x ? `Revisado ${fechaHora(x.fecha)}` : '<span class="vu-rojo">Pendiente</span>');
+      }).join("")}
+          </dl>
+        </section>
+      </div>`;
+    }
+    return { vistaHojas, encabezadoHoja, vistaResumen, ultimaConsulta };
+  }
+
+  // modulos/vuelos/paso-area.js
+  function crearPasoArea(v) {
+    const ref = (n) => (...a) => v[n](...a);
+    const { st } = v;
+    const geo = ref("geo");
+    const dron = ref("dron");
+    const capasActivas = ref("capasActivas");
+    function zonasDeHoja() {
+      const g = geo();
+      if (!g || !st.capas || !st.capas.length) return null;
+      return revisarZonas(g.vuelo.map(g.marco.aLonLat), g.marco, st.capas, capasActivas());
+    }
+    function vistaArea() {
+      const h = st.hoja, a = h.area, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null;
+      const grande = t && (t.baterias > UMBRAL_BATERIAS || t.excede) && g.sectores.length === 1;
+      return `${grande ? `<div class="vu-banner"><div><b>El área es grande: ${fmt(g.areaVuelo / 1e4, 0)} ha · ${t.baterias} baterías · unas ${fmtDuracion(t.minVuelo)} de vuelo</b>
+        <span>${t.excede ? "Parte del recorrido queda más lejos de lo que alcanza una batería desde el despegue. " : ""}Dividirla en sectores te deja planificar por día o por punto de despegue, con un rumbo y un KML para cada uno.</span></div>
+        <button class="sis-btn primario" data-accion="dibujar" data-modo="corte">Dividir en sectores</button></div>` : ""}
+      <div class="vu-dos">
+        <div class="vu-izquierda">
+          <section class="sis-tarjeta"><h2>Origen</h2>
+            <div class="sis-acciones">
+              <label class="sis-btn vu-archivo">Cargar KML / KMZ<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="area" hidden></label>
+              <button class="sis-btn${st.dibujo && st.dibujo.modo === "area" ? " primario" : ""}" data-accion="dibujar" data-modo="area">Dibujar área</button>
+              <button class="sis-btn${st.dibujo && st.dibujo.modo === "eje" ? " primario" : ""}" data-accion="dibujar" data-modo="eje">Dibujar eje</button>
+            </div>
+            ${st.candidatos ? vistaCandidatos() : ""}
+            ${a.tipo ? `<p class="sis-tenue vu-area-info">${escapar(a.archivo || "")} · ${a.tipo === "corredor" ? `eje de ${fmt((a.eje.largo || 0) / 1e3, 2)} km · ${a.eje.linea.length} vértices` : `${fmt(areaM2(proyectar(a.original.anillo).puntos) / 1e4, 2)} ha · ${a.original.anillo.length} vértices`}</p>
+              ${(a.problemas || []).length ? `<div class="vu-aviso"><b>Detalles que se corrigen al descargar:</b><ul>${a.problemas.map((p) => `<li>${escapar(p)}</li>`).join("")}</ul></div>` : ""}
+              <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-original">Descargar ${a.tipo === "corredor" ? "eje" : "área del mandante"} limpio (KML)</button></div>` : ""}
+          </section>
+          ${a.tipo === "poligono" ? `<section class="sis-tarjeta"><h2>Margen</h2>
+            ${deslizador("margen", "Margen hacia afuera", a.margen || 0, { min: 0, max: 100, paso: 1, sufijo: "m" })}
+            <div class="vu-pildoras">${[0, 20, 30, 50].map((m) => `<button type="button" class="vu-pildora${Number(a.margen) === m ? " activo" : ""}" data-accion="margen" data-m="${m}">${m ? `${m} m` : "Sin margen"}</button>`).join("")}</div>
+            <label class="sis-check"><input type="checkbox" data-area="rectas" ${a.rectas !== false ? "checked" : ""}> Esquinas rectas (como se hace a mano)</label>
+            <p class="sis-tenue" id="vu-margen-info">${g ? `${fmt(areaM2(g.original) / 1e4, 2)} ha → <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b> de vuelo` : ""}</p>
+          </section>` : ""}
+          ${a.tipo === "corredor" ? `<section class="sis-tarjeta"><h2>Corredor</h2>
+            ${deslizador("izq", a.corredor.mismo ? "Ancho a cada lado" : "Hacia la izquierda", a.corredor.izq, { min: 5, max: 300, paso: 1, sufijo: "m" })}
+            ${a.corredor.mismo ? "" : deslizador("der", "Hacia la derecha", a.corredor.der, { min: 5, max: 300, paso: 1, sufijo: "m" })}
+            <label class="sis-check"><input type="checkbox" data-area="mismo" ${a.corredor.mismo ? "checked" : ""}> Mismo ancho a los dos lados</label>
+            ${a.corredor.mismo ? "" : '<button class="sis-btn chico" data-accion="invertir">Invertir izquierda y derecha</button>'}
+            <p class="sis-tenue" id="vu-margen-info">${g ? textoCorredor(g) : ""}</p>
+          </section>` : ""}
+          ${g ? `<section class="sis-tarjeta"><h2>Sectores</h2><div id="vu-sectores">${htmlSectores()}</div>
+            <div class="sis-acciones">
+              <button class="sis-btn chico${st.dibujo && st.dibujo.modo === "corte" ? " primario" : ""}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>
+              ${a.cortes.length ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ""}
+            </div>
+            <p class="sis-tenue">Traza el corte por un camino, quebrada o cerco: toca afuera del área, sigue el borde tocando puntos y termina afuera. Los vértices blancos se pueden arrastrar.</p>
+          </section>` : ""}
+          <section class="sis-tarjeta"><h2>Zonas de referencia</h2><div id="vu-zonas">${htmlZonas()}</div></section>
+        </div>
+        <div class="vu-derecha">
+          <div class="vu-mapa-caja"><div class="vu-mapa-lugar" data-mapa="area"></div><div class="vu-mapa-barra" id="vu-barra-area">${barraDibujo()}</div></div>
+          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos. Imagen Esri con nombres y caminos.</p>
+        </div>
+      </div>`;
+    }
+    const textoCorredor = (g) => `${fmt(g.izq + g.der, 0)} m × ${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1e3, 2)} km = <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b>. Las pasadas siguen el eje.`;
+    function vistaCandidatos() {
+      const c = st.candidatos;
+      const contornos = c.poligonos.filter((p) => !p.abierta);
+      return `<div class="vu-candidatos"><p><b>${escapar(c.archivo)}</b> trae ${contornos.length ? `${contornos.length} contorno${contornos.length > 1 ? "s" : ""}` : ""}${contornos.length && c.ejes.length ? " y " : ""}${c.ejes.length ? `${c.ejes.length} línea${c.ejes.length > 1 ? "s" : ""} abierta${c.ejes.length > 1 ? "s" : ""}` : ""}. ¿Cuál uso?</p>
+      <div class="sis-lista">${c.ejes.map((e, i) => {
+        const j = c.poligonos.findIndex((p) => p.abierta && p.nombre === e.nombre);
+        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(e.nombre)}</b><span class="sis-tenue">Línea de ${fmt(e.largo / 1e3, 2)} km · ${e.vertices} vértices</span></span>
+          <span class="sis-acciones"><button class="sis-btn chico primario" data-accion="usar-eje" data-i="${i}">Como eje de corredor</button>${j >= 0 ? `<button class="sis-btn chico" data-accion="usar-pol" data-i="${j}">Cerrarla como contorno</button>` : ""}</span></div>`;
+      }).join("")}
+        ${contornos.map((p) => {
+        const i = c.poligonos.indexOf(p);
+        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(p.nombre)}</b><span class="sis-tenue">${fmt(p.area / 1e4, 2)} ha · ${p.vertices} vértices</span></span>
+          <span class="sis-acciones"><button class="sis-btn chico primario" data-accion="usar-pol" data-i="${i}">Usar este contorno</button></span></div>`;
+      }).join("")}</div>
+      <button class="vu-link" data-accion="cerrar-candidatos">Cancelar</button></div>`;
+    }
+    function htmlSectores() {
+      const h = st.hoja, g = geo(), d = dron();
+      if (!g) return "";
+      const t = d ? totales(h, d, g) : null;
+      return `${g.fallidos.length ? '<div class="vu-aviso">Un corte no atraviesa el área de lado a lado y no se aplicó: arrastra sus puntos o deshazlo.</div>' : ""}
+      <div class="vu-sectores">${g.sectores.map((s, i) => {
+        const r = t && t.sectores[i];
+        return `<div class="vu-sector">
+        <i style="background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}"></i>
+        ${g.sectores.length > 1 ? `<input class="vu-sector-nombre" data-sector-nombre="${i}" value="${escapar(h.area.sectores[i] && h.area.sectores[i].nombre || "")}" placeholder="S${i + 1}" aria-label="Nombre del sector ${i + 1}">` : "<b>Área completa</b>"}
+        <span class="vu-sector-dato">${fmt(s.area / 1e4, 1)} ha${r ? ` · ${r.vuelos} bat. · ${fmtDuracion(r.minTotal)}` : ""}</span>
+        <span class="vu-sector-acc">${g.sectores.length > 1 ? `<button class="vu-link" data-accion="kml-sector" data-i="${i}">KML</button>` : ""}<button class="vu-link" data-accion="ir-sector" data-i="${i}">volar →</button></span>
+      </div>`;
+      }).join("")}</div>
+      ${g.sectores.length > 1 && t ? `<p class="vu-total">Total: ${g.sectores.length} sectores · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada</p>
+        <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-sectores">Descargar KML de cada sector</button></div>` : ""}`;
+    }
+    function htmlZonas() {
+      const capas = st.capas || [];
+      const form = `<div class="vu-capa-form"><select data-campo="tipoCapa" aria-label="Tipo de capa">${Object.entries(TIPOS_CAPA).map(([k, v2]) => `<option value="${k}">${v2.nombre}</option>`).join("")}</select>
+      <label class="sis-btn chico vu-archivo">+ Cargar capa (KMZ, KML o JSON)<input type="file" accept=".kml,.kmz,.json,.geojson" data-archivo="capa" hidden></label></div>`;
+      if (!capas.length) return `<p class="sis-tenue">Aún no hay capas. Carga los archivos de aeródromos, zonas restringidas (DGAC) o áreas protegidas (CONAF) y se revisan contra el área.</p>${form}`;
+      const activas = capasActivas();
+      const zonas = zonasDeHoja();
+      return `${zonas && zonas.length ? `<div class="vu-zonas-res">${zonas.slice(0, 4).map((z) => `<div class="${z.toca ? "vu-rojo" : ""}"><i style="background:${TIPOS_CAPA[z.tipo].color}"></i><span>${z.toca ? "<b>Toca</b> " : ""}${escapar(z.nombre)}${z.toca ? "" : ` · a ${fmt(z.distancia / 1e3, 1)} km`}<small>${escapar(z.capa)}</small></span></div>`).join("")}</div>` : geo() ? '<p class="vu-verde">No hay zonas cargadas a menos de 60 km.</p>' : ""}
+      <fieldset class="vu-capas"><legend>Capas</legend>${capas.map((c) => `<label class="sis-check"><input type="checkbox" data-capa="${escapar(c.id)}" ${activas.includes(c.id) ? "checked" : ""}><i style="background:${TIPOS_CAPA[c.tipo].color}"></i>${escapar(c.nombre)} <small>${escapar(c.fecha || "")}${c.origen === "usuario" ? " · cargada aquí" : ""}</small>${c.origen === "usuario" ? ` <button class="vu-link" data-accion="quitar-capa" data-id="${escapar(c.id)}">quitar</button>` : ""}</label>`).join("")}</fieldset>
+      ${form}
+      <p class="sis-tenue">Referencial. La información aeronáutica oficial está en AIP Chile (DGAC).</p>`;
+    }
+    function barraDibujo() {
+      const dib2 = st.dibujo;
+      if (!dib2) return st.hoja && !geo() ? '<span class="vu-barra-txt">Carga un KML/KMZ o dibuja el área o el eje.</span>' : "";
+      const min = dib2.modo === "area" ? 3 : 2;
+      const txt = { area: "Toca el mapa para marcar los vértices del área", eje: "Toca el mapa siguiendo el eje del corredor", corte: "Toca afuera del área, sigue el camino y termina afuera" }[dib2.modo];
+      return `<span class="vu-barra-txt">${txt} · ${dib2.puntos.length} punto${dib2.puntos.length === 1 ? "" : "s"}</span>
+      <button type="button" class="vu-barra-btn" data-accion="dibujo-deshacer" ${dib2.puntos.length ? "" : "disabled"}>Deshacer</button>
+      <button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-terminar" ${dib2.puntos.length >= min ? "" : "disabled"}>Terminar</button>
+      <button type="button" class="vu-barra-btn" data-accion="dibujo-cancelar">Cancelar</button>`;
+    }
+    return { zonasDeHoja, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo };
+  }
+
+  // modulos/vuelos/paso-vuelo.js
+  function crearPasoVuelo(v) {
+    const ref = (n) => (...a) => v[n](...a);
+    const { st, base } = v;
+    const geo = ref("geo");
+    const dron = ref("dron");
+    const secSel = ref("secSel");
+    const familias = ref("familias");
+    function vistaVuelo() {
+      const h = st.hoja, P = h.params, d = dron(), g = geo();
+      if (!g) return `<section class="sis-tarjeta sis-vacio"><p>Primero carga o dibuja el área.</p><button class="sis-btn primario" data-accion="paso" data-paso="area">Ir a Área</button></section>`;
+      const i = secSel();
+      const r = calcularSector(h, d, g, i);
+      const fam = d.familia || d.id;
+      const sensores = base.drones.filter((x) => (x.familia || x.id) === fam);
+      const altura = alturaDe(P, d), gsd = gsdCm(d, altura);
+      const vMax = d.velocidadMaxMs;
+      return `${g.sectores.length > 1 ? `<div class="vu-sector-chips">${g.sectores.map((_, k) => `<button class="vu-pildora${k === i ? " activo" : ""}" data-accion="ir-sector" data-i="${k}"><i style="background:${COLORES_SECTOR[k % COLORES_SECTOR.length]}"></i>${escapar(nombreSector(h, k, g.sectores.length))}</button>`).join("")}<span class="sis-tenue" id="vu-total-hoja">${htmlTotalHoja()}</span></div>` : ""}
+      <div class="vu-dos">
+        <div class="vu-izquierda">
+          <form class="sis-form vu-form" data-form="plan" autocomplete="off">
+          <section class="sis-tarjeta"><h2>Dron y vuelo</h2>
+            <div class="${sensores.length > 1 ? "sis-par" : ""}">
+              <label class="sis-campo"><span>Dron</span><select name="familia">${familias().map(([k, tt]) => `<option value="${escapar(k)}" ${k === fam ? "selected" : ""}>${escapar(tt)}</option>`).join("")}</select></label>
+              ${sensores.length > 1 ? `<label class="sis-campo"><span>Sensor</span><select name="dronId">${sensores.map((x) => `<option value="${x.id}" ${x.id === h.dronId ? "selected" : ""}>${escapar(x.sensor || x.nombre)}</option>`).join("")}</select></label>` : ""}
+            </div>
+            ${d.lidar ? `<div class="sis-campo"><span>Producto</span><div class="sis-opciones">
+              <label class="sis-opcion"><input type="radio" name="modo" value="foto" ${P.modo !== "lidar" ? "checked" : ""}> Fotogrametría</label>
+              <label class="sis-opcion"><input type="radio" name="modo" value="lidar" ${P.modo === "lidar" ? "checked" : ""}> LiDAR</label></div></div>` : ""}
+            <div class="vu-enlazados">
+              ${deslizador("gsd", "GSD", Math.round(gsd * 100) / 100, { min: 0.5, max: 8, paso: 0.05, sufijo: "cm/px" })}
+              ${deslizador("altura", "Altura", Math.round(altura), { min: 15, max: 400, paso: 1, sufijo: "m", nota: "(enlazada al GSD)" })}
+            </div>
+            ${deslizador("traslapeFrontal", "Traslape frontal", P.traslapeFrontal, { min: 40, max: 90, paso: 1, sufijo: "%" })}
+            ${deslizador("traslapeLateral", "Traslape lateral", P.traslapeLateral, { min: 20, max: 90, paso: 1, sufijo: "%" })}
+            ${deslizador("velocidad", "Velocidad", Math.min(vMax, Math.round((r ? r.velocidad : 5) * 10) / 10), { min: 1, max: vMax, paso: 0.1, sufijo: "m/s", nota: P.velocidad === "" ? "(sugerida)" : "" })}
+            <div class="vu-desl-pie" id="vu-vel-pie">${pieVelocidad(r)}</div>
+            <details class="vu-detalles"><summary>Supuestos de terreno y cámara</summary>
+              <div class="sis-par">${campo("reserva", "Reserva por batería", P.reserva, "", "%")}${campo("minDespegue", "Despegue y aterrizaje", P.minDespegue, "", "min")}</div>
+              <div class="sis-par">${campo("minCambio", "Cambio de batería", P.minCambio, "", "min")}${campo("segGiro", "Giro entre líneas", P.segGiro, "", "s")}</div>
+              ${campo("exposicion", "Exposición 1/…", P.exposicion, "", "s")}
+            </details>
+          </section>
+          </form>
+          <section class="sis-tarjeta"><h2>Exportar</h2>
+            <div class="sis-acciones">
+              ${g.tipo === "corredor" ? `<button class="sis-btn primario" data-accion="kml-eje-sector" data-i="${i}">Descargar eje (KML para el control)</button><button class="sis-btn" data-accion="kml-sector" data-i="${i}">Corredor como polígono</button>` : `<button class="sis-btn primario" data-accion="kml-sector" data-i="${i}">Descargar KML${g.sectores.length > 1 ? " del sector" : ""}</button>`}
+            </div>
+            <p class="sis-tenue">${g.tipo === "corredor" ? "En DJI Pilot 2 usa el eje con el modo corredor y el mismo ancho; aquí se simulan las pasadas, el tiempo y las baterías." : "El KML es el área de vuelo (con margen), limpio para el control."}</p>
+          </section>
+        </div>
+        <div class="vu-derecha">
+          <div id="vu-kpis">${htmlKpis(r)}</div>
+          <div class="vu-mapa-caja">
+            <div class="vu-mapa-lugar" data-mapa="vuelo"></div>
+            <div class="vu-mapa-barra" id="vu-barra">${htmlBarraRumbo(r)}</div>
+            <div class="vu-leyenda-mapa" id="vu-leyenda">${htmlLeyenda(r)}</div>
+          </div>
+          <p class="sis-tenue vu-pie">Arrastra el punto para cambiar el despegue: el tiempo incluye ir y volver desde él en cada batería.</p>
+          <div id="vu-detalle">${htmlDetalle(r)}</div>
+        </div>
+      </div>`;
+    }
+    function htmlTotalHoja() {
+      const g = geo(), t = totales(st.hoja, dron(), g);
+      return t ? `Hoja completa: ${t.baterias} baterías · ${fmtDuracion(t.minJornada)}` : "";
+    }
+    function pieVelocidad(r) {
+      if (!r) return "";
+      const lim = r.limites.map(([t, v2]) => `${t} ${fmt(v2, 1)}`).join(" · ");
+      return `<span>Sugerida ${fmt(r.sugerida, 1)} m/s · límites: ${lim} m/s</span>${r.auto ? "" : ' <button type="button" class="vu-link" data-accion="vel-auto">usar la sugerida</button>'}`;
+    }
+    function htmlKpis(r) {
+      if (!r) return "";
+      return `<div class="vu-kpis">
+      ${kpi("Altura", `${fmt(r.altura, 0)} m`, "", r.altura > 120 ? "alerta" : "")}
+      ${r.densidad ? kpi("Densidad", `${fmt(r.densidad, 0)} pts/m²`) : kpi("GSD", `${fmt(r.gsd, 2)} cm`)}
+      ${kpi(r.corredor ? "Pasadas" : "Líneas", fmt(r.nLineas))}
+      ${r.modo === "foto" ? kpi("Fotos", fmt(r.fotos)) : kpi("Velocidad", `${fmt(r.velocidad, 1)} m/s`)}
+      ${kpi("En el aire", fmtDuracion(r.minMision))}
+      ${kpi("Baterías", fmt(r.vuelos), "", r.baterias.some((b) => b.excede) ? "alerta" : "")}
+      ${kpi("Jornada", fmtDuracion(r.minTotal))}
+    </div>`;
+    }
+    function htmlBarraRumbo(r) {
+      if (!r) return "";
+      if (r.corredor) return `<span class="vu-barra-txt">Corredor · ${fmt(r.nLineas)} pasada${r.nLineas === 1 ? "" : "s"} siguiendo el eje</span>`;
+      const meta = metaSector(st.hoja, secSel());
+      const auto = meta.rumbo === "" || meta.rumbo == null;
+      return `<span class="vu-barra-txt">Rumbo ${fmt(r.rumbo, 0)}°${auto ? " · lado más largo" : ""}</span>
+      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="-5" aria-label="Girar las líneas 5 grados a la izquierda">⟲ 5°</button>
+      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="5" aria-label="Girar las líneas 5 grados a la derecha">⟳ 5°</button>
+      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="90">90°</button>
+      <button type="button" class="vu-barra-btn fuerte" data-accion="rumbo-corto">Más corto</button>
+      ${auto ? "" : '<button type="button" class="vu-barra-btn" data-accion="rumbo-auto">Auto</button>'}`;
+    }
+    function htmlLeyenda(r) {
+      if (!r || !r.baterias.length) return "";
+      const n = r.baterias.length;
+      if (r.baterias.some((b) => b.excede)) return `<div class="vu-leyenda-caja alerta"><b>Hay tramos que no alcanzan con una batería</b><span>Acerca el despegue o divide el área en sectores.</span></div>`;
+      const item = (b, i) => `<span class="vu-ley-item"><i style="background:${COLORES_BATERIA[i % COLORES_BATERIA.length]}"></i>B${i + 1}<em>${fmt(b.min, 0)}′</em></span>`;
+      const total = `${n} batería${n > 1 ? "s" : ""} · ${fmtDuracion(r.minMision)}`;
+      if (n <= 6) return `<div class="vu-leyenda-caja"><b>${total}</b><div class="vu-ley-lista">${r.baterias.map(item).join("")}<span class="vu-ley-item"><i class="vu-punto"></i>Despegue</span></div></div>`;
+      if (!st.leyendaAbierta) return `<button type="button" class="vu-leyenda-caja plegada" data-accion="leyenda"><span class="vu-ley-colores">${COLORES_BATERIA.slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join("")}</span><b>${total}</b> ▾</button>`;
+      return `<div class="vu-leyenda-caja"><button type="button" class="vu-ley-cab" data-accion="leyenda"><b>${total}</b><span>▴ ocultar</span></button><div class="vu-ley-lista dos">${r.baterias.map(item).join("")}</div></div>`;
+    }
+    function htmlDetalle(r) {
+      if (!r) return "";
+      return `${r.avisos.length ? `<div class="vu-aviso"><ul>${r.avisos.map((a) => `<li>${escapar(a)}</li>`).join("")}</ul></div>` : ""}
+      ${r.modo === "foto" ? htmlTablaGsd(r) : ""}
+      <details class="vu-detalles"><summary>Detalle del cálculo</summary>
+      <dl class="vu-tabla">
+        ${fila("Área del sector", `${fmt(r.area / 1e4, 2)} ha`)}
+        ${fila("Huella de la foto", `${fmt(r.huellaAncho, 0)} × ${fmt(r.huellaLargo, 0)} m`)}
+        ${r.barrido ? fila("Ancho de barrido LiDAR", `${fmt(r.barrido, 0)} m`) : ""}
+        ${fila(`Separación entre ${r.corredor ? "pasadas" : "líneas"}`, `${fmt(r.sepLineas, 1)} m · ${fmt(r.nLineas)}`)}
+        ${r.modo === "foto" ? fila("Distancia entre fotos", `${fmt(r.sepFotos, 1)} m · cada ${fmt(r.intervalo, 1)} s`) : fila("Densidad en una pasada", `${fmt(r.densidadPasada, 0)} pts/m²`)}
+        ${fila("Distancia de vuelo", `${fmt(r.distancia / 1e3, 2)} km`)}
+        ${r.trasladoM ? fila("Traslado desde el despegue (ida y vuelta)", `${fmt(r.trasladoM / 1e3, 2)} km`) : ""}
+        ${fila("Velocidad", `${fmt(r.velocidad, 1)} m/s${r.auto ? " (sugerida)" : ""}`)}
+        ${fila("Tiempo útil por batería", `${fmt(r.minUtiles, 0)} min`)}
+      </dl>
+      <p class="sis-tenue">Estimación para planificar y cotizar. El GSD es sobre el punto de despegue: con desnivel cambia. El vuelo se programa en DJI Pilot 2.</p>
+      </details>`;
+    }
+    function opcionesGsd(r) {
+      const h = st.hoja, d = dron(), g = geo(), i = secSel();
+      const actual = Math.round(r.gsd * 100) / 100;
+      const lista = [.../* @__PURE__ */ new Set([...GSD_TABLA, ...st.gsdExtra, actual])].sort((a, b) => b - a);
+      return lista.map((gs) => {
+        const altura = alturaParaGsd(d, gs);
+        const a = calcularSector(h, d, g, i, { altura, modo: "foto", velocidad: st.velA });
+        const z = calcularSector(h, d, g, i, { altura, modo: "foto", velocidad: st.velB });
+        return { gsd: gs, altura, actual: Math.abs(gs - actual) < 5e-3, a, z, sobre120: altura > 120 };
+      });
+    }
+    function htmlTablaGsd(r) {
+      const filas = opcionesGsd(r);
+      return `<section class="sis-tarjeta vu-opciones">
+      <div class="vu-opciones-cab"><h2>Opciones por GSD</h2>
+        <label class="vu-vel">Velocidades <input type="number" data-vel="velA" value="${st.velA}" min="1" max="25" step="0.5" aria-label="Velocidad A"> y <input type="number" data-vel="velB" value="${st.velB}" min="1" max="25" step="0.5" aria-label="Velocidad B"> m/s</label></div>
+      <div class="vu-tabla-scroll"><table class="vu-gsd">
+        <thead><tr><th>GSD (cm/px)</th><th>Altura (m)</th><th>Tiempo a ${fmt(st.velA, 1)} m/s</th><th>Baterías</th><th>Tiempo a ${fmt(st.velB, 1)} m/s</th><th>Baterías</th><th></th></tr></thead>
+        <tbody>${filas.map((f) => `<tr class="${f.actual ? "actual" : ""}${f.sobre120 ? " sobre120" : ""}">
+          <td>${fmt(f.gsd, 2)}${f.actual ? " · actual" : ""}</td><td>${fmt(f.altura, 0)}${f.sobre120 ? " ⚠" : ""}</td>
+          <td>${fmtDuracion(f.a.minMision)}${st.velA > f.a.velSugerida + 0.05 ? ' <span class="vu-ojo" title="Sobre la velocidad sugerida para este GSD">*</span>' : ""}</td><td>${f.a.vuelos}</td>
+          <td>${fmtDuracion(f.z.minMision)}${st.velB > f.z.velSugerida + 0.05 ? ' <span class="vu-ojo" title="Sobre la velocidad sugerida para este GSD">*</span>' : ""}</td><td>${f.z.vuelos}</td>
+          <td><button type="button" class="vu-link" data-accion="usar-gsd" data-g="${f.gsd}">usar</button>${GSD_TABLA.includes(f.gsd) || f.actual ? "" : ` <button type="button" class="vu-link" data-accion="quitar-gsd" data-g="${f.gsd}" aria-label="Quitar">✕</button>`}</td>
+        </tr>`).join("")}</tbody></table></div>
+      <div class="vu-opciones-pie">
+        <span class="vu-agregar"><input type="number" data-campo="gsdNuevo" placeholder="GSD" step="0.1" min="0.3" max="10" aria-label="GSD a agregar"><button type="button" class="sis-btn chico" data-accion="agregar-gsd">+ GSD</button></span>
+        <button type="button" class="sis-btn chico" data-accion="copiar-tabla">Copiar para correo</button>
+        <button type="button" class="sis-btn chico" data-accion="excel-tabla">Descargar Excel</button>
+      </div>
+      <p class="sis-tenue">Tiempo en el aire${geo().sectores.length > 1 ? " del sector" : ""} con el dron y traslapes del plan. ⚠ sobre 120 m: requiere autorización DGAC. * sobre la velocidad sugerida.</p>
+    </section>`;
+    }
+    return { vistaVuelo, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd };
+  }
+
   // modulos/vuelos/pronostico.js
   var MODELOS = [["ecmwf_ifs025", "ECMWF"], ["gfs_seamless", "GFS"], ["icon_seamless", "ICON"]];
   var VARIABLES = [
@@ -4148,11 +4869,11 @@ Content-Type: ${mime}\r
   function kpEnHora(kps, horaLocalIso) {
     if (!kps || !kps.length) return null;
     const t = (/* @__PURE__ */ new Date(horaLocalIso + ":00-03:00")).getTime();
-    const fila = kps.filter((k) => {
+    const fila2 = kps.filter((k) => {
       const ini = new Date(k.t).getTime();
       return t >= ini && t < ini + 3 * 36e5;
     });
-    return fila.length ? Math.max(...fila.map((f) => f.kp)) : null;
+    return fila2.length ? Math.max(...fila2.map((f) => f.kp)) : null;
   }
   function elevacionSol(horaLocalIso, lat, lon) {
     const d = /* @__PURE__ */ new Date(horaLocalIso + ":00-03:00");
@@ -4216,93 +4937,6 @@ Content-Type: ${mime}\r
   }
   var enlaceMetar = (icao) => icao ? `https://aviationweather.gov/data/metar/?id=${icao}&taf=1` : "https://aipchile.dgac.gob.cl/";
 
-  // modulos/vuelos/capas.js
-  var TIPOS_CAPA = {
-    aerodromo: { nombre: "Aeródromos", color: "#1D4ED8" },
-    restringida: { nombre: "Zonas restringidas o prohibidas", color: "#B42318" },
-    protegida: { nombre: "Áreas protegidas", color: "#3F7D3A" },
-    referencia: { nombre: "Referencia (caminos, otros)", color: "#8A8F96" }
-  };
-  var cache = null;
-  async function listarCapas() {
-    if (cache) return cache;
-    const deApp = [];
-    try {
-      const r = await fetch("vendor/capas/indice.json", { cache: "no-cache" });
-      if (r.ok) {
-        const indice = await r.json();
-        for (const c of indice.capas || []) {
-          try {
-            const blob = await (await fetch(`vendor/capas/${c.archivo}`)).blob();
-            const elementos = await elementosDeArchivo(new File([blob], c.archivo));
-            deApp.push({ id: `app:${c.archivo}`, nombre: c.nombre, tipo: c.tipo, fecha: c.fecha || "", fuente: c.fuente || "", origen: "app", elementos });
-          } catch (e) {
-            console.warn("Capa no leída", c.archivo, e);
-          }
-        }
-      }
-    } catch {
-    }
-    const delUsuario = (await listarCapasUsuario()).map((c) => ({ ...c, origen: "usuario" }));
-    cache = [...deApp, ...delUsuario];
-    return cache;
-  }
-  function leerGeoJSON(json) {
-    const out = [];
-    const nombreDe = (p) => p && (p.name || p.nombre || p.Name || p.NOMBRE) || "";
-    const agregar = (g, nombre) => {
-      if (!g) return;
-      if (g.type === "Point") out.push({ tipo: "punto", nombre, coords: g.coordinates.slice(0, 2) });
-      else if (g.type === "MultiPoint") g.coordinates.forEach((c) => out.push({ tipo: "punto", nombre, coords: c.slice(0, 2) }));
-      else if (g.type === "LineString") out.push({ tipo: "linea", nombre, coords: g.coordinates.map((c) => c.slice(0, 2)) });
-      else if (g.type === "MultiLineString") g.coordinates.forEach((l) => out.push({ tipo: "linea", nombre, coords: l.map((c) => c.slice(0, 2)) }));
-      else if (g.type === "Polygon") out.push({ tipo: "poligono", nombre, coords: g.coordinates[0].map((c) => c.slice(0, 2)) });
-      else if (g.type === "MultiPolygon") g.coordinates.forEach((p) => out.push({ tipo: "poligono", nombre, coords: p[0].map((c) => c.slice(0, 2)) }));
-      else if (g.type === "GeometryCollection") g.geometries.forEach((x) => agregar(x, nombre));
-    };
-    for (const f of json.features || []) agregar(f.geometry, nombreDe(f.properties));
-    return out;
-  }
-  async function elementosDeArchivo(archivo) {
-    if (/\.(geo)?json$/i.test(archivo.name)) return leerGeoJSON(JSON.parse(await archivo.text()));
-    return leerCapa(await leerArchivo(archivo));
-  }
-  async function cargarCapaDesdeArchivo(archivo, tipo, nombre) {
-    const elementos = await elementosDeArchivo(archivo);
-    if (!elementos.length) throw new Error("El archivo no trae puntos, líneas ni polígonos.");
-    await guardarCapaUsuario({ nombre: nombre || archivo.name.replace(/\.(kmz|kml|geojson|json)$/i, ""), tipo, fecha: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), fuente: archivo.name, elementos });
-    cache = null;
-    return elementos.length;
-  }
-  async function quitarCapa(id) {
-    await borrarCapaUsuario(id);
-    cache = null;
-  }
-  function revisarZonas(area, marco, capas, activas) {
-    const A = area.map(marco.aXY);
-    const resultados = [];
-    for (const c of capas) {
-      if (!activas.includes(c.id) || c.tipo === "referencia") continue;
-      let mejor = null;
-      for (const el of c.elementos) {
-        const ref = el.tipo === "punto" ? el.coords : el.coords[0];
-        const [x0, y0] = marco.aXY(ref);
-        if (Math.hypot(x0, y0) > 6e4 + 5e4) continue;
-        let d;
-        if (el.tipo === "punto") d = distPuntoPoligono(marco.aXY(el.coords), A);
-        else if (el.tipo === "poligono") d = distPoligonos(A, el.coords.map(marco.aXY));
-        else {
-          const L = el.coords.map(marco.aXY);
-          d = Infinity;
-          for (const p of A) for (let i = 0; i + 1 < L.length; i++) d = Math.min(d, distPuntoSegmento(p, L[i], L[i + 1]));
-        }
-        if (!mejor || d < mejor.distancia) mejor = { tipo: c.tipo, nombre: el.nombre || c.nombre, capa: c.nombre, distancia: d, toca: d === 0 };
-      }
-      if (mejor && mejor.distancia < 6e4) resultados.push(mejor);
-    }
-    return resultados.sort((a, b) => a.distancia - b.distancia);
-  }
-
   // modulos/vuelos/graficos.js
   var COLOR_ESTADO = { go: "#0F766E", marg: "#C2410C", no: "#B42318", noche: "#B9B5AC" };
   var TEXTO_ESTADO = { go: "GO", marg: "Marg.", no: "NO", noche: "Luz" };
@@ -4328,14 +4962,14 @@ Content-Type: ${mime}\r
     partes.push(`<text x="${X0 - 6}" y="8" text-anchor="end" font-size="10" fill="#5B6168">m/s</text>`);
     const svg2 = `<svg class="vu-graf-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Viento a 120 m por hora: barras de viento sostenido, línea de ráfaga y límites del dron">${partes.join("")}</svg>`;
     const celda = (contenido, marca) => `<div class="vu-graf-celda${marca ? " " + marca : ""}">${contenido}</div>`;
-    const fila = (titulo, f) => `<div class="vu-graf-fila" style="grid-template-columns:${X0}px repeat(${n}, minmax(0,1fr))"><span class="vu-graf-tit">${titulo}</span>${filas.map(f).join("")}</div>`;
+    const fila2 = (titulo, f) => `<div class="vu-graf-fila" style="grid-template-columns:${X0}px repeat(${n}, minmax(0,1fr))"><span class="vu-graf-tit">${titulo}</span>${filas.map(f).join("")}</div>`;
     const filasHtml = [
-      fila("", (x) => celda(`<b>${String(x.h.hora).padStart(2, "0")}</b><span class="vu-graf-estado" style="background:${COLOR_ESTADO[x.ev.estado]}" title="${escapar(x.ev.motivos.join(" · "))}">${TEXTO_ESTADO[x.ev.estado]}</span>`)),
-      fila("Dir.", (x) => celda(x.h.dir != null ? `<span class="vu-flecha" style="transform:rotate(${Math.round(x.h.dir + 180)}deg)" title="Viento desde ${Math.round(x.h.dir)}°">↑</span>` : "—")),
-      fila("Lluvia", (x) => celda(x.h.prob != null ? `${fmt(x.h.prob)}%` : "—", x.h.lluvia >= 0.2 || x.h.prob >= 40 ? "azul" : "")),
-      fila("Nubes", (x) => celda(`${fmt(x.h.nubes)}%`, x.h.nubes >= 50 ? "gris" : "")),
-      fila("Temp.", (x) => celda(`${fmt(x.h.temp, 0)}°`, x.h.temp < 5 ? "azul" : "")),
-      fila("Kp", (x) => celda(x.kp != null ? fmt(x.kp, 0) : "—", x.kp >= 4 ? "ambar" : ""))
+      fila2("", (x) => celda(`<b>${String(x.h.hora).padStart(2, "0")}</b><span class="vu-graf-estado" style="background:${COLOR_ESTADO[x.ev.estado]}" title="${escapar(x.ev.motivos.join(" · "))}">${TEXTO_ESTADO[x.ev.estado]}</span>`)),
+      fila2("Dir.", (x) => celda(x.h.dir != null ? `<span class="vu-flecha" style="transform:rotate(${Math.round(x.h.dir + 180)}deg)" title="Viento desde ${Math.round(x.h.dir)}°">↑</span>` : "—")),
+      fila2("Lluvia", (x) => celda(x.h.prob != null ? `${fmt(x.h.prob)}%` : "—", x.h.lluvia >= 0.2 || x.h.prob >= 40 ? "azul" : "")),
+      fila2("Nubes", (x) => celda(`${fmt(x.h.nubes)}%`, x.h.nubes >= 50 ? "gris" : "")),
+      fila2("Temp.", (x) => celda(`${fmt(x.h.temp, 0)}°`, x.h.temp < 5 ? "azul" : "")),
+      fila2("Kp", (x) => celda(x.kp != null ? fmt(x.kp, 0) : "—", x.kp >= 4 ? "ambar" : ""))
     ].join("");
     return `<div class="vu-graf" style="--ancho:${W}px"><div class="vu-graf-interior" style="width:${W}px">${svg2}${filasHtml}</div></div>`;
   }
@@ -4399,738 +5033,59 @@ Content-Type: ${mime}\r
   </svg>`;
   }
 
-  // modulos/vuelos/hoja.js
-  var R_LAT2 = 110540;
-  var R_LON2 = 111320;
-  var PARAMS_INICIALES = {
-    modo: "foto",
-    porGsd: true,
-    gsd: 2.5,
-    altura: 100,
-    traslapeFrontal: 80,
-    traslapeLateral: 70,
-    velocidad: "",
-    exposicion: 1e3,
-    reserva: 25,
-    minDespegue: 3,
-    minCambio: 5,
-    segGiro: 8
-  };
-  var DOCUMENTOS_DGAC = [
-    ["kmz", "KMZ de la zona"],
-    ["carta", "Carta o autorización del mandante"],
-    ["seguro", "Seguro aprobado por la JAC"],
-    ["credencial", "Credencial del piloto vigente"],
-    ["inscripcion", "Inscripción del dron"]
-  ];
-  var CONSULTAS = [
-    ["notam", "NOTAM en AIP Chile", "https://aipchile.dgac.gob.cl/notam"],
-    ["aip", "Mapa interactivo AIP Chile", "https://aipchile.dgac.gob.cl/"]
-  ];
-  function nuevaHoja({ proyectoId = "", personaId = null, dronId = "m4e" } = {}) {
-    return {
-      nombre: "",
-      proyectoId: proyectoId || null,
-      fecha: hoyISO(),
-      pilotoId: personaId,
-      estado: "borrador",
-      dronId,
-      params: { ...PARAMS_INICIALES },
-      area: {
-        tipo: null,
-        original: null,
-        eje: null,
-        archivo: "",
-        margen: 0,
-        rectas: true,
-        corredor: { izq: 40, der: 40, mismo: true, invertir: false },
-        cortes: [],
-        sectores: [],
-        sel: 0
-      },
-      clima: null,
-      permisos: { dgac: { preparado: "", enviado: "", aprobado: "", vence: "", numero: "" }, docs: {}, consultas: [] },
-      viento: []
-    };
+  // modulos/vuelos/pronostico-widget.js
+  var DRONES = DRONES_BASE.map((d) => ({ id: d.id, nombre: d.nombre, vientoMaxMs: d.vientoMaxMs, rafagaMaxMs: d.rafagaMaxMs }));
+  function filasDelDia(p, dron, kps, dia) {
+    return p.horas.filter((x) => x.fecha === dia && x.hora >= 6 && x.hora <= 21).map((h) => {
+      const kp = kpEnHora(kps, h.t);
+      return { h, kp, ev: evaluarHora(h, dron, { kp, solMin: 5 }) };
+    });
   }
-  function migrarHoja(p) {
-    if (p.area) {
-      const h2 = nuevaHoja();
-      return { ...h2, ...p, params: { ...PARAMS_INICIALES, ...p.params }, area: { ...h2.area, ...p.area, corredor: { ...h2.area.corredor, ...p.area.corredor || {} } }, permisos: { ...h2.permisos, ...p.permisos || {}, dgac: { ...h2.permisos.dgac, ...(p.permisos || {}).dgac || {} } } };
-    }
-    const h = nuevaHoja({ proyectoId: p.proyectoId, dronId: p.dronId || "m4e" });
-    const { despegue = null, rumbo = "", dronId, areaHa, ...params } = p.params || {};
-    return {
-      ...h,
-      id: p.id,
-      nombre: p.nombre || "",
-      creadoEn: p.creadoEn,
-      creadoPor: p.creadoPor,
-      dronId: p.dronId || dronId || "m4e",
-      params: { ...PARAMS_INICIALES, ...params },
-      area: { ...h.area, tipo: p.poligono ? "poligono" : null, original: p.poligono ? { nombre: p.poligono.nombre, anillo: p.poligono.anillo } : null, archivo: p.poligono ? "guardado en el plan" : "", sectores: [{ despegue, rumbo }], areaHa: areaHa || "" }
-    };
+  function mejorVentana(filas) {
+    let mejor = null, ini = null;
+    filas.forEach((f, i) => {
+      if (f.ev.estado === "go" && ini == null) ini = i;
+      if (f.ev.estado !== "go" || i === filas.length - 1) {
+        const fin = f.ev.estado === "go" ? i : i - 1;
+        if (ini != null && (!mejor || fin - ini > mejor[1] - mejor[0])) mejor = [ini, fin];
+        if (f.ev.estado !== "go") ini = null;
+      }
+    });
+    return mejor ? [filas[mejor[0]].h.hora, filas[mejor[1]].h.hora] : null;
   }
-  function marcoDe(coords) {
-    const { lat0, lon0 } = proyectar(coords);
-    const k = Math.cos(lat0 * Math.PI / 180) * R_LON2;
-    return {
-      lat0,
-      lon0,
-      aXY: ([lon, lat]) => [(lon - lon0) * k, (lat - lat0) * R_LAT2],
-      aLonLat: ([x, y]) => [lon0 + x / k, lat0 + y / R_LAT2],
-      aLatLng: ([x, y]) => [lat0 + y / R_LAT2, lon0 + x / k]
-    };
-  }
-  var centroide = (pts) => [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length];
-  var cacheGeo = { clave: "", valor: null };
-  function geometria(hoja2) {
-    const a = hoja2.area;
-    const fuente = a.tipo === "corredor" ? a.eje && a.eje.linea : a.original && a.original.anillo;
-    if (!fuente || fuente.length < 2) return null;
-    const clave = JSON.stringify([a.tipo, fuente.length, fuente[0], fuente[fuente.length - 1], a.margen, a.rectas, a.corredor, a.cortes]);
-    if (cacheGeo.clave === clave) return cacheGeo.valor;
-    const marco = marcoDe(fuente);
-    const cortes = (a.cortes || []).map((c) => c.map(marco.aXY));
-    let valor;
-    if (a.tipo === "corredor") {
-      let eje = fuente.map(marco.aXY);
-      if (a.corredor.invertir) eje = eje.slice().reverse();
-      const izq = Number(a.corredor.izq) || 0, der = a.corredor.mismo ? izq : Number(a.corredor.der) || 0;
-      const tramos = cortarEje(eje, cortes);
-      const sectores = tramos.map((t) => ({ eje: t, poligono: poligonoCorredor(t, izq, der), largo: largo(t) }));
-      sectores.forEach((s) => {
-        s.area = areaM2(s.poligono);
-      });
-      valor = { marco, tipo: "corredor", eje, izq, der, vuelo: poligonoCorredor(eje, izq, der), original: null, sectores, fallidos: cortes.length && tramos.length < cortes.length + 1 ? ["algún corte no cruza el eje"] : [] };
-    } else {
-      const original = fuente.map(marco.aXY);
-      const vuelo = Number(a.margen) > 0 ? margenPoligono(original, Number(a.margen), { rectas: a.rectas !== false }) : original;
-      const { sectores, fallidos } = aplicarCortes(vuelo, cortes);
-      valor = { marco, tipo: "poligono", original, vuelo, sectores: sectores.map((p) => ({ poligono: p, area: areaM2(p) })), fallidos };
-    }
-    valor.areaVuelo = areaM2(valor.vuelo);
-    cacheGeo = { clave, valor };
-    return valor;
-  }
-  function metaSector(hoja2, i) {
-    const s = hoja2.area.sectores;
-    while (s.length <= i) s.push({ despegue: null, rumbo: "", nombre: "" });
-    return s[i];
-  }
-  function nombreSector(hoja2, i, total) {
-    const m = hoja2.area.sectores[i];
-    if (m && m.nombre) return m.nombre;
-    return total > 1 ? `S${i + 1}` : "Área completa";
-  }
-  var alturaDe = (P, d) => P.porGsd ? alturaParaGsd(d, Number(P.gsd) || 1) : Number(P.altura) || 1;
-  function baseCalculo(hoja2, d, extra = {}) {
-    const P = hoja2.params;
-    return {
-      dron: d,
-      modo: P.modo === "lidar" && d.lidar ? "lidar" : "foto",
-      altura: alturaDe(P, d),
-      traslapeFrontal: (Number(P.traslapeFrontal) || 0) / 100,
-      traslapeLateral: (Number(P.traslapeLateral) || 0) / 100,
-      exposicion: 1 / (Number(P.exposicion) || 1e3),
-      reserva: (Number(P.reserva) || 0) / 100,
-      minDespegue: Number(P.minDespegue) || 0,
-      minCambio: Number(P.minCambio) || 0,
-      segGiro: Number(P.segGiro) || 0,
-      fotosEnLidar: false,
-      ...extra
-    };
-  }
-  function calcularSector(hoja2, d, geo, i, extra = {}) {
-    const sec = geo.sectores[i];
-    if (!sec) return null;
-    const meta = metaSector(hoja2, i);
-    const geomSector = geo.tipo === "corredor" ? { eje: sec.eje, izq: geo.izq, der: geo.der } : { puntos: sec.poligono, rumbo: meta.rumbo === "" || meta.rumbo == null ? void 0 : Number(meta.rumbo) };
-    const despegue = meta.despegue ? geo.marco.aXY(meta.despegue) : centroide(sec.poligono);
-    const b = baseCalculo(hoja2, d, { ...geomSector, despegue, ...extra });
-    const P = hoja2.params;
-    if (extra.velocidad) return { ...calcularPlan(b), velocidad: extra.velocidad, despegueXY: despegue, altura: b.altura, modo: b.modo };
-    const previo = calcularPlan({ ...b, velocidad: 10 });
-    const sugerida = Math.floor(previo.velSugerida * 10) / 10;
-    const velocidad = Number(P.velocidad) || sugerida;
-    return { ...calcularPlan({ ...b, velocidad }), velocidad, sugerida, auto: !Number(P.velocidad), despegueXY: despegue, modo: b.modo, altura: b.altura };
-  }
-  function totales(hoja2, d, geo) {
-    if (!geo || !d) return null;
-    const rs = geo.sectores.map((_, i) => calcularSector(hoja2, d, geo, i));
-    return {
-      sectores: rs,
-      baterias: rs.reduce((s, r) => s + (r ? r.vuelos : 0), 0),
-      minVuelo: rs.reduce((s, r) => s + (r ? r.minMision : 0), 0),
-      minJornada: rs.reduce((s, r) => s + (r ? r.minTotal : 0), 0),
-      fotos: rs.reduce((s, r) => s + (r ? r.fotos : 0), 0),
-      gsd: rs[0] ? rs[0].gsd : gsdCm(d, alturaDe(hoja2.params, d)),
-      altura: rs[0] ? rs[0].altura : alturaDe(hoja2.params, d),
-      excede: rs.some((r) => r && r.baterias.some((b) => b.excede))
-    };
-  }
-  function diasHabiles(desde, hasta) {
-    if (!desde || !hasta) return null;
-    let n = 0;
-    const d = /* @__PURE__ */ new Date(desde + "T12:00:00"), f = /* @__PURE__ */ new Date(hasta + "T12:00:00");
-    if (f <= d) return 0;
-    while (d < f) {
-      d.setDate(d.getDate() + 1);
-      const w = d.getDay();
-      if (w !== 0 && w !== 6) n++;
-    }
-    return n;
-  }
-  function estadoPermiso(hoja2) {
-    const g = hoja2.permisos.dgac;
-    if (g.aprobado) {
-      if (g.vence && g.vence < hoja2.fecha) return { texto: "Vencido", nivel: "aviso", detalle: `venció ${g.vence}` };
-      return { texto: "Aprobado", nivel: "ok", detalle: g.vence ? `vigente hasta ${g.vence}` : "sin fecha de término" };
-    }
-    if (g.enviado) {
-      const h = diasHabiles(g.enviado, hoja2.fecha);
-      return { texto: "Enviado", nivel: "aviso", detalle: h != null && h < 7 ? `solo ${h} días hábiles antes del vuelo (piden 7)` : "esperando respuesta" };
-    }
-    if (g.preparado) return { texto: "En preparación", nivel: "aviso", detalle: "falta enviarlo" };
-    return { texto: "Sin iniciar", nivel: "gris", detalle: "mín. 7 días hábiles antes" };
-  }
-  function resumenHoja(hoja2, d, geo) {
-    const t = totales(hoja2, d, geo);
-    if (!t) return null;
-    return { area: geo.areaVuelo, gsd: hoja2.params.modo === "lidar" ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === "corredor", modo: hoja2.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null };
+  function analizarDia(p, dron, kps, dia) {
+    const filas = filasDelDia(p, dron, kps, dia);
+    const ventana = mejorVentana(filas);
+    const sol = p.dias.find((x) => x.fecha === dia);
+    const kpsDia = filas.map((f) => f.kp).filter((k) => k != null);
+    const enVentana = ventana ? filas.filter((f) => f.h.hora >= ventana[0] && f.h.hora <= ventana[1]) : filas.filter((f) => f.ev.estado !== "noche");
+    return { filas, ventana, sol, kpMax: kpsDia.length ? Math.max(...kpsDia) : null, checklist: checklistClima(enVentana.length ? enVentana : filas, dron) };
   }
 
-  // modulos/vuelos/pantallas.js
-  var HERRAMIENTAS = [["hojas", "Hojas de vuelo"], ["rapido", "Pronóstico rápido"], ["kml", "Limpiar KML"], ["drones", "Drones"]];
-  var PASOS = [["resumen", "Resumen"], ["area", "1 · Área"], ["vuelo", "2 · Vuelo"], ["clima", "3 · Clima"], ["permisos", "4 · Permisos"]];
-  var COLORES_BATERIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4", "#FFAB40", "#B0BEC5"];
-  var COLORES_SECTOR = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4"];
-  var GSD_TABLA = [3, 2.5, 2, 1.5];
-  var CENTRO_CHILE = [-33, -70.6];
-  var ESRI = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
-  var ESTADOS_HOJA = { borrador: ["Borrador", "gris"], lista: ["Lista para volar", "verde"], volada: ["Volada", "azul"] };
-  var UMBRAL_BATERIAS = 6;
-  var TIPO_KML = "application/vnd.google-earth.kml+xml";
-  var leerLS = (k, d) => {
-    try {
-      const v = localStorage.getItem(k);
-      return v == null ? d : JSON.parse(v);
-    } catch {
-      return d;
-    }
-  };
-  var escribirLS = (k, v) => {
-    try {
-      localStorage.setItem(k, JSON.stringify(v));
-    } catch {
-    }
-  };
-  var dosD = (n) => String(n).padStart(2, "0");
-  function montarPantallas2(contenedor2, ctx2) {
-    fijarPersona2(ctx2.personaId || null);
-    const raiz = document.createElement("div");
-    raiz.className = "mod-vuelos";
-    contenedor2.appendChild(raiz);
-    let activo2 = true;
-    const st = {
-      vista: ctx2.planId || ctx2.proyectoId ? "hoja" : ctx2.tab || "hojas",
-      paso: "resumen",
-      hoja: null,
-      candidatos: null,
-      dibujo: null,
-      // { modo: 'area'|'eje'|'corte', puntos: [] }
-      leyendaAbierta: false,
-      velA: 5,
-      velB: 10,
-      gsdExtra: [],
-      pron: null,
-      pronError: "",
-      pronCargando: false,
-      kps: null,
-      dia: null,
-      metar: null,
-      metarError: "",
-      rapLat: "",
-      rapLon: "",
-      rapOrigen: "",
-      rapDron: "m4e",
-      kml: null,
-      kmlError: "",
-      maxVertices: 200,
-      capas: null,
-      capasActivas: leerLS("vu_capas_activas", null),
-      mensaje: null,
-      filtroProyecto: ctx2.proyectoId || ""
-    };
-    let drones = [], proyectos2 = [], personas2 = [], hojas = [];
-    const avisar2 = (texto3, tipo = "ok") => {
-      st.mensaje = { texto: texto3, tipo };
-    };
-    const dron = () => drones.find((d) => d.id === (st.hoja && st.hoja.dronId)) || drones[0];
-    const familias = () => [...new Map(drones.map((d) => [d.familia || d.id, d.familiaNombre || d.nombre])).entries()];
-    const geo = () => st.hoja ? geometria(st.hoja) : null;
-    const nomProy = (id) => !id ? "Sin proyecto" : id === OFICINA_ID ? "Oficina" : (proyectos2.find((p) => p.id === id) || {}).nombre || "Proyecto";
-    const nomPers = (id) => (personas2.find((p) => p.id === id) || {}).nombre || "";
-    const secSel = () => {
-      const g = geo();
-      return g ? Math.max(0, Math.min(st.hoja.area.sel || 0, g.sectores.length - 1)) : 0;
-    };
-    const capasActivas = () => st.capasActivas || (st.capas || []).map((c) => c.id);
-    async function cargarBase() {
-      [drones, proyectos2, personas2, hojas] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes()]);
-      hojas = hojas.map(migrarHoja);
-    }
-    let timerGuardar = null;
-    const hayContenido = (h) => !!(h.id || h.nombre || h.area.original || h.area.eje);
-    function programarGuardado() {
-      clearTimeout(timerGuardar);
-      timerGuardar = setTimeout(guardarAhora, 700);
-    }
-    async function guardarAhora() {
-      clearTimeout(timerGuardar);
-      const h = st.hoja;
-      if (!h || !hayContenido(h)) return;
-      const g = geometria(h), d = dron();
-      const nombre = h.nombre || h.area.original && h.area.original.nombre || h.area.eje && h.area.eje.nombre || "Hoja de vuelo";
-      const { problemas, ...area } = h.area;
-      const r = await guardarPlan({ ...h, area: { ...area, problemas }, nombre, dronId: h.dronId, schemaVersion: 2, resumen: g && d ? resumenHoja(h, d, g) : null });
-      const nueva = !h.id;
-      h.id = r.id;
-      h.creadoEn = r.creadoEn;
-      if (!h.nombre) h.nombre = nombre;
-      if (nueva && activo2) try {
-        history.replaceState(null, "", `#/vuelos/plan/${r.id}`);
-      } catch {
-      }
-      const marca = raiz.querySelector("#vu-guardado");
-      if (marca) marca.textContent = "Guardado";
-    }
-    function cambio() {
-      const m = raiz.querySelector("#vu-guardado");
-      if (m) m.textContent = "Guardando…";
-      programarGuardado();
-    }
-    async function abrirHoja(id) {
-      const p = id ? await obtenerPlan(id) : null;
-      st.hoja = p ? migrarHoja(p) : nuevaHoja({ proyectoId: ctx2.proyectoId || st.filtroProyecto, personaId: ctx2.personaId });
-      st.paso = p ? "resumen" : "area";
-      st.pron = null;
-      st.metar = null;
-      st.metarError = "";
-      st.dia = null;
-      st.candidatos = null;
-      st.dibujo = null;
-      st.gsdExtra = [];
-      st.vista = "hoja";
-      for (const m of Object.values(mapas)) m.encuadre = null;
-    }
-    const chip = (t, clase = "gris") => `<span class="sis-chip ${clase}">${t}</span>`;
-    const campo = (nombre, etiqueta, valor, extra = "", sufijo = "") => `<label class="sis-campo"><span>${etiqueta}</span>
-    <span class="vu-con-sufijo"><input name="${nombre}" value="${escapar(valor)}" inputmode="decimal" ${extra}>${sufijo ? `<em>${sufijo}</em>` : ""}</span></label>`;
-    const deslizador = (nombre, etiqueta, valor, { min, max, paso, sufijo, nota = "" }) => `<div class="vu-desl">
-      <div class="vu-desl-cab"><label for="vu-${nombre}">${etiqueta}${nota ? ` <small>${nota}</small>` : ""}</label>
-        <span class="vu-desl-valor"><input type="number" data-espejo="${nombre}" value="${escapar(valor)}" step="${paso}" min="${min}" max="${max}" aria-label="${etiqueta}">${sufijo}</span></div>
-      <input type="range" id="vu-${nombre}" name="${nombre}" min="${min}" max="${max}" step="${paso}" value="${escapar(valor)}">
-    </div>`;
-    const opcionesProyectos = (sel) => `<option value="">Sin proyecto</option>` + proyectos2.map((p) => `<option value="${escapar(p.id)}" ${p.id === sel ? "selected" : ""}>${escapar(p.id === OFICINA_ID ? "Oficina" : p.nombre)}</option>`).join("");
-    const kpi = (t, v, d = "", clase = "") => `<div class="vu-kpi ${clase}"><span>${t}</span><b>${v}</b>${d ? `<small>${d}</small>` : ""}</div>`;
-    const fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
-    const fechaHora = (iso) => new Date(iso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
-    function vistaHojas() {
-      const lista = hojas.filter((h) => !st.filtroProyecto || h.proyectoId === st.filtroProyecto);
-      return `<div class="sis-cab"><h1>Hojas de vuelo</h1><button class="sis-btn primario" data-accion="nueva-hoja">+ Nueva hoja de vuelo</button></div>
-      <p class="sis-tenue">Una hoja por trabajo de vuelo: área, plan de vuelo, clima y permisos en un solo lugar, con la hoja para terreno.</p>
-      <label class="sis-campo vu-filtro"><span>Proyecto</span><select data-campo="filtroProyecto"><option value="">Todos</option>${proyectos2.map((p) => `<option value="${escapar(p.id)}" ${p.id === st.filtroProyecto ? "selected" : ""}>${escapar(p.id === OFICINA_ID ? "Oficina" : p.nombre)}</option>`).join("")}</select></label>
-      <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map((h) => {
-        const r = h.resumen || {};
-        const [et, cl] = ESTADOS_HOJA[h.estado] || ESTADOS_HOJA.borrador;
-        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(h.nombre || "Hoja sin nombre")}</b>
-          <span class="sis-tenue">${escapar(nomProy(h.proyectoId))} · ${h.fecha ? fechaLegible(h.fecha) : "sin fecha"}${h.pilotoId ? ` · ${escapar(nomPers(h.pilotoId))}` : ""}</span>
-          <span class="sis-chips">${chip(et, cl)}${r.area ? chip(`${fmt(r.area / 1e4, 1)} ha`) : ""}${r.sectores > 1 ? chip(`${r.sectores} sectores`) : ""}${r.corredor ? chip("Corredor") : ""}${r.vuelos ? chip(`${r.vuelos} batería${r.vuelos > 1 ? "s" : ""} · ${fmtDuracion(r.minTotal)}`, "azul") : ""}</span></span>
-          <span class="sis-acciones"><button class="sis-btn chico" data-accion="abrir-hoja" data-id="${h.id}">Abrir</button>
-          <button class="sis-btn chico peligro" data-accion="eliminar-hoja" data-id="${h.id}">Eliminar</button></span></div>`;
-      }).join("")}</div>` : '<div class="sis-vacio"><p>Todavía no hay hojas de vuelo. Crea una y carga el KMZ del área (o la línea del corredor).</p></div>'}</section>`;
-    }
-    const consultasHechas = (h) => CONSULTAS.every(([k]) => h.permisos.consultas.some((c) => c.tipo === k));
-    const ultimaConsulta = (h, tipo) => h.permisos.consultas.filter((c) => c.tipo === tipo).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
-    function encabezadoHoja() {
-      const h = st.hoja, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null;
-      const [et, cl] = ESTADOS_HOJA[h.estado] || ESTADOS_HOJA.borrador;
-      const perm = estadoPermiso(h);
-      const c = h.clima;
-      const climaObs = c && c.checklist && c.checklist.some((x) => !x.cumple);
-      const marcas = {
-        area: g ? g.fallidos.length ? "aviso" : "ok" : "",
-        vuelo: t ? t.excede ? "aviso" : "ok" : "",
-        clima: c ? climaObs ? "aviso" : "ok" : "",
-        permisos: perm.nivel === "ok" && consultasHechas(h) ? "ok" : h.permisos.dgac.preparado || h.permisos.consultas.length ? "aviso" : ""
-      };
-      return `<div class="sis-encabezado vu-hoja-cab">
-        <div>
-          <div class="sis-miga"><a href="#/vuelos" data-accion="volver-lista">Hojas de vuelo</a>${h.proyectoId ? ` / <a href="#/proyecto/${escapar(h.proyectoId)}">${escapar(nomProy(h.proyectoId))}</a>` : ""}</div>
-          <h1>Hoja de vuelo · ${escapar(h.nombre || "sin nombre")}</h1>
-          <div class="sis-meta">
-            <span>Fecha: <b>${h.fecha ? fechaLegible(h.fecha) : "—"}</b></span>
-            <span>Piloto: <b>${escapar(nomPers(h.pilotoId) || "—")}</b></span>
-            <span>Dron: <b>${escapar(d ? (d.familiaNombre || d.nombre).replace("DJI ", "") : "—")}</b></span>
-            ${t ? `<span>${h.params.modo === "lidar" ? "LiDAR" : "Fotogrametría"} · GSD ${fmt(t.gsd, 2)} cm · ${fmt(t.altura, 0)} m</span>` : ""}
-            <span class="sis-tenue" id="vu-guardado">${h.id ? "Guardado" : "Se guarda sola al cargar el área o ponerle nombre"}</span>
-          </div>
-        </div>
-        <div class="sis-acciones">${chip(et, cl)}
-          <button class="sis-btn chico" data-accion="imprimir" ${g ? "" : "disabled"}>Hoja para terreno (PDF)</button>
-          ${h.estado === "borrador" ? '<button class="sis-btn chico primario" data-accion="estado" data-e="lista">Marcar lista</button>' : h.estado === "lista" ? '<button class="sis-btn chico primario" data-accion="estado" data-e="volada">Marcar volada</button>' : '<button class="sis-btn chico" data-accion="estado" data-e="borrador">Volver a borrador</button>'}
-        </div>
-      </div>
-      <div class="vu-tira">
-        ${kpi("Área de vuelo", g ? `${fmt(g.areaVuelo / 1e4, 1)} ha` : "—", g ? g.tipo === "corredor" ? `corredor de ${fmt(g.izq + g.der, 0)} m` : Number(h.area.margen) ? `+${h.area.margen} m de margen` : "sin margen" : "falta el área")}
-        ${kpi("Vuelo", t ? `${t.baterias} bat. · ${fmtDuracion(t.minVuelo)}` : "—", t ? `jornada ${fmtDuracion(t.minJornada)}${g.sectores.length > 1 ? ` · ${g.sectores.length} sectores` : ""}` : "", t && t.excede ? "alerta" : "")}
-        ${kpi("Ventana GO", c ? c.ventana || "Sin ventana" : "—", c ? fechaLegible(c.fecha) : "consulta el clima", c ? c.ventana ? "bien" : "alerta" : "")}
-        ${kpi("Ráfaga máx.", c && c.rafaga ? `${fmt(c.rafaga.v, 1)} m/s` : "—", c && c.rafaga ? `${dosD(c.rafaga.hora)}:00 · límite ${d ? fmt(d.rafagaMaxMs, 0) : "—"}` : "", c && c.rafaga && d && c.rafaga.v > d.rafagaMaxMs ? "alerta" : "")}
-        ${kpi("Kp · luz", c ? `${c.kpMax != null ? fmt(c.kpMax, 0) : "—"} · ${c.sol ? c.sol.join("–") : "—"}` : "—", c ? "Kp ≤ 4 para GNSS" : "")}
-        ${kpi("Permiso DGAC", perm.texto, perm.detalle, perm.nivel === "ok" ? "bien" : perm.nivel === "aviso" ? "alerta" : "")}
-      </div>
-      <nav class="vu-pasos" aria-label="Pasos de la hoja">${PASOS.map(([k, t2]) => `<button class="vu-paso${st.paso === k ? " activo" : ""}" data-accion="paso" data-paso="${k}">${t2}${marcas[k] === "ok" ? ' <i class="vu-ok" aria-label="listo">✓</i>' : marcas[k] === "aviso" ? ' <i class="vu-alerta" aria-label="revisar">!</i>' : ""}</button>`).join("")}</nav>`;
-    }
-    function vistaResumen() {
-      const h = st.hoja, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null, c = h.clima, perm = estadoPermiso(h);
-      const cab = (n, titulo, estado3, clase, paso, accion) => `<div class="vu-res-cab"><span class="vu-num">${n}</span><h2>${titulo}</h2>${estado3 ? chip(estado3, clase) : ""}<button class="vu-link" data-accion="paso" data-paso="${paso}">${accion} →</button></div>`;
-      const zonas = g ? zonasDeHoja() : [];
-      const climaObs = c && c.checklist && c.checklist.some((x) => !x.cumple);
-      return `<section class="sis-tarjeta vu-datos-hoja"><h2>Datos de la hoja</h2>
-        <div class="vu-datos-grilla">
-          <label class="sis-campo"><span>Nombre</span><input data-hoja="nombre" value="${escapar(h.nombre)}" placeholder="El Pimiento — vuelo 1"></label>
-          <label class="sis-campo"><span>Proyecto</span><select data-hoja="proyectoId">${opcionesProyectos(h.proyectoId)}</select></label>
-          <label class="sis-campo"><span>Fecha del vuelo</span><input type="date" data-hoja="fecha" value="${escapar(h.fecha || "")}"></label>
-          <label class="sis-campo"><span>Piloto</span><select data-hoja="pilotoId"><option value="">—</option>${personas2.map((p) => `<option value="${escapar(p.id)}" ${p.id === h.pilotoId ? "selected" : ""}>${escapar(p.nombre)}</option>`).join("")}</select></label>
-        </div>
-      </section>
-      <div class="vu-res-grilla">
-        <section class="sis-tarjeta">${cab(1, "Área", g ? g.fallidos.length ? "Revisar cortes" : "Lista" : "Falta el área", g ? g.fallidos.length ? "ambar" : "verde" : "gris", "area", g ? "Editar área" : "Cargar área")}
-          ${g ? `<dl class="vu-tabla">
-            ${fila("Origen", escapar(h.area.archivo || "—"))}
-            ${g.tipo === "corredor" ? fila("Corredor", `${fmt(g.izq, 0)} m izq. · ${fmt(g.der, 0)} m der. · ${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1e3, 2)} km`) : fila("Margen", Number(h.area.margen) ? `+${h.area.margen} m · ${fmt(areaM2(g.original) / 1e4, 2)} → ${fmt(g.areaVuelo / 1e4, 2)} ha` : "sin margen")}
-            ${fila("Sectores", g.sectores.length > 1 ? g.sectores.map((_, i) => escapar(nombreSector(h, i, g.sectores.length))).join(" · ") : "uno (área completa)")}
-            ${fila("Zonas", zonas === null ? "sin capas cargadas" : zonas.length ? zonas.slice(0, 2).map((z) => `${z.toca ? '<b class="vu-rojo">toca</b> ' : ""}${escapar(z.nombre)}${z.toca ? "" : ` a ${fmt(z.distancia / 1e3, 1)} km`}`).join(" · ") : "no toca zonas cargadas")}
-          </dl>` : '<p class="sis-tenue">Carga el KMZ/KML del área (o la línea del corredor), o dibújala en el mapa.</p>'}
-        </section>
-        <section class="sis-tarjeta">${cab(2, "Vuelo", t ? t.excede ? "Revisar" : "Listo" : "", t ? t.excede ? "ambar" : "verde" : "gris", "vuelo", "Ajustar")}
-          ${t ? `<div class="vu-mini-kpis">${kpi("GSD", `${fmt(t.gsd, 2)} cm`)}${kpi("Altura", `${fmt(t.altura, 0)} m`)}${kpi("Baterías", t.baterias)}${kpi("Fotos", fmt(t.fotos))}</div>
-            <dl class="vu-tabla">${fila("Traslapes · velocidad", `${h.params.traslapeFrontal}/${h.params.traslapeLateral} % · ${t.sectores[0] ? fmt(t.sectores[0].velocidad, 1) : "—"} m/s${h.params.velocidad === "" ? " (sugerida)" : ""}`)}
-            ${fila("En el aire · jornada", `${fmtDuracion(t.minVuelo)} · ${fmtDuracion(t.minJornada)}`)}
-            ${g.sectores.length > 1 ? fila("Por sector", t.sectores.map((r, i) => `${escapar(nombreSector(h, i, g.sectores.length))} ${r ? fmtDuracion(r.minTotal) : "—"}`).join(" · ")) : ""}</dl>` : '<p class="sis-tenue">Cuando cargues el área, aquí aparece el plan de vuelo.</p>'}
-        </section>
-        <section class="sis-tarjeta">${cab(3, "Clima", c ? climaObs ? "Con observaciones" : "Cumple" : "", c ? climaObs ? "ambar" : "verde" : "gris", "clima", c ? "Ver pronóstico" : "Consultar")}
-          ${c ? `<p class="sis-tenue">Consultado ${fechaHora(c.consultadoEn)} para el ${fechaLegible(c.fecha)}.</p>
-            <dl class="vu-tabla">${(c.checklist || []).map((x) => fila(escapar(x.texto), `<span class="${x.cumple ? "vu-verde" : "vu-rojo"}">${escapar(x.detalle)}</span>`)).join("")}
-            ${c.metar ? fila(`METAR ${escapar(c.metar.icao)}`, `a ${fmt(c.metar.km, 0)} km`) : ""}</dl>` : '<p class="sis-tenue">Consulta el pronóstico del día del vuelo: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR.</p>'}
-        </section>
-        <section class="sis-tarjeta">${cab(4, "Permisos y consultas", perm.texto, perm.nivel === "ok" ? "verde" : perm.nivel === "aviso" ? "ambar" : "gris", "permisos", "Abrir")}
-          <dl class="vu-tabla">
-            ${fila("Solicitud DGAC", `${escapar(perm.texto)} · ${escapar(perm.detalle)}`)}
-            ${fila("Documentos", `${DOCUMENTOS_DGAC.filter(([k]) => h.permisos.docs[k]).length} de ${DOCUMENTOS_DGAC.length}`)}
-            ${CONSULTAS.map(([k, tt]) => {
-        const x = ultimaConsulta(h, k);
-        return fila(tt, x ? `Revisado ${fechaHora(x.fecha)}` : '<span class="vu-rojo">Pendiente</span>');
-      }).join("")}
-          </dl>
-        </section>
-      </div>`;
-    }
-    function zonasDeHoja() {
-      const g = geo();
-      if (!g || !st.capas || !st.capas.length) return null;
-      return revisarZonas(g.vuelo.map(g.marco.aLonLat), g.marco, st.capas, capasActivas());
-    }
-    function vistaArea() {
-      const h = st.hoja, a = h.area, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null;
-      const grande = t && (t.baterias > UMBRAL_BATERIAS || t.excede) && g.sectores.length === 1;
-      return `${grande ? `<div class="vu-banner"><div><b>El área es grande: ${fmt(g.areaVuelo / 1e4, 0)} ha · ${t.baterias} baterías · unas ${fmtDuracion(t.minVuelo)} de vuelo</b>
-        <span>${t.excede ? "Parte del recorrido queda más lejos de lo que alcanza una batería desde el despegue. " : ""}Dividirla en sectores te deja planificar por día o por punto de despegue, con un rumbo y un KML para cada uno.</span></div>
-        <button class="sis-btn primario" data-accion="dibujar" data-modo="corte">Dividir en sectores</button></div>` : ""}
-      <div class="vu-dos">
-        <div class="vu-izquierda">
-          <section class="sis-tarjeta"><h2>Origen</h2>
-            <div class="sis-acciones">
-              <label class="sis-btn vu-archivo">Cargar KML / KMZ<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="area" hidden></label>
-              <button class="sis-btn${st.dibujo && st.dibujo.modo === "area" ? " primario" : ""}" data-accion="dibujar" data-modo="area">Dibujar área</button>
-              <button class="sis-btn${st.dibujo && st.dibujo.modo === "eje" ? " primario" : ""}" data-accion="dibujar" data-modo="eje">Dibujar eje</button>
-            </div>
-            ${st.candidatos ? vistaCandidatos() : ""}
-            ${a.tipo ? `<p class="sis-tenue vu-area-info">${escapar(a.archivo || "")} · ${a.tipo === "corredor" ? `eje de ${fmt((a.eje.largo || 0) / 1e3, 2)} km · ${a.eje.linea.length} vértices` : `${fmt(areaM2(proyectar(a.original.anillo).puntos) / 1e4, 2)} ha · ${a.original.anillo.length} vértices`}</p>
-              ${(a.problemas || []).length ? `<div class="vu-aviso"><b>Detalles que se corrigen al descargar:</b><ul>${a.problemas.map((p) => `<li>${escapar(p)}</li>`).join("")}</ul></div>` : ""}
-              <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-original">Descargar ${a.tipo === "corredor" ? "eje" : "área del mandante"} limpio (KML)</button></div>` : ""}
-          </section>
-          ${a.tipo === "poligono" ? `<section class="sis-tarjeta"><h2>Margen</h2>
-            ${deslizador("margen", "Margen hacia afuera", a.margen || 0, { min: 0, max: 100, paso: 1, sufijo: "m" })}
-            <div class="vu-pildoras">${[0, 20, 30, 50].map((m) => `<button type="button" class="vu-pildora${Number(a.margen) === m ? " activo" : ""}" data-accion="margen" data-m="${m}">${m ? `${m} m` : "Sin margen"}</button>`).join("")}</div>
-            <label class="sis-check"><input type="checkbox" data-area="rectas" ${a.rectas !== false ? "checked" : ""}> Esquinas rectas (como se hace a mano)</label>
-            <p class="sis-tenue" id="vu-margen-info">${g ? `${fmt(areaM2(g.original) / 1e4, 2)} ha → <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b> de vuelo` : ""}</p>
-          </section>` : ""}
-          ${a.tipo === "corredor" ? `<section class="sis-tarjeta"><h2>Corredor</h2>
-            ${deslizador("izq", a.corredor.mismo ? "Ancho a cada lado" : "Hacia la izquierda", a.corredor.izq, { min: 5, max: 300, paso: 1, sufijo: "m" })}
-            ${a.corredor.mismo ? "" : deslizador("der", "Hacia la derecha", a.corredor.der, { min: 5, max: 300, paso: 1, sufijo: "m" })}
-            <label class="sis-check"><input type="checkbox" data-area="mismo" ${a.corredor.mismo ? "checked" : ""}> Mismo ancho a los dos lados</label>
-            ${a.corredor.mismo ? "" : '<button class="sis-btn chico" data-accion="invertir">Invertir izquierda y derecha</button>'}
-            <p class="sis-tenue" id="vu-margen-info">${g ? textoCorredor(g) : ""}</p>
-          </section>` : ""}
-          ${g ? `<section class="sis-tarjeta"><h2>Sectores</h2><div id="vu-sectores">${htmlSectores()}</div>
-            <div class="sis-acciones">
-              <button class="sis-btn chico${st.dibujo && st.dibujo.modo === "corte" ? " primario" : ""}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>
-              ${a.cortes.length ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ""}
-            </div>
-            <p class="sis-tenue">Traza el corte por un camino, quebrada o cerco: toca afuera del área, sigue el borde tocando puntos y termina afuera. Los vértices blancos se pueden arrastrar.</p>
-          </section>` : ""}
-          <section class="sis-tarjeta"><h2>Zonas de referencia</h2><div id="vu-zonas">${htmlZonas()}</div></section>
-        </div>
-        <div class="vu-derecha">
-          <div class="vu-mapa-caja"><div class="vu-mapa-lugar" data-mapa="area"></div><div class="vu-mapa-barra" id="vu-barra-area">${barraDibujo()}</div></div>
-          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos. Imagen Esri con nombres y caminos.</p>
-        </div>
-      </div>`;
-    }
-    const textoCorredor = (g) => `${fmt(g.izq + g.der, 0)} m × ${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1e3, 2)} km = <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b>. Las pasadas siguen el eje.`;
-    function vistaCandidatos() {
-      const c = st.candidatos;
-      const contornos = c.poligonos.filter((p) => !p.abierta);
-      return `<div class="vu-candidatos"><p><b>${escapar(c.archivo)}</b> trae ${contornos.length ? `${contornos.length} contorno${contornos.length > 1 ? "s" : ""}` : ""}${contornos.length && c.ejes.length ? " y " : ""}${c.ejes.length ? `${c.ejes.length} línea${c.ejes.length > 1 ? "s" : ""} abierta${c.ejes.length > 1 ? "s" : ""}` : ""}. ¿Cuál uso?</p>
-      <div class="sis-lista">${c.ejes.map((e, i) => {
-        const j = c.poligonos.findIndex((p) => p.abierta && p.nombre === e.nombre);
-        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(e.nombre)}</b><span class="sis-tenue">Línea de ${fmt(e.largo / 1e3, 2)} km · ${e.vertices} vértices</span></span>
-          <span class="sis-acciones"><button class="sis-btn chico primario" data-accion="usar-eje" data-i="${i}">Como eje de corredor</button>${j >= 0 ? `<button class="sis-btn chico" data-accion="usar-pol" data-i="${j}">Cerrarla como contorno</button>` : ""}</span></div>`;
-      }).join("")}
-        ${contornos.map((p) => {
-        const i = c.poligonos.indexOf(p);
-        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(p.nombre)}</b><span class="sis-tenue">${fmt(p.area / 1e4, 2)} ha · ${p.vertices} vértices</span></span>
-          <span class="sis-acciones"><button class="sis-btn chico primario" data-accion="usar-pol" data-i="${i}">Usar este contorno</button></span></div>`;
-      }).join("")}</div>
-      <button class="vu-link" data-accion="cerrar-candidatos">Cancelar</button></div>`;
-    }
-    function htmlSectores() {
-      const h = st.hoja, g = geo(), d = dron();
-      if (!g) return "";
-      const t = d ? totales(h, d, g) : null;
-      return `${g.fallidos.length ? '<div class="vu-aviso">Un corte no atraviesa el área de lado a lado y no se aplicó: arrastra sus puntos o deshazlo.</div>' : ""}
-      <div class="vu-sectores">${g.sectores.map((s, i) => {
-        const r = t && t.sectores[i];
-        return `<div class="vu-sector">
-        <i style="background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}"></i>
-        ${g.sectores.length > 1 ? `<input class="vu-sector-nombre" data-sector-nombre="${i}" value="${escapar(h.area.sectores[i] && h.area.sectores[i].nombre || "")}" placeholder="S${i + 1}" aria-label="Nombre del sector ${i + 1}">` : "<b>Área completa</b>"}
-        <span class="vu-sector-dato">${fmt(s.area / 1e4, 1)} ha${r ? ` · ${r.vuelos} bat. · ${fmtDuracion(r.minTotal)}` : ""}</span>
-        <span class="vu-sector-acc">${g.sectores.length > 1 ? `<button class="vu-link" data-accion="kml-sector" data-i="${i}">KML</button>` : ""}<button class="vu-link" data-accion="ir-sector" data-i="${i}">volar →</button></span>
-      </div>`;
-      }).join("")}</div>
-      ${g.sectores.length > 1 && t ? `<p class="vu-total">Total: ${g.sectores.length} sectores · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada</p>
-        <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-sectores">Descargar KML de cada sector</button></div>` : ""}`;
-    }
-    function htmlZonas() {
-      const capas = st.capas || [];
-      const form = `<div class="vu-capa-form"><select data-campo="tipoCapa" aria-label="Tipo de capa">${Object.entries(TIPOS_CAPA).map(([k, v]) => `<option value="${k}">${v.nombre}</option>`).join("")}</select>
-      <label class="sis-btn chico vu-archivo">+ Cargar capa (KMZ, KML o JSON)<input type="file" accept=".kml,.kmz,.json,.geojson" data-archivo="capa" hidden></label></div>`;
-      if (!capas.length) return `<p class="sis-tenue">Aún no hay capas. Carga los archivos de aeródromos, zonas restringidas (DGAC) o áreas protegidas (CONAF) y se revisan contra el área.</p>${form}`;
-      const activas = capasActivas();
-      const zonas = zonasDeHoja();
-      return `${zonas && zonas.length ? `<div class="vu-zonas-res">${zonas.slice(0, 4).map((z) => `<div class="${z.toca ? "vu-rojo" : ""}"><i style="background:${TIPOS_CAPA[z.tipo].color}"></i><span>${z.toca ? "<b>Toca</b> " : ""}${escapar(z.nombre)}${z.toca ? "" : ` · a ${fmt(z.distancia / 1e3, 1)} km`}<small>${escapar(z.capa)}</small></span></div>`).join("")}</div>` : geo() ? '<p class="vu-verde">No hay zonas cargadas a menos de 60 km.</p>' : ""}
-      <fieldset class="vu-capas"><legend>Capas</legend>${capas.map((c) => `<label class="sis-check"><input type="checkbox" data-capa="${escapar(c.id)}" ${activas.includes(c.id) ? "checked" : ""}><i style="background:${TIPOS_CAPA[c.tipo].color}"></i>${escapar(c.nombre)} <small>${escapar(c.fecha || "")}${c.origen === "usuario" ? " · cargada aquí" : ""}</small>${c.origen === "usuario" ? ` <button class="vu-link" data-accion="quitar-capa" data-id="${escapar(c.id)}">quitar</button>` : ""}</label>`).join("")}</fieldset>
-      ${form}
-      <p class="sis-tenue">Referencial. La información aeronáutica oficial está en AIP Chile (DGAC).</p>`;
-    }
-    function barraDibujo() {
-      const dib2 = st.dibujo;
-      if (!dib2) return st.hoja && !geo() ? '<span class="vu-barra-txt">Carga un KML/KMZ o dibuja el área o el eje.</span>' : "";
-      const min = dib2.modo === "area" ? 3 : 2;
-      const txt = { area: "Toca el mapa para marcar los vértices del área", eje: "Toca el mapa siguiendo el eje del corredor", corte: "Toca afuera del área, sigue el camino y termina afuera" }[dib2.modo];
-      return `<span class="vu-barra-txt">${txt} · ${dib2.puntos.length} punto${dib2.puntos.length === 1 ? "" : "s"}</span>
-      <button type="button" class="vu-barra-btn" data-accion="dibujo-deshacer" ${dib2.puntos.length ? "" : "disabled"}>Deshacer</button>
-      <button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-terminar" ${dib2.puntos.length >= min ? "" : "disabled"}>Terminar</button>
-      <button type="button" class="vu-barra-btn" data-accion="dibujo-cancelar">Cancelar</button>`;
-    }
-    function vistaVuelo() {
-      const h = st.hoja, P = h.params, d = dron(), g = geo();
-      if (!g) return `<section class="sis-tarjeta sis-vacio"><p>Primero carga o dibuja el área.</p><button class="sis-btn primario" data-accion="paso" data-paso="area">Ir a Área</button></section>`;
-      const i = secSel();
-      const r = calcularSector(h, d, g, i);
-      const fam = d.familia || d.id;
-      const sensores = drones.filter((x) => (x.familia || x.id) === fam);
-      const altura = alturaDe(P, d), gsd = gsdCm(d, altura);
-      const vMax = d.velocidadMaxMs;
-      return `${g.sectores.length > 1 ? `<div class="vu-sector-chips">${g.sectores.map((_, k) => `<button class="vu-pildora${k === i ? " activo" : ""}" data-accion="ir-sector" data-i="${k}"><i style="background:${COLORES_SECTOR[k % COLORES_SECTOR.length]}"></i>${escapar(nombreSector(h, k, g.sectores.length))}</button>`).join("")}<span class="sis-tenue" id="vu-total-hoja">${htmlTotalHoja()}</span></div>` : ""}
-      <div class="vu-dos">
-        <div class="vu-izquierda">
-          <form class="sis-form vu-form" data-form="plan" autocomplete="off">
-          <section class="sis-tarjeta"><h2>Dron y vuelo</h2>
-            <div class="${sensores.length > 1 ? "sis-par" : ""}">
-              <label class="sis-campo"><span>Dron</span><select name="familia">${familias().map(([k, tt]) => `<option value="${escapar(k)}" ${k === fam ? "selected" : ""}>${escapar(tt)}</option>`).join("")}</select></label>
-              ${sensores.length > 1 ? `<label class="sis-campo"><span>Sensor</span><select name="dronId">${sensores.map((x) => `<option value="${x.id}" ${x.id === h.dronId ? "selected" : ""}>${escapar(x.sensor || x.nombre)}</option>`).join("")}</select></label>` : ""}
-            </div>
-            ${d.lidar ? `<div class="sis-campo"><span>Producto</span><div class="sis-opciones">
-              <label class="sis-opcion"><input type="radio" name="modo" value="foto" ${P.modo !== "lidar" ? "checked" : ""}> Fotogrametría</label>
-              <label class="sis-opcion"><input type="radio" name="modo" value="lidar" ${P.modo === "lidar" ? "checked" : ""}> LiDAR</label></div></div>` : ""}
-            <div class="vu-enlazados">
-              ${deslizador("gsd", "GSD", Math.round(gsd * 100) / 100, { min: 0.5, max: 8, paso: 0.05, sufijo: "cm/px" })}
-              ${deslizador("altura", "Altura", Math.round(altura), { min: 15, max: 400, paso: 1, sufijo: "m", nota: "(enlazada al GSD)" })}
-            </div>
-            ${deslizador("traslapeFrontal", "Traslape frontal", P.traslapeFrontal, { min: 40, max: 90, paso: 1, sufijo: "%" })}
-            ${deslizador("traslapeLateral", "Traslape lateral", P.traslapeLateral, { min: 20, max: 90, paso: 1, sufijo: "%" })}
-            ${deslizador("velocidad", "Velocidad", Math.min(vMax, Math.round((r ? r.velocidad : 5) * 10) / 10), { min: 1, max: vMax, paso: 0.1, sufijo: "m/s", nota: P.velocidad === "" ? "(sugerida)" : "" })}
-            <div class="vu-desl-pie" id="vu-vel-pie">${pieVelocidad(r)}</div>
-            <details class="vu-detalles"><summary>Supuestos de terreno y cámara</summary>
-              <div class="sis-par">${campo("reserva", "Reserva por batería", P.reserva, "", "%")}${campo("minDespegue", "Despegue y aterrizaje", P.minDespegue, "", "min")}</div>
-              <div class="sis-par">${campo("minCambio", "Cambio de batería", P.minCambio, "", "min")}${campo("segGiro", "Giro entre líneas", P.segGiro, "", "s")}</div>
-              ${campo("exposicion", "Exposición 1/…", P.exposicion, "", "s")}
-            </details>
-          </section>
-          </form>
-          <section class="sis-tarjeta"><h2>Exportar</h2>
-            <div class="sis-acciones">
-              ${g.tipo === "corredor" ? `<button class="sis-btn primario" data-accion="kml-eje-sector" data-i="${i}">Descargar eje (KML para el control)</button><button class="sis-btn" data-accion="kml-sector" data-i="${i}">Corredor como polígono</button>` : `<button class="sis-btn primario" data-accion="kml-sector" data-i="${i}">Descargar KML${g.sectores.length > 1 ? " del sector" : ""}</button>`}
-            </div>
-            <p class="sis-tenue">${g.tipo === "corredor" ? "En DJI Pilot 2 usa el eje con el modo corredor y el mismo ancho; aquí se simulan las pasadas, el tiempo y las baterías." : "El KML es el área de vuelo (con margen), limpio para el control."}</p>
-          </section>
-        </div>
-        <div class="vu-derecha">
-          <div id="vu-kpis">${htmlKpis(r)}</div>
-          <div class="vu-mapa-caja">
-            <div class="vu-mapa-lugar" data-mapa="vuelo"></div>
-            <div class="vu-mapa-barra" id="vu-barra">${htmlBarraRumbo(r)}</div>
-            <div class="vu-leyenda-mapa" id="vu-leyenda">${htmlLeyenda(r)}</div>
-          </div>
-          <p class="sis-tenue vu-pie">Arrastra el punto para cambiar el despegue: el tiempo incluye ir y volver desde él en cada batería.</p>
-          <div id="vu-detalle">${htmlDetalle(r)}</div>
-        </div>
-      </div>`;
-    }
-    function htmlTotalHoja() {
-      const g = geo(), t = totales(st.hoja, dron(), g);
-      return t ? `Hoja completa: ${t.baterias} baterías · ${fmtDuracion(t.minJornada)}` : "";
-    }
-    function pieVelocidad(r) {
-      if (!r) return "";
-      const lim = r.limites.map(([t, v]) => `${t} ${fmt(v, 1)}`).join(" · ");
-      return `<span>Sugerida ${fmt(r.sugerida, 1)} m/s · límites: ${lim} m/s</span>${r.auto ? "" : ' <button type="button" class="vu-link" data-accion="vel-auto">usar la sugerida</button>'}`;
-    }
-    function htmlKpis(r) {
-      if (!r) return "";
-      return `<div class="vu-kpis">
-      ${kpi("Altura", `${fmt(r.altura, 0)} m`, "", r.altura > 120 ? "alerta" : "")}
-      ${r.densidad ? kpi("Densidad", `${fmt(r.densidad, 0)} pts/m²`) : kpi("GSD", `${fmt(r.gsd, 2)} cm`)}
-      ${kpi(r.corredor ? "Pasadas" : "Líneas", fmt(r.nLineas))}
-      ${r.modo === "foto" ? kpi("Fotos", fmt(r.fotos)) : kpi("Velocidad", `${fmt(r.velocidad, 1)} m/s`)}
-      ${kpi("En el aire", fmtDuracion(r.minMision))}
-      ${kpi("Baterías", fmt(r.vuelos), "", r.baterias.some((b) => b.excede) ? "alerta" : "")}
-      ${kpi("Jornada", fmtDuracion(r.minTotal))}
-    </div>`;
-    }
-    function htmlBarraRumbo(r) {
-      if (!r) return "";
-      if (r.corredor) return `<span class="vu-barra-txt">Corredor · ${fmt(r.nLineas)} pasada${r.nLineas === 1 ? "" : "s"} siguiendo el eje</span>`;
-      const meta = metaSector(st.hoja, secSel());
-      const auto = meta.rumbo === "" || meta.rumbo == null;
-      return `<span class="vu-barra-txt">Rumbo ${fmt(r.rumbo, 0)}°${auto ? " · lado más largo" : ""}</span>
-      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="-5" aria-label="Girar las líneas 5 grados a la izquierda">⟲ 5°</button>
-      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="5" aria-label="Girar las líneas 5 grados a la derecha">⟳ 5°</button>
-      <button type="button" class="vu-barra-btn" data-accion="rumbo" data-d="90">90°</button>
-      <button type="button" class="vu-barra-btn fuerte" data-accion="rumbo-corto">Más corto</button>
-      ${auto ? "" : '<button type="button" class="vu-barra-btn" data-accion="rumbo-auto">Auto</button>'}`;
-    }
-    function htmlLeyenda(r) {
-      if (!r || !r.baterias.length) return "";
-      const n = r.baterias.length;
-      if (r.baterias.some((b) => b.excede)) return `<div class="vu-leyenda-caja alerta"><b>Hay tramos que no alcanzan con una batería</b><span>Acerca el despegue o divide el área en sectores.</span></div>`;
-      const item = (b, i) => `<span class="vu-ley-item"><i style="background:${COLORES_BATERIA[i % COLORES_BATERIA.length]}"></i>B${i + 1}<em>${fmt(b.min, 0)}′</em></span>`;
-      const total = `${n} batería${n > 1 ? "s" : ""} · ${fmtDuracion(r.minMision)}`;
-      if (n <= 6) return `<div class="vu-leyenda-caja"><b>${total}</b><div class="vu-ley-lista">${r.baterias.map(item).join("")}<span class="vu-ley-item"><i class="vu-punto"></i>Despegue</span></div></div>`;
-      if (!st.leyendaAbierta) return `<button type="button" class="vu-leyenda-caja plegada" data-accion="leyenda"><span class="vu-ley-colores">${COLORES_BATERIA.slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join("")}</span><b>${total}</b> ▾</button>`;
-      return `<div class="vu-leyenda-caja"><button type="button" class="vu-ley-cab" data-accion="leyenda"><b>${total}</b><span>▴ ocultar</span></button><div class="vu-ley-lista dos">${r.baterias.map(item).join("")}</div></div>`;
-    }
-    function htmlDetalle(r) {
-      if (!r) return "";
-      return `${r.avisos.length ? `<div class="vu-aviso"><ul>${r.avisos.map((a) => `<li>${escapar(a)}</li>`).join("")}</ul></div>` : ""}
-      ${r.modo === "foto" ? htmlTablaGsd(r) : ""}
-      <details class="vu-detalles"><summary>Detalle del cálculo</summary>
-      <dl class="vu-tabla">
-        ${fila("Área del sector", `${fmt(r.area / 1e4, 2)} ha`)}
-        ${fila("Huella de la foto", `${fmt(r.huellaAncho, 0)} × ${fmt(r.huellaLargo, 0)} m`)}
-        ${r.barrido ? fila("Ancho de barrido LiDAR", `${fmt(r.barrido, 0)} m`) : ""}
-        ${fila(`Separación entre ${r.corredor ? "pasadas" : "líneas"}`, `${fmt(r.sepLineas, 1)} m · ${fmt(r.nLineas)}`)}
-        ${r.modo === "foto" ? fila("Distancia entre fotos", `${fmt(r.sepFotos, 1)} m · cada ${fmt(r.intervalo, 1)} s`) : fila("Densidad en una pasada", `${fmt(r.densidadPasada, 0)} pts/m²`)}
-        ${fila("Distancia de vuelo", `${fmt(r.distancia / 1e3, 2)} km`)}
-        ${r.trasladoM ? fila("Traslado desde el despegue (ida y vuelta)", `${fmt(r.trasladoM / 1e3, 2)} km`) : ""}
-        ${fila("Velocidad", `${fmt(r.velocidad, 1)} m/s${r.auto ? " (sugerida)" : ""}`)}
-        ${fila("Tiempo útil por batería", `${fmt(r.minUtiles, 0)} min`)}
-      </dl>
-      <p class="sis-tenue">Estimación para planificar y cotizar. El GSD es sobre el punto de despegue: con desnivel cambia. El vuelo se programa en DJI Pilot 2.</p>
-      </details>`;
-    }
-    function opcionesGsd(r) {
-      const h = st.hoja, d = dron(), g = geo(), i = secSel();
-      const actual = Math.round(r.gsd * 100) / 100;
-      const lista = [.../* @__PURE__ */ new Set([...GSD_TABLA, ...st.gsdExtra, actual])].sort((a, b) => b - a);
-      return lista.map((gs) => {
-        const altura = alturaParaGsd(d, gs);
-        const a = calcularSector(h, d, g, i, { altura, modo: "foto", velocidad: st.velA });
-        const z = calcularSector(h, d, g, i, { altura, modo: "foto", velocidad: st.velB });
-        return { gsd: gs, altura, actual: Math.abs(gs - actual) < 5e-3, a, z, sobre120: altura > 120 };
-      });
-    }
-    function htmlTablaGsd(r) {
-      const filas = opcionesGsd(r);
-      return `<section class="sis-tarjeta vu-opciones">
-      <div class="vu-opciones-cab"><h2>Opciones por GSD</h2>
-        <label class="vu-vel">Velocidades <input type="number" data-vel="velA" value="${st.velA}" min="1" max="25" step="0.5" aria-label="Velocidad A"> y <input type="number" data-vel="velB" value="${st.velB}" min="1" max="25" step="0.5" aria-label="Velocidad B"> m/s</label></div>
-      <div class="vu-tabla-scroll"><table class="vu-gsd">
-        <thead><tr><th>GSD (cm/px)</th><th>Altura (m)</th><th>Tiempo a ${fmt(st.velA, 1)} m/s</th><th>Baterías</th><th>Tiempo a ${fmt(st.velB, 1)} m/s</th><th>Baterías</th><th></th></tr></thead>
-        <tbody>${filas.map((f) => `<tr class="${f.actual ? "actual" : ""}${f.sobre120 ? " sobre120" : ""}">
-          <td>${fmt(f.gsd, 2)}${f.actual ? " · actual" : ""}</td><td>${fmt(f.altura, 0)}${f.sobre120 ? " ⚠" : ""}</td>
-          <td>${fmtDuracion(f.a.minMision)}${st.velA > f.a.velSugerida + 0.05 ? ' <span class="vu-ojo" title="Sobre la velocidad sugerida para este GSD">*</span>' : ""}</td><td>${f.a.vuelos}</td>
-          <td>${fmtDuracion(f.z.minMision)}${st.velB > f.z.velSugerida + 0.05 ? ' <span class="vu-ojo" title="Sobre la velocidad sugerida para este GSD">*</span>' : ""}</td><td>${f.z.vuelos}</td>
-          <td><button type="button" class="vu-link" data-accion="usar-gsd" data-g="${f.gsd}">usar</button>${GSD_TABLA.includes(f.gsd) || f.actual ? "" : ` <button type="button" class="vu-link" data-accion="quitar-gsd" data-g="${f.gsd}" aria-label="Quitar">✕</button>`}</td>
-        </tr>`).join("")}</tbody></table></div>
-      <div class="vu-opciones-pie">
-        <span class="vu-agregar"><input type="number" data-campo="gsdNuevo" placeholder="GSD" step="0.1" min="0.3" max="10" aria-label="GSD a agregar"><button type="button" class="sis-btn chico" data-accion="agregar-gsd">+ GSD</button></span>
-        <button type="button" class="sis-btn chico" data-accion="copiar-tabla">Copiar para correo</button>
-        <button type="button" class="sis-btn chico" data-accion="excel-tabla">Descargar Excel</button>
-      </div>
-      <p class="sis-tenue">Tiempo en el aire${geo().sectores.length > 1 ? " del sector" : ""} con el dron y traslapes del plan. ⚠ sobre 120 m: requiere autorización DGAC. * sobre la velocidad sugerida.</p>
-    </section>`;
-    }
-    function filasDelDia(p, d, dia) {
-      return p.horas.filter((x) => x.fecha === dia && x.hora >= 6 && x.hora <= 21).map((x) => ({ h: x, kp: kpEnHora(st.kps, x.t) })).map((x) => ({ ...x, ev: evaluarHora(x.h, d, { kp: x.kp, solMin: 5 }) }));
-    }
-    function mejorVentana(filas) {
-      let mejor = null, ini = null;
-      filas.forEach((f, i) => {
-        if (f.ev.estado === "go") {
-          if (ini == null) ini = i;
-        }
-        if (f.ev.estado !== "go" || i === filas.length - 1) {
-          const fin = f.ev.estado === "go" ? i : i - 1;
-          if (ini != null && (!mejor || fin - ini > mejor[1] - mejor[0])) mejor = [ini, fin];
-          if (f.ev.estado !== "go") ini = null;
-        }
-      });
-      return mejor ? [filas[mejor[0]].h.hora, filas[mejor[1]].h.hora] : null;
-    }
-    function analizarDia(p, d) {
+  // modulos/vuelos/paso-clima.js
+  function crearPasoClima(v) {
+    const ref = (n) => (...a) => v[n](...a);
+    const { st, base } = v;
+    const geo = ref("geo");
+    const dron = ref("dron");
+    const familias = ref("familias");
+    const render = ref("render");
+    const cambio = ref("cambio");
+    function analizarDia2(p, d) {
       const dias = [...new Set(p.horas.map((x) => x.fecha))];
       if (!st.dia || !dias.includes(st.dia)) st.dia = st.hoja && dias.includes(st.hoja.fecha) ? st.hoja.fecha : dias[0];
-      const filas = filasDelDia(p, d, st.dia);
-      const ventana = mejorVentana(filas);
-      const sol = p.dias.find((x) => x.fecha === st.dia);
-      const kps = filas.map((f) => f.kp).filter((k) => k != null);
-      const enVentana = ventana ? filas.filter((f) => f.h.hora >= ventana[0] && f.h.hora <= ventana[1]) : filas.filter((f) => f.ev.estado !== "noche");
-      const chk = checklistClima(enVentana.length ? enVentana : filas, d);
-      return { dias, filas, ventana, sol, kps, chk };
+      const r = analizarDia(p, d, st.kps, st.dia);
+      return { dias, ...r, chk: r.checklist };
     }
     function bloquePronostico(p, d, origen) {
       var _a;
-      const b = analizarDia(p, d);
+      const b = analizarDia2(p, d);
       const html = `<div class="vu-pron-origen"><b>${escapar(origen)}</b><span class="sis-tenue">${fmt(p.lat, 5)}, ${fmt(p.lon, 5)}${p.elevacionModelo != null ? ` · ${fmt(p.elevacionModelo, 0)} m s. n. m. (modelo)` : ""}</span></div>
         <div class="vu-dias">${b.dias.map((x) => `<button class="sis-menu-chip${x === st.dia ? " activo" : ""}" data-accion="dia" data-dia="${x}">${fechaLegible(x)}${st.hoja && x === st.hoja.fecha ? " · vuelo" : ""}</button>`).join("")}</div>
         <div class="vu-resumen-dia">
           ${b.ventana ? chip(`Ventana GO ${dosD(b.ventana[0])}:00 – ${dosD(b.ventana[1] + 1)}:00`, "verde") : chip("Sin ventana GO este día", "rojo")}
           ${chip(`Sol ${b.sol && b.sol.salida ? b.sol.salida.slice(11, 16) : "—"} – ${b.sol && b.sol.puesta ? b.sol.puesta.slice(11, 16) : "—"}`)}
-          ${chip(b.kps.length ? `Kp máx. ${fmt(Math.max(...b.kps), 0)}` : "Kp sin dato")}
+          ${chip(b.kpMax != null ? `Kp máx. ${fmt(b.kpMax, 0)}` : "Kp sin dato")}
         </div>
         <p class="sis-tenue vu-graf-ley">Barra: viento sostenido a 120 m (color = estado) · línea: ráfaga estimada · banda gris: diferencia entre ECMWF, GFS e ICON.</p>
         ${graficoPronostico(b.filas, d)}
@@ -5171,7 +5126,7 @@ Content-Type: ${mime}\r
         ${lado || (h.clima && h.clima.checklist ? htmlChecklist(h.clima.checklist, "Checklist (última consulta)") : "")}
         ${htmlMetar()}
         <section class="sis-tarjeta"><h2>Viento medido en terreno</h2>
-          ${h.viento.length ? `<dl class="vu-tabla">${h.viento.map((v, k) => fila(`${escapar(v.hora)}${v.nota ? ` · ${escapar(v.nota)}` : ""}`, `${fmt(v.ms, 1)} m/s <button class="vu-link" data-accion="quitar-viento" data-k="${k}" aria-label="Quitar">✕</button>`)).join("")}</dl>` : ""}
+          ${h.viento.length ? `<dl class="vu-tabla">${h.viento.map((v2, k) => fila(`${escapar(v2.hora)}${v2.nota ? ` · ${escapar(v2.nota)}` : ""}`, `${fmt(v2.ms, 1)} m/s <button class="vu-link" data-accion="quitar-viento" data-k="${k}" aria-label="Quitar">✕</button>`)).join("")}</dl>` : ""}
           <form class="vu-viento" data-form="viento"><input name="hora" placeholder="hh:mm" aria-label="Hora" value="${(/* @__PURE__ */ new Date()).toTimeString().slice(0, 5)}"><input name="ms" placeholder="m/s" inputmode="decimal" aria-label="Viento en m/s" required><input name="nota" placeholder="Nota (opcional)" aria-label="Nota"><button class="sis-btn chico">Anotar</button></form>
           <p class="sis-tenue">Anemómetro en el despegue. Queda en la hoja para comparar con el pronóstico.</p>
         </section>
@@ -5208,7 +5163,7 @@ Content-Type: ${mime}\r
       var _a;
       const h = st.hoja, d = dron();
       if (!st.pron || !h) return;
-      const b = analizarDia(st.pron, d);
+      const b = analizarDia2(st.pron, d);
       const raf = b.filas.filter((f) => f.h.g != null && f.ev.estado !== "noche").sort((x, y) => y.h.g - x.h.g)[0];
       h.clima = {
         consultadoEn: (/* @__PURE__ */ new Date()).toISOString(),
@@ -5217,7 +5172,7 @@ Content-Type: ${mime}\r
         lon: st.pron.lon,
         ventana: b.ventana ? `${dosD(b.ventana[0])}:00–${dosD(b.ventana[1] + 1)}:00` : "",
         rafaga: raf ? { v: raf.h.g, hora: raf.h.hora } : null,
-        kpMax: b.kps.length ? Math.max(...b.kps) : null,
+        kpMax: b.kpMax,
         sol: b.sol && b.sol.salida ? [b.sol.salida.slice(11, 16), b.sol.puesta ? b.sol.puesta.slice(11, 16) : "—"] : null,
         modelos: ((_a = st.pron.horas[0]) == null ? void 0 : _a.modelos) || 0,
         checklist: b.chk,
@@ -5226,6 +5181,49 @@ Content-Type: ${mime}\r
       };
       cambio();
     }
+    function vistaRapido() {
+      const d = base.drones.find((x) => x.id === st.rapDron) || base.drones[0];
+      let cuerpo = "", lado = "";
+      if (st.pronCargando) cuerpo = '<p class="sis-tenue">Consultando el pronóstico…</p>';
+      else if (st.pronError) cuerpo = `<div class="sis-error">${escapar(st.pronError)}</div>`;
+      else if (st.pron) {
+        const b = bloquePronostico(st.pron, d, st.rapOrigen);
+        cuerpo = b.html;
+        lado = htmlChecklist(b.chk, b.ventana ? "Checklist · ventana GO" : "Checklist · horas con luz");
+      }
+      return `<div class="vu-dos ancho">
+      <div class="vu-izquierda">
+        <section class="sis-tarjeta"><h2>Pronóstico rápido</h2>
+          <p class="sis-tenue">Para un lugar sin hoja de vuelo. Para un trabajo, usa el paso Clima de su hoja.</p>
+          <form class="sis-form" data-form="rapido">
+            <div class="sis-par">
+              <label class="sis-campo"><span>Latitud</span><input name="lat" value="${escapar(st.rapLat)}" placeholder="-32.83" inputmode="decimal"></label>
+              <label class="sis-campo"><span>Longitud</span><input name="lon" value="${escapar(st.rapLon)}" placeholder="-70.60" inputmode="decimal"></label>
+            </div>
+            <label class="sis-campo"><span>Dron (para sus límites)</span><select name="rapDron">${familias().map(([k, t]) => {
+        const x = base.drones.find((y) => (y.familia || y.id) === k);
+        return `<option value="${x.id}" ${(d.familia || d.id) === k ? "selected" : ""}>${escapar(t)}</option>`;
+      }).join("")}</select></label>
+            <div class="sis-acciones"><button class="sis-btn primario">Consultar coordenadas</button><button type="button" class="sis-btn" data-accion="gps">Usar mi ubicación</button></div>
+          </form>
+          ${cuerpo}
+        </section>
+      </div>
+      <div class="vu-derecha">${lado}${st.pron ? htmlMetar() : ""}</div>
+    </div>`;
+    }
+    return { vistaClima, vistaRapido, consultarClima, guardarResumenClima };
+  }
+
+  // modulos/vuelos/paso-permisos.js
+  function crearPasoPermisos(v) {
+    const ref = (n) => (...a) => v[n](...a);
+    const { st } = v;
+    const geo = ref("geo");
+    const dron = ref("dron");
+    const nomProy = ref("nomProy");
+    const nomPers = ref("nomPers");
+    const ultimaConsulta = ref("ultimaConsulta");
     function fechaMenosHabiles(fecha2, n) {
       const d = /* @__PURE__ */ new Date(fecha2 + "T12:00:00");
       while (n > 0) {
@@ -5310,18 +5308,18 @@ Content-Type: ${mime}\r
           <h3>Checklist</h3><ul class="vu-imp-chk">${(c && c.checklist || []).map((x) => `<li>☐ ${escapar(x.texto)} — ${escapar(x.detalle)}</li>`).join("")}<li>☐ NOTAM revisado el día del vuelo</li><li>☐ Baterías cargadas (${t.baterias + 1} como mínimo)</li></ul></div>
         <div><h3>Permisos</h3><p>DGAC: <b>${escapar(perm.texto)}</b> · ${escapar(perm.detalle)}${h.permisos.dgac.numero ? ` · N° ${escapar(h.permisos.dgac.numero)}` : ""}</p>
           <ul class="vu-imp-chk">${DOCUMENTOS_DGAC.map(([k, tt]) => `<li>${h.permisos.docs[k] ? "☑" : "☐"} ${tt}</li>`).join("")}</ul>
-          <h3>Viento medido en terreno</h3><table class="vu-imp-tabla chica"><thead><tr><th>Hora</th><th>m/s</th><th>Nota</th></tr></thead><tbody>${[...h.viento, ...vacias].map((v) => `<tr><td>${escapar(v.hora)}</td><td>${v.ms === "" ? "" : fmt(v.ms, 1)}</td><td>${escapar(v.nota || "")}</td></tr>`).join("")}</tbody></table>
+          <h3>Viento medido en terreno</h3><table class="vu-imp-tabla chica"><thead><tr><th>Hora</th><th>m/s</th><th>Nota</th></tr></thead><tbody>${[...h.viento, ...vacias].map((v2) => `<tr><td>${escapar(v2.hora)}</td><td>${v2.ms === "" ? "" : fmt(v2.ms, 1)}</td><td>${escapar(v2.nota || "")}</td></tr>`).join("")}</tbody></table>
           <h3>Observaciones</h3><div class="vu-imp-obs"></div></div>
       </div>
       <footer>Generado ${(/* @__PURE__ */ new Date()).toLocaleString("es-CL")} · Estimación para planificar; el vuelo se programa en DJI Pilot 2. Información aeronáutica oficial: AIP Chile (DGAC).</footer>
     </div>`;
-      let caja = document.getElementById("vu-impresion");
-      if (!caja) {
-        caja = document.createElement("div");
-        caja.id = "vu-impresion";
-        document.body.appendChild(caja);
+      let caja2 = document.getElementById("vu-impresion");
+      if (!caja2) {
+        caja2 = document.createElement("div");
+        caja2.id = "vu-impresion";
+        document.body.appendChild(caja2);
       }
-      caja.innerHTML = html;
+      caja2.innerHTML = html;
       document.body.classList.add("vu-imprimiendo");
       const fin = () => {
         document.body.classList.remove("vu-imprimiendo");
@@ -5333,37 +5331,12 @@ Content-Type: ${mime}\r
         setTimeout(fin, 1500);
       }, 50);
     }
-    function vistaRapido() {
-      const d = drones.find((x) => x.id === st.rapDron) || drones[0];
-      let cuerpo = "", lado = "";
-      if (st.pronCargando) cuerpo = '<p class="sis-tenue">Consultando el pronóstico…</p>';
-      else if (st.pronError) cuerpo = `<div class="sis-error">${escapar(st.pronError)}</div>`;
-      else if (st.pron) {
-        const b = bloquePronostico(st.pron, d, st.rapOrigen);
-        cuerpo = b.html;
-        lado = htmlChecklist(b.chk, b.ventana ? "Checklist · ventana GO" : "Checklist · horas con luz");
-      }
-      return `<div class="vu-dos ancho">
-      <div class="vu-izquierda">
-        <section class="sis-tarjeta"><h2>Pronóstico rápido</h2>
-          <p class="sis-tenue">Para un lugar sin hoja de vuelo. Para un trabajo, usa el paso Clima de su hoja.</p>
-          <form class="sis-form" data-form="rapido">
-            <div class="sis-par">
-              <label class="sis-campo"><span>Latitud</span><input name="lat" value="${escapar(st.rapLat)}" placeholder="-32.83" inputmode="decimal"></label>
-              <label class="sis-campo"><span>Longitud</span><input name="lon" value="${escapar(st.rapLon)}" placeholder="-70.60" inputmode="decimal"></label>
-            </div>
-            <label class="sis-campo"><span>Dron (para sus límites)</span><select name="rapDron">${familias().map(([k, t]) => {
-        const x = drones.find((y) => (y.familia || y.id) === k);
-        return `<option value="${x.id}" ${(d.familia || d.id) === k ? "selected" : ""}>${escapar(t)}</option>`;
-      }).join("")}</select></label>
-            <div class="sis-acciones"><button class="sis-btn primario">Consultar coordenadas</button><button type="button" class="sis-btn" data-accion="gps">Usar mi ubicación</button></div>
-          </form>
-          ${cuerpo}
-        </section>
-      </div>
-      <div class="vu-derecha">${lado}${st.pron ? htmlMetar() : ""}</div>
-    </div>`;
-    }
+    return { vistaPermisos, imprimir };
+  }
+
+  // modulos/vuelos/herramientas.js
+  function crearHerramientas(v) {
+    const { st, base } = v;
     function vistaKml() {
       const a = st.kml;
       const contornos = a ? a.poligonos.filter((p) => !p.abierta) : [];
@@ -5401,7 +5374,7 @@ Content-Type: ${mime}\r
     }
     function vistaDrones() {
       return `<p class="sis-tenue">Valores de referencia tomados de las fichas técnicas. Revísalos con la ficha de tu equipo: si corriges uno, se usa tu valor en todos los cálculos. El Matrice 300 aparece una vez por sensor. Los Mavic 2 Enterprise no están porque se usan solo para termografía.</p>
-      ${drones.map((d) => `<section class="sis-tarjeta"><div class="sis-cab"><h2>${escapar(d.nombre)}</h2>${d.corregido ? chip("Corregido", "ambar") : ""}</div>
+      ${base.drones.map((d) => `<section class="sis-tarjeta"><div class="sis-cab"><h2>${escapar(d.nombre)}</h2>${d.corregido ? chip("Corregido", "ambar") : ""}</div>
         <form class="sis-form vu-dron" data-form="dron" data-id="${d.id}"><div class="vu-grilla">
           ${CAMPOS_DRON.map(([k, t, u]) => campo(k, t, d[k], "", u)).join("")}
           ${d.lidar ? campo("lidarPps", "LiDAR: puntos por segundo", d.lidar.puntosPorSegundo, "", "pts/s") + campo("lidarFov", "LiDAR: campo de visión", d.lidar.fovGrados, "", "°") : ""}
@@ -5409,13 +5382,72 @@ Content-Type: ${mime}\r
         ${d.corregido ? `<button type="button" class="sis-btn chico" data-accion="restablecer-dron" data-id="${d.id}">Volver a los valores de fábrica</button>` : ""}</div></form>
       </section>`).join("")}`;
     }
-    const mapas = {};
+    return { vistaKml, vistaDrones };
+  }
+
+  // modulos/vuelos/mapa-base.js
+  var CLAVE_LS = "vu_mapa_base";
+  var ESRI_PUBLICO = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
+  var clave = () => window.TOPOLAND_CONFIG && window.TOPOLAND_CONFIG.esriClave || "";
+  function capasBase(L) {
+    const k = clave();
+    const op = { maxZoom: 20, maxNativeZoom: 19 };
+    const esri = k ? L.layerGroup([
+      L.tileLayer(`https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${encodeURIComponent(k)}`, { ...op, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }),
+      L.tileLayer(`https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/labels/static/tile/{z}/{y}/{x}?token=${encodeURIComponent(k)}`, { ...op, tileSize: 512, zoomOffset: -1 })
+    ]) : L.layerGroup([
+      L.tileLayer(ESRI_PUBLICO("World_Imagery"), { ...op, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }),
+      L.tileLayer(ESRI_PUBLICO("Reference/World_Transportation"), op),
+      L.tileLayer(ESRI_PUBLICO("Reference/World_Boundaries_and_Places"), op)
+    ]);
+    const sentinel = L.tileLayer("https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg", {
+      maxZoom: 20,
+      maxNativeZoom: 15,
+      attribution: '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)'
+    });
+    return { "Satélite Esri": esri, "Sentinel-2 2016 (libre, 10 m)": sentinel };
+  }
+  function agregarMapaBase(L, mapa) {
+    const capas = capasBase(L);
+    let elegida = "Satélite Esri";
+    try {
+      const x = localStorage.getItem(CLAVE_LS);
+      if (x && capas[x]) elegida = x;
+    } catch {
+    }
+    capas[elegida].addTo(mapa);
+    L.control.layers(capas, null, { position: "topleft", collapsed: true }).addTo(mapa);
+    mapa.on("baselayerchange", (e) => {
+      try {
+        localStorage.setItem(CLAVE_LS, e.name);
+      } catch {
+      }
+    });
+    return capas;
+  }
+
+  // modulos/vuelos/mapas.js
+  function crearMapas(v) {
+    const ref = (n) => (...a) => v[n](...a);
+    const { st } = v;
+    const geo = ref("geo");
+    const dron = ref("dron");
+    const secSel = ref("secSel");
+    const capasActivas = ref("capasActivas");
+    const cambio = ref("cambio");
+    const render = ref("render");
+    const refrescarArea = ref("refrescarArea");
+    const refrescarVuelo = ref("refrescarVuelo");
+    const barraDibujo = ref("barraDibujo");
+    const { raiz } = v;
+    const CENTRO_CHILE = [-33, -70.6];
+    const mapas = v.mapas;
     async function cargarLeaflet() {
       if (window.L) return window.L;
       await cargarScript("vendor/leaflet/leaflet.js");
       return window.L;
     }
-    async function mapaEn(lugar, clave) {
+    async function mapaEn(lugar, clave2) {
       let L;
       try {
         L = await cargarLeaflet();
@@ -5423,17 +5455,15 @@ Content-Type: ${mime}\r
         return null;
       }
       if (!L || !raiz.contains(lugar)) return null;
-      let m = mapas[clave];
+      let m = mapas[clave2];
       if (!m) {
         const el = document.createElement("div");
         el.className = "vu-mapa";
         const mapa = L.map(el, { zoomControl: true, attributionControl: true });
-        L.tileLayer(ESRI("World_Imagery"), { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }).addTo(mapa);
-        L.tileLayer(ESRI("Reference/World_Transportation"), { maxZoom: 20, maxNativeZoom: 19 }).addTo(mapa);
-        L.tileLayer(ESRI("Reference/World_Boundaries_and_Places"), { maxZoom: 20, maxNativeZoom: 19 }).addTo(mapa);
-        m = mapas[clave] = { el, mapa, capas: {}, L, encuadre: null };
+        agregarMapaBase(L, mapa);
+        m = mapas[clave2] = { el, mapa, capas: {}, L, encuadre: null };
         mapa.setView(CENTRO_CHILE, 7);
-        mapa.on("click", (ev) => alClicMapa(clave, ev));
+        mapa.on("click", (ev) => alClicMapa(clave2, ev));
       }
       if (m.el.parentNode !== lugar) lugar.appendChild(m.el);
       m.mapa.invalidateSize();
@@ -5593,13 +5623,166 @@ Content-Type: ${mime}\r
       m.mapa.fitBounds(m.capas.kml.getBounds(), { padding: [24, 24] });
       m.kml = st.kml;
     }
-    function alClicMapa(clave, ev) {
-      if (clave !== "area" || !st.dibujo) return;
+    function alClicMapa(clave2, ev) {
+      if (clave2 !== "area" || !st.dibujo) return;
       st.dibujo.puntos.push([ev.latlng.lng, ev.latlng.lat]);
       const b = raiz.querySelector("#vu-barra-area");
       if (b) b.innerHTML = barraDibujo();
       if (mapas.area) pintarDibujo(mapas.area);
     }
+    return { mapaArea, mapaVuelo, mapaKml, pintarArea, pintarVuelo, pintarDibujo };
+  }
+
+  // modulos/vuelos/pantallas.js
+  var HERRAMIENTAS = [["hojas", "Hojas de vuelo"], ["rapido", "Pronóstico rápido"], ["kml", "Limpiar KML"], ["drones", "Drones"]];
+  var leerLS = (k, d) => {
+    try {
+      const v = localStorage.getItem(k);
+      return v == null ? d : JSON.parse(v);
+    } catch {
+      return d;
+    }
+  };
+  var escribirLS = (k, v) => {
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch {
+    }
+  };
+  function montarPantallas2(contenedor2, ctx2) {
+    fijarPersona2(ctx2.personaId || null);
+    const raiz = document.createElement("div");
+    raiz.className = "mod-vuelos";
+    contenedor2.appendChild(raiz);
+    let activo2 = true;
+    const st = {
+      vista: ctx2.planId || ctx2.proyectoId ? "hoja" : ctx2.tab || "hojas",
+      paso: "resumen",
+      hoja: null,
+      candidatos: null,
+      dibujo: null,
+      // { modo: 'area'|'eje'|'corte', puntos: [] }
+      leyendaAbierta: false,
+      velA: 5,
+      velB: 10,
+      gsdExtra: [],
+      pron: null,
+      pronError: "",
+      pronCargando: false,
+      kps: null,
+      dia: null,
+      metar: null,
+      metarError: "",
+      rapLat: "",
+      rapLon: "",
+      rapOrigen: "",
+      rapDron: "m4e",
+      kml: null,
+      kmlError: "",
+      maxVertices: 200,
+      capas: null,
+      capasActivas: leerLS("vu_capas_activas", null),
+      mensaje: null,
+      filtroProyecto: ctx2.proyectoId || ""
+    };
+    const base = { drones: [], proyectos: [], personas: [], hojas: [] };
+    const mapas = {};
+    const avisar2 = (texto3, tipo = "ok") => {
+      st.mensaje = { texto: texto3, tipo };
+    };
+    const dron = () => base.drones.find((d) => d.id === (st.hoja && st.hoja.dronId)) || base.drones[0];
+    const familias = () => [...new Map(base.drones.map((d) => [d.familia || d.id, d.familiaNombre || d.nombre])).entries()];
+    const geo = () => st.hoja ? geometria(st.hoja) : null;
+    const nomProy = (id) => !id ? "Sin proyecto" : id === OFICINA_ID ? "Oficina" : (base.proyectos.find((p) => p.id === id) || {}).nombre || "Proyecto";
+    const nomPers = (id) => (base.personas.find((p) => p.id === id) || {}).nombre || "";
+    const secSel = () => {
+      const g = geo();
+      return g ? Math.max(0, Math.min(st.hoja.area.sel || 0, g.sectores.length - 1)) : 0;
+    };
+    const capasActivas = () => st.capasActivas || (st.capas || []).map((c) => c.id);
+    async function cargarBase() {
+      [base.drones, base.proyectos, base.personas, base.hojas] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes()]);
+      base.hojas = base.hojas.map(migrarHoja);
+    }
+    let timerGuardar = null;
+    const hayContenido = (h) => !!(h.id || h.nombre || h.area.original || h.area.eje);
+    function programarGuardado() {
+      clearTimeout(timerGuardar);
+      timerGuardar = setTimeout(guardarAhora, 700);
+    }
+    async function guardarAhora() {
+      clearTimeout(timerGuardar);
+      const h = st.hoja;
+      if (!h || !hayContenido(h)) return;
+      const g = geometria(h), d = dron();
+      const nombre = h.nombre || h.area.original && h.area.original.nombre || h.area.eje && h.area.eje.nombre || "Hoja de vuelo";
+      const { problemas, ...area } = h.area;
+      const r = await guardarPlan({ ...h, area: { ...area, problemas }, nombre, dronId: h.dronId, schemaVersion: 2, resumen: g && d ? resumenHoja(h, d, g) : null });
+      const nueva = !h.id;
+      h.id = r.id;
+      h.creadoEn = r.creadoEn;
+      if (!h.nombre) h.nombre = nombre;
+      if (nueva && activo2) try {
+        history.replaceState(null, "", `#/vuelos/plan/${r.id}`);
+      } catch {
+      }
+      const marca = raiz.querySelector("#vu-guardado");
+      if (marca) marca.textContent = "Guardado";
+    }
+    function cambio() {
+      const m = raiz.querySelector("#vu-guardado");
+      if (m) m.textContent = "Guardando…";
+      programarGuardado();
+    }
+    async function abrirHoja(id) {
+      const p = id ? await obtenerPlan(id) : null;
+      st.hoja = p ? migrarHoja(p) : nuevaHoja({ proyectoId: ctx2.proyectoId || st.filtroProyecto, personaId: ctx2.personaId });
+      st.paso = p ? "resumen" : "area";
+      st.pron = null;
+      st.metar = null;
+      st.metarError = "";
+      st.dia = null;
+      st.candidatos = null;
+      st.dibujo = null;
+      st.gsdExtra = [];
+      st.vista = "hoja";
+      for (const m of Object.values(mapas)) m.encuadre = null;
+    }
+    const v = { st, base, ctx: ctx2, raiz, mapas, geo, dron, familias, nomProy, nomPers, secSel, capasActivas, avisar: avisar2, cambio, render, guardarAhora, refrescarArea, refrescarVuelo };
+    Object.assign(v, crearVistaHojas(v), crearPasoArea(v), crearPasoVuelo(v), crearPasoClima(v), crearPasoPermisos(v), crearHerramientas(v), crearMapas(v));
+    const {
+      vistaHojas,
+      encabezadoHoja,
+      vistaResumen,
+      vistaArea,
+      textoCorredor,
+      htmlSectores,
+      htmlZonas,
+      barraDibujo,
+      vistaVuelo,
+      htmlTotalHoja,
+      pieVelocidad,
+      htmlKpis,
+      htmlBarraRumbo,
+      htmlLeyenda,
+      htmlDetalle,
+      opcionesGsd,
+      htmlTablaGsd,
+      vistaClima,
+      vistaRapido,
+      consultarClima,
+      guardarResumenClima,
+      vistaPermisos,
+      imprimir,
+      vistaKml,
+      vistaDrones,
+      mapaArea,
+      mapaVuelo,
+      mapaKml,
+      pintarArea,
+      pintarVuelo,
+      pintarDibujo
+    } = v;
     function poner(id, html) {
       const el = raiz.querySelector("#" + id);
       if (el) el.innerHTML = html;
@@ -5705,7 +5888,7 @@ Content-Type: ${mime}\r
       if (contornos.length === 1 && !analisis.ejes.length) usarPoligono(contornos[0], archivo.name);
       else st.candidatos = { ...analisis, archivo: archivo.name };
     }
-    const num = (v) => String(v).replace(",", ".").trim();
+    const num = (v2) => String(v2).replace(",", ".").trim();
     function leerPlan(objetivo) {
       const P = st.hoja.params, d = dron();
       const nombre = objetivo.name || objetivo.dataset.espejo;
@@ -5736,15 +5919,15 @@ Content-Type: ${mime}\r
       const a = st.hoja.area;
       const nombre = objetivo.name || objetivo.dataset.espejo;
       if (!["margen", "izq", "der"].includes(nombre)) return false;
-      const v = Number(num(objetivo.value));
-      if (!(v >= 0)) return false;
-      if (nombre === "margen") a.margen = Math.min(500, v);
-      else if (nombre === "izq") a.corredor.izq = Math.max(1, v);
-      else a.corredor.der = Math.max(1, v);
-      if (objetivo.dataset.espejo) ponerValor(nombre, v);
+      const v2 = Number(num(objetivo.value));
+      if (!(v2 >= 0)) return false;
+      if (nombre === "margen") a.margen = Math.min(500, v2);
+      else if (nombre === "izq") a.corredor.izq = Math.max(1, v2);
+      else a.corredor.der = Math.max(1, v2);
+      if (objetivo.dataset.espejo) ponerValor(nombre, v2);
       else {
         const e = raiz.querySelector(`input[data-espejo="${nombre}"]`);
-        if (e) e.value = v;
+        if (e) e.value = v2;
       }
       return true;
     }
@@ -5781,9 +5964,9 @@ Content-Type: ${mime}\r
         }
       }
       if (t.dataset.vel) {
-        const v = Number(num(t.value));
-        if (v > 0) {
-          st[t.dataset.vel] = v;
+        const v2 = Number(num(t.value));
+        if (v2 > 0) {
+          st[t.dataset.vel] = v2;
           const det = raiz.querySelector(".vu-opciones"), g = geo();
           if (det && g) {
             const r = calcularSector(st.hoja, dron(), g, secSel());
@@ -5828,7 +6011,7 @@ Content-Type: ${mime}\r
         }
         if (t.name === "familia") {
           const alt = alturaDe(h.params, dron());
-          const x = drones.find((d) => (d.familia || d.id) === t.value);
+          const x = base.drones.find((d) => (d.familia || d.id) === t.value);
           if (x) h.dronId = x.id;
           if (!h.params.porGsd) h.params.altura = String(Math.round(alt));
           if (Number(h.params.velocidad) > dron().velocidadMaxMs) h.params.velocidad = "";
@@ -5910,7 +6093,7 @@ Content-Type: ${mime}\r
           const n = (k) => Number(num(fd.get(k)));
           const valores = Object.fromEntries(CAMPOS_DRON.map(([k]) => [k, n(k)]));
           if (fd.has("lidarPps")) valores.lidar = { puntosPorSegundo: n("lidarPps"), fovGrados: n("lidarFov") };
-          if (Object.values(valores).some((v) => typeof v === "number" && !(v > 0))) throw new Error("Todos los valores deben ser números mayores que 0.");
+          if (Object.values(valores).some((v2) => typeof v2 === "number" && !(v2 > 0))) throw new Error("Todos los valores deben ser números mayores que 0.");
           await guardarDron(form.dataset.id, valores);
           avisar2("Datos del dron guardados");
         }
@@ -6078,23 +6261,7 @@ Content-Type: ${mime}\r
           if (a === "rumbo") meta.rumbo = String(((Math.round(r.rumbo) + Number(b.dataset.d)) % 180 + 180) % 180);
           else if (a === "rumbo-auto") meta.rumbo = "";
           else {
-            let mejor = 0, minimo = Infinity;
-            const prueba = (rr) => calcularSector(h, dron(), g, i, { rumbo: rr, velocidad: r.velocidad }).minTotal;
-            for (let rr = 0; rr < 180; rr += 5) {
-              const m = prueba(rr);
-              if (m < minimo - 1e-6) {
-                minimo = m;
-                mejor = rr;
-              }
-            }
-            for (let rr = mejor - 4; rr <= mejor + 4; rr++) {
-              const x = (rr + 180) % 180;
-              const m = prueba(x);
-              if (m < minimo - 1e-6) {
-                minimo = m;
-                mejor = x;
-              }
-            }
+            const { rumbo: mejor, minTotal: minimo } = rumboMasCorto(h, dron(), g, i, r.velocidad);
             meta.rumbo = String(mejor);
             avisar2(`Rumbo ${mejor}°: el que da menos tiempo con este despegue (${fmtDuracion(minimo)} de jornada).`);
             cambio();
@@ -6147,7 +6314,7 @@ Content-Type: ${mime}\r
           const titulo = `${h.nombre || "Área"}${g.sectores.length > 1 ? " · " + nombreSector(h, i, g.sectores.length) : ""} · ${fmt(r.area / 1e4, 2)} ha · ${dron().nombre} · traslape ${h.params.traslapeFrontal}/${h.params.traslapeLateral} %`;
           if (a === "copiar-tabla") {
             const anchos = tabla[0].map((_, c) => Math.max(...tabla.map((f) => f[c].length)));
-            await navigator.clipboard.writeText([titulo, "", ...tabla.map((f) => f.map((v, c) => c === 0 ? v.padEnd(anchos[c]) : v.padStart(anchos[c])).join("   ")), "", "Tiempo de vuelo estimado; no incluye traslados al lugar ni armado del equipo." + (tabla.some((f) => f[1].endsWith("*")) ? " * Sobre 120 m requiere autorización DGAC." : "")].join("\n"));
+            await navigator.clipboard.writeText([titulo, "", ...tabla.map((f) => f.map((v2, c) => c === 0 ? v2.padEnd(anchos[c]) : v2.padStart(anchos[c])).join("   ")), "", "Tiempo de vuelo estimado; no incluye traslados al lugar ni armado del equipo." + (tabla.some((f) => f[1].endsWith("*")) ? " * Sobre 120 m requiere autorización DGAC." : "")].join("\n"));
             avisar2("Tabla copiada: pégala en el correo.");
           } else {
             if (!globalThis.XLSX) await cargarScript("vendor/xlsx.full.min.js");
@@ -6233,6 +6400,1353 @@ Content-Type: ${mime}\r
     iniciar3();
     const [planes, drones] = await Promise.all([planesDeProyecto(proyectoId), listarDrones()]);
     return planes.map((p) => ({ id: p.id, nombre: p.nombre, dronId: p.dronId, dron: (drones.find((d) => d.id === p.dronId) || {}).nombre || p.dronId, resumen: p.resumen || {} }));
+  }
+
+  // modulos/seguimiento/datos.js
+  var SCHEMA_VERSION3 = 1;
+  var ALM4 = { planes: "seguimiento_planes", ciclos: "seguimiento_ciclos", eventos: "seguimiento_eventos", entregas: "seguimiento_entregas" };
+  var persona2 = null;
+  function iniciarDatos3({ personaId = null } = {}) {
+    registrarAlmacenes([
+      { nombre: ALM4.planes, indices: [["proyectoId", "proyectoId"]] },
+      { nombre: ALM4.ciclos, indices: [["planId", "planId"]] },
+      { nombre: ALM4.eventos, indices: [["cicloId", "cicloId"]] },
+      { nombre: ALM4.entregas, indices: [["cicloId", "cicloId"]] }
+    ]);
+    persona2 = personaId;
+  }
+  function fijarPersona3(p) {
+    persona2 = p;
+  }
+  var nuevoId = () => uuid();
+  var sello3 = (r) => sellar(r, { personaId: persona2, schemaVersion: SCHEMA_VERSION3 });
+  var vivo3 = (r) => !r.eliminadoEn;
+  var recientes = (a, b) => (b.creadoEn || "").localeCompare(a.creadoEn || "");
+  async function listarPlanes2() {
+    return (await todos(ALM4.planes)).filter(vivo3);
+  }
+  async function planDeProyecto(proyectoId) {
+    return (await porIndice(ALM4.planes, "proyectoId", proyectoId)).filter(vivo3)[0] || null;
+  }
+  async function guardarPlan2(plan) {
+    return guardar(ALM4.planes, sello3({ ...plan }));
+  }
+  async function eliminarPlan2(id) {
+    return enviarAPapelera(ALM4.planes, id, { personaId: persona2 });
+  }
+  async function ciclosDePlan(planId) {
+    return (await porIndice(ALM4.ciclos, "planId", planId)).filter(vivo3).sort(recientes);
+  }
+  async function guardarCiclo(ciclo) {
+    return guardar(ALM4.ciclos, sello3({ ...ciclo }));
+  }
+  async function eventosDeCiclo(cicloId) {
+    return (await porIndice(ALM4.eventos, "cicloId", cicloId)).filter(vivo3);
+  }
+  async function agregarEventos(eventos) {
+    const ahora = (/* @__PURE__ */ new Date()).toISOString();
+    await guardarVarios(eventos.map((e) => ({ almacen: ALM4.eventos, registro: sello3({ ...e, creadoEn: ahora }) })));
+  }
+  async function entregasDeCiclo(cicloId) {
+    return (await porIndice(ALM4.entregas, "cicloId", cicloId)).filter(vivo3).sort((a, b) => a.codigo.localeCompare(b.codigo, "es", { numeric: true }));
+  }
+  async function guardarEntrega(entrega) {
+    return guardar(ALM4.entregas, sello3({ ...entrega }));
+  }
+
+  // modulos/seguimiento/modelo.js
+  var SIGUIENTE = { falta: "proc", proc: "listo", listo: "falta" };
+  var TEXTO_ESTADO2 = { falta: "falta", proc: "en proceso", listo: "listo" };
+  var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  var COLS_VUELO = () => [
+    { id: "terreno", tipo: "terreno", nombre: "Terreno", ancho: 128, visible: true },
+    { id: "np", tipo: "producto", nombre: "NP", ext: ".laz", ancho: 60, visible: true },
+    { id: "mds", tipo: "producto", nombre: "MDS", ext: ".asc", ancho: 60, visible: true },
+    { id: "of", tipo: "producto", nombre: "OF", ext: ".ecw", ancho: 60, visible: true },
+    { id: "kmz", tipo: "producto", nombre: "KMZ", ext: ".kmz", ancho: 60, visible: true },
+    { id: "entrega", tipo: "entrega", nombre: "Entrega", ancho: 116, visible: true }
+  ];
+  function dmAKm(t) {
+    const m = /(\d+)\s*\+\s*(\d{1,3})/.exec(String(t));
+    return m ? Number(m[1]) + Number(m[2].padEnd(3, "0")) / 1e3 : null;
+  }
+  function kmADm(x) {
+    const k = Math.floor(x + 1e-9);
+    return `${k}+${String(Math.round((x - k) * 1e3)).padStart(3, "0")}`;
+  }
+  function tramosDesdeCarpetas(texto3, nuevoId2) {
+    const lineas = String(texto3).split(/\r?\n/).map((l) => l.trim().replace(/^"|"$/g, "").replace(/[\\/]+$/, "")).filter(Boolean);
+    const vistos = /* @__PURE__ */ new Set(), out = [];
+    lineas.forEach((l, i) => {
+      const carpeta = l.split(/[\\/]/).pop().trim();
+      if (!carpeta || vistos.has(carpeta)) return;
+      vistos.add(carpeta);
+      const m = /^(\d{1,4})[_\s.-]+(.+)$/.exec(carpeta);
+      const n = m ? m[1].padStart(3, "0") : String(i + 1).padStart(3, "0");
+      const resto = m ? m[2].trim() : carpeta;
+      const dms = resto.split(/\s+-\s+|\s+–\s+/).map(dmAKm);
+      let nombre = resto, ini = null, fin = null;
+      if (dms.length === 2 && dms[0] != null && dms[1] != null) {
+        ini = Math.min(...dms);
+        fin = Math.max(...dms);
+        nombre = `${kmADm(ini)} – ${kmADm(fin)}`;
+      }
+      out.push({ id: nuevoId2(), n, nombre, carpeta, ini, fin });
+    });
+    return out.sort((a, b) => a.n.localeCompare(b.n, "es", { numeric: true }));
+  }
+  var vacio = () => ({ terreno: "", por: "", prod: {}, entrega: "", nota: "", notaPor: "", notaEn: "" });
+  function estadoCiclo(eventos) {
+    const ord = eventos.filter((e) => !e.eliminadoEn).sort((a, b) => (a.creadoEn || "").localeCompare(b.creadoEn || "") || (a.orden || 0) - (b.orden || 0));
+    const est2 = {};
+    for (const e of ord) {
+      const t = est2[e.tramoId] || (est2[e.tramoId] = vacio());
+      if (e.tipo === "terreno") {
+        t.terreno = e.valor || "";
+        t.por = e.valor ? e.por || "" : "";
+      } else if (e.tipo === "prod") t.prod[e.col] = e.valor;
+      else if (e.tipo === "entrega") t.entrega = e.valor || "";
+      else if (e.tipo === "nota") {
+        t.nota = e.valor || "";
+        t.notaPor = e.por || "";
+        t.notaEn = e.creadoEn || "";
+      }
+    }
+    return est2;
+  }
+  var estadoDe = (est2, tramoId) => est2[tramoId] || vacio();
+  var productos = (plan) => plan.cols.filter((c) => c.tipo === "producto");
+  var estadoProd = (t, c) => t.prod[c.id] || "falta";
+  var volado = (t) => !!t.terreno;
+  var todoListo = (plan, t) => volado(t) && productos(plan).every((c) => estadoProd(t, c) === "listo");
+  function gabinete(plan, t) {
+    if (!volado(t)) return "na";
+    if (t.entrega) return "ok";
+    const es = productos(plan).map((c) => estadoProd(t, c));
+    if (es.every((e) => e === "falta")) return "falta";
+    return es.every((e) => e === "listo") ? "listo" : "proc";
+  }
+  function cuenta(plan, est2, tramos) {
+    const c = { sinvolar: 0, falta: 0, proc: 0, listo: 0, ok: 0, total: tramos.length, productos: 0, productosListos: 0 };
+    const P = productos(plan);
+    for (const tr of tramos) {
+      const t = estadoDe(est2, tr.id), g = gabinete(plan, t);
+      if (g === "na") c.sinvolar++;
+      else c[g]++;
+      c.productos += P.length;
+      c.productosListos += P.filter((col) => volado(t) && estadoProd(t, col) === "listo").length;
+    }
+    return c;
+  }
+  function prepararCambios(est2, cambios, { cicloId, planId, por = "" }) {
+    var _a;
+    const eventos = [], inversos = [];
+    let orden = 0;
+    for (const c of cambios) {
+      const t = estadoDe(est2, c.tramoId);
+      const antes = c.tipo === "terreno" ? t.terreno : c.tipo === "prod" ? t.prod[c.col] || "falta" : c.tipo === "entrega" ? t.entrega : t.nota;
+      if ((antes || "") === (c.valor || "")) continue;
+      const base = { cicloId, planId, tramoId: c.tramoId, tipo: c.tipo, col: c.col || null };
+      eventos.push({ ...base, valor: c.valor, por: (_a = c.por) != null ? _a : por, orden: orden++ });
+      inversos.push({ tramoId: c.tramoId, tipo: c.tipo, col: c.col || null, valor: antes || (c.tipo === "prod" ? "falta" : ""), por: c.tipo === "terreno" ? t.por : c.tipo === "nota" ? t.notaPor : "" });
+    }
+    return { eventos, inversos };
+  }
+  var aFecha = (iso) => /* @__PURE__ */ new Date(iso + "T12:00:00");
+  var aISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function sumarHabiles(iso, n) {
+    const d = aFecha(iso);
+    let k = 0;
+    while (k < n) {
+      d.setDate(d.getDate() + 1);
+      const w = d.getDay();
+      if (w && w !== 6) k++;
+    }
+    return aISO(d);
+  }
+  function habilesEntre(a, b) {
+    if (a === b) return 0;
+    const s = a < b ? 1 : -1, d = aFecha(s > 0 ? a : b), f = aFecha(s > 0 ? b : a);
+    let n = 0;
+    while (d < f) {
+      d.setDate(d.getDate() + 1);
+      const w = d.getDay();
+      if (w && w !== 6) n++;
+    }
+    return n * s;
+  }
+  function plazoCiclo(plan, ciclo, hoy) {
+    const p = plan.plazo || { tipo: "ninguno" };
+    if (!ciclo || !ciclo.datos || p.tipo === "ninguno") return null;
+    let vence;
+    if (p.tipo === "habiles") vence = sumarHabiles(ciclo.datos, Math.max(1, Number(p.dias) || 1));
+    else {
+      const d = aFecha(ciclo.datos);
+      d.setMonth(d.getMonth() + 1);
+      vence = aISO(d);
+    }
+    return { vence, quedan: habilesEntre(hoy, vence) };
+  }
+  function mesSiguiente(nombre, n) {
+    const m = /^(\p{L}+)\s+(\d{4})$/u.exec(String(nombre || "").trim());
+    const k = m ? MESES.findIndex((x) => x.toLowerCase() === m[1].toLowerCase()) : -1;
+    if (k < 0) return { nombre: "", mesContrato: (Number(n) || 0) + 1 };
+    const y = Number(m[2]) + (k === 11 ? 1 : 0);
+    return { nombre: `${MESES[(k + 1) % 12]} ${y}`, mesContrato: (Number(n) || 0) + 1 };
+  }
+  var nombreMes = (fecha2) => {
+    const d = aFecha(fecha2);
+    return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  };
+  var carpetaMes = (ciclo) => ciclo && ciclo.mesContrato ? `${String(ciclo.mesContrato).padStart(3, "0")} ${(ciclo.nombre || "").split(" ")[0]}`.trim() : "";
+  var norm = (s) => String(s || "").normalize("NFC").trim().toLowerCase();
+  function revisarArchivos(plan, est2, rutas) {
+    const P = productos(plan).filter((c) => c.ext);
+    const partes = rutas.map((r) => String(r).split(/[\\/]/).map(norm));
+    const cambios = [], noEstan = [], encontrados = [];
+    for (const area of plan.areas) {
+      for (const tr of area.tramos) {
+        if (!tr.carpeta) continue;
+        const c = norm(tr.carpeta), ca = norm(area.carpeta);
+        let deTramo = partes.filter((p) => p.slice(0, -1).includes(c));
+        if (ca && deTramo.some((p) => p.includes(ca))) deTramo = deTramo.filter((p) => p.includes(ca));
+        const t = estadoDe(est2, tr.id);
+        for (const col of P) {
+          const hay = deTramo.some((p) => p[p.length - 1].endsWith(norm(col.ext)));
+          if (hay) {
+            encontrados.push({ tramoId: tr.id, col: col.id });
+            if (estadoProd(t, col) !== "listo") cambios.push({ tramoId: tr.id, tipo: "prod", col: col.id, valor: "listo" });
+          } else if (volado(t) && estadoProd(t, col) === "listo") noEstan.push({ tramo: tr, col });
+        }
+        if (deTramo.length && !volado(t) && P.some((col) => deTramo.some((p) => p[p.length - 1].endsWith(norm(col.ext))))) cambios.unshift({ tramoId: tr.id, tipo: "terreno", valor: "si", por: "" });
+      }
+    }
+    return { cambios, noEstan, encontrados: encontrados.length };
+  }
+  function ejemploSaddn(nuevoId2) {
+    const nombres = ["000_Muelle + Farellón", "001_10+200 - 4+900", "002_15+200 - 10+200", "003_20+200 - 15+200", "004_25+200 - 21+600"];
+    for (let n = 5; n <= 31; n++) {
+      const a = 25.2 + (n - 5) * 5;
+      nombres.push(`${String(n).padStart(3, "0")}_${kmADm(n === 31 ? 160 : a + 5)} - ${kmADm(a)}`);
+    }
+    return {
+      tipo: "mensual",
+      plazo: { tipo: "habiles", dias: 10 },
+      cols: COLS_VUELO(),
+      areas: [
+        { id: nuevoId2(), nombre: "01 Línea de impulsión", carpeta: "01 Línea de impulsión 4+900 - 160+000", tramos: tramosDesdeCarpetas(nombres.join("\n"), nuevoId2) },
+        { id: nuevoId2(), nombre: "03 Distribución DCH", carpeta: "03 Distribución DCH", tramos: [{ id: nuevoId2(), n: "001", nombre: "Distribución DCH", carpeta: "03 Distribución DCH" }] },
+        { id: nuevoId2(), nombre: "04 Reservorio", carpeta: "04 Reservorio", tramos: [{ id: nuevoId2(), n: "001", nombre: "Reservorio", carpeta: "04 Reservorio" }] }
+      ]
+    };
+  }
+
+  // compartido/tooltip.js
+  var globo = null;
+  function crearGlobo() {
+    if (globo && globo.isConnected) return globo;
+    globo = document.createElement("div");
+    globo.className = "sis-tip";
+    globo.setAttribute("role", "tooltip");
+    globo.hidden = true;
+    document.body.appendChild(globo);
+    return globo;
+  }
+  function ocultarTooltip() {
+    if (globo) globo.hidden = true;
+  }
+  function mostrarTooltip(el, html) {
+    const g = crearGlobo();
+    if (!html) {
+      g.hidden = true;
+      return;
+    }
+    g.innerHTML = html;
+    g.hidden = false;
+    const r = el.getBoundingClientRect(), w = g.offsetWidth, h = g.offsetHeight;
+    const x = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8));
+    let y = r.bottom + 8;
+    if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 8);
+    g.style.left = `${x}px`;
+    g.style.top = `${y}px`;
+  }
+  function activarTooltips(raiz, obtenerHtml) {
+    const sobre = (ev) => {
+      const el = ev.target.closest("[data-tip]");
+      if (el && raiz.contains(el)) mostrarTooltip(el, obtenerHtml(el));
+      else ocultarTooltip();
+    };
+    const fuera = () => ocultarTooltip();
+    raiz.addEventListener("mouseover", sobre);
+    raiz.addEventListener("focusin", sobre);
+    raiz.addEventListener("mouseleave", fuera);
+    addEventListener("scroll", fuera, true);
+    return () => {
+      raiz.removeEventListener("mouseover", sobre);
+      raiz.removeEventListener("focusin", sobre);
+      raiz.removeEventListener("mouseleave", fuera);
+      removeEventListener("scroll", fuera, true);
+      ocultarTooltip();
+    };
+  }
+
+  // compartido/deshacer.js
+  var caja = null;
+  var timer = null;
+  function avisarConDeshacer(texto3, alDeshacer) {
+    if (!caja || !caja.isConnected) {
+      caja = document.createElement("div");
+      caja.className = "sis-deshacer";
+      caja.setAttribute("role", "status");
+      document.body.appendChild(caja);
+    }
+    caja.innerHTML = "<span></span>";
+    caja.firstChild.textContent = texto3;
+    if (alDeshacer) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "Deshacer";
+      b.addEventListener("click", async () => {
+        caja.hidden = true;
+        clearTimeout(timer);
+        try {
+          await alDeshacer();
+        } catch (e) {
+          console.error(e);
+        }
+      }, { once: true });
+      caja.appendChild(b);
+    }
+    caja.hidden = false;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      caja.hidden = true;
+    }, alDeshacer ? 6e3 : 3500);
+  }
+
+  // compartido/columnas.js
+  function columnasArrastrables(raiz, op) {
+    let arr = null;
+    const abajo = (e) => {
+      const borde = e.target.closest("[data-borde]");
+      if (borde && raiz.contains(borde)) {
+        arr = { tipo: "ancho", id: borde.dataset.borde, x0: e.clientX, w0: op.ancho(borde.dataset.borde), el: borde, w: null };
+        borde.classList.add("activo");
+        e.preventDefault();
+        return;
+      }
+      const th = e.target.closest(".sis-th[data-col]");
+      if (th && raiz.contains(th) && e.button === 0) arr = { tipo: "mover", id: th.dataset.col, x0: e.clientX, activo: false, th, destino: -1 };
+    };
+    const mover = (e) => {
+      if (!arr) return;
+      const dx = e.clientX - arr.x0;
+      if (arr.tipo === "ancho") {
+        arr.w = Math.max(44, Math.min(360, Math.round(arr.w0 + dx)));
+        op.alAncho(arr.id, arr.w);
+        return;
+      }
+      if (!arr.activo) {
+        if (Math.abs(dx) < 6) return;
+        arr.activo = true;
+        arr.th.classList.add("moviendo");
+      }
+      arr.th.style.transform = `translateX(${dx}px)`;
+      const ths = [...raiz.querySelectorAll(".sis-th[data-col]")].filter((x) => x !== arr.th);
+      let i = ths.findIndex((x) => {
+        const r = x.getBoundingClientRect();
+        return e.clientX < r.left + r.width / 2;
+      });
+      if (i < 0) i = ths.length;
+      arr.destino = i;
+      const caja2 = op.caja();
+      if (!caja2 || !ths.length) return;
+      const rc = caja2.getBoundingClientRect();
+      const ref = i < ths.length ? ths[i].getBoundingClientRect().left : ths[ths.length - 1].getBoundingClientRect().right;
+      let m = caja2.querySelector(".sis-col-marca");
+      if (!m) {
+        m = document.createElement("div");
+        m.className = "sis-col-marca";
+        caja2.appendChild(m);
+      }
+      m.style.left = `${ref - rc.left + caja2.scrollLeft}px`;
+      if (e.clientX > rc.right - 40) caja2.scrollLeft += 12;
+      else if (e.clientX < rc.left + 40) caja2.scrollLeft -= 12;
+    };
+    const arriba = () => {
+      if (!arr) return;
+      const a = arr;
+      arr = null;
+      if (a.tipo === "ancho") {
+        a.el.classList.remove("activo");
+        if (a.w != null && a.w !== a.w0) op.alSoltarAncho(a.id, a.w);
+        return;
+      }
+      if (!a.activo) return;
+      a.th.classList.remove("moviendo");
+      a.th.style.transform = "";
+      const m = op.caja() && op.caja().querySelector(".sis-col-marca");
+      if (m) m.remove();
+      op.alMover(a.id, a.destino);
+    };
+    const cancelar = () => {
+      if (arr && arr.th) {
+        arr.th.classList.remove("moviendo");
+        arr.th.style.transform = "";
+      }
+      arr = null;
+    };
+    raiz.addEventListener("pointerdown", abajo);
+    addEventListener("pointermove", mover);
+    addEventListener("pointerup", arriba);
+    addEventListener("pointercancel", cancelar);
+    return () => {
+      raiz.removeEventListener("pointerdown", abajo);
+      removeEventListener("pointermove", mover);
+      removeEventListener("pointerup", arriba);
+      removeEventListener("pointercancel", cancelar);
+    };
+  }
+
+  // modulos/seguimiento/pantallas.js
+  var ICO = {
+    ok: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    proc: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4" cy="8" r="1.4" fill="currentColor"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="12" cy="8" r="1.4" fill="currentColor"/></svg>',
+    papel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" fill="#FFF3C4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 12h7M9 15.5h7M9 9h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    carpeta: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 4.5v8h13v-6.5H7.5L6 4.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+  };
+  var DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  var corta = (iso) => {
+    if (!iso || iso === "si") return iso === "si" ? "volado" : "";
+    const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
+    return `${DIAS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+  };
+  var leerLS2 = (k, d) => {
+    try {
+      const v = localStorage.getItem(k);
+      return v == null ? d : JSON.parse(v);
+    } catch {
+      return d;
+    }
+  };
+  var escribirLS2 = (k, v) => {
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch {
+    }
+  };
+  var extremos = (nombre) => {
+    const p = String(nombre).split(" – ");
+    return [p[0], p[p.length - 1]];
+  };
+  function montarPantallas3(contenedor2, ctx2) {
+    fijarPersona3(ctx2.personaId || null);
+    const raiz = document.createElement("div");
+    raiz.className = "mod-seguimiento";
+    contenedor2.appendChild(raiz);
+    let activo2 = true;
+    const st = {
+      proyectoId: ctx2.proyectoId || null,
+      tab: ctx2.tab === "marcar" ? "marcar" : ctx2.tab === "config" ? "config" : "seg",
+      plan: null,
+      ciclos: [],
+      ciclo: null,
+      eventos: [],
+      est: {},
+      entregas: [],
+      area: 0,
+      sel: /* @__PURE__ */ new Set(),
+      abiertos: /* @__PURE__ */ new Set(),
+      filtro: "",
+      plegar: leerLS2("sg_plegar", true),
+      revision: null,
+      brillo: /* @__PURE__ */ new Set(),
+      pop: "",
+      planes: [],
+      resumenes: {}
+    };
+    const base = { proyectos: [], personas: [] };
+    const P = () => st.plan;
+    const area = () => st.plan.areas[Math.min(st.area, st.plan.areas.length - 1)];
+    const colsVis = () => st.plan.cols.filter((c) => c.visible);
+    const nomProy = (id) => !id ? "" : id === OFICINA_ID ? "Oficina" : (base.proyectos.find((p) => p.id === id) || {}).nombre || "Proyecto";
+    const yo = () => (base.personas.find((p) => p.id === ctx2.personaId) || {}).nombre || "";
+    const est2 = (id) => estadoDe(st.est, id);
+    async function cargar() {
+      [base.proyectos, base.personas] = await Promise.all([listarProyectos(), listarPersonas()]);
+      if (!st.proyectoId) {
+        st.planes = await listarPlanes2();
+        st.resumenes = {};
+        for (const pl of st.planes) {
+          const c = (await ciclosDePlan(pl.id))[0] || null;
+          const e = c ? estadoCiclo(await eventosDeCiclo(c.id)) : {};
+          st.resumenes[pl.id] = { ciclo: c, cuenta: cuenta(pl, e, pl.areas.flatMap((a) => a.tramos)), plazo: plazoCiclo(pl, c, hoyISO()) };
+        }
+        return;
+      }
+      st.plan = await planDeProyecto(st.proyectoId);
+      if (!st.plan) return;
+      st.ciclos = await ciclosDePlan(st.plan.id);
+      if (!st.ciclo || !st.ciclos.some((c) => c.id === st.ciclo.id)) st.ciclo = st.ciclos[0] || null;
+      else st.ciclo = st.ciclos.find((c) => c.id === st.ciclo.id);
+      await cargarEventos();
+    }
+    async function cargarEventos() {
+      st.eventos = st.ciclo ? await eventosDeCiclo(st.ciclo.id) : [];
+      st.entregas = st.ciclo ? await entregasDeCiclo(st.ciclo.id) : [];
+      st.est = estadoCiclo(st.eventos);
+    }
+    async function aplicar(cambios, texto3) {
+      const { eventos, inversos } = prepararCambios(st.est, cambios, { cicloId: st.ciclo.id, planId: st.plan.id, por: yo() });
+      if (!eventos.length) {
+        if (texto3) avisarConDeshacer("No había nada que cambiar");
+        return;
+      }
+      await agregarEventos(eventos);
+      await cargarEventos();
+      render();
+      if (texto3) avisarConDeshacer(texto3, async () => {
+        await aplicar(inversos, null);
+        avisarConDeshacer("Cambio deshecho");
+      });
+    }
+    let timerPlan = null, timerCiclo = null;
+    function guardarPlanLuego() {
+      clearTimeout(timerPlan);
+      timerPlan = setTimeout(() => guardarPlan2(st.plan), 500);
+    }
+    async function render() {
+      if (!activo2) return;
+      let html;
+      if (!st.proyectoId) html = vistaLista();
+      else if (!st.plan) html = vistaNuevo();
+      else html = vistaProyecto();
+      raiz.innerHTML = `<div class="sis-vista">${html}</div>`;
+      aplicarPlantilla();
+      st.brillo.clear();
+      st.pop = "";
+    }
+    async function recargar() {
+      await cargar();
+      await render();
+    }
+    function vistaLista() {
+      const filas2 = st.planes.map((pl) => {
+        const r = st.resumenes[pl.id] || {}, c = r.cuenta || { total: 0, ok: 0 }, pz = r.plazo;
+        const pct = c.productos ? Math.round(100 * c.productosListos / c.productos) : 0;
+        return `<a class="sg-fila-proy" href="#/seguimiento/${escapar(pl.proyectoId)}">
+        <span class="sg-fp-nom"><b>${escapar(nomProy(pl.proyectoId))}</b><small>${pl.tipo === "mensual" ? "Mensual" : "Trabajo único"}${r.ciclo ? ` · ${escapar(r.ciclo.nombre || "")}` : ""}</small></span>
+        <span class="sg-fp-barra"><span class="sg-mini"><i style="width:${pct}%"></i></span><small class="mono">${c.productosListos}/${c.productos} productos · ${c.ok}/${c.total} entregados</small></span>
+        <span>${pz ? pastillaPlazo(pz, c) : '<span class="sis-tenue">sin plazo</span>'}</span></a>`;
+      }).join("");
+      const sinPlan = base.proyectos.filter((p) => p.id !== OFICINA_ID && !st.planes.some((pl) => pl.proyectoId === p.id));
+      return `<div class="sis-cab"><h1>Seguimiento de entregas</h1></div>
+      <p class="sis-tenue">Qué hay y qué falta en cada trabajo abierto: tramos volados, productos en gabinete y entregas.</p>
+      <section class="sis-tarjeta">${filas2 ? `<div class="sg-lista-proy">${filas2}</div>` : '<div class="sis-vacio"><p>Todavía no hay seguimientos. Crea uno para un proyecto.</p></div>'}</section>
+      ${sinPlan.length ? `<section class="sis-tarjeta"><h2>Nuevo seguimiento</h2>
+        <div class="sg-nuevo-lista">${sinPlan.map((p) => `<a class="sis-btn chico" href="#/seguimiento/${escapar(p.id)}">${escapar(p.nombre)}</a>`).join("")}</div></section>` : '<p class="sis-tenue">Para crear un seguimiento, primero crea el proyecto en Proyectos.</p>'}`;
+    }
+    function pastillaPlazo(pz, c) {
+      if (c && c.total && c.ok === c.total) return '<span class="sis-chip verde">Entregado</span>';
+      if (pz.quedan < 0) return `<span class="sis-chip rojo">Vencido hace ${-pz.quedan} d. háb.</span>`;
+      if (pz.quedan === 0) return '<span class="sis-chip ambar">Vence hoy</span>';
+      return `<span class="sis-chip ${pz.quedan <= 2 ? "ambar" : "gris"}">Vence ${corta(pz.vence)} · ${pz.quedan} d. háb.</span>`;
+    }
+    function vistaNuevo() {
+      return `<div class="sis-miga"><a href="#/seguimiento">Seguimiento</a> / <a href="#/proyecto/${escapar(st.proyectoId)}">${escapar(nomProy(st.proyectoId))}</a></div>
+      <h1>Nuevo seguimiento · ${escapar(nomProy(st.proyectoId))}</h1>
+      <form class="sis-form sis-tarjeta sg-form-nuevo" data-form="nuevo">
+        <div class="sis-campo"><span>Tipo de trabajo</span><div class="sis-opciones">
+          <label class="sis-opcion"><input type="radio" name="tipo" value="mensual" checked> Mensual (un ciclo por mes)</label>
+          <label class="sis-opcion"><input type="radio" name="tipo" value="unico"> Único</label></div></div>
+        <div class="sis-par"><label class="sis-campo"><span>Mes</span><input name="mes" value="${escapar(nombreMes(hoyISO()))}"></label>
+          <label class="sis-campo"><span>N° de mes del contrato</span><input name="mesContrato" type="number" min="1" value="1"></label></div>
+        <div class="sis-campo"><span>Columnas</span><div class="sis-opciones">
+          <label class="sis-opcion"><input type="radio" name="cols" value="vuelo" checked> Vuelo: NP, MDS, OF, KMZ</label>
+          <label class="sis-opcion"><input type="radio" name="cols" value="simple"> Simple: un producto</label></div></div>
+        <label class="sis-campo"><span>Tramos: pega los nombres de las carpetas (uno por línea)</span>
+          <textarea name="carpetas" rows="6" placeholder="001_10+200 - 4+900&#10;002_15+200 - 10+200&#10;…"></textarea></label>
+        <p class="sis-tenue">En el explorador de Windows: selecciona las carpetas de los tramos, Shift + clic derecho → «Copiar como ruta», y pega aquí. Se leen el número y los DM. Se pueden cambiar después en Configurar.</p>
+        <label class="sis-check"><input type="checkbox" name="ejemplo"> Cargar el ejemplo de la línea de impulsión con avance ficticio (para probar)</label>
+        <div class="sis-acciones"><button class="sis-btn primario">Crear seguimiento</button></div>
+      </form>`;
+    }
+    async function crear(fd) {
+      const ejemplo = fd.get("ejemplo") === "on";
+      const tipo = fd.get("tipo") === "unico" ? "unico" : "mensual";
+      let plan;
+      if (ejemplo) plan = ejemploSaddn(nuevoId);
+      else {
+        const cols = fd.get("cols") === "simple" ? [{ id: "terreno", tipo: "terreno", nombre: "Terreno", ancho: 128, visible: true }, { id: "p1", tipo: "producto", nombre: "Producto", ext: "", ancho: 90, visible: true }, { id: "entrega", tipo: "entrega", nombre: "Entrega", ancho: 116, visible: true }] : COLS_VUELO();
+        const tramos = tramosDesdeCarpetas(fd.get("carpetas") || "", nuevoId);
+        plan = { tipo, plazo: { tipo: "mes", dias: 10 }, cols, areas: [{ id: nuevoId(), nombre: "Área 1", carpeta: "", tramos: tramos.length ? tramos : [{ id: nuevoId(), n: "001", nombre: "Tramo 1", carpeta: "" }] }] };
+      }
+      plan.proyectoId = st.proyectoId;
+      const guardado = await guardarPlan2(plan);
+      const ciclo = await guardarCiclo({ planId: guardado.id, proyectoId: st.proyectoId, nombre: plan.tipo === "mensual" ? String(fd.get("mes") || "").trim() : "Trabajo", mesContrato: plan.tipo === "mensual" ? Number(fd.get("mesContrato")) || 1 : null, datos: hoyISO() });
+      if (ejemplo) await sembrarEjemplo(guardado, ciclo);
+      st.ciclo = ciclo;
+    }
+    async function sembrarEjemplo(plan, ciclo) {
+      const L = plan.areas[0].tramos, cambios = [];
+      const vol = (t, f) => cambios.push({ tramoId: t.id, tipo: "terreno", valor: f, por: "Edgardo" });
+      const prods = (t, vals) => ["np", "mds", "of", "kmz"].forEach((c, k) => cambios.push({ tramoId: t.id, tipo: "prod", col: c, valor: vals[k] }));
+      const ent = (t) => cambios.push({ tramoId: t.id, tipo: "entrega", valor: "E1" });
+      const fecha2 = (d) => {
+        const x = /* @__PURE__ */ new Date();
+        x.setDate(x.getDate() - d);
+        return hoyISO(x);
+      };
+      L.forEach((t, i) => {
+        if (i <= 19 && i !== 8) {
+          vol(t, fecha2(i <= 7 ? 14 : i <= 14 ? 13 : 12));
+          prods(t, ["listo", "listo", "listo", "listo"]);
+          ent(t);
+        } else if (i === 8) {
+          vol(t, fecha2(13));
+          prods(t, ["listo", "listo", "listo", "proc"]);
+          cambios.push({ tramoId: t.id, tipo: "nota", valor: "El KMZ se quedó pegado al exportar desde Global Mapper. Reintentar con teselas más chicas.", por: "Camilo" });
+        } else if (i <= 21) {
+          vol(t, fecha2(11));
+          prods(t, ["listo", "listo", "proc", "falta"]);
+        } else if (i >= 30) {
+          vol(t, fecha2(11));
+        }
+      });
+      cambios.push({ tramoId: L[21].id, tipo: "nota", valor: "Viento fuerte desde las 14:00, se cortó acá. Quedan 022 a 029 para la próxima salida.", por: "Edgardo" });
+      for (const a of plan.areas.slice(1)) {
+        vol(a.tramos[0], fecha2(11));
+        prods(a.tramos[0], ["listo", "listo", "listo", "listo"]);
+        ent(a.tramos[0]);
+      }
+      await guardarEntrega({ cicloId: ciclo.id, planId: plan.id, codigo: "E1", fecha: fecha2(4) });
+      const { eventos } = prepararCambios({}, cambios, { cicloId: ciclo.id, planId: plan.id });
+      await agregarEventos(eventos);
+    }
+    function vistaProyecto() {
+      const pl = P(), c = st.ciclo;
+      const pz = plazoCiclo(pl, c, hoyISO());
+      const k = cuenta(pl, st.est, pl.areas.flatMap((a) => a.tramos));
+      const idx = st.ciclos.findIndex((x) => c && x.id === c.id);
+      return `<div class="sis-encabezado">
+        <div>
+          <div class="sis-miga"><a href="#/seguimiento">Seguimiento</a> / <a href="#/proyecto/${escapar(st.proyectoId)}">${escapar(nomProy(st.proyectoId))}</a></div>
+          <h1>${escapar(nomProy(st.proyectoId))}</h1>
+          <div class="sis-meta">
+            <span>${pl.tipo === "mensual" ? "Servicio mensual" : "Trabajo único"}</span>
+            ${c && c.mesContrato ? `<span>Mes ${c.mesContrato} del contrato · <span class="mono">${escapar(carpetaMes(c))}</span></span>` : ""}
+            ${c && c.datos ? `<span>Datos recibidos ${escapar(fechaLegible(c.datos))}</span>` : ""}
+            ${pz ? pastillaPlazo(pz, k) : ""}
+          </div>
+        </div>
+        ${pl.tipo === "mensual" ? `<div class="sg-ciclos">
+          <button class="sis-btn chico" data-acc="ciclo" data-v="${idx + 1}" ${idx >= st.ciclos.length - 1 ? "disabled" : ""} aria-label="Mes anterior">‹</button>
+          <b>${escapar(c ? c.nombre || "Sin nombre" : "—")}</b>
+          <button class="sis-btn chico" data-acc="ciclo" data-v="${idx - 1}" ${idx <= 0 ? "disabled" : ""} aria-label="Mes siguiente">›</button>
+          <button class="sis-btn chico" data-acc="nuevo-ciclo">+ Nuevo mes</button></div>` : ""}
+      </div>
+      <nav class="sg-pestanas" role="tablist">
+        <button role="tab" data-acc="tab" data-v="seg" aria-selected="${st.tab === "seg"}">Seguimiento</button>
+        <button role="tab" data-acc="tab" data-v="marcar" aria-selected="${st.tab === "marcar"}">Marcar avance</button>
+        <button role="tab" data-acc="tab" data-v="config" aria-selected="${st.tab === "config"}">Configurar</button>
+      </nav>
+      ${!c ? '<div class="sis-vacio"><p>Este seguimiento no tiene meses. Crea el primero.</p><button class="sis-btn primario" data-acc="nuevo-ciclo">+ Nuevo mes</button></div>' : st.tab === "marcar" ? vistaMarcar() : st.tab === "config" ? vistaConfig() : vistaSeguimiento(k)}`;
+    }
+    function vistaSeguimiento(k) {
+      const pl = P();
+      const grandes = pl.areas.map((a, i) => [a, i]).filter(([a]) => a.tramos.length > 1);
+      const chicas = pl.areas.map((a, i) => [a, i]).filter(([a]) => a.tramos.length === 1);
+      return `<div class="sg-kpis">
+        <div class="sg-kpi"><small>Terreno</small><b>${k.total - k.sinvolar}<span>/${k.total}</span></b><small>tramos volados</small></div>
+        <div class="sg-kpi"><small>Cargado en entregas</small><b class="sg-c-ok">${k.ok}</b><small>${st.entregas.map((e) => `${escapar(e.codigo)} · ${corta(e.fecha)}`).join(" · ") || "sin entregas aún"}</small></div>
+        <div class="sg-kpi"><small>Procesando</small><b class="sg-c-proc">${k.proc + k.listo}</b><small>${k.listo ? `${k.listo} listos para entregar` : "en gabinete"}</small></div>
+        <div class="sg-kpi"><small>Falta en gabinete</small><b class="sg-c-falta">${k.falta}</b><small>volados, sin empezar</small></div>
+        <div class="sg-kpi"><small>Falta volar</small><b class="sg-c-falta">${k.sinvolar}</b><small>pendientes de terreno</small></div>
+      </div>
+      ${grandes.map(([a, i]) => tarjetaFranja(a, i)).join("")}
+      <div class="sg-dos">
+        ${chicas.length ? `<section class="sis-tarjeta"><h2>Otras áreas</h2><div class="sg-chicas">${chicas.map(([a, i]) => `<div><span>${escapar(a.nombre)}</span>
+          <div class="sg-barra chica">${segmento(a.tramos[0], i, "terreno")}</div><div class="sg-barra chica">${segmento(a.tramos[0], i, "gab")}</div></div>`).join("")}</div>
+          <p class="sis-tenue">Arriba terreno · abajo gabinete</p></section>` : ""}
+        <section class="sis-tarjeta"><h2>Qué falta</h2>${queFalta()}</section>
+      </div>
+      <div class="sg-leyenda">
+        <span><i class="s-falta"></i>Falta</span><span><i class="s-proc"></i>Procesando</span>
+        <span><i class="s-ok"></i>Terreno: volado · Gabinete: cargado en una entrega</span><span><i class="s-na"></i>Gabinete no aplica (aún no se vuela)</span>
+      </div>`;
+    }
+    function tarjetaFranja(a, i) {
+      const T = a.tramos;
+      const [ini] = extremos(T[0].nombre), [, fin] = extremos(T[T.length - 1].nombre);
+      return `<section class="sis-tarjeta"><div class="sg-cab-franja"><h2>${escapar(a.nombre)}</h2><span class="sis-tenue">Pasa el mouse o toca un tramo para ver el detalle</span></div>
+      <div class="sg-franja">
+        <span>Terreno</span><div class="sg-barra">${T.map((t) => segmento(t, i, "terreno")).join("")}</div>
+        <span>Gabinete</span><div class="sg-barra">${T.map((t) => segmento(t, i, "gab")).join("")}</div>
+        <span></span><div class="sg-ejes mono"><span>${escapar(ini)}</span><span>${escapar(fin)}</span></div>
+      </div></section>`;
+    }
+    function segmento(tr, ai, tipo) {
+      const t = est2(tr.id);
+      let cls;
+      if (tipo === "terreno") cls = volado(t) ? "s-ok" : "s-falta";
+      else {
+        const g = gabinete(P(), t);
+        cls = g === "na" ? "s-na" : g === "ok" ? "s-ok" : g === "falta" ? "s-falta" : "s-proc";
+      }
+      const largo2 = tr.ini != null && tr.fin != null ? Math.max(0.3, tr.fin - tr.ini) : 5;
+      return `<button type="button" class="sg-seg ${cls}" style="flex-grow:${largo2.toFixed(2)}" data-tip="seg" data-a="${ai}" data-t="${escapar(tr.id)}" aria-label="${escapar(tr.n)} ${escapar(tr.nombre)}"></button>`;
+    }
+    function textoTramo(tr) {
+      const t = est2(tr.id), g = gabinete(P(), t);
+      const gtxt = { na: "no aplica, falta volar", falta: "sin empezar", proc: "procesando", listo: "listo para entregar", ok: `cargado en ${t.entrega}` }[g];
+      const prods = volado(t) ? productos(P()).map((c) => {
+        const e = estadoProd(t, c);
+        return `${c.nombre} ${e === "listo" ? "✓" : e === "proc" ? "en curso" : "falta"}`;
+      }).join(" · ") : "";
+      return `<b>${escapar(tr.n)} · ${escapar(tr.nombre)}</b>
+Terreno: ${volado(t) ? `volado${t.terreno !== "si" ? " " + escapar(corta(t.terreno)) : ""}${t.por ? " · " + escapar(t.por) : ""}` : "falta volar"}
+Gabinete: ${gtxt}${prods ? "\n" + escapar(prods) : ""}${t.nota ? `
+Nota: ${escapar(t.nota)}` : ""}`;
+    }
+    function queFalta() {
+      const pl = P(), out = [];
+      const clase = (tr) => {
+        const t = est2(tr.id);
+        if (!volado(t)) return "volar";
+        return { falta: "procesar", proc: "terminar", listo: "entregar" }[gabinete(pl, t)] || null;
+      };
+      pl.areas.forEach((a) => {
+        const T = a.tramos;
+        let i = 0;
+        while (i < T.length) {
+          const k = clase(T[i]);
+          if (!k) {
+            i++;
+            continue;
+          }
+          let j = i;
+          while (j < T.length && clase(T[j]) === k) j++;
+          const rango = j - i > 1 ? `${extremos(T[i].nombre)[0]} → ${extremos(T[j - 1].nombre)[1]} · ${j - i} tramos` : `${T[i].n} · ${T[i].nombre}`;
+          const det = k === "terminar" && j - i === 1 ? productos(pl).filter((c) => estadoProd(est2(T[i].id), c) !== "listo").map((c) => c.nombre).join(", ") : "";
+          out.push(`<div class="sg-falta-${k}"><i></i><div><b>${{ volar: "Volar", procesar: "Procesar", terminar: "Terminar", entregar: "Cargar en entrega" }[k]} ${escapar(rango)}</b><span>${escapar(a.nombre)}${det ? " · falta " + escapar(det) : ""}</span></div></div>`);
+          i = j;
+        }
+      });
+      return out.length ? `<div class="sg-falta">${out.join("")}</div>` : '<div class="sg-felicita">No falta nada: todo está cargado en entregas.</div>';
+    }
+    const pasaFiltro = (tr) => {
+      if (!st.filtro) return true;
+      const t = est2(tr.id);
+      return st.filtro === "sinvolar" ? !volado(t) : gabinete(P(), t) === st.filtro;
+    };
+    const grupo = (tr) => {
+      const t = est2(tr.id);
+      return t.entrega ? "ok" : !volado(t) ? "sinvolar" : null;
+    };
+    const plantilla = () => `36px 54px minmax(170px,1fr) ${colsVis().map((c) => c.ancho + "px").join(" ")} 52px`;
+    const anchoMin = () => 36 + 54 + 190 + colsVis().reduce((s, c) => s + c.ancho, 0) + 52 + 16;
+    function aplicarPlantilla() {
+      const t = raiz.querySelector(".sg-tabla");
+      if (!t) return;
+      t.style.setProperty("--cols", plantilla());
+      t.style.setProperty("--min", anchoMin() + "px");
+    }
+    function vistaMarcar() {
+      const pl = P(), a = area(), c = cuenta(pl, st.est, a.tramos);
+      const chips = [["sinvolar", "Falta volar", "s-falta", c.sinvolar], ["falta", "Falta en gabinete", "s-falta-borde", c.falta], ["proc", "Procesando", "s-proc", c.proc], ["listo", "Listo para entregar", "s-listo", c.listo], ["ok", "Cargado en entrega", "s-ok", c.ok]];
+      return `${pl.areas.length > 1 ? `<div class="sg-areas" role="group" aria-label="Áreas">${pl.areas.map((ar, i) => {
+        const x = cuenta(pl, st.est, ar.tramos);
+        return `<button type="button" data-acc="area" data-v="${i}" aria-pressed="${i === st.area}">${escapar(ar.nombre)} <small class="mono">${x.ok}/${x.total}</small></button>`;
+      }).join("")}</div>` : ""}
+      <div class="sg-resumen">
+        ${chips.map(([k, t, cl, n]) => `<button type="button" class="sg-filtro" data-acc="filtro" data-v="${k}" aria-pressed="${st.filtro === k}"><i class="${cl}"></i>${t} <b class="mono">${n}</b></button>`).join("")}
+        <label class="sg-interruptor"><input type="checkbox" data-acc="plegar" ${st.plegar ? "checked" : ""}> Agrupar tramos iguales</label>
+      </div>
+      ${c.total && c.ok === c.total ? `<div class="sg-felicita">${escapar(a.nombre)} está completa: todos los tramos cargados en entregas.</div>` : ""}
+      ${st.revision ? panelRevision() : ""}
+      <div class="sg-tabla-caja">
+        ${st.sel.size ? barraLote() : ""}
+        <div class="sg-scroll"><div class="sg-tabla" role="table" aria-label="Avance por tramo">${cabecera()}${filas()}</div></div>
+        <div class="sg-pie-tabla">
+          <span><i class="sg-mini-cuadro falta"></i>Falta</span><span><i class="sg-mini-cuadro proc"></i>Procesando</span>
+          <span><i class="sg-mini-cuadro listo"></i>Listo en la carpeta</span><span><i class="sg-mini-cuadro ent"></i>Cargado en una entrega</span>
+          <span class="sg-ayuda">Toca un cuadro para avanzarlo · arrastra los títulos para moverlos · arrastra su borde para el ancho</span>
+        </div>
+      </div>
+      <div class="sis-acciones sg-revisar" data-solo-pc>
+        <label class="sis-btn">${ICO.carpeta} Revisar carpeta del mes<input type="file" data-archivo="carpeta" webkitdirectory directory multiple hidden></label>
+        <span class="sis-tenue">Eliges la carpeta${st.ciclo && st.ciclo.mesContrato ? ` <span class="mono">${escapar(carpetaMes(st.ciclo))}</span>` : ""} y se marca listo lo que ya está (por carpeta del tramo y extensión). Solo se leen los nombres: no se sube nada. Chrome puede decir «subir»: no sale del PC.</span>
+      </div>`;
+    }
+    function panelRevision() {
+      const r = st.revision;
+      return `<section class="sis-tarjeta sg-revision"><h2>Revisión de la carpeta</h2>
+      <p>${r.archivos} archivos leídos · ${r.encontrados} productos encontrados en las carpetas de los tramos.</p>
+      ${r.cambios.length ? `<p><b>${r.cambios.filter((c) => c.tipo === "prod").length} producto${r.cambios.filter((c) => c.tipo === "prod").length === 1 ? "" : "s"}</b> pasan a «listo»${r.cambios.some((c) => c.tipo === "terreno") ? ` y <b>${r.cambios.filter((c) => c.tipo === "terreno").length}</b> tramo(s) quedan como volados` : ""}.</p>` : "<p>Todo lo que está en la carpeta ya estaba marcado.</p>"}
+      ${r.noEstan.length ? `<p class="sg-c-falta">Marcados listos pero no aparecen: ${r.noEstan.slice(0, 6).map((x) => `${escapar(x.tramo.n)} ${escapar(x.col.nombre)}`).join(", ")}${r.noEstan.length > 6 ? "…" : ""}. Revisa si están en otra carpeta.</p>` : ""}
+      ${!r.encontrados ? '<p class="sis-tenue">No calzó ninguna carpeta: revisa en Configurar que cada tramo tenga el nombre de su carpeta y cada producto su extensión.</p>' : ""}
+      <div class="sis-acciones">${r.cambios.length ? '<button class="sis-btn primario" data-acc="revision-aplicar">Aplicar</button>' : ""}<button class="sis-btn" data-acc="revision-cerrar">${r.cambios.length ? "Cancelar" : "Cerrar"}</button></div></section>`;
+    }
+    function cabecera() {
+      const vis = area().tramos.filter(pasaFiltro);
+      const todos2 = vis.length && vis.every((t) => st.sel.has(t.id));
+      return `<div class="sg-fila sg-cab" role="row">
+      <span class="sg-c" role="columnheader"><input type="checkbox" aria-label="Seleccionar todos" data-acc="sel-todos" ${todos2 ? "checked" : ""}></span>
+      <span role="columnheader">N°</span><span role="columnheader">Tramo</span>
+      ${colsVis().map((c) => `<span class="sis-th" role="columnheader" data-col="${escapar(c.id)}" title="${escapar(c.nombre)}${c.ext ? ` (${escapar(c.ext)})` : ""} · arrastra para mover"><span class="sis-th-grip" aria-hidden="true">⋮⋮</span><span class="sg-th-t">${escapar(c.nombre)}</span><span class="sis-th-borde" data-borde="${escapar(c.id)}" aria-hidden="true"></span></span>`).join("")}
+      <span class="sg-c" role="columnheader">Nota</span></div>`;
+    }
+    function filas() {
+      const T = area().tramos, out = [];
+      if (st.filtro) {
+        const v = T.filter(pasaFiltro);
+        return v.length ? v.map(fila2).join("") : '<div class="sg-fila"><span></span><span></span><span class="sis-tenue">No hay tramos en este estado.</span></div>';
+      }
+      let i = 0;
+      while (i < T.length) {
+        const g = st.plegar ? grupo(T[i]) : null;
+        if (g) {
+          let j = i;
+          while (j < T.length && grupo(T[j]) === g) j++;
+          if (j - i >= (g === "ok" ? 2 : 3)) {
+            const key = `${st.ciclo.id}:${st.area}:${T[i].id}`, abierto = st.abiertos.has(key);
+            const ents = [...new Set(T.slice(i, j).map((t) => est2(t.id).entrega))].join(", ");
+            out.push(`<button type="button" class="sg-plegada ${g}" data-acc="grupo" data-v="${escapar(key)}" aria-expanded="${abierto}"><span class="mono">${escapar(T[i].n)} – ${escapar(T[j - 1].n)}</span><span>${escapar(extremos(T[i].nombre)[0])} → ${escapar(extremos(T[j - 1].nombre)[1])} · ${j - i} tramos ${g === "ok" ? `cargados en ${escapar(ents)}` : "falta volar"}</span><span class="sg-ver">${abierto ? "▴ juntar" : "▾ ver"}</span></button>`);
+            if (abierto) for (let k = i; k < j; k++) out.push(fila2(T[k]));
+            i = j;
+            continue;
+          }
+        }
+        out.push(fila2(T[i]));
+        i++;
+      }
+      return out.join("");
+    }
+    function fila2(tr) {
+      const t = est2(tr.id);
+      return `<div class="sg-fila${st.sel.has(tr.id) ? " sel" : ""}${st.brillo.has(tr.id) ? " brilla" : ""}" role="row" data-t="${escapar(tr.id)}">
+      <span class="sg-c" role="cell"><input type="checkbox" aria-label="Seleccionar ${escapar(tr.n)}" data-acc="sel" ${st.sel.has(tr.id) ? "checked" : ""}></span>
+      <span class="sg-n mono" role="cell">${escapar(tr.n)}</span>
+      <span class="sg-nom" role="cell"><b>${escapar(tr.nombre)}</b>${tr.carpeta ? `<small class="mono">${escapar(tr.carpeta)}</small>` : ""}</span>
+      ${colsVis().map((c) => `<span class="sg-c" role="cell">${celda(tr, t, c)}</span>`).join("")}
+      <span class="sg-c" role="cell">${t.nota ? `<button type="button" class="sg-nota con" data-acc="nota" data-tip="nota" aria-label="Nota: ${escapar(t.nota)}">${ICO.papel}</button>` : '<button type="button" class="sg-nota vacia" data-acc="nota" aria-label="Agregar nota"></button>'}</span></div>`;
+    }
+    function celda(tr, t, c) {
+      if (c.tipo === "terreno") return volado(t) ? `<button type="button" class="sg-terr si" data-acc="terreno" title="${t.por ? `Volado por ${escapar(t.por)}. ` : ""}Toca para desmarcar"><i></i>${escapar(corta(t.terreno))}</button>` : '<button type="button" class="sg-terr no" data-acc="terreno" title="Toca para marcarlo volado hoy"><i></i>falta volar</button>';
+      if (c.tipo === "producto") {
+        if (!volado(t)) return '<span class="sg-na" title="Aún no se vuela">—</span>';
+        const e = estadoProd(t, c);
+        return `<button type="button" class="sg-prod ${e}${st.pop === `${tr.id}:${c.id}` ? " pop" : ""}" data-acc="prod" data-col="${escapar(c.id)}" aria-label="${escapar(c.nombre)}: ${TEXTO_ESTADO2[e]}" title="${escapar(c.nombre)} ${escapar(c.ext || "")}: ${TEXTO_ESTADO2[e]}">${e === "listo" ? ICO.ok : e === "proc" ? ICO.proc : ""}</button>`;
+      }
+      if (c.tipo === "entrega") {
+        if (t.entrega) {
+          const e = st.entregas.find((x) => x.codigo === t.entrega);
+          return `<button type="button" class="sg-chip-ent" data-acc="entrega">${escapar(t.entrega)}${e ? " · " + escapar(corta(e.fecha).split(" ")[1]) : ""}</button>`;
+        }
+        return todoListo(P(), t) ? '<button type="button" class="sg-add-ent" data-acc="entrega">+ entrega</button>' : "";
+      }
+      return "";
+    }
+    function barraLote() {
+      return `<div class="sg-lote"><b>${st.sel.size} seleccionado${st.sel.size > 1 ? "s" : ""}</b><span class="sis-tenue">Marcar como:</span>
+      <button type="button" class="sis-btn chico" data-acc="lote" data-v="volado">Volado hoy</button>
+      <button type="button" class="sis-btn chico sg-b-proc" data-acc="lote" data-v="proc">Procesando</button>
+      <button type="button" class="sis-btn chico sg-b-listo" data-acc="lote" data-v="listo">Listo</button>
+      <button type="button" class="sis-btn chico sg-b-ent" data-acc="lote-entrega">Cargar en entrega ▾</button>
+      <button type="button" class="sg-quitar" data-acc="sel-limpiar">Quitar selección</button></div>`;
+    }
+    function vistaConfig() {
+      const pl = P(), c = st.ciclo, n = pl.cols.length;
+      return `<div class="sg-config">
+      <section class="sis-tarjeta"><h2>Este mes</h2>
+        ${pl.tipo === "mensual" ? `<div class="sis-par"><label class="sis-campo"><span>Mes</span><input data-ciclo="nombre" value="${escapar(c.nombre || "")}"></label>
+          <label class="sis-campo"><span>N° de mes del contrato</span><input type="number" min="1" data-ciclo="mesContrato" value="${escapar(c.mesContrato || "")}"></label></div>
+          <p class="sis-tenue">Carpeta del mes: <span class="mono" id="sg-carpeta-mes">${escapar(carpetaMes(c))}</span></p>` : ""}
+        <label class="sis-campo"><span>Llegada de los datos</span><input type="date" data-ciclo="datos" value="${escapar(c.datos || "")}"></label>
+      </section>
+      <section class="sis-tarjeta"><h2>Plazo de entrega</h2>
+        <label class="sis-check"><input type="radio" name="plazo" data-plazo="habiles" ${pl.plazo.tipo === "habiles" ? "checked" : ""}> <input type="number" min="1" max="60" data-plan="dias" value="${escapar(pl.plazo.dias || 10)}" class="sg-num" aria-label="Días hábiles"> días hábiles después de que llegan los datos</label>
+        <label class="sis-check"><input type="radio" name="plazo" data-plazo="mes" ${pl.plazo.tipo === "mes" ? "checked" : ""}> Dentro de un mes desde que llegan los datos</label>
+        <label class="sis-check"><input type="radio" name="plazo" data-plazo="ninguno" ${pl.plazo.tipo === "ninguno" ? "checked" : ""}> Sin plazo</label>
+        <div class="sis-campo"><span>Tipo de trabajo</span><div class="sis-opciones">
+          <label class="sis-opcion"><input type="radio" name="tipo" data-tipo="mensual" ${pl.tipo === "mensual" ? "checked" : ""}> Mensual</label>
+          <label class="sis-opcion"><input type="radio" name="tipo" data-tipo="unico" ${pl.tipo === "unico" ? "checked" : ""}> Único</label></div></div>
+      </section>
+      <section class="sis-tarjeta"><h2>Columnas</h2>
+        <p class="sis-tenue">De arriba hacia abajo = de izquierda a derecha. También se arrastran en la tabla. La nota va siempre al final.</p>
+        ${pl.cols.map((col, i) => `<div class="sg-col-fila">
+          <button type="button" class="sg-ico" data-acc="col-subir" data-v="${i}" aria-label="Subir ${escapar(col.nombre)}" ${i === 0 ? "disabled" : ""}>↑</button>
+          <button type="button" class="sg-ico" data-acc="col-bajar" data-v="${i}" aria-label="Bajar ${escapar(col.nombre)}" ${i === n - 1 ? "disabled" : ""}>↓</button>
+          <input data-col-nombre="${i}" value="${escapar(col.nombre)}" aria-label="Nombre de la columna">
+          ${col.tipo === "producto" ? `<input class="mono" data-col-ext="${i}" value="${escapar(col.ext || "")}" placeholder=".ext" aria-label="Extensión del archivo">` : `<span class="sis-tenue">${col.tipo}</span>`}
+          <label class="sg-vis"><input type="checkbox" data-col-vis="${i}" ${col.visible ? "checked" : ""}> ver</label>
+          ${col.tipo === "producto" ? `<button type="button" class="sg-ico" data-acc="col-quitar" data-v="${i}" aria-label="Quitar ${escapar(col.nombre)}">✕</button>` : "<span></span>"}
+        </div>`).join("")}
+        <button type="button" class="sis-btn chico" data-acc="col-agregar">+ Agregar producto</button>
+      </section>
+      <section class="sis-tarjeta sg-config-ancho"><h2>Áreas y tramos</h2>
+        ${pl.areas.map((a, i) => `<details class="sg-area-cfg"${pl.areas.length === 1 ? " open" : ""}><summary><b>${escapar(a.nombre)}</b> · ${a.tramos.length} tramo${a.tramos.length === 1 ? "" : "s"}</summary>
+          <div class="sis-par"><label class="sis-campo"><span>Nombre</span><input data-area-nombre="${i}" value="${escapar(a.nombre)}"></label>
+            <label class="sis-campo"><span>Carpeta del área</span><input class="mono" data-area-carpeta="${i}" value="${escapar(a.carpeta || "")}" placeholder="01 Línea de impulsión 4+900 - 160+000"></label></div>
+          <label class="sis-campo"><span>Tramos (nombres de carpeta, uno por línea)</span><textarea rows="5" data-area-tramos="${i}" class="mono">${escapar(a.tramos.map((t) => t.carpeta || t.nombre).join("\n"))}</textarea></label>
+          <div class="sis-acciones"><button type="button" class="sis-btn chico" data-acc="tramos-guardar" data-v="${i}">Actualizar tramos</button>
+            ${pl.areas.length > 1 ? `<button type="button" class="sis-btn chico peligro" data-acc="area-quitar" data-v="${i}">Quitar área</button>` : ""}</div>
+          <p class="sis-tenue">Los tramos con la misma carpeta conservan su avance; los nuevos parten vacíos.</p></details>`).join("")}
+        <div class="sis-acciones"><button type="button" class="sis-btn chico" data-acc="area-agregar">+ Agregar área</button>
+          <button type="button" class="sis-btn chico peligro" data-acc="plan-eliminar">Eliminar seguimiento</button></div>
+      </section></div>`;
+    }
+    function cerrarFlotantes() {
+      raiz.querySelectorAll(".sg-flot").forEach((x) => x.remove());
+    }
+    function menuEntrega(anchor, ids) {
+      cerrarFlotantes();
+      const r = anchor.getBoundingClientRect();
+      const algunaCargada = ids.some((id) => est2(id).entrega);
+      const sig = `E${st.entregas.length + 1}`;
+      const div = document.createElement("div");
+      div.className = "sg-flot";
+      div.innerHTML = `<div class="sg-velo" data-acc="cerrar"></div><div class="sg-menu" role="menu" style="left:${Math.max(8, Math.min(r.left, innerWidth - 250))}px;top:${Math.min(r.bottom + 6, innerHeight - 230)}px">
+      <div class="sis-tenue">Solo se cargan tramos con todo listo</div>
+      ${st.entregas.map((e) => `<button type="button" role="menuitem" data-acc="ent-elegir" data-v="${escapar(e.codigo)}"><b>${escapar(e.codigo)}</b> · ${escapar(fechaLegible(e.fecha))}</button>`).join("")}
+      <button type="button" role="menuitem" data-acc="ent-elegir" data-v="+">+ Nueva entrega (${sig} · hoy)</button>
+      ${algunaCargada ? '<hr><button type="button" role="menuitem" data-acc="ent-elegir" data-v="-">Quitar de la entrega</button>' : ""}</div>`;
+      div.dataset.ids = JSON.stringify(ids);
+      raiz.appendChild(div);
+      div.querySelector("[role=menuitem]").focus();
+    }
+    function panelNota(tr) {
+      cerrarFlotantes();
+      ocultarTooltip();
+      const t = est2(tr.id);
+      const div = document.createElement("div");
+      div.className = "sg-flot";
+      div.innerHTML = `<div class="sg-velo oscuro" data-acc="cerrar"></div><div class="sg-panel" role="dialog" aria-modal="true" aria-labelledby="sg-nota-tit">
+      <div class="sis-tenue">${escapar(area().nombre)}</div><h2 id="sg-nota-tit">Nota · ${escapar(tr.n)} · ${escapar(tr.nombre)}</h2>
+      ${t.nota && t.notaPor ? `<p class="sis-tenue">Escrita por ${escapar(t.notaPor)}</p>` : ""}
+      <label class="sis-campo"><span>Qué pasó o qué hay que recordar</span><textarea id="sg-nota-txt" rows="5" placeholder="Ej.: se cortó por viento, falta reprocesar el KMZ…">${escapar(t.nota)}</textarea></label>
+      <div class="sis-acciones">${t.nota ? '<button type="button" class="sg-borrar" data-acc="nota-borrar">Borrar nota</button>' : ""}<span style="flex:1"></span>
+        <button type="button" class="sis-btn" data-acc="cerrar">Cancelar</button><button type="button" class="sis-btn primario" data-acc="nota-guardar">Guardar</button></div></div>`;
+      div.dataset.t = tr.id;
+      raiz.appendChild(div);
+      const ta = div.querySelector("textarea");
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+    const tramoDe = (id) => area().tramos.find((t) => t.id === id);
+    async function cargarEnEntrega(ids, codigo) {
+      if (codigo === "+") {
+        codigo = `E${st.entregas.length + 1}`;
+        await guardarEntrega({ cicloId: st.ciclo.id, planId: st.plan.id, codigo, fecha: hoyISO() });
+      }
+      const listos = codigo === "-" ? ids : ids.filter((id) => todoListo(P(), est2(id)));
+      const no = ids.length - listos.length;
+      listos.forEach((id) => st.brillo.add(id));
+      st.sel.clear();
+      await aplicar(
+        listos.map((id) => ({ tramoId: id, tipo: "entrega", valor: codigo === "-" ? "" : codigo })),
+        codigo === "-" ? `${listos.length} tramo${listos.length === 1 ? "" : "s"} fuera de la entrega` : `${listos.length} tramo${listos.length === 1 ? "" : "s"} cargado${listos.length === 1 ? "" : "s"} en ${codigo}${no ? ` · ${no} aún no están listos` : ""}`
+      );
+    }
+    async function lote(v) {
+      const ids = [...st.sel], cambios = [];
+      let saltados = 0;
+      for (const id of ids) {
+        const t = est2(id);
+        if (v === "volado") {
+          if (!volado(t)) cambios.push({ tramoId: id, tipo: "terreno", valor: hoyISO(), por: yo() });
+          continue;
+        }
+        if (!volado(t)) {
+          saltados++;
+          continue;
+        }
+        productos(P()).forEach((c) => cambios.push({ tramoId: id, tipo: "prod", col: c.id, valor: v }));
+        if (v !== "listo" && t.entrega) cambios.push({ tramoId: id, tipo: "entrega", valor: "" });
+        if (v === "listo") st.brillo.add(id);
+      }
+      const n = ids.length - saltados;
+      await aplicar(cambios, `${n} tramo${n === 1 ? "" : "s"} ${v === "volado" ? "marcados volados" : "marcados " + TEXTO_ESTADO2[v]}${saltados ? ` · ${saltados} sin volar quedaron igual` : ""}`);
+    }
+    function moverCol(i, j) {
+      const c = st.plan.cols;
+      if (j < 0 || j >= c.length) return;
+      [c[i], c[j]] = [c[j], c[i]];
+    }
+    raiz.addEventListener("click", async (ev) => {
+      const el = ev.target.closest("[data-acc]");
+      if (!el || !raiz.contains(el)) return;
+      const acc = el.dataset.acc, v = el.dataset.v;
+      const filaEl = el.closest("[data-t]");
+      const tr = filaEl && !el.classList.contains("sg-seg") ? tramoDe(filaEl.dataset.t) : null;
+      try {
+        switch (acc) {
+          case "tab":
+            st.tab = v;
+            st.sel.clear();
+            st.revision = null;
+            render();
+            break;
+          case "area":
+            st.area = Number(v);
+            st.sel.clear();
+            st.filtro = "";
+            render();
+            break;
+          case "filtro":
+            st.filtro = st.filtro === v ? "" : v;
+            render();
+            break;
+          case "plegar":
+            st.plegar = el.checked;
+            escribirLS2("sg_plegar", st.plegar);
+            render();
+            break;
+          case "grupo":
+            st.abiertos.has(v) ? st.abiertos.delete(v) : st.abiertos.add(v);
+            render();
+            break;
+          case "sel":
+            if (tr) {
+              el.checked ? st.sel.add(tr.id) : st.sel.delete(tr.id);
+              render();
+            }
+            break;
+          case "sel-todos":
+            if (el.checked) area().tramos.filter(pasaFiltro).forEach((t) => st.sel.add(t.id));
+            else st.sel.clear();
+            render();
+            break;
+          case "sel-limpiar":
+            st.sel.clear();
+            render();
+            break;
+          case "terreno":
+            if (tr) {
+              const t = est2(tr.id);
+              await aplicar([{ tramoId: tr.id, tipo: "terreno", valor: volado(t) ? "" : hoyISO(), por: volado(t) ? "" : yo() }], volado(t) ? `${tr.n} quedó como no volado` : `${tr.n} marcado volado hoy`);
+            }
+            break;
+          case "prod":
+            if (tr) {
+              const c = st.plan.cols.find((x) => x.id === el.dataset.col), t = est2(tr.id), sig = SIGUIENTE[estadoProd(t, c)];
+              const cambios = [{ tramoId: tr.id, tipo: "prod", col: c.id, valor: sig }];
+              if (sig !== "listo" && t.entrega) cambios.push({ tramoId: tr.id, tipo: "entrega", valor: "" });
+              st.pop = `${tr.id}:${c.id}`;
+              const queda = { ...t, prod: { ...t.prod, [c.id]: sig } };
+              if (todoListo(P(), queda)) st.brillo.add(tr.id);
+              await aplicar(cambios, null);
+            }
+            break;
+          case "entrega":
+            if (tr) menuEntrega(el, [tr.id]);
+            break;
+          case "lote":
+            await lote(v);
+            break;
+          case "lote-entrega":
+            menuEntrega(el, [...st.sel]);
+            break;
+          case "ent-elegir": {
+            const f = el.closest(".sg-flot");
+            const ids = JSON.parse(f.dataset.ids || "[]");
+            cerrarFlotantes();
+            await cargarEnEntrega(ids, v);
+            break;
+          }
+          case "nota":
+            if (tr) panelNota(tr);
+            break;
+          case "nota-guardar":
+          case "nota-borrar": {
+            const f = el.closest(".sg-flot"), id = f.dataset.t, texto3 = acc === "nota-borrar" ? "" : f.querySelector("textarea").value.trim();
+            cerrarFlotantes();
+            await aplicar([{ tramoId: id, tipo: "nota", valor: texto3, por: yo() }], texto3 ? "Nota guardada" : "Nota borrada");
+            break;
+          }
+          case "cerrar":
+            cerrarFlotantes();
+            break;
+          case "revision-aplicar": {
+            const r = st.revision;
+            st.revision = null;
+            await aplicar(r.cambios, `${r.cambios.length} cambio${r.cambios.length === 1 ? "" : "s"} desde la carpeta`);
+            break;
+          }
+          case "revision-cerrar":
+            st.revision = null;
+            render();
+            break;
+          case "ciclo": {
+            const c = st.ciclos[Number(v)];
+            if (c) {
+              st.ciclo = c;
+              st.sel.clear();
+              await cargarEventos();
+              render();
+            }
+            break;
+          }
+          case "nuevo-ciclo": {
+            const ult = st.ciclos[0];
+            const sig = ult ? mesSiguiente(ult.nombre, ult.mesContrato) : { nombre: nombreMes(hoyISO()), mesContrato: 1 };
+            st.ciclo = await guardarCiclo({ planId: st.plan.id, proyectoId: st.proyectoId, nombre: sig.nombre || "Mes nuevo", mesContrato: st.plan.tipo === "mensual" ? sig.mesContrato : null, datos: "" });
+            await recargar();
+            avisarConDeshacer(`${st.ciclo.nombre} creado con los mismos tramos, sin avance`);
+            break;
+          }
+          case "col-subir":
+          case "col-bajar": {
+            const i = Number(v);
+            moverCol(i, acc === "col-subir" ? i - 1 : i + 1);
+            await guardarPlan2(st.plan);
+            render();
+            break;
+          }
+          case "col-quitar": {
+            const c = st.plan.cols.splice(Number(v), 1)[0];
+            await guardarPlan2(st.plan);
+            render();
+            avisarConDeshacer(`Columna ${c.nombre} quitada`, async () => {
+              st.plan.cols.splice(Number(v), 0, c);
+              await guardarPlan2(st.plan);
+              render();
+            });
+            break;
+          }
+          case "col-agregar": {
+            const k = st.plan.cols.findIndex((c) => c.tipo === "entrega");
+            st.plan.cols.splice(k < 0 ? st.plan.cols.length : k, 0, { id: "p" + nuevoId().slice(0, 8), tipo: "producto", nombre: "Nuevo", ext: "", ancho: 70, visible: true });
+            await guardarPlan2(st.plan);
+            render();
+            break;
+          }
+          case "tramos-guardar": {
+            const i = Number(v), a = st.plan.areas[i], ta = raiz.querySelector(`[data-area-tramos="${i}"]`);
+            const nuevos = tramosDesdeCarpetas(ta.value, nuevoId);
+            const previos = new Map(a.tramos.map((t) => [t.carpeta || t.nombre, t]));
+            a.tramos = nuevos.map((t) => {
+              const p = previos.get(t.carpeta);
+              return p ? { ...t, id: p.id } : t;
+            });
+            await guardarPlan2(st.plan);
+            render();
+            avisarConDeshacer(`${a.nombre}: ${a.tramos.length} tramos`);
+            break;
+          }
+          case "area-agregar":
+            st.plan.areas.push({ id: nuevoId(), nombre: `Área ${st.plan.areas.length + 1}`, carpeta: "", tramos: [{ id: nuevoId(), n: "001", nombre: "Tramo 1", carpeta: "" }] });
+            await guardarPlan2(st.plan);
+            render();
+            break;
+          case "area-quitar": {
+            const i = Number(v), a = st.plan.areas.splice(i, 1)[0];
+            st.area = 0;
+            await guardarPlan2(st.plan);
+            render();
+            avisarConDeshacer(`Área ${a.nombre} quitada`, async () => {
+              st.plan.areas.splice(i, 0, a);
+              await guardarPlan2(st.plan);
+              render();
+            });
+            break;
+          }
+          case "plan-eliminar": {
+            if (el.dataset.confirmar !== "si") {
+              el.dataset.confirmar = "si";
+              el.textContent = "Toca de nuevo para eliminar (queda en la papelera)";
+              break;
+            }
+            await eliminarPlan2(st.plan.id);
+            location.hash = "#/seguimiento";
+            break;
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        avisarConDeshacer(`No se pudo: ${e.message}`);
+      }
+    });
+    raiz.addEventListener("change", async (ev) => {
+      const t = ev.target;
+      try {
+        if (t.dataset.archivo === "carpeta" && t.files && t.files.length) {
+          const rutas = [...t.files].map((f) => f.webkitRelativePath || f.name);
+          st.revision = { ...revisarArchivos(st.plan, st.est, rutas), archivos: rutas.length };
+          t.value = "";
+          render();
+          return;
+        }
+        if (t.dataset.plazo) {
+          st.plan.plazo.tipo = t.dataset.plazo;
+          await guardarPlan2(st.plan);
+          return;
+        }
+        if (t.dataset.tipo) {
+          st.plan.tipo = t.dataset.tipo;
+          await guardarPlan2(st.plan);
+          render();
+          return;
+        }
+        if (t.dataset.colVis != null) {
+          st.plan.cols[Number(t.dataset.colVis)].visible = t.checked;
+          await guardarPlan2(st.plan);
+          return;
+        }
+        if (t.dataset.ciclo === "datos") {
+          st.ciclo.datos = t.value;
+          await guardarCiclo(st.ciclo);
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+        avisarConDeshacer(`No se pudo: ${e.message}`);
+      }
+    });
+    raiz.addEventListener("input", (ev) => {
+      const t = ev.target;
+      if (t.dataset.ciclo && t.dataset.ciclo !== "datos") {
+        st.ciclo[t.dataset.ciclo] = t.dataset.ciclo === "mesContrato" ? Number(t.value) || null : t.value;
+        const m = raiz.querySelector("#sg-carpeta-mes");
+        if (m) m.textContent = carpetaMes(st.ciclo);
+        clearTimeout(timerCiclo);
+        timerCiclo = setTimeout(() => guardarCiclo(st.ciclo), 500);
+        return;
+      }
+      if (t.dataset.plan === "dias") {
+        st.plan.plazo.dias = Number(t.value) || 1;
+        guardarPlanLuego();
+        return;
+      }
+      if (t.dataset.colNombre != null) {
+        st.plan.cols[Number(t.dataset.colNombre)].nombre = t.value;
+        guardarPlanLuego();
+        return;
+      }
+      if (t.dataset.colExt != null) {
+        let x = t.value.trim();
+        if (x && !x.startsWith(".")) x = "." + x;
+        st.plan.cols[Number(t.dataset.colExt)].ext = x;
+        guardarPlanLuego();
+        return;
+      }
+      if (t.dataset.areaNombre != null) {
+        st.plan.areas[Number(t.dataset.areaNombre)].nombre = t.value;
+        guardarPlanLuego();
+        return;
+      }
+      if (t.dataset.areaCarpeta != null) {
+        st.plan.areas[Number(t.dataset.areaCarpeta)].carpeta = t.value.trim();
+        guardarPlanLuego();
+      }
+    });
+    raiz.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const form = ev.target;
+      if (form.dataset.form !== "nuevo") return;
+      try {
+        await crear(new FormData(form));
+        await recargar();
+        avisarConDeshacer("Seguimiento creado");
+      } catch (e) {
+        console.error(e);
+        avisarConDeshacer(`No se pudo crear: ${e.message}`);
+      }
+    });
+    const alTecla = (ev) => {
+      if (ev.key === "Escape") cerrarFlotantes();
+    };
+    document.addEventListener("keydown", alTecla);
+    const quitarTips = activarTooltips(raiz, (el) => {
+      if (el.dataset.tip === "nota") {
+        const tr2 = tramoDe(el.closest("[data-t]").dataset.t);
+        const t = tr2 && est2(tr2.id);
+        return t ? `<b>Nota · ${escapar(tr2.n)}</b>
+${escapar(t.nota)}${t.notaPor ? `
+<span style="opacity:.75">${escapar(t.notaPor)}</span>` : ""}
+<span style="opacity:.75">Toca para editar</span>` : "";
+      }
+      const a = st.plan && st.plan.areas[Number(el.dataset.a)];
+      const tr = a && a.tramos.find((x) => x.id === el.dataset.t);
+      return tr ? textoTramo(tr) : "";
+    });
+    const quitarColumnas = columnasArrastrables(raiz, {
+      caja: () => raiz.querySelector(".sg-scroll"),
+      ancho: (id) => st.plan.cols.find((c) => c.id === id).ancho,
+      alAncho: (id, w) => {
+        st.plan.cols.find((c) => c.id === id).ancho = w;
+        aplicarPlantilla();
+      },
+      alSoltarAncho: async (id, w) => {
+        await guardarPlan2(st.plan);
+        avisarConDeshacer(`Ancho de ${st.plan.cols.find((c) => c.id === id).nombre}: ${w} px`);
+      },
+      alMover: async (id, destino) => {
+        const vis = colsVis().map((c) => c.id), antes = vis.join();
+        const resto = vis.filter((x) => x !== id);
+        resto.splice(destino, 0, id);
+        if (resto.join() === antes) {
+          render();
+          return;
+        }
+        const previo = st.plan.cols.slice();
+        st.plan.cols = [...resto.map((x) => st.plan.cols.find((c) => c.id === x)), ...st.plan.cols.filter((c) => !c.visible)];
+        await guardarPlan2(st.plan);
+        render();
+        avisarConDeshacer(`Columna ${st.plan.cols.find((c) => c.id === id).nombre} movida`, async () => {
+          st.plan.cols = previo;
+          await guardarPlan2(st.plan);
+          render();
+        });
+      }
+    });
+    recargar().catch((e) => {
+      console.error(e);
+      raiz.innerHTML = `<div class="sis-error">No se pudo cargar el seguimiento: ${escapar(e.message)}</div>`;
+    });
+    return {
+      desmontar() {
+        activo2 = false;
+        if (timerPlan) {
+          clearTimeout(timerPlan);
+          guardarPlan2(st.plan);
+        }
+        if (timerCiclo) {
+          clearTimeout(timerCiclo);
+          guardarCiclo(st.ciclo);
+        }
+        quitarTips();
+        quitarColumnas();
+        document.removeEventListener("keydown", alTecla);
+        raiz.remove();
+      },
+      refrescar() {
+        recargar();
+      }
+    };
+  }
+
+  // modulos/seguimiento/seguimiento.js
+  var ALMACENES3 = Object.values(ALM4);
+  var iniciado3 = false;
+  function iniciar4({ personaId } = {}) {
+    if (!iniciado3) {
+      iniciarDatos3({ personaId: personaId != null ? personaId : null });
+      iniciado3 = true;
+    } else if (personaId !== void 0) fijarPersona3(personaId);
+  }
+  function montar3(contenedor2, contexto) {
+    iniciar4({ personaId: contexto.personaId });
+    return montarPantallas3(contenedor2, contexto);
+  }
+  async function resumenDeProyecto(proyectoId) {
+    iniciar4();
+    const plan = await planDeProyecto(proyectoId);
+    if (!plan) return null;
+    const ciclo = (await ciclosDePlan(plan.id))[0] || null;
+    const tramos = plan.areas.flatMap((a) => a.tramos);
+    const est2 = ciclo ? estadoCiclo(await eventosDeCiclo(ciclo.id)) : {};
+    return { plan, ciclo, cuenta: cuenta(plan, est2, tramos), plazo: plazoCiclo(plan, ciclo, hoyISO()) };
   }
 
   // app/nube-panel.js
@@ -6521,8 +8035,8 @@ Content-Type: ${mime}\r
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.4";
-  var MODULOS_INCLUIDOS = "Equipos 0.1f + Vuelos 0.3";
+  var VERSION_SISTEMA = "0.5";
+  var MODULOS_INCLUIDOS = "Equipos 0.1f + Vuelos 0.4 + Seguimiento 0.1";
 
   // app/vistas.js
   var ICONO = {
@@ -6549,7 +8063,7 @@ Content-Type: ${mime}\r
     <span class="sis-chips">${lugar}${chipCal(e.calibracion)}${chipAlertas(e.alertasActivas.length)}</span>
   </a>`;
   }
-  var vacio = (texto3, extra = "") => `<div class="sis-vacio"><p>${texto3}</p>${extra}</div>`;
+  var vacio2 = (texto3, extra = "") => `<div class="sis-vacio"><p>${texto3}</p>${extra}</div>`;
   async function inicio(ctx2) {
     var _a;
     const [personas2, proyectos2, equipos] = await Promise.all([listarPersonas(), listarProyectos(), listarEquiposConEstado()]);
@@ -6592,20 +8106,20 @@ Content-Type: ${mime}\r
       <div class="sis-dos"><div>
         <section class="sis-tarjeta">
           <h2>Calibraciones por revisar</h2>
-          ${revisar2.length ? `<div class="sis-lista">${revisar2.slice(0, 10).map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>${revisar2.length > 10 ? `<p class="sis-tenue">y ${revisar2.length - 10} más en Equipos → filtro «Calibración por revisar».</p>` : ""}` : vacio(vigentes.length ? "Todas las calibraciones están al día." : "Aún no hay equipos cargados. Ve a Equipos → Administrar → Importar planilla.")}
+          ${revisar2.length ? `<div class="sis-lista">${revisar2.slice(0, 10).map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>${revisar2.length > 10 ? `<p class="sis-tenue">y ${revisar2.length - 10} más en Equipos → filtro «Calibración por revisar».</p>` : ""}` : vacio2(vigentes.length ? "Todas las calibraciones están al día." : "Aún no hay equipos cargados. Ve a Equipos → Administrar → Importar planilla.")}
         </section>
         <section class="sis-tarjeta">
         <h2>Equipos en terreno, por proyecto</h2>
         ${Object.keys(porProyecto).length ? Object.entries(porProyecto).map(([pid, lista]) => `
           <div class="sis-grupo"><a class="sis-grupo-cab" href="#/proyecto/${escapar(pid)}">${ICONO.proyecto}${escapar(nomProy(pid))} <span class="sis-tenue">${lista.length} equipo${lista.length > 1 ? "s" : ""}</span></a>
-          <div class="sis-lista">${lista.map((e) => filaEquipo(e)).join("")}</div></div>`).join("") : vacio("No hay equipos fuera de la oficina.")}
+          <div class="sis-lista">${lista.map((e) => filaEquipo(e)).join("")}</div></div>`).join("") : vacio2("No hay equipos fuera de la oficina.")}
       </section>
       </div><aside>
         <section class="sis-tarjeta">
           <h2>Alertas abiertas</h2>
           ${conAlerta.length ? `<div class="sis-lista">${conAlerta.map((e) => `<a class="sis-fila" href="#/equipos/${escapar(e.id)}">
               <span class="sis-fila-txt"><b>${escapar(e.nombre)}</b>${e.alertasActivas.map((a) => `<span class="sis-tenue">${escapar(a.descripcion)} · desde ${fechaLegible((a.fechaReporte || "").slice(0, 10))}</span>`).join("")}</span>
-              <span class="sis-chips">${e.alertasActivas.map((a) => `<span class="sis-chip rojo">${escapar(estadoAlerta(a.estado))}</span>`).join("")}</span></a>`).join("")}</div>` : vacio("No hay alertas abiertas.")}
+              <span class="sis-chips">${e.alertasActivas.map((a) => `<span class="sis-chip rojo">${escapar(estadoAlerta(a.estado))}</span>`).join("")}</span></a>`).join("")}</div>` : vacio2("No hay alertas abiertas.")}
         </section>
       </aside></div>`;
     }
@@ -6625,12 +8139,12 @@ Content-Type: ${mime}\r
         <div class="sis-cab"><h2>Proyectos activos</h2><a class="sis-btn chico" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
         ${misProyectos.length ? `<p class="sis-sub">A mi cargo</p><div class="sis-proys">${misProyectos.map(tarjetaProy).join("")}</div>` : ""}
         ${otros.length ? `${misProyectos.length ? '<p class="sis-sub">Otros</p>' : ""}<div class="sis-proys">${otros.map(tarjetaProy).join("")}</div>` : ""}
-        ${!activos.length ? vacio("Aún no hay proyectos. Crea el primero con el encargo que te llegó.") : ""}
+        ${!activos.length ? vacio2("Aún no hay proyectos. Crea el primero con el encargo que te llegó.") : ""}
       </section>
     </div><aside>
       <section class="sis-tarjeta">
         <h2>Equipos a mi cargo</h2>
-        ${aMiCargo.length ? `<div class="sis-lista">${aMiCargo.map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>` : vacio(
+        ${aMiCargo.length ? `<div class="sis-lista">${aMiCargo.map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>` : vacio2(
       yo ? "No tienes equipos a tu cargo. Se asignan al confirmar el checklist de salida en Equipos." : "Elige tu persona para ver tus equipos.",
       yo ? '<a class="sis-btn" href="#/equipos">Ir a Equipos</a>' : ""
     )}
@@ -6663,8 +8177,8 @@ Content-Type: ${mime}\r
   }
   async function proyecto(ctx2, id) {
     const p = await obtenerProyecto(id);
-    if (!p || p.eliminadoEn) return vacio("Este proyecto no existe o está en la papelera.", '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
-    const [personas2, equipos, certs, planes] = await Promise.all([listarPersonas(), listarEquiposConEstado(), certificadosDeProyecto(id), planesDeProyecto2(id)]);
+    if (!p || p.eliminadoEn) return vacio2("Este proyecto no existe o está en la papelera.", '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
+    const [personas2, equipos, certs, planes, seg] = await Promise.all([listarPersonas(), listarEquiposConEstado(), certificadosDeProyecto(id), planesDeProyecto2(id), resumenDeProyecto(id)]);
     const nomPers = (pid) => (personas2.find((x) => x.id === pid) || {}).nombre || "";
     const enProyecto = equipos.filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.proyectoId === id);
     const esOficina = id === OFICINA_ID;
@@ -6677,7 +8191,7 @@ Content-Type: ${mime}\r
             <span class="sis-fila-txt"><b>${escapar(equipo.nombre)}</b><span class="sis-tenue">${certificado ? `${escapar(certificado.codigo || "Certificado")} · ${fechaLegible(certificado.fecha)}${certificado.laboratorio ? ` · ${escapar(certificado.laboratorio)}` : ""}` : "Sin certificado cargado"}</span></span>
             ${certificado && certificado.archivoId ? `<button class="sis-btn chico" data-accion="abrir-pdf" data-id="${escapar(certificado.archivoId)}">${ICONO.pdf}PDF</button>` : '<span class="sis-chip ambar">Falta PDF</span>'}
           </div>`).join("")}</div>
-          <p class="sis-tenue">Para entregar al mandante los certificados de los equipos que están en este proyecto.</p>` : vacio("Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.");
+          <p class="sis-tenue">Para entregar al mandante los certificados de los equipos que están en este proyecto.</p>` : vacio2("Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.");
     return `<div class="sis-encabezado">
       <div>
         <div class="sis-miga"><a href="#/proyectos">Proyectos</a> / ${escapar(p.nombre)}</div>
@@ -6700,11 +8214,19 @@ Content-Type: ${mime}\r
             <span class="sis-fila-txt"><b>${escapar(v.nombre)}</b><span class="sis-tenue">${escapar(v.dron)}</span></span>
             <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 1e4).toLocaleString("es-CL", { maximumFractionDigits: 1 })} ha</span>` : ""}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString("es-CL", { maximumFractionDigits: 2 })} cm</span>` : ""}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ""}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? "s" : ""}</span>` : ""}</span></a>`).join("")}</div>` : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
       </section>
-      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llega cuando Terreno Topografía entre al Sistema.</p></section>
+      <section class="sis-tarjeta">
+        <div class="sis-cab"><h2>Seguimiento de entregas</h2>${seg ? `<a class="sis-btn chico" href="#/seguimiento/${escapar(id)}">Abrir</a>` : ctx2.rol === "terreno" && !esOficina ? `<a class="sis-btn chico" href="#/seguimiento/${escapar(id)}">+ Seguimiento</a>` : ""}</div>
+        ${seg ? (() => {
+      const c = seg.cuenta, pct = c.productos ? Math.round(100 * c.productosListos / c.productos) : 0;
+      return `<p class="sis-tenue">${seg.ciclo ? escapar(seg.ciclo.nombre || "") + " · " : ""}${c.total - c.sinvolar}/${c.total} tramos volados · ${c.productosListos}/${c.productos} productos · ${c.ok}/${c.total} entregados</p>
+          <div class="sg-mini" style="margin-top:6px"><i style="width:${pct}%"></i></div>${seg.plazo ? `<p class="sis-tenue" style="margin-top:6px">Entrega: ${fechaLegible(seg.plazo.vence)}${seg.plazo.quedan >= 0 ? ` · quedan ${seg.plazo.quedan} días hábiles` : ` · vencida hace ${-seg.plazo.quedan} días hábiles`}</p>` : ""}`;
+    })() : '<div class="sis-vacio"><p>Sin seguimiento. Sirve para llevar qué tramos están volados, procesados y entregados.</p></div>'}
+      </section>
+      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llegan desde la app de Terreno cuando quede conectada al Sistema.</p></section>
     </div><aside>
       <section class="sis-tarjeta">
         <h2>Equipos ${esOficina ? "asignados" : "en el proyecto"}</h2>
-        ${enProyecto.length ? `<div class="sis-lista">${enProyecto.map((e) => filaEquipo(e)).join("")}</div>` : vacio("No hay equipos asignados. Se asignan con el checklist de salida en Equipos.", '<a class="sis-btn chico" href="#/equipos">Ir a Equipos</a>')}
+        ${enProyecto.length ? `<div class="sis-lista">${enProyecto.map((e) => filaEquipo(e)).join("")}</div>` : vacio2("No hay equipos asignados. Se asignan con el checklist de salida en Equipos.", '<a class="sis-btn chico" href="#/equipos">Ir a Equipos</a>')}
       </section>
       <section class="sis-tarjeta">
         <h2>Certificados para el mandante</h2>
@@ -6716,8 +8238,8 @@ Content-Type: ${mime}\r
   async function proyectoEditar(ctx2, id) {
     const nuevo = id === "nuevo";
     const p = nuevo ? { estado: "activo", tiposTrabajo: [], encargadoId: ctx2.personaId || "", fechaEncargo: hoyISO() } : await obtenerProyecto(id);
-    if (!p) return vacio("Este proyecto no existe.");
-    if (p.id === OFICINA_ID) return vacio("«Oficina» es un proyecto especial y no se edita.", '<a class="sis-btn" href="#/proyectos">Volver</a>');
+    if (!p) return vacio2("Este proyecto no existe.");
+    if (p.id === OFICINA_ID) return vacio2("«Oficina» es un proyecto especial y no se edita.", '<a class="sis-btn" href="#/proyectos">Volver</a>');
     const personas2 = await listarPersonas();
     const val = (k) => {
       var _a;
@@ -6780,7 +8302,7 @@ Content-Type: ${mime}\r
     <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map((x) => `<div class="sis-fila">
         <span class="sis-fila-txt"><b>${escapar(x.nombre)}</b><span class="sis-tenue">${escapar(x.cargo || "Sin cargo")}</span></span>
         <span class="sis-chips">${(x.roles || []).map((r) => `<span class="sis-chip gris">${escapar(NOMBRE_ROL_PERSONA[r] || r)}</span>`).join("")}
-        ${editable ? `<button class="sis-btn chico" data-accion="editar-persona" data-id="${escapar(x.id)}">Editar</button>` : ""}</span></div>`).join("")}</div>` : vacio("Aún no hay personas.")}</section>
+        ${editable ? `<button class="sis-btn chico" data-accion="editar-persona" data-id="${escapar(x.id)}">Editar</button>` : ""}</span></div>`).join("")}</div>` : vacio2("Aún no hay personas.")}</section>
     ${editable ? "" : '<p class="sis-tenue">Solo Administración / RRHH edita esta lista.</p>'}
     <section class="sis-tarjeta" id="empresa"><h2>Empresa</h2>
       <form class="sis-form" data-form="empresa">
@@ -6794,8 +8316,8 @@ Content-Type: ${mime}\r
     gastos: { titulo: "Gastos", version: "una próxima versión", texto: "Cada gasto con la foto de su boleta, dentro de su proyecto (o en «Oficina»). La rendición pasa por borrador → emitida → devuelta → abonada, y RRHH registra el abono. Las boletas quedan respaldadas en la carpeta del proyecto." },
     terreno: { titulo: "Libreta de terreno", version: "una próxima versión", texto: "Terreno Topografía entra al Sistema: jornadas y levantamientos dentro de cada proyecto, con los equipos que salieron en el checklist. Mientras tanto, sigue usando la app de Terreno por separado." }
   };
-  function pronto(ctx2, clave) {
-    const x = PRONTO[clave];
+  function pronto(ctx2, clave2) {
+    const x = PRONTO[clave2];
     return `<section class="sis-tarjeta sis-pronto grande"><h1>${x.titulo}</h1><p><span class="sis-chip ambar">Llega en ${x.version}</span></p><p>${x.texto}</p></section>`;
   }
   var VISTAS = { inicio, proyectos, proyecto, proyectoEditar, personas, pronto };
@@ -6896,6 +8418,43 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     return false;
   }
 
+  // app/revision.js
+  async function revisarInstalacion(versionApp) {
+    if (!location.protocol.startsWith("http") || navigator.onLine === false) return null;
+    let v;
+    try {
+      const r = await fetch("version.json", { cache: "no-store" });
+      if (!r.ok) return { texto: "No se encontró version.json en el sitio: la última subida puede estar incompleta." };
+      v = await r.json();
+    } catch {
+      return null;
+    }
+    const faltan = [];
+    await Promise.all((v.archivos || []).map(async (a) => {
+      try {
+        const x = await fetch(a, { method: "HEAD", cache: "no-store" });
+        if (!x.ok) faltan.push(a.replace(/^\.\//, ""));
+      } catch {
+      }
+    }));
+    if (faltan.length) return { texto: `${faltan.length > 1 ? "Faltan" : "Falta"} ${faltan.length} archivo${faltan.length > 1 ? "s" : ""} en el sitio publicado: ${faltan.slice(0, 4).join(", ")}${faltan.length > 4 ? "…" : ""}. Vuelve a subir la versión completa, con sus carpetas.` };
+    if (v.version !== versionApp) return { texto: `El sitio tiene la versión ${v.version} y esta pantalla es la ${versionApp}.`, recargar: true };
+    return null;
+  }
+  function mostrarAvisoInstalacion(aviso) {
+    if (!aviso) return;
+    const el = document.createElement("div");
+    el.className = "sis-aviso-instalacion";
+    el.setAttribute("role", "alert");
+    el.innerHTML = `<span></span>${aviso.recargar ? '<button type="button" class="sis-btn chico">Recargar</button>' : ""}<button type="button" class="sis-cerrar" aria-label="Cerrar aviso">✕</button>`;
+    el.querySelector("span").textContent = aviso.texto;
+    el.addEventListener("click", (ev) => {
+      if (ev.target.closest(".sis-cerrar")) el.remove();
+      else if (ev.target.closest(".sis-btn")) location.reload();
+    });
+    document.body.prepend(el);
+  }
+
   // app/sistema.js
   window.ModuloEquipos = equipos_exports;
   var $ = (id) => document.getElementById(id);
@@ -6957,6 +8516,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     proyectos: ic('<path d="M3 7h6l2 2h10v10H3z"/>'),
     equipos: ic('<path d="M12 3v11"/><path d="M5 21l7-7 7 7"/><circle cx="12" cy="3" r="1.5"/>'),
     vuelos: ic('<path d="M12 9v6M9 12h6"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/>'),
+    seguimiento: ic('<path d="M4 18h4V9H4zM10 18h4V5h-4zM16 18h4v-6h-4z"/><path d="M3 21h18"/>'),
     gastos: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
     terreno: ic('<path d="M4 20l5-14 5 9 3-5 3 10z"/>'),
     personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
@@ -6967,6 +8527,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     { ruta: "proyectos", texto: "Proyectos", roles: ["terreno", "rrhh"], tambien: ["proyecto", "proyecto-editar"] },
     { ruta: "equipos", texto: "Equipos", roles: ["terreno", "rrhh"] },
     { ruta: "vuelos", texto: "Vuelos", roles: ["terreno"] },
+    { ruta: "seguimiento", texto: "Seguimiento", roles: ["terreno"] },
     { ruta: "gastos", texto: "Gastos", roles: ["terreno", "rrhh"], pronto: true },
     { ruta: "terreno", texto: "Libreta de terreno", roles: ["terreno"], pronto: true },
     { ruta: "personas", texto: "Personas", roles: ["rrhh", "terreno"] }
@@ -7040,7 +8601,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       return;
     }
     pintarMenu(base);
-    const clave = `${base}/${arg || ""}/${selRol.value}/${selPersona.value}`;
+    const clave2 = `${base}/${arg || ""}/${selRol.value}/${selPersona.value}`;
     if (base === "vuelos") {
       const partes = location.hash.replace(/^#\/?/, "").split("/");
       desmontar();
@@ -7052,7 +8613,17 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
         planId: partes[1] === "plan" ? partes[2] : null,
         proyectoId: partes[1] === "proyecto" ? partes[2] : null
       });
-      rutaActual = clave;
+      rutaActual = clave2;
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (base === "seguimiento") {
+      const partes = location.hash.replace(/^#\/?/, "").split("/");
+      desmontar();
+      contenedor.innerHTML = "";
+      contenedor.dataset.vista = "modulo";
+      montado = montar3(contenedor, { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, tab: partes[2] || null });
+      rutaActual = clave2;
       window.scrollTo(0, 0);
       return;
     }
@@ -7061,13 +8632,13 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       contenedor.innerHTML = "";
       contenedor.dataset.vista = "modulo";
       montado = montar(contenedor, { rol: selRol.value, personaId: selPersona.value || null, equipoInicial: arg });
-      rutaActual = clave;
+      rutaActual = clave2;
       window.scrollTo(0, 0);
       return;
     }
     desmontar();
     const cambioDePantalla = !rutaActual.startsWith(`${base}/${arg || ""}/`);
-    rutaActual = clave;
+    rutaActual = clave2;
     contenedor.dataset.vista = "sistema";
     if (cambioDePantalla) window.scrollTo(0, 0);
     try {
@@ -7076,7 +8647,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       else if (base === "proyecto") html = await VISTAS.proyecto(ctx(), arg);
       else if (base === "proyecto-editar") html = await VISTAS.proyectoEditar(ctx(), arg || "nuevo");
       else html = await VISTAS[base](ctx());
-      if (rutaActual !== clave) return;
+      if (rutaActual !== clave2) return;
       contenedor.innerHTML = `<div class="sis-vista">${html}</div>`;
     } catch (err) {
       console.error(err);
@@ -7141,6 +8712,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     await cargarPersonas(leer("env_persona", ""));
     iniciar2({ personaId: selPersona.value || null });
     iniciar3({ personaId: selPersona.value || null });
+    iniciar4({ personaId: selPersona.value || null });
     selRol.addEventListener("change", () => {
       escribir("env_rol", selRol.value);
       rutaActual = "";
@@ -7183,6 +8755,8 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       }
     });
     window.__sistemaCargado = true;
+    revisarInstalacion(VERSION_SISTEMA).then(mostrarAvisoInstalacion).catch(() => {
+    });
   }
   arrancar().catch((err) => {
     console.error(err);

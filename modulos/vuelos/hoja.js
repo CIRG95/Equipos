@@ -74,7 +74,7 @@ export function geometria(hoja) {
   const a = hoja.area;
   const fuente = a.tipo === 'corredor' ? (a.eje && a.eje.linea) : (a.original && a.original.anillo);
   if (!fuente || fuente.length < 2) return null;
-  const clave = JSON.stringify([a.tipo, fuente.length, fuente[0], fuente[fuente.length - 1], a.margen, a.rectas, a.corredor, a.cortes]);
+  const clave = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes]); // con todos los vértices: dos áreas con el mismo primer y último punto no deben compartir caché
   if (cacheGeo.clave === clave) return cacheGeo.valor;
   const marco = marcoDe(fuente);
   const cortes = (a.cortes || []).map(c => c.map(marco.aXY));
@@ -141,6 +141,15 @@ export function calcularSector(hoja, d, geo, i, extra = {}) {
   const sugerida = Math.floor(previo.velSugerida * 10) / 10;
   const velocidad = Number(P.velocidad) || sugerida;
   return { ...calcularPlan({ ...b, velocidad }), velocidad, sugerida, auto: !Number(P.velocidad), despegueXY: despegue, modo: b.modo, altura: b.altura };
+}
+
+/** Rumbo (0–179°) que da menos minutos de jornada en el sector i con su despegue: cada 5° y luego afina de a 1°. */
+export function rumboMasCorto(hoja, d, geo, i, velocidad) {
+  const prueba = r => calcularSector(hoja, d, geo, i, { rumbo: r, velocidad }).minTotal;
+  let mejor = 0, minimo = Infinity;
+  for (let r = 0; r < 180; r += 5) { const m = prueba(r); if (m < minimo - 1e-6) { minimo = m; mejor = r; } }
+  for (let r = mejor - 4; r <= mejor + 4; r++) { const rr = (r + 180) % 180; const m = prueba(rr); if (m < minimo - 1e-6) { minimo = m; mejor = rr; } }
+  return { rumbo: mejor, minTotal: minimo };
 }
 
 /** Totales de la hoja (todos los sectores). */

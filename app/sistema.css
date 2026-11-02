@@ -244,3 +244,29 @@ dialog.nube-panel input:not([type=checkbox]){flex:1; min-width:0; min-height:42p
 .np-msg{padding:8px 12px; border-radius:10px; margin:0 0 10px;} .np-msg.ok{background:#E3F2EF; color:#0F5F58;} .np-msg.error{background:#FBEAEA; color:#8F1D17;}
 .np-ok{color:#0F5F58;} .np-aviso{background:#FCEDE6; color:#8A3410; padding:10px 12px; border-radius:10px;}
 .np-error-txt{color:#8F1D17;} .np-tenue{color:var(--muted); font-size:12px;} .np-nota{margin-top:14px;}
+
+/* Aviso de instalación incompleta o desactualizada (app/revision.js) */
+.sis-aviso-instalacion{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#FFF4EC; color:#7C2D12; border-bottom:1px solid #F1C9A8; padding:10px max(16px, env(safe-area-inset-left)); font-size:14px; position:relative; z-index:95;}
+.sis-aviso-instalacion span{flex:1 1 260px;}
+.sis-aviso-instalacion .sis-cerrar{border:0; background:none; color:inherit; font-size:16px; cursor:pointer; padding:4px 8px;}
+
+/* Piezas comunes: globo de información (compartido/tooltip.js), aviso con Deshacer (compartido/deshacer.js),
+   columnas arrastrables (compartido/columnas.js) */
+.sis-tip{position:fixed; z-index:120; max-width:300px; background:#1C1F23; color:#fff; border-radius:8px; padding:9px 11px; font-size:12px; line-height:1.45; box-shadow:0 8px 28px rgba(28,31,35,.2); pointer-events:none; white-space:pre-line;}
+.sis-tip b{font-size:13px;}
+.sis-deshacer{position:fixed; z-index:110; left:50%; transform:translateX(-50%); bottom:calc(24px + env(safe-area-inset-bottom)); background:#1C1F23; color:#fff; border-radius:12px; padding:10px 14px; display:flex; gap:14px; align-items:center; box-shadow:0 4px 16px rgba(0,0,0,.2); font-size:14px; max-width:calc(100% - 32px);}
+body[data-modo="telefono"] .sis-deshacer{bottom:calc(84px + env(safe-area-inset-bottom));}
+.sis-deshacer button{border:0; background:none; color:inherit; font:inherit; font-weight:700; text-decoration:underline; cursor:pointer;}
+.sis-th{position:relative; display:flex; align-items:center; justify-content:center; gap:4px; height:42px; cursor:grab; user-select:none; -webkit-user-select:none; touch-action:none; border-radius:6px; padding:0 6px; text-align:center;}
+.sis-th:hover{background:var(--borde-suave); color:var(--ink);}
+.sis-th .sis-th-grip{opacity:0; font-size:10px; letter-spacing:-2px; transition:opacity .15s;}
+.sis-th:hover .sis-th-grip{opacity:.7;}
+.sis-th.moviendo{cursor:grabbing; background:var(--marca-suave); color:var(--marca); box-shadow:0 8px 28px rgba(28,31,35,.16); z-index:4;}
+.sis-th-borde{position:absolute; right:-5px; top:8px; bottom:8px; width:10px; cursor:col-resize; z-index:3; touch-action:none;}
+.sis-th-borde::after{content:""; position:absolute; left:4px; top:0; bottom:0; width:2px; border-radius:1px; background:var(--borde);}
+.sis-th:hover .sis-th-borde::after, .sis-th-borde.activo::after{background:var(--marca);}
+.sis-col-marca{position:absolute; top:0; bottom:0; width:3px; margin-left:-1px; background:var(--marca); border-radius:2px; pointer-events:none; z-index:5;}
+
+/* Partes solo para una pantalla (estándar común 12) */
+body[data-modo="telefono"] [data-solo-pc]{display:none !important;}
+body[data-modo="pc"] [data-solo-telefono]{display:none !important;}

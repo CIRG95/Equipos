@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.6
+# INTEGRACION.md — Sistema v0.7
 
 ## Qué contiene
 
@@ -88,3 +88,14 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
   - Ruta `#/avisos` (en el menú cuenta como Inicio) y campanita `#sis-avisos`.
   - Destinatarios: rol rrhh (todos) y el encargado del proyecto (`encargadoId`).
   - Visto: localStorage `env_avisos_vistos_<personaId>`.
+
+## Sistema v0.7
+- **Vuelos 0.5**:
+  - `metar.js` (estaciones cercanas desde `vendor/capas/metar-estaciones.json`, que va dentro del paquete; decodificar y comparar) y `metar-ui.js` (panel común del Sistema y del paquete de pronóstico). Ya no se llama a NOAA desde la página.
+  - `redvial.js`: red vial MOP por región (`vendor/capas/redvial/indice.json` + un JSON por región, se baja a pedido) y `despegueSobreCamino()`.
+  - `geom.js`: `puntoEnEje`, `cortesTransversales`, `distanciaEnEje`. `hoja.js`: `dmAKm`, `kmADm`, `distanciasCorte`, `cortesDeCorredor`, `distanciasPorBaterias`; `calcularSector` acepta `extra.despegue`.
+  - Hoja: `area.dm = { texto, inicio (km), desc }`, `area.auto = { modo, cada, primer, bat }`, `area.caminos = [{ nombre, linea }]`, `metar = { texto, leidoEn }`. Sin cambio de `schemaVersion` (campos opcionales).
+  - Vuelos importa la puerta de Seguimiento (`tramosDeProyecto`) para los cortes por tramos.
+- **Seguimiento (puerta):** `tramosDeProyecto()` agrega `ini` y `fin` (km) por tramo.
+- **Paquete de pronóstico 1.1:** METAR pegado en vez de leído; `resumen.metar` queda en lo que devuelve.
+- **Paquete de conexión 1.1:** `tramosDeProyecto()` trae `ini`/`fin`.

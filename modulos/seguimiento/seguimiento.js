@@ -45,7 +45,7 @@ export async function tramosDeProyecto(proyectoId) {
   const est = ciclo ? estadoCiclo(await eventosDeCiclo(ciclo.id)) : {};
   return {
     ciclo: ciclo ? { id: ciclo.id, nombre: ciclo.nombre } : null,
-    areas: plan.areas.map(a => ({ nombre: a.nombre, tramos: a.tramos.map(t => { const e = estadoDe(est, t.id); return { id: t.id, n: t.n, nombre: t.nombre, volado: !!e.terreno, fecha: e.terreno, por: e.por, nota: e.nota }; }) })),
+    areas: plan.areas.map(a => ({ nombre: a.nombre, tramos: a.tramos.map(t => { const e = estadoDe(est, t.id); return { id: t.id, n: t.n, nombre: t.nombre, ini: t.ini ?? null, fin: t.fin ?? null, volado: !!e.terreno, fecha: e.terreno, por: e.por, nota: e.nota }; }) })),
   };
 }
 

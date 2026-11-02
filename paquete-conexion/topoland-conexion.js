@@ -1067,8 +1067,9 @@ Content-Type: ${mime}\r
     return {
       ciclo: ciclo ? { id: ciclo.id, nombre: ciclo.nombre } : null,
       areas: plan.areas.map((a) => ({ nombre: a.nombre, tramos: a.tramos.map((t) => {
+        var _a, _b;
         const e = estadoDe(est2, t.id);
-        return { id: t.id, n: t.n, nombre: t.nombre, volado: !!e.terreno, fecha: e.terreno, por: e.por, nota: e.nota };
+        return { id: t.id, n: t.n, nombre: t.nombre, ini: (_a = t.ini) != null ? _a : null, fin: (_b = t.fin) != null ? _b : null, volado: !!e.terreno, fecha: e.terreno, por: e.por, nota: e.nota };
       }) }))
     };
   }
@@ -1086,7 +1087,7 @@ Content-Type: ${mime}\r
   }
 
   // app/conexion-terreno.js
-  var VERSION = "1.0 (Sistema v0.6)";
+  var VERSION = "1.1 (Sistema v0.7)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var leer = (k) => {

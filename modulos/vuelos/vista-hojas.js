@@ -7,6 +7,7 @@ import { OFICINA_ID } from '../../compartido/catalogos.js';
 import { areaM2 } from './calculo.js';
 import { totales, estadoPermiso, nombreSector, DOCUMENTOS_DGAC, CONSULTAS } from './hoja.js';
 import { ESTADOS_HOJA, PASOS } from './ui.js';
+import { resumenMetar } from './metar-ui.js';
 
 export function crearVistaHojas(v) {
   const ref = n => (...a) => v[n](...a);
@@ -111,7 +112,7 @@ export function crearVistaHojas(v) {
         <section class="sis-tarjeta">${cab(3, 'Clima', c ? (climaObs ? 'Con observaciones' : 'Cumple') : '', c ? (climaObs ? 'ambar' : 'verde') : 'gris', 'clima', c ? 'Ver pronóstico' : 'Consultar')}
           ${c ? `<p class="sis-tenue">Consultado ${fechaHora(c.consultadoEn)} para el ${fechaLegible(c.fecha)}.</p>
             <dl class="vu-tabla">${(c.checklist || []).map(x => fila(esc(x.texto), `<span class="${x.cumple ? 'vu-verde' : 'vu-rojo'}">${esc(x.detalle)}</span>`)).join('')}
-            ${c.metar ? fila(`METAR ${esc(c.metar.icao)}`, `a ${fmt(c.metar.km, 0)} km`) : ''}</dl>` : '<p class="sis-tenue">Consulta el pronóstico del día del vuelo: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR.</p>'}
+            ${(() => { const m = resumenMetar(h.metar); return m ? fila(`METAR ${esc(m.icao)}`, `${esc(m.categoria)}${m.viento ? ` · ${fmt(m.viento.ms, 1)} m/s` : ''}`) : ''; })()}</dl>` : '<p class="sis-tenue">Consulta el pronóstico del día del vuelo: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR.</p>'}
         </section>
         <section class="sis-tarjeta">${cab(4, 'Permisos y consultas', perm.texto, perm.nivel === 'ok' ? 'verde' : perm.nivel === 'aviso' ? 'ambar' : 'gris', 'permisos', 'Abrir')}
           <dl class="vu-tabla">

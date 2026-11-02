@@ -20,7 +20,7 @@ Con este paquete la app de Terreno **alimenta al Sistema** sin integrarse a él 
    - `await TopolandConexion.misEquiposEnTerreno()` → lista para elegir.
    - `await TopolandConexion.reportar({ equipoId, tipo: 'problema' | 'aviso', descripcion })`.
    - Lo ven **el encargado del proyecto** (campanita del Sistema) y **Administración** (Equipos → Alertas). Llega con la próxima sincronización.
-6. **Tramos volados** (si el proyecto tiene seguimiento): `await TopolandConexion.tramosDeProyecto(proyectoId)` y `await TopolandConexion.marcarTramoVolado(proyectoId, tramoId, { nota })`.
+6. **Tramos volados** (si el proyecto tiene seguimiento): `await TopolandConexion.tramosDeProyecto(proyectoId)` (cada tramo trae `ini` y `fin` en km si su nombre tiene DM) y `await TopolandConexion.marcarTramoVolado(proyectoId, tramoId, { nota })`.
 7. **Nube:** `TopolandConexion.conectarNube()` (desde un toque), `sincronizar()`, `estadoNube()`, `alCambiarNube(fn)`, `alLlegarDatos(fn)`.
 
 ## Qué no hace (todavía)

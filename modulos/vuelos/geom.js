@@ -275,3 +275,42 @@ export function distPuntoPoligono(p, A) {
   for (let i = 0; i < A.length; i++) m = Math.min(m, distPuntoSegmento(p, A[i], A[(i + 1) % A.length]));
   return m;
 }
+
+// ─────────── Cortes transversales (corredores) ───────────
+
+/** Punto y dirección (unitaria) del eje a la distancia s desde su inicio. */
+export function puntoEnEje(eje, s) {
+  let acum = 0;
+  for (let i = 0; i + 1 < eje.length; i++) {
+    const l = dist(eje[i], eje[i + 1]);
+    if (s <= acum + l || i + 2 === eje.length) {
+      const t = l ? Math.max(0, Math.min(1, (s - acum) / l)) : 0;
+      return { p: add(eje[i], mul(sub(eje[i + 1], eje[i]), t)), dir: unit(sub(eje[i + 1], eje[i])) };
+    }
+    acum += l;
+  }
+  return { p: eje[0], dir: [1, 0] };
+}
+
+/** Cortes perpendiculares al eje en las distancias dadas (m desde el inicio). semi: medio largo de cada corte. */
+export function cortesTransversales(eje, distancias, semi) {
+  const L = largo(eje);
+  return distancias.filter(s => s > 1 && s < L - 1).map(s => {
+    const { p, dir } = puntoEnEje(eje, s);
+    const n = [-dir[1], dir[0]];
+    return [add(p, mul(n, semi)), add(p, mul(n, -semi))];
+  });
+}
+
+/** Distancia a lo largo del eje del punto más cercano a q (para ubicar sectores en el DM). */
+export function distanciaEnEje(eje, q) {
+  let mejor = { d: Infinity, s: 0 }, acum = 0;
+  for (let i = 0; i + 1 < eje.length; i++) {
+    const a = eje[i], b = eje[i + 1], ab = sub(b, a), l = Math.hypot(ab[0], ab[1]);
+    const t = l ? Math.max(0, Math.min(1, ((q[0] - a[0]) * ab[0] + (q[1] - a[1]) * ab[1]) / (l * l))) : 0;
+    const p = add(a, mul(ab, t)), d = dist(p, q);
+    if (d < mejor.d) mejor = { d, s: acum + t * l };
+    acum += l;
+  }
+  return mejor.s;
+}

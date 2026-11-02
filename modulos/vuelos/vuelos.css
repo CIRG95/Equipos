@@ -155,7 +155,7 @@ body[data-modo="pc"] .vu-datos-grilla{grid-template-columns:2fr 2fr 1fr 1.5fr;}
 .vu-sector{display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid #EFEDE8; flex-wrap:wrap;}
 .vu-sector:first-child{border-top:0;}
 .vu-sector > i{width:12px; height:12px; border-radius:3px; flex:none;}
-.vu-sector-nombre{width:110px; min-height:34px; border:1px solid var(--line); border-radius:8px; padding:4px 8px; font:inherit; font-weight:600;}
+.vu-sector-nombre{width:140px; min-height:34px; border:1px solid var(--line); border-radius:8px; padding:4px 8px; font:inherit; font-weight:600;}
 .vu-sector-dato{font-size:13px; color:#43484E; flex:1 1 120px;}
 .vu-sector-acc{display:inline-flex; gap:10px;}
 .vu-total{margin:8px 0 !important; font-weight:600; font-size:14px;}
@@ -257,3 +257,37 @@ body:not([data-modo="pc"]) .vu-dos.ancho .vu-derecha > *{order:2;}
 .mod-vuelos .leaflet-control-layers-toggle{background-image:none !important; width:auto !important; height:auto !important; padding:7px 10px; font:600 12px/1 var(--sans, sans-serif); color:var(--ink); text-decoration:none;}
 .mod-vuelos .leaflet-control-layers-toggle::after{content:"Mapa";}
 .mod-vuelos .leaflet-control-layers-expanded{padding:8px 10px; font:13px/1.5 var(--sans, sans-serif);}
+
+/* Tarjeta del METAR (metar-ui.js), también en el paquete del pronóstico */
+.mt-panel{display:flex; flex-direction:column; gap:8px;}
+.mt-tit{margin:0; font-size:16px;}
+.mt-tenue{color:var(--muted); font-size:13px;}
+.mt-lista{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+.mt-lista li{border:1px solid var(--borde-suave); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; font-size:14px;}
+.mt-icao{font-family:var(--mono); user-select:all;}
+.mt-ref{display:block; font-size:12px; color:#9A3A0B;}
+.mt-enlaces{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:13px;}
+.mt-pegar{display:flex; flex-direction:column; gap:4px; font-size:13px;}
+.mt-pegar textarea{width:100%; font-family:var(--mono); font-size:12px; border:1px solid var(--borde); border-radius:8px; padding:8px;}
+.mt-btn{align-self:flex-start; border:1px solid var(--borde); background:var(--surface); border-radius:9px; padding:7px 12px; min-height:38px; cursor:pointer; font:inherit;}
+.mt-btn.mt-pri{background:var(--marca); border-color:var(--marca); color:#fff; font-weight:600;}
+.mt-leido{border-top:1px solid var(--borde-suave); padding-top:8px; display:flex; flex-direction:column; gap:6px;}
+.mt-cab{display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center;}
+.mt-chip{font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px;}
+.mt-chip.mt-ok{background:#E3F2EE; color:#0B5A53;} .mt-chip.mt-aviso{background:#FFF4EC; color:#9A3A0B;} .mt-chip.mt-no{background:#FDE8E6; color:#8A1C12;}
+.mt-comp{margin:0; padding-left:18px; font-size:13px; display:flex; flex-direction:column; gap:2px;}
+.mt-comp li.mt-ok::marker{color:#0F766E;} .mt-comp li.mt-aviso{color:#9A3A0B;} .mt-comp li.mt-no{color:#B42318; font-weight:600;}
+p.mt-aviso{color:#9A3A0B; font-size:13px; margin:0;} p.mt-no{color:#B42318; font-size:13px; margin:0;}
+.mt-crudo{white-space:pre-wrap; font-family:var(--mono); font-size:12px; background:#FAFAF8; border:1px solid var(--borde-suave); border-radius:8px; padding:8px 10px; margin:0;}
+
+/* Cortes automáticos del corredor */
+.vu-fila-campos { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: end; margin: 8px 0; }
+.vu-fila-campos .sis-campo { flex: 1 1 140px; min-width: 0; }
+.vu-fila-campos .sis-campo input { width: 100%; }
+.vu-caminos { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; }
+.vu-caminos li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.vu-caminos i { width: 18px; height: 3px; background: #E0A800; border-radius: 2px; flex: none; }
+.vu-sug { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 8px; }
+.vu-sug li { font-size: 13px; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #FAFAF7; }
+.vu-sug li small { display: block; color: #6B7075; font-size: 12px; }
+.vu-sug li .sis-btn { margin-top: 6px; }

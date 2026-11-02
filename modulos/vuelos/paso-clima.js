@@ -5,7 +5,8 @@ import { escapar as esc, fechaLegible } from '../../compartido/util.js';
 import { fmt } from './calculo.js';
 import { chip, fila, fechaHora, dosD } from './ui.js';
 import { pedirPronostico, pedirKp, ENLACES_CONSULTA } from './pronostico.js';
-import { metarCercano, enlaceMetar } from './metar.js';
+import { cargarEstaciones } from './metar.js';
+import { htmlPanelMetar, resumenMetar } from './metar-ui.js';
 import { graficoPronostico } from './graficos.js';
 import { analizarDia as analizarDiaPron } from './pronostico-widget.js';
 
@@ -46,14 +47,10 @@ export function crearPasoClima(v) {
       <p class="sis-tenue">Límites del dron elegido (Vuelos → Drones).</p></section>`;
   }
 
-  function htmlMetar() {
-    const m = st.metar;
-    return `<section class="sis-tarjeta"><h2>METAR · TAF</h2>
-      ${m ? `<p class="sis-tenue">${esc(m.icao)} · ${esc(m.nombre)} · a ${fmt(m.km, 0)} km${m.viento ? ` · viento ${m.viento.dir != null ? m.viento.dir + '°' : 'variable'} ${fmt(m.viento.v, 1)} m/s${m.viento.g ? ` ráf. ${fmt(m.viento.g, 1)}` : ''}` : ''}</p>
-        <pre class="vu-metar">${esc(m.metar)}${m.taf ? '\n\n' + esc(m.taf) : ''}</pre><a class="vu-link" href="${enlaceMetar(m.icao)}" target="_blank" rel="noopener">Ver en NOAA ↗</a>`
-        : st.metarError ? `<p class="sis-tenue">${esc(st.metarError)}</p><a class="sis-btn chico" href="https://aipchile.dgac.gob.cl/" target="_blank" rel="noopener">Revisar METAR en AIP Chile ↗</a>`
-        : '<p class="sis-tenue">Se busca al consultar el pronóstico (el aeródromo con reporte más cercano, datos de NOAA).</p>'}
-    </section>`;
+  // METAR: aeródromos cercanos + pegar el reporte (los servicios de METAR no dejan leerlos desde la página).
+  cargarEstaciones().then(() => { if (st.paso === 'clima' || st.vista === 'rapido') render(); }).catch(() => {});
+  function htmlMetar(lat, lon, guardado) {
+    return `<section class="sis-tarjeta">${htmlPanelMetar({ lat, lon, elevArea: st.pron ? st.pron.elevacionModelo : null, guardado, dron: st.vista === 'rapido' ? (base.drones.find(x => x.id === st.rapDron) || base.drones[0]) : dron(), horasPron: st.pron ? st.pron.horas : null })}</section>`;
   }
 
   function vistaClima() {
@@ -74,7 +71,7 @@ export function crearPasoClima(v) {
       </div>
       <div class="vu-derecha">
         ${lado || (h.clima && h.clima.checklist ? htmlChecklist(h.clima.checklist, 'Checklist (última consulta)') : '')}
-        ${htmlMetar()}
+        ${(() => { const [lon, lat] = g.marco.aLonLat([0, 0]); return htmlMetar(lat, lon, h.metar); })()}
         <section class="sis-tarjeta"><h2>Viento medido en terreno</h2>
           ${h.viento.length ? `<dl class="vu-tabla">${h.viento.map((v, k) => fila(`${esc(v.hora)}${v.nota ? ` · ${esc(v.nota)}` : ''}`, `${fmt(v.ms, 1)} m/s <button class="vu-link" data-accion="quitar-viento" data-k="${k}" aria-label="Quitar">✕</button>`)).join('')}</dl>` : ''}
           <form class="vu-viento" data-form="viento"><input name="hora" placeholder="hh:mm" aria-label="Hora" value="${new Date().toTimeString().slice(0, 5)}"><input name="ms" placeholder="m/s" inputmode="decimal" aria-label="Viento en m/s" required><input name="nota" placeholder="Nota (opcional)" aria-label="Nota"><button class="sis-btn chico">Anotar</button></form>
@@ -88,13 +85,11 @@ export function crearPasoClima(v) {
   }
 
   async function consultarClima(lat, lon) {
-    st.pronCargando = true; st.pronError = ''; st.metarError = ''; await render();
+    st.pronCargando = true; st.pronError = ''; await render();
     try {
       const [p, kps] = await Promise.all([pedirPronostico(lat, lon), st.kps ? Promise.resolve(st.kps) : pedirKp()]);
       st.pron = p; st.kps = kps; st.dia = null;
     } catch (e) { st.pronError = `No se pudo consultar el pronóstico (${e.message}). Revisa la conexión a internet.`; st.pron = null; }
-    try { st.metar = await metarCercano(lat, lon); if (!st.metar) st.metarError = 'No hay aeródromos con METAR a menos de ~120 km.'; }
-    catch { st.metar = null; st.metarError = 'No se pudo leer el METAR desde la app (sin conexión o el servicio no respondió).'; }
     st.pronCargando = false;
   }
 
@@ -110,7 +105,6 @@ export function crearPasoClima(v) {
       sol: b.sol && b.sol.salida ? [b.sol.salida.slice(11, 16), b.sol.puesta ? b.sol.puesta.slice(11, 16) : '—'] : null,
       modelos: st.pron.horas[0]?.modelos || 0, checklist: b.chk,
       horas: b.filas.map(f => ({ hora: f.h.hora, v: f.h.v, g: f.h.g, dir: f.h.dir, prob: f.h.prob, nubes: f.h.nubes, temp: f.h.temp, kp: f.kp, estado: f.ev.estado })),
-      metar: st.metar ? { icao: st.metar.icao, nombre: st.metar.nombre, km: st.metar.km, metar: st.metar.metar, taf: st.metar.taf } : null,
     };
     cambio();
   }
@@ -137,9 +131,9 @@ export function crearPasoClima(v) {
           ${cuerpo}
         </section>
       </div>
-      <div class="vu-derecha">${lado}${st.pron ? htmlMetar() : ''}</div>
+      <div class="vu-derecha">${lado}${st.rapLat && st.rapLon ? htmlMetar(Number(st.rapLat), Number(st.rapLon), st.rapMetar) : ''}</div>
     </div>`;
   }
 
-  return { vistaClima, vistaRapido, consultarClima, guardarResumenClima };
+  return { vistaClima, vistaRapido, consultarClima, guardarResumenClima, resumenMetar };
 }

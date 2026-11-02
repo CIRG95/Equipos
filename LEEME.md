@@ -1,4 +1,29 @@
-# Topoland · Sistema de trabajo — v0.6 (conexión con la app de Terreno)
+# Topoland · Sistema de trabajo — v0.7 (Vuelos: METAR, cortes del corredor y despegue en camino)
+
+**Sistema v0.7 = v0.6 + Vuelos 0.5.** Se sube igual que antes: todo menos `config.js` (el tuyo se queda como está).
+
+## Qué cambia en v0.7
+- **METAR (opción A, copiar y pegar):**
+  - El paso Clima, el Pronóstico rápido y el paquete de pronóstico muestran los **3 aeródromos con METAR más cercanos** (lista de NOAA, 77 en Chile): distancia, dirección, altura y enlaces a AIP Chile, MeteoChile y NOAA (texto).
+  - Avisa «solo referencia» si el aeródromo está a más de 50 km o con más de 500 m de diferencia de altura.
+  - Se **pega el METAR (y el TAF)** y la app lo lee: viento y ráfaga en m/s, dirección, visibilidad, nubes y techo, fenómenos, temperatura y rocío, QNH, hora del reporte y antigüedad, categoría VFR/MVFR/IFR/LIFR. Lo compara con los límites del dron y con el pronóstico de esa hora.
+  - Queda guardado en la hoja, en el Resumen y en la hoja para terreno (PDF).
+  - Por qué no se lee solo: NOAA no permite leerlo desde otra página (CORS) y AIP Chile y MeteoChile no tienen API. La opción B (un intermediario propio) queda para después.
+- **UAS Control** (uascontrol.io) en Permisos → consultas, con registro y captura como NOTAM y AIP.
+- **Cortes automáticos del corredor** (Área → «Cortes automáticos»):
+  - **DM del inicio del eje** y si el DM baja hacia el final.
+  - Modos: cada X m desde el inicio · **alineados al DM** (11+000, 12+000… o desde un primer DM) · **tramos del Seguimiento** del proyecto de la hoja · **por baterías** (máximo de baterías por sector).
+  - Con el DM, los sectores se nombran por su tramo (10+300 – 11+000). Los cortes generados se arrastran o quitan igual que los manuales.
+- **Caminos y despegue sugerido:**
+  - **Red vial del MOP** (Dirección de Vialidad, gdb del 31-oct-2026) como capa de los mapas, por región: se baja solo la región del área (`vendor/capas/redvial/`, 17 archivos). Colores por carpeta (pavimento, ripio, suelo natural).
+  - **Caminos propios** de la hoja: dibujados o cargados desde KML/KMZ (huellas y accesos que no están en la red).
+  - Paso Vuelo → **«Despegue sugerido»**: prueba puntos de los caminos a menos de 1,5 km del sector y propone el de menos tiempo de jornada, con rol, carpeta, distancia al sector y ahorro; «Usar» lo deja como despegue. Para un sector o todos. **Es solo una referencia**: acceso, rejas, permisos y línea de vista se confirman en terreno.
+- **Puertas:** `Seguimiento.tramosDeProyecto()` ahora trae `ini` y `fin` (km) de cada tramo. Paquete de conexión 1.1 (mismo cambio).
+- **Pruebas:** 26 pruebas automáticas (nuevas: METAR y corredor/despegue).
+
+---
+
+# v0.6 (conexión con la app de Terreno)
 
 **Sistema v0.6 = v0.5 + vincular teléfono + avisos de equipos + paquete de conexión para Terreno.**
 

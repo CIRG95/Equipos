@@ -14,7 +14,7 @@ import { listarPersonas, listarProyectos, OFICINA_ID } from '../compartido/catal
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 
-export const VERSION = '1.0 (Sistema v0.6)';
+export const VERSION = '1.1 (Sistema v0.7)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
 const leer = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
@@ -98,7 +98,7 @@ export async function reportar({ equipoId, tipo = 'problema', descripcion }) {
   return Equipos.reportarProblema({ equipoId, tipo, descripcion: String(descripcion).trim(), personaId: p.id, proyectoId: eq ? eq.ubicacion.proyectoId : null });
 }
 
-/** Tramos del mes actual de un proyecto (Seguimiento), o null si el proyecto no tiene seguimiento. */
+/** Tramos del mes actual de un proyecto (Seguimiento), o null si el proyecto no tiene seguimiento. Cada tramo trae ini/fin (km) si su nombre tiene DM. */
 export function tramosDeProyecto(proyectoId) { return Seguimiento.tramosDeProyecto(proyectoId); }
 
 /** Marca un tramo volado hoy (o la fecha dada), con nota opcional. volado: false lo desmarca. */

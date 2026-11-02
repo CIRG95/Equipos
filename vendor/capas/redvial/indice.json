@@ -1,0 +1,193 @@
+{
+ "fuente": "Dirección de Vialidad MOP · Red Vial (gdb 31-oct-2026), simplificada a ~10 m",
+ "fecha": "2026-10-31",
+ "regiones": [
+  {
+   "archivo": "nuble.json",
+   "region": "Región de Ñuble",
+   "bbox": [
+    -72.88,
+    -37.19,
+    -71.253,
+    -36.011
+   ],
+   "caminos": 868
+  },
+  {
+   "archivo": "tarapaca.json",
+   "region": "Región de Tarapacá",
+   "bbox": [
+    -70.219,
+    -21.626,
+    -68.485,
+    -18.962
+   ],
+   "caminos": 276
+  },
+  {
+   "archivo": "antofagasta.json",
+   "region": "Región de Antofagasta",
+   "bbox": [
+    -70.718,
+    -25.963,
+    -67.061,
+    -20.998
+   ],
+   "caminos": 300
+  },
+  {
+   "archivo": "aysen-del-general-carlos-ibanez-del-campo.json",
+   "region": "Región Aysén del General Carlos Ibáñez del Campo",
+   "bbox": [
+    -73.89,
+    -48.96,
+    -71.098,
+    -43.674
+   ],
+   "caminos": 325
+  },
+  {
+   "archivo": "atacama.json",
+   "region": "Región de Atacama",
+   "bbox": [
+    -71.515,
+    -29.422,
+    -68.299,
+    -25.914
+   ],
+   "caminos": 647
+  },
+  {
+   "archivo": "coquimbo.json",
+   "region": "Región de Coquimbo",
+   "bbox": [
+    -71.68,
+    -32.189,
+    -69.825,
+    -29.181
+   ],
+   "caminos": 759
+  },
+  {
+   "archivo": "valparaiso.json",
+   "region": "Región de Valparaíso",
+   "bbox": [
+    -109.443,
+    -33.94,
+    -70.071,
+    -27.074
+   ],
+   "caminos": 1552
+  },
+  {
+   "archivo": "maule.json",
+   "region": "Región del Maule",
+   "bbox": [
+    -72.782,
+    -36.377,
+    -70.394,
+    -34.688
+   ],
+   "caminos": 1466
+  },
+  {
+   "archivo": "biobio.json",
+   "region": "Región del Biobío",
+   "bbox": [
+    -73.946,
+    -38.481,
+    -71.123,
+    -36.447
+   ],
+   "caminos": 1301
+  },
+  {
+   "archivo": "libertador-general-bernardo-o-higgins.json",
+   "region": "Región del Libertador General Bernardo O'Higgins",
+   "bbox": [
+    -72.044,
+    -34.959,
+    -70.322,
+    -33.915
+   ],
+   "caminos": 1559
+  },
+  {
+   "archivo": "magallanes-y-la-antartica-chilena.json",
+   "region": "Región de Magallanes y La Antártica Chilena",
+   "bbox": [
+    -73.129,
+    -54.948,
+    -67.316,
+    -50.737
+   ],
+   "caminos": 167
+  },
+  {
+   "archivo": "arica-y-parinacota.json",
+   "region": "Región de Arica y Parinacota",
+   "bbox": [
+    -70.37,
+    -19.192,
+    -68.966,
+    -17.499
+   ],
+   "caminos": 144
+  },
+  {
+   "archivo": "los-lagos.json",
+   "region": "Región de Los Lagos",
+   "bbox": [
+    -74.142,
+    -43.732,
+    -71.685,
+    -40.271
+   ],
+   "caminos": 1488
+  },
+  {
+   "archivo": "metropolitana-de-santiago.json",
+   "region": "Región Metropolitana de Santiago",
+   "bbox": [
+    -71.645,
+    -34.079,
+    -69.945,
+    -32.93
+   ],
+   "caminos": 772
+  },
+  {
+   "archivo": "la-araucania.json",
+   "region": "Región de La Araucanía",
+   "bbox": [
+    -73.487,
+    -39.587,
+    -70.897,
+    -37.576
+   ],
+   "caminos": 1811
+  },
+  {
+   "archivo": "los-rios.json",
+   "region": "Región de Los Ríos",
+   "bbox": [
+    -73.716,
+    -40.68,
+    -71.672,
+    -39.334
+   ],
+   "caminos": 829
+  },
+  {
+   "archivo": "sin-region.json",
+   "region": "Sin región",
+   "bbox": [
+    -72.541,
+    -37.438,
+    -72.4,
+    -37.239
+   ],
+   "caminos": 2
+  }
+ ]
+}

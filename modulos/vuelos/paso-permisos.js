@@ -7,6 +7,7 @@ import { ENLACES_CONSULTA } from './pronostico.js';
 import { esquemaSVG } from './graficos.js';
 import { totales, estadoPermiso, diasHabiles, nombreSector, DOCUMENTOS_DGAC, CONSULTAS } from './hoja.js';
 import { COLORES_BATERIA } from './ui.js';
+import { resumenMetar } from './metar-ui.js';
 
 export function crearPasoPermisos(v) {
   const ref = n => (...a) => v[n](...a);
@@ -53,7 +54,7 @@ export function crearPasoPermisos(v) {
           <p class="sis-tenue">Revisa el NOTAM el mismo día del vuelo. Cada revisión queda con fecha, persona y, si la adjuntas, la captura.</p>
         </section>
         <section class="sis-tarjeta"><h2>Otras consultas</h2>
-          <div class="vu-enlaces">${ENLACES_CONSULTA.filter(([t]) => !/AIP/.test(t)).map(([t, u]) => `<a class="sis-btn chico" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join('')}</div>
+          <div class="vu-enlaces">${ENLACES_CONSULTA.filter(([t]) => !/AIP|UAS/.test(t)).map(([t, u]) => `<a class="sis-btn chico" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join('')}</div>
         </section>
       </div>
     </div>`;
@@ -89,7 +90,8 @@ export function crearPasoPermisos(v) {
       <div class="vu-imp-dos">
         <div><h3>Clima${c ? ` · ${fechaLegible(c.fecha)}` : ''}</h3>${c ? `<p>Ventana GO: <b>${esc(c.ventana || 'sin ventana')}</b> · Sol ${c.sol ? c.sol.join('–') : '—'} · Kp máx. ${c.kpMax != null ? fmt(c.kpMax, 0) : '—'}</p>
           <table class="vu-imp-tabla chica"><thead><tr><th>Hora</th><th>Viento</th><th>Ráfaga</th><th>Lluvia</th><th>Estado</th></tr></thead><tbody>${(c.horas || []).filter((_, k) => k % 2 === 0).map(x => `<tr><td>${dosD(x.hora)}</td><td>${fmt(x.v, 1)}</td><td>${fmt(x.g, 1)}</td><td>${x.prob != null ? fmt(x.prob) + '%' : '—'}</td><td>${{ go: 'GO', marg: 'Marg.', no: 'NO', noche: '—' }[x.estado]}</td></tr>`).join('')}</tbody></table>
-          ${c.metar ? `<p class="mono">${esc(c.metar.metar)}</p>` : ''}` : '<p>Sin consulta de clima.</p>'}
+          ` : '<p>Sin consulta de clima.</p>'}
+          ${(() => { const m = resumenMetar(h.metar); return m ? `<p><b>METAR ${esc(m.icao)}</b> (${esc(m.categoria)})</p><p class="mono">${esc(m.texto)}</p>` : '<p>METAR: ☐ revisado el día del vuelo</p>'; })()}
           <h3>Checklist</h3><ul class="vu-imp-chk">${(c && c.checklist || []).map(x => `<li>☐ ${esc(x.texto)} — ${esc(x.detalle)}</li>`).join('')}<li>☐ NOTAM revisado el día del vuelo</li><li>☐ Baterías cargadas (${t.baterias + 1} como mínimo)</li></ul></div>
         <div><h3>Permisos</h3><p>DGAC: <b>${esc(perm.texto)}</b> · ${esc(perm.detalle)}${h.permisos.dgac.numero ? ` · N° ${esc(h.permisos.dgac.numero)}` : ''}</p>
           <ul class="vu-imp-chk">${DOCUMENTOS_DGAC.map(([k, tt]) => `<li>${h.permisos.docs[k] ? '☑' : '☐'} ${tt}</li>`).join('')}</ul>

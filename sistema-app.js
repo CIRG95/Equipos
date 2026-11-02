@@ -6,6 +6,38 @@
       __defProp(target, name, { get: all[name], enumerable: true });
   };
 
+  // compartido/esquema.js
+  var porProyecto = [["proyectoId", "proyectoId"]];
+  var porEquipo = [["equipoId", "equipoId"]];
+  var ESQUEMA = [
+    // compartido
+    { nombre: "compartido_proyectos" },
+    { nombre: "compartido_personas" },
+    { nombre: "compartido_archivos", indices: [["dueno", ["duenoTipo", "duenoId"]]] },
+    // Equipos
+    { nombre: "equipos_equipos" },
+    { nombre: "equipos_eventos", indices: [["equipoId", "equipoId"], ["proyectoId", "proyectoId"]] },
+    { nombre: "equipos_alertas", indices: porEquipo },
+    { nombre: "equipos_modelos" },
+    { nombre: "equipos_certificados", indices: porEquipo },
+    { nombre: "equipos_mantenciones", indices: porEquipo },
+    { nombre: "equipos_notas", indices: porEquipo },
+    // Vuelos
+    { nombre: "vuelos_planes", indices: porProyecto },
+    { nombre: "vuelos_drones" },
+    { nombre: "local_vuelos_capas" },
+    // Seguimiento
+    { nombre: "seguimiento_planes", indices: porProyecto },
+    { nombre: "seguimiento_ciclos", indices: [["planId", "planId"]] },
+    { nombre: "seguimiento_eventos", indices: [["cicloId", "cicloId"]] },
+    { nombre: "seguimiento_entregas", indices: [["cicloId", "cicloId"]] },
+    // Monografías (datos que llegan desde Terreno)
+    { nombre: "terreno_monografias", indices: porProyecto },
+    { nombre: "terreno_monografias_gabinete", indices: porProyecto },
+    { nombre: "terreno_revisiones", indices: [["monografiaId", "monografiaId"], ["proyectoId", "proyectoId"]] },
+    { nombre: "terreno_jornadas", indices: porProyecto }
+  ];
+
   // compartido/almacen.js
   var NOMBRE_BD = "topoland";
   var registrados = /* @__PURE__ */ new Map();
@@ -15,9 +47,17 @@
   function registrarAlmacenes(definiciones) {
     let nuevos = false;
     for (const d of definiciones) {
-      if (!registrados.has(d.nombre)) {
-        registrados.set(d.nombre, d);
+      const previo = registrados.get(d.nombre);
+      if (!previo) {
+        registrados.set(d.nombre, { ...d, indices: [...d.indices || []] });
         nuevos = true;
+        continue;
+      }
+      for (const ind of d.indices || []) {
+        if (!previo.indices.some(([n]) => n === ind[0])) {
+          previo.indices.push(ind);
+          nuevos = true;
+        }
       }
     }
     if (nuevos) promesaBD = null;
@@ -25,6 +65,13 @@
   function almacenesRegistrados() {
     return [...registrados.keys()];
   }
+  registrarAlmacenes(ESQUEMA);
+  var marcar = (k, v) => {
+    try {
+      globalThis[k] = v;
+    } catch {
+    }
+  };
   var oyentes = /* @__PURE__ */ new Set();
   function alCambiar(fn) {
     oyentes.add(fn);
@@ -40,8 +87,14 @@
       }
     }
   }
+  var MENSAJE_BLOQUEO = "Los datos están abiertos en otra app o pestaña (por ejemplo, la app de Terreno en segundo plano). Ciérrala desde las apps recientes y vuelve a abrir.";
   function abrirConVersion(version) {
     return new Promise((resolver, rechazar) => {
+      marcar("__topolandBdEsperando", true);
+      const listo = () => {
+        marcar("__topolandBdEsperando", false);
+        marcar("__topolandBdBloqueada", false);
+      };
       const req = version ? indexedDB.open(NOMBRE_BD, version) : indexedDB.open(NOMBRE_BD);
       req.onupgradeneeded = () => {
         const bd = req.result;
@@ -56,6 +109,7 @@
       let aviso = null;
       req.onsuccess = () => {
         clearTimeout(aviso);
+        listo();
         const bd = req.result;
         bd.onversionchange = () => {
           bd.close();
@@ -66,11 +120,16 @@
       };
       req.onerror = () => {
         clearTimeout(aviso);
+        listo();
         rechazar(req.error);
       };
       req.onblocked = () => {
         clearTimeout(aviso);
-        aviso = setTimeout(() => rechazar(new Error("La app está abierta en otra pestaña con una versión anterior. Ciérrala y vuelve a intentar.")), 1e4);
+        marcar("__topolandBdBloqueada", true);
+        aviso = setTimeout(() => {
+          listo();
+          rechazar(new Error(MENSAJE_BLOQUEO));
+        }, 6e4);
       };
     });
   }
@@ -10224,7 +10283,7 @@ ${escapar(t.nota)}${t.notaPor ? `
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.8.1";
+  var VERSION_SISTEMA = "0.8.2";
   var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.6 + Seguimiento 0.1 + Monografías 0.1 (desde Terreno)";
 
   // app/vistas.js
@@ -10282,8 +10341,8 @@ ${escapar(t.nota)}${t.notaPor ? `
       const sinDato = vigentes.filter((e) => e.calibracion.nivel === "sin_dato");
       const conAlerta = vigentes.filter((e) => e.alertasActivas.length);
       const enTerreno = vigentes.filter((e) => e.ubicacion.lugar === "terreno");
-      const porProyecto = {};
-      for (const e of enTerreno) (porProyecto[_a = e.ubicacion.proyectoId] || (porProyecto[_a] = [])).push(e);
+      const porProyecto2 = {};
+      for (const e of enTerreno) (porProyecto2[_a = e.ubicacion.proyectoId] || (porProyecto2[_a] = [])).push(e);
       const revisar2 = [...vencidas, ...porVencer, ...sinDato];
       return `${saludo}${bienvenida}
       <div class="sis-kpis">
@@ -10299,7 +10358,7 @@ ${escapar(t.nota)}${t.notaPor ? `
         </section>
         <section class="sis-tarjeta">
         <h2>Equipos en terreno, por proyecto</h2>
-        ${Object.keys(porProyecto).length ? Object.entries(porProyecto).map(([pid, lista]) => `
+        ${Object.keys(porProyecto2).length ? Object.entries(porProyecto2).map(([pid, lista]) => `
           <div class="sis-grupo"><a class="sis-grupo-cab" href="#/proyecto/${escapar(pid)}">${ICONO.proyecto}${escapar(nomProy(pid))} <span class="sis-tenue">${lista.length} equipo${lista.length > 1 ? "s" : ""}</span></a>
           <div class="sis-lista">${lista.map((e) => filaEquipo(e)).join("")}</div></div>`).join("") : vacio2("No hay equipos fuera de la oficina.")}
       </section>

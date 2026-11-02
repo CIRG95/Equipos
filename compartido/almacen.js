@@ -2,6 +2,8 @@
 // Cada módulo registra sus almacenes (con prefijo propio: equipos_…, gastos_…, terreno_…)
 // antes de usarlos. Si falta alguno en la base, se sube la versión y se crea, sin tocar los demás.
 
+import { ESQUEMA } from './esquema.js';
+
 const NOMBRE_BD = 'topoland';
 const registrados = new Map(); // nombre → { nombre, keyPath, indices: [[nombreIndice, ruta]] }
 let promesaBD = null;
@@ -11,12 +13,24 @@ let cadena = Promise.resolve(); // las aperturas van de a una: dos a la vez choc
 export function registrarAlmacenes(definiciones) {
   let nuevos = false;
   for (const d of definiciones) {
-    if (!registrados.has(d.nombre)) { registrados.set(d.nombre, d); nuevos = true; }
+    const previo = registrados.get(d.nombre);
+    if (!previo) { registrados.set(d.nombre, { ...d, indices: [...(d.indices || [])] }); nuevos = true; continue; }
+    // Ya estaba (p. ej. desde el esquema): se suman los índices que falten.
+    for (const ind of (d.indices || [])) {
+      if (!previo.indices.some(([n]) => n === ind[0])) { previo.indices.push(ind); nuevos = true; }
+    }
   }
   if (nuevos) promesaBD = null; // la próxima apertura revisa si hay que crear almacenes
 }
 
 export function almacenesRegistrados() { return [...registrados.keys()]; }
+export function definicionesRegistradas() { return [...registrados.values()].map(d => ({ nombre: d.nombre, indices: d.indices.map(i => [...i]) })); }
+
+// El esquema completo se registra siempre, en el Sistema y en el paquete de Terreno (ver esquema.js).
+registrarAlmacenes(ESQUEMA);
+
+// Aviso para la pantalla: la base está esperando a que otra app o pestaña la suelte.
+const marcar = (k, v) => { try { globalThis[k] = v; } catch { /* sin global */ } };
 
 // Avisos de cambio: la capa de nube escucha para saber que hay algo nuevo que subir.
 // Las escrituras que vienen de la propia sincronización van con { silencioso: true } y no avisan.
@@ -27,8 +41,12 @@ function avisarCambio(almacenes, opciones) {
   for (const fn of oyentes) { try { fn(almacenes); } catch (e) { console.warn(e); } }
 }
 
+export const MENSAJE_BLOQUEO = 'Los datos están abiertos en otra app o pestaña (por ejemplo, la app de Terreno en segundo plano). Ciérrala desde las apps recientes y vuelve a abrir.';
+
 function abrirConVersion(version) {
   return new Promise((resolver, rechazar) => {
+    marcar('__topolandBdEsperando', true);
+    const listo = () => { marcar('__topolandBdEsperando', false); marcar('__topolandBdBloqueada', false); };
     const req = version ? indexedDB.open(NOMBRE_BD, version) : indexedDB.open(NOMBRE_BD);
     req.onupgradeneeded = () => {
       const bd = req.result;
@@ -44,17 +62,18 @@ function abrirConVersion(version) {
     };
     let aviso = null;
     req.onsuccess = () => {
-      clearTimeout(aviso);
+      clearTimeout(aviso); listo();
       const bd = req.result;
       bd.onversionchange = () => { bd.close(); if (conexion === bd) conexion = null; promesaBD = null; };
       resolver(bd);
     };
-    req.onerror = () => { clearTimeout(aviso); rechazar(req.error); };
+    req.onerror = () => { clearTimeout(aviso); listo(); rechazar(req.error); };
     // «blocked» no es un error: la apertura sigue esperando a que se cierre la otra pestaña.
     // Solo si pasa demasiado tiempo se avisa.
     req.onblocked = () => {
       clearTimeout(aviso);
-      aviso = setTimeout(() => rechazar(new Error('La app está abierta en otra pestaña con una versión anterior. Ciérrala y vuelve a intentar.')), 10000);
+      marcar('__topolandBdBloqueada', true);
+      aviso = setTimeout(() => { listo(); rechazar(new Error(MENSAJE_BLOQUEO)); }, 60000);
     };
   });
 }

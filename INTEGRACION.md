@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.8.1
+# INTEGRACION.md — Sistema v0.8.2
 
 ## Qué contiene
 
@@ -112,4 +112,10 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 ## Sistema v0.8.1
 - `app/url-terreno.js`: `resolverUrlTerreno(guardada, paginaSistema)` → dirección de la app de Terreno para el QR de «Vincular teléfono». Sin dirección guardada usa `terreno/` junto al Sistema; ignora `paquete-conexion/ejemplo.html` (valor de las versiones ≤ 0.8).
 - `app/vistas.js` (`urlTerreno`) la usa. Sin cambios en módulos, datos ni en el paquete de conexión 1.2.
+
+## Sistema v0.8.2
+- **`compartido/esquema.js` (nuevo):** lista completa de almacenes e índices de la base `topoland`. `almacen.js` la registra al cargarse, en el Sistema y en el paquete de Terreno. **Regla:** todo almacén o índice nuevo de un módulo se agrega también aquí; `pruebas/esquema.test.mjs` falla si falta.
+- `almacen.js`: `registrarAlmacenes` suma índices nuevos a un almacén ya registrado; `definicionesRegistradas()`; marca `globalThis.__topolandBdEsperando` / `__topolandBdBloqueada` mientras una apertura espera (lo usa `index.html` para el aviso «Esperando los datos»). El rechazo por bloqueo pasa de 10 s a 60 s.
+- **Paquete de conexión 1.3:** `alVincular(fn)`, `explicarVinculo(codigo?)`; código del QR en `localStorage['topoland_conexion_codigo']`; `alLlegarDatos` avisa después de intentar el código pendiente.
+- **Chat de Terreno:** copiar `paquete-conexion/topoland-conexion.js` en `terreno/js/`, subir el caché del `sw.js` y usar `explicarVinculo` / `alVincular` en ⚙ → Sistema.
 

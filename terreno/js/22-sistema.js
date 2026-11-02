@@ -90,6 +90,8 @@ function sisRenderConfig() {
   let n = {};
   try { n = TopolandConexion.estadoNube() || {}; } catch (_) {}
   const cid = !!sisClienteId();
+  if (n.sincronizando) { if (!SIS.syncDesde) SIS.syncDesde = Date.now(); } else SIS.syncDesde = 0;
+  const seg = SIS.syncDesde ? Math.round((Date.now() - SIS.syncDesde) / 1000) : 0;
   const hora = n.ultimaSync ? new Date(n.ultimaSync).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
   const ok1 = !!n.conectado, ok2 = !!n.carpetaId, ok3 = !!n.ultimaSync && ok2, ok4 = !!p;
   const actual = !cid ? 0 : !ok1 ? 1 : !ok2 ? 2 : !ok3 ? 3 : !ok4 ? 4 : 5;
@@ -121,7 +123,11 @@ function sisRenderConfig() {
     <div class="${cls(3, ok3)}">
       <h4>${marca(ok3)} Paso 3 · Traer los datos del Sistema</h4>
       <p class="muted" style="font-size:12px;">${ok3 ? "Última sincronización: " + hora + (n.pendiente ? " · hay cambios por subir" : "") : "Descarga las personas y proyectos que subió el Sistema. Antes, en el computador, sincroniza el Sistema."}</p>
-      ${ok2 ? `<button class="btn btn-outline" data-sis="sync" type="button" style="width:100%;">${n.sincronizando ? "Sincronizando…" : "Sincronizar ahora"}</button>` : ""}
+      ${ok2 && n.sincronizando ? `<p class="muted" style="font-size:12px;">Sincronizando desde hace ${seg} s. Con una carpeta grande puede tardar; si pasa de 2 minutos, reinicia la app.</p>
+        <button class="btn btn-outline" data-sis="reiniciar" type="button" style="width:100%;">Reiniciar la app</button>`
+        : ok2 ? `<button class="btn btn-outline" data-sis="sync" type="button" style="width:100%;">Sincronizar ahora</button>` : ""}
+      ${ok2 ? `<button class="btn btn-outline btn-sm" data-sis="probar" type="button" style="width:100%; margin-top:8px;">Ver qué hay en la carpeta de Drive</button>
+      <div id="sisProbar" class="muted" style="font-size:12px; margin-top:6px; word-break:break-word;">${SIS.probar || ""}</div>` : ""}
     </div>
 
     <div class="${cls(4, ok4)}">
@@ -150,6 +156,10 @@ document.addEventListener("click", async (ev) => {
       const r = await TopolandConexion.vincular(cod);
       if (!r) throw new Error("No encontré ese código. Revisa que el paso 3 haya terminado y que el código esté vigente en el Sistema.");
       toast("Vinculado: " + r.nombre);
+    } else if (k === "reiniciar") {
+      location.reload(); return;
+    } else if (k === "probar") {
+      await sisProbarCarpeta(); return;
     } else if (k === "google" || k === "carpeta" || k === "sync") {
       if (!sisClienteId()) throw new Error("Falta el ID de cliente de Google (el del Sistema).");
       if (k === "carpeta") {
@@ -160,6 +170,7 @@ document.addEventListener("click", async (ev) => {
       }
       toast("Conectando…");
       const e = TopolandConexion.estadoNube() || {};
+      if (e.sincronizando) throw new Error("Ya hay una sincronización en curso. Espera a que termine o reinicia la app.");
       if (k === "sync" && e.carpetaId && e.conectado) {
         const r = await TopolandConexion.sincronizar();
         if (r === null) throw new Error("No se pudo sincronizar: falta sesión de Google o carpeta.");
@@ -182,6 +193,44 @@ document.addEventListener("click", async (ev) => {
   sisRefrescar();
 });
 try { TopolandConexion.alCambiarNube(() => { if (SIS.listo) sisRenderConfig(); }); } catch (_) {}
+
+/* Mira la carpeta de Drive directamente (solo lectura) para saber si el computador subió datos. */
+async function sisProbarCarpeta() {
+  const box = () => document.getElementById("sisProbar");
+  const poner = (h) => { SIS.probar = h; if (box()) box().innerHTML = h; };
+  poner("Consultando Drive…");
+  let token = null;
+  try { token = (JSON.parse(localStorage.getItem("topoland_nube_token") || "null") || {}).token; } catch (_) {}
+  const n = TopolandConexion.estadoNube() || {};
+  if (!token || !n.carpetaId) return poner("No hay sesión de Google o carpeta. Repite los pasos 1 y 2.");
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
+  const q = async (qs) => {
+    const r = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=100&fields=files(id,name,mimeType,size,modifiedTime)&q=" + encodeURIComponent(qs), { headers: { Authorization: "Bearer " + token }, signal: ctl.signal });
+    if (!r.ok) throw new Error("Drive respondió " + r.status);
+    return (await r.json()).files || [];
+  };
+  try {
+    const hijos = await q(`'${n.carpetaId}' in parents and trashed=false`);
+    const datos = hijos.find((f) => f.name === "datos" && f.mimeType === "application/vnd.google-apps.folder");
+    let html = `Carpeta «${escapeHtml(n.carpetaNombre || "")}»: ${hijos.length} elemento(s). `;
+    if (!datos) html += "<strong>No tiene la subcarpeta «datos»</strong>: el Sistema del computador todavía no subió nada a esta carpeta.";
+    else {
+      const arch = (await q(`'${datos.id}' in parents and trashed=false`)).filter((f) => /\.json$/.test(f.name));
+      html += arch.length ? `En «datos» hay ${arch.length} archivo(s):<br>` + arch.map((f) => `• ${escapeHtml(f.name.slice(0, 14))}… · ${f.size ? (f.size / 1048576).toFixed(2) + " MB" : "?"} · ${new Date(f.modifiedTime).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`).join("<br>")
+        : "<strong>«datos» está vacía</strong>: sincroniza el Sistema en el computador.";
+    }
+    poner(html);
+  } catch (e) {
+    poner("No se pudo leer la carpeta: " + escapeHtml(e.name === "AbortError" ? "Google no respondió en 20 s" : (e.message || String(e))));
+  } finally { clearTimeout(to); }
+}
+setInterval(() => {
+  const c = document.getElementById("configModal");
+  if (SIS.listo && c && !c.classList.contains("hidden") && document.querySelector('[data-cfgpane="sistema"]').style.display !== "none") {
+    const act = document.activeElement;
+    if (!act || act.tagName !== "INPUT") sisRenderConfig();
+  }
+}, 5000);
 
 /* ---------- Subpestañas de Ajustes ---------- */
 function cfgIrA(tab) {

@@ -493,6 +493,10 @@ window.addEventListener("unhandledrejection", function (e) {
     <button class="btn btn-outline btn-sm" id="btnCatastroTiposDefault" type="button" style="margin-top:6px;">Restablecer lista de fábrica</button>
 
     <div class="divider"></div>
+    <label>Sistema Topoland</label>
+    <div id="sistemaConfig"></div>
+
+    <div class="divider"></div>
     <label>Respaldo de datos</label>
     <p class="muted">Guarda todas tus jornadas, levantamientos, fotos y monografías en un archivo, para pasarlas a otra versión de la app o tener un respaldo.</p>
     <div class="row" style="gap:8px; margin-top:8px;">
@@ -539,6 +543,8 @@ window.addEventListener("unhandledrejection", function (e) {
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="../config.js" onerror="window.TOPOLAND_CONFIG=window.TOPOLAND_CONFIG||{}"></script>
+<script src="js/topoland-conexion.js"></script>
 <script src="js/01-config.js"></script>
 <script src="js/02-datos.js"></script>
 <script src="js/03-utilidades.js"></script>
@@ -561,6 +567,7 @@ window.addEventListener("unhandledrejection", function (e) {
 <script src="js/20-fotos-req.js"></script>
 <script src="js/21-panel-web.js"></script>
 <script src="js/pronostico-vuelo.js"></script>
+<script src="js/22-sistema.js"></script>
 <script src="js/99-inicio.js"></script>
 </body>
 </html>

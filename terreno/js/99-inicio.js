@@ -26,6 +26,7 @@ async function init() {
   const lAbierto = state.levantamientos.find((l) => l.estado === "en_curso");
   if (lAbierto) state.levantamientoActivoId = lAbierto.id;
 
+  sisIniciar();
   renderTabActual();
   sesInit();
 

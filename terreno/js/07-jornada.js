@@ -14,6 +14,7 @@ function renderJornada() {
         <h2>Iniciar jornada</h2>
         <p class="muted">Registra el inicio de tu jornada en terreno junto con tu ubicación.</p>
         <div class="divider"></div>
+        <div id="proyectoSistema"></div>
         <label>Proyecto</label>
         <input type="text" id="inpProyecto" list="listaProyectos" placeholder="Ej: PV El Romero Solar">
         <datalist id="listaProyectos">
@@ -45,6 +46,7 @@ function renderJornada() {
     const inpOperador = document.getElementById("inpOperador");
     inpOperador.value = localStorage.getItem("ultimoOperador") || "";
     document.getElementById("inpProyecto").value = localStorage.getItem("ultimoProyecto") || "";
+    sisCargarProyectosJornada();
 
     const elegidos = new Set();
     document.querySelectorAll(".chip-trabajo").forEach((b) => b.addEventListener("click", () => {
@@ -92,6 +94,7 @@ function renderJornada() {
         horas: null,
         operador: operador || null,
         proyecto: proyecto || null,
+        proyectoId: SIS.proyectoIdSel || null,   // v0.5.6: id del proyecto del Sistema («oficina» = sin proyecto de terreno)
         lat: ubicTemp?.lat ?? null,
         lng: ubicTemp?.lng ?? null,
         estado: "abierta",
@@ -176,6 +179,7 @@ function renderJornada() {
     const nuevo = prompt("Proyecto de esta jornada:", j.proyecto || "");
     if (nuevo === null) return;
     j.proyecto = nuevo.trim() || null;
+    j.proyectoId = null;   // se escribió a mano: ya no corresponde al proyecto del Sistema
     if (j.proyecto) localStorage.setItem("ultimoProyecto", j.proyecto);
     await dbPut("jornadas", j);
     marcarPendienteSync(j.id);

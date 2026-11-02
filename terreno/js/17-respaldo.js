@@ -112,14 +112,16 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.5: Terreno queda listo para publicarse en GitHub Pages junto al Sistema (carpeta terreno/ del repositorio CIRG95/Equipos). Abierto desde una dirección https funciona el GPS, se instala como app («Instalar app» en Chrome), el mapa no se bloquea y puede compartir el dominio con el Sistema. Sin cambios en los datos ni en lo que hace la app.",
-    "El service worker ahora solo borra sus propias cachés (terreno-topo-…), para no tocar las del Sistema en el mismo dominio."
+    "Versión 0.5.6: conexión con el Sistema Topoland. En ⚙ → «Sistema Topoland» vinculas este teléfono a tu persona (QR del Sistema o código de 6 letras) y, si quieres, conectas la nube del Sistema. Al iniciar la jornada puedes elegir el proyecto de una lista («Proyecto del Sistema», con «Oficina»); la jornada guarda su proyectoId y el texto sigue funcionando.",
+    "Sin vincular, la app funciona igual que antes."
   ],
   probar: [
-    "Abre la dirección de Terreno en Chrome, usa «Instalar app» y revisa que abra a pantalla completa, que el GPS funcione y que sin internet siga abriendo."
+    "Vincula con un código del Sistema, inicia una jornada eligiendo un proyecto y revisa que quede con su nombre. En un teléfono nuevo, conecta primero la nube del Sistema."
   ],
   conocidos: [
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",
+    "Aún no: avisos de equipos y tramos volados (0.5.7). El Sistema todavía no lee las jornadas de Terreno.",
+    "Hay dos conexiones de Google distintas: la de Terreno (⚙ Nube, por jornada) y la del Sistema (⚙ Sistema Topoland). Se unificarán con la nube común.",
     "Consultar necesita internet (Open-Meteo, NOAA). Open-Meteo es gratis solo para uso no comercial: ver plan pagado antes de usarlo en la empresa.",
     "Sin ubicación en la jornada la tarjeta pide capturarla (GPS o mapa).",
     "Siguen: registro de puntos más rápido, estado siempre visible y navegación y mapa.",

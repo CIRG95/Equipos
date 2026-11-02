@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#1D5C63">
+<title>Terreno Topografía</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="css/pronostico-vuelo.css">
+<style>
+:root{
+  --bg:#EEF2F0;
+  --surface:#FFFFFF;
+  --ink:#16232B;
+  --primary:#1D5C63;
+  --primary-dark:#123F44;
+  --accent:#E8622C;
+  --line:#C7D1CD;
+  --muted:#5B6B66;
+  --danger:#B3261E;
+  --ok:#2E7D4F;
+  --radius:10px;
+  --mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:var(--sans);
+  color:var(--ink);
+  background-color:var(--bg);
+  background-image:
+    linear-gradient(rgba(22,35,43,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22,35,43,0.05) 1px, transparent 1px);
+  background-size:24px 24px;
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:78px;
+}
+h1,h2,h3{margin:0 0 4px 0; font-weight:700; letter-spacing:-0.01em;}
+p{margin:0;}
+button{font-family:inherit;}
+input,select,textarea{font-family:inherit; font-size:15px;}
+
+/* ---------- Header ---------- */
+header.app-header{
+  position:sticky; top:0; z-index:20;
+  background:var(--primary);
+  color:#fff;
+  padding:14px 16px 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  box-shadow:0 2px 6px rgba(0,0,0,0.12);
+}
+header.app-header h1{font-size:18px; color:#fff;}
+header.app-header .subtitle{font-size:12px; opacity:0.85; margin-top:2px;}
+.pill{
+  font-family:var(--mono);
+  font-size:12px;
+  padding:5px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.15);
+  border:1px solid rgba(255,255,255,0.3);
+  white-space:nowrap;
+}
+.pill.pill-live{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+/* ---------- Layout ---------- */
+main{max-width:640px; margin:0 auto; padding:16px;}
+body[data-modo="pc"] main{max-width:960px;}
+body[data-modo="pc"] .modal-sheet{max-width:760px;}
+body[data-modo="telefono"] [data-solo-pc]{display:none !important;}
+body[data-modo="pc"] [data-solo-telefono]{display:none !important;}
+.tab-section{display:none;}
+.tab-section.active{display:block; animation:fade .18s ease;}
+@keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:16px;
+  margin-bottom:14px;
+}
+/* v0.5.2 — el pronóstico de vuelo toma los colores de la app */
+.pv{--marca:var(--primary); --borde:var(--line); --sup:var(--surface); margin-bottom:12px;}
+.card h2{font-size:15px; color:var(--primary-dark);}
+.card h2 .num{color:var(--muted); font-family:var(--mono); font-weight:400; margin-right:6px;}
+.muted{color:var(--muted); font-size:13px;}
+.row{display:flex; gap:10px; flex-wrap:wrap;}
+.row > *{flex:1; min-width:120px;}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  border:1px solid var(--primary);
+  background:var(--primary);
+  color:#fff;
+  padding:12px 16px;
+  border-radius:8px;
+  font-size:15px; font-weight:600;
+  cursor:pointer;
+  width:100%;
+  transition:transform .08s ease, background .15s ease;
+}
+.btn:active{transform:scale(0.98);}
+.btn:disabled{opacity:0.45; cursor:not-allowed;}
+.btn-accent{background:var(--accent); border-color:var(--accent);}
+.btn-outline{background:transparent; color:var(--primary); border:1px solid var(--primary);}
+.btn-outline.danger{color:var(--danger); border-color:var(--danger);}
+.btn-danger{background:var(--danger); border-color:var(--danger);}
+.btn-sm{padding:8px 12px; font-size:13px; width:auto;}
+.btn-ghost{background:transparent; border:1px dashed var(--line); color:var(--muted); width:100%;}
+
+/* ---------- Forms ---------- */
+label{display:block; font-size:12px; font-weight:600; color:var(--muted); margin-bottom:5px; margin-top:12px;}
+label:first-child{margin-top:0;}
+input[type=text],input[type=number],input[type=time],input[type=date],select,textarea{
+  width:100%;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fbfcfb;
+  color:var(--ink);
+}
+input[type=number]{font-family:var(--mono);}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--primary); outline-offset:1px;}
+textarea{resize:vertical; min-height:50px;}
+
+/* ---------- Tables (planilla preview + data) ---------- */
+.table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:8px;}
+table{border-collapse:collapse; width:100%; min-width:480px; font-size:13px;}
+th,td{padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap;}
+th{background:#F2F6F4; color:var(--primary-dark); font-family:var(--mono); font-size:11px; text-transform:none;}
+td.num{font-family:var(--mono);}
+tr:last-child td{border-bottom:none;}
+.preview-note{font-size:12px; color:var(--muted); margin-top:8px; display:flex; gap:6px; align-items:flex-start;}
+
+/* ---------- Bottom nav ---------- */
+nav.tabbar{
+  position:fixed; bottom:0; left:0; right:0; z-index:30;
+  display:flex;
+  background:var(--surface);
+  border-top:1px solid var(--line);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow:0 -2px 10px rgba(0,0,0,0.06);
+}
+nav.tabbar button{
+  flex:1; background:none; border:none; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:6px 2px; color:var(--muted); font-size:11px; font-weight:600;
+  border-radius:8px;
+}
+nav.tabbar button.active{color:var(--primary);}
+nav.tabbar button svg{width:22px; height:22px;}
+
+/* ---------- Misc ---------- */
+.badge{display:inline-block; font-size:11px; font-family:var(--mono); padding:2px 7px; border-radius:5px; background:#F2F6F4; color:var(--primary-dark); border:1px solid var(--line);}
+.badge.open{background:#FCEDE6; color:var(--accent); border-color:var(--accent);}
+.badge.closed{background:#EAF3EC; color:var(--ok); border-color:var(--ok);}
+.divider{height:1px; background:var(--line); margin:14px 0;}
+.empty-state{text-align:center; padding:34px 12px; color:var(--muted);}
+.empty-state svg{width:40px; height:40px; opacity:0.4; margin-bottom:8px;}
+.thumb{width:64px; height:64px; object-fit:cover; border-radius:6px; border:1px solid var(--line); cursor:pointer;}
+.chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;}
+.chip{font-size:12px; padding:5px 10px; border-radius:999px; border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--ink);}
+.chip.selected{background:var(--primary); color:#fff; border-color:var(--primary);}
+.toast{
+  position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+  background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px;
+  font-size:13px; z-index:50; opacity:0; pointer-events:none; transition:opacity .2s ease;
+  max-width:88%; text-align:center;
+}
+.toast.show{opacity:1;}
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(15,25,30,0.55); z-index:60;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.modal-overlay.hidden{display:none;}
+.modal-sheet{
+  background:#fff; width:100%; max-width:640px; border-radius:16px 16px 0 0;
+  padding:16px; max-height:88vh; overflow-y:auto;
+}
+#mapModal{z-index:70;}
+#mapPicker{width:100%; height:280px; border-radius:8px; margin:10px 0; border:1px solid var(--line);}
+.modal-actions{display:flex; gap:10px; margin-top:12px;}
+.close-x{float:right; background:none; border:none; font-size:20px; color:var(--muted); cursor:pointer; line-height:1;}
+.punto-row-actions{display:flex; gap:6px;}
+details.levantamiento-detail summary{cursor:pointer; font-weight:600; color:var(--primary-dark); padding:4px 0;}
+.field-icon{display:inline-flex; vertical-align:-4px; margin-right:4px;}
+.spinner{display:inline-block; width:14px; height:14px; border:2px solid rgba(0,0,0,0.15); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ---------- v0.4 Panel Web (lámina D) ---------- */
+#pcMapa,#pcInspector{display:none;}
+.rs-titulo{font-weight:700; font-size:16px; color:var(--primary-dark);}
+.rs-kpis{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-top:12px;}
+.rs-kpi{border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#fff;}
+.rs-kpi span{display:block; font-size:12px; color:var(--muted);}
+.rs-kpi strong{font-family:var(--mono); font-size:16px;}
+.rs-estado{margin-top:8px; padding:10px 12px; border-radius:10px; font-weight:700; font-size:14px;}
+.rs-estado.ok{background:#E6F1EA; color:#1F5A38; border:1px solid #9CC7AC;}
+.rs-estado.mal{background:#FBEAEA; color:#8F1D17; border:1px solid #E3A8A5;}
+.rs-sec{display:flex; justify-content:space-between; align-items:center; margin-top:16px; font-size:14px;}
+.rs-fotos{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+.rs-fotos figure{margin:0; font-size:11px; color:var(--muted); max-width:110px;}
+.rs-falta{display:inline-flex; align-items:center; justify-content:center; min-width:52px; min-height:52px; padding:4px; border:1px dashed #8A9A95; border-radius:6px; font-size:11px; color:var(--muted); text-align:center;}
+.rs-barra{height:8px; background:#E3E9E6; border-radius:999px; margin-top:8px;}
+.rs-barra div{height:100%; background:var(--primary); border-radius:999px;}
+.rs-tabla{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px; margin-top:4px;}
+.rs-tabla td{padding:4px 0; text-align:right;} .rs-tabla td:first-child{text-align:left; font-family:var(--sans);}
+.reg-hoja{background:#FFFEFA; border-radius:8px; max-width:1100px; width:calc(100% - 24px); max-height:calc(100vh - 24px); overflow:auto; padding:22px 26px; margin:auto;}
+.reg-acciones{display:flex; gap:8px; justify-content:flex-end;}
+.reg-sub{font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--muted);}
+.reg-titulo{font-size:22px; margin:2px 0 12px;}
+.reg-ficha{display:grid; grid-template-columns:repeat(auto-fit, minmax(170px,1fr)); border:1px solid #9FB0AA; font-size:13px;}
+.reg-ficha div{padding:8px 10px; border-right:1px solid #9FB0AA; border-bottom:1px solid #9FB0AA;}
+.reg-ficha span{display:block; font-size:11px; color:var(--muted);}
+.reg-scroll{overflow-x:auto; margin-top:12px;}
+.reg-tabla{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12px;}
+.reg-tabla th{background:#EAF0EE; border:1px solid #9FB0AA; padding:6px 8px; font-family:var(--sans); font-size:12px; text-align:left; white-space:nowrap;}
+.reg-tabla td{border:1px solid #C7D1CD; padding:6px 8px; white-space:nowrap;} .reg-tabla td.num{text-align:right;}
+.reg-bloque{border:1px solid #9FB0AA; padding:10px 14px; margin-top:12px;}
+.reg-kpis{display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-family:var(--mono); font-size:13px;}
+.reg-firma{display:inline-block; width:45%; min-width:200px; margin:26px 2% 0 0;} .reg-firma div{border-bottom:1px solid var(--ink); height:24px;} .reg-firma span{font-size:12px; color:var(--muted);}
+@media print{
+  body.imprimiendo-registro > *:not(#registroSheet){display:none !important;}
+  body.imprimiendo-registro #registroSheet{position:static; background:none; display:block;}
+  body.imprimiendo-registro .reg-hoja{max-height:none; box-shadow:none; max-width:none; width:100%; padding:0;}
+  body.imprimiendo-registro .reg-acciones{display:none;}
+}
+
+body[data-modo="pc"]{overflow:hidden; padding-bottom:0; background-image:none;}
+body[data-modo="pc"] #pcMapa{display:block; position:fixed; inset:0; z-index:0; background:var(--bg) linear-gradient(rgba(22,35,43,0.06) 1px, transparent 1px) 0 0/24px 24px;}
+body[data-modo="pc"] header.app-header{position:fixed; top:12px; left:12px; right:12px; border-radius:12px; z-index:30; padding:8px 16px;}
+body[data-modo="pc"] nav.tabbar{top:20px; bottom:auto; left:50%; right:auto; transform:translateX(-50%); width:auto; z-index:31; background:transparent; border:0; box-shadow:none; padding:0; gap:4px;}
+body[data-modo="pc"] nav.tabbar button{flex:none; flex-direction:row; gap:6px; color:#D7E7E4; padding:8px 14px; font-size:13px;}
+body[data-modo="pc"] nav.tabbar button.active{background:#fff; color:var(--primary-dark);}
+body[data-modo="pc"] nav.tabbar button svg{width:16px; height:16px;}
+body[data-modo="pc"] main{position:fixed; top:100px; left:12px; bottom:12px; width:min(500px, 40vw); max-width:none; margin:0; overflow-y:auto; z-index:10; background:rgba(255,255,255,0.93); border-radius:14px; box-shadow:0 4px 18px rgba(22,35,43,0.20); padding:14px;}
+body[data-modo="pc"][data-tab="historial"] main,
+body[data-modo="pc"][data-tab="reportes"] main,
+body[data-modo="pc"][data-tab="monografias"] main{width:min(1040px, calc(100vw - 24px)); left:50%; transform:translateX(-50%);}
+body[data-modo="pc"] #pcInspector{position:fixed; top:100px; right:12px; bottom:12px; width:340px; overflow-y:auto; z-index:10; background:#fff; border-radius:14px; box-shadow:0 4px 18px rgba(22,35,43,0.20); padding:16px;}
+body[data-modo="pc"] #pcInspector[style*="display: none"]{display:none !important;}
+body[data-modo="pc"] #pcInspector:not([style*="display: none"]){display:block;}
+body[data-modo="pc"] .resumen-tel{display:none;}
+body[data-modo="pc"] .toast{z-index:80;}
+
+/* ---------- v0.4.1 Estética D en el teléfono (también aplica en PC) ---------- */
+:root{--accent:#C24A17; --radius:14px; --soft:0 2px 10px rgba(22,35,43,0.10);}
+body{background-image:none; background-color:var(--bg);}
+body[data-modo="pc"]{background-image:none;}
+header.app-header{border-radius:0 0 16px 16px; padding:12px 16px 14px; box-shadow:0 3px 12px rgba(18,63,68,0.25);}
+.card{border:1px solid #D3DDD8; box-shadow:var(--soft); padding:16px 16px 18px;}
+.card h2{font-size:16px; font-weight:600;}
+.btn{border-radius:10px; min-height:44px; font-weight:500; letter-spacing:0;}
+.btn-sm{min-height:40px;}
+input[type=text],input[type=number],input[type=time],input[type=date],select,textarea{border-radius:10px; min-height:44px; background:#fff;}
+label{font-weight:500; color:#44534E;}
+.badge{border-radius:999px; padding:3px 10px; font-family:var(--sans); font-size:12px; font-weight:500;}
+.pill{font-family:var(--sans);}
+.divider{background:#E3E9E6;}
+nav.tabbar{border-top:0; box-shadow:0 -4px 16px rgba(22,35,43,0.10); border-radius:16px 16px 0 0; padding:8px 8px calc(8px + env(safe-area-inset-bottom)); gap:2px;}
+nav.tabbar button{border-radius:12px; font-weight:500; padding:7px 2px;}
+nav.tabbar button.active{background:#E4F0EE; color:var(--primary-dark);}
+.table-wrap{border:1px solid #D3DDD8; border-radius:10px; background:#fff;}
+.table-wrap table{border-collapse:collapse;}
+.table-wrap th{background:#F4F7F6; color:#44534E; font-weight:500; font-size:12px;}
+.table-wrap td{border-top:1px solid #E3E9E6; font-variant-numeric:tabular-nums;}
+.table-wrap td.num{font-family:var(--mono);}
+.badge-cierre{display:block !important; font-family:var(--sans) !important; font-weight:700; border-radius:10px !important; padding:10px 12px !important;}
+.toast{border-radius:12px;}
+body[data-modo="pc"] nav.tabbar{border-radius:0; box-shadow:none; padding:0; gap:4px;}
+body[data-modo="pc"] nav.tabbar button.active{background:#fff;}
+body[data-modo="pc"] header.app-header{border-radius:12px;}
+
+/* v0.5 jornada guiada */
+.chip-trabajo{min-height:40px; padding:0 14px; border:1px solid #9FB0AA; background:#fff; color:var(--ink); border-radius:999px; font-size:13px; cursor:pointer;}
+.grupos-trabajo{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:8px;}
+.grupo-trabajo{min-height:48px; border:1px solid #9FB0AA; background:#fff; color:var(--ink); border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;}
+.grupo-trabajo[aria-expanded=true]{border-color:var(--primary); box-shadow:0 0 0 2px var(--primary) inset;}
+.grupo-trabajo.on{background:#E3F0EE; color:var(--primary-dark);}
+.gt-n:not(:empty){display:inline-block; min-width:20px; padding:0 6px; margin-left:4px; border-radius:999px; background:var(--primary); color:#fff; font-size:12px;}
+.panel-trabajo{background:#F6F9F8; border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px;}
+.sub-trabajo{font-size:12px; font-weight:600; color:var(--muted); margin:8px 0 4px;}
+.sub-trabajo:first-child{margin-top:0;}
+.chips-trabajo{display:flex; flex-wrap:wrap; gap:8px;}
+body[data-modo="pc"].insp-visible #pcMapa .leaflet-right{right:364px;}
+.pc-centrar{font-size:20px !important; line-height:30px !important; text-align:center; text-decoration:none; color:var(--primary-dark) !important;}
+.chip-trabajo.on{background:var(--primary); border-color:var(--primary); color:#fff; font-weight:600;}
+.paso{display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; min-height:52px; padding:10px 14px; margin-top:8px; border:1px solid var(--primary); background:#EEF5F3; color:var(--primary-dark); border-radius:12px; font-size:15px; font-weight:600; text-align:left; cursor:pointer;}
+.paso small{font-weight:400; color:var(--muted); font-size:12px;}
+.paso.hecho{background:#fff; border-color:#C7D1CD; color:var(--muted);}
+.paso-estado{margin-top:12px; padding:10px 12px; border-radius:10px; font-size:13px; font-weight:600;}
+.paso-estado.ok{background:#E6F1EA; color:#1F5A38;} .paso-estado.pend{background:#FBF3E1; color:#8A5A12;}
+</style>
+<script>
+/* v0.4.3: si algo falla (incluidos errores asíncronos), muestra el error en pantalla (toca para ocultar) */
+window.mostrarErrorApp = function (msg) {
+  try {
+    var b = document.getElementById("errBar");
+    if (!b) { b = document.createElement("div"); b.id = "errBar";
+      b.style.cssText = "position:fixed;left:8px;right:8px;bottom:84px;z-index:999;background:#8F1D17;color:#fff;font:12px/1.4 monospace;padding:10px 12px;border-radius:10px;white-space:pre-wrap;word-break:break-word;max-height:50vh;overflow:auto;";
+      b.onclick = function () { b.remove(); }; (document.body || document.documentElement).appendChild(b); }
+    b.textContent += (b.textContent ? "\n" : "") + msg;
+  } catch (_) {}
+};
+window.addEventListener("error", function (e) {
+  window.mostrarErrorApp("Error: " + (e.message || "desconocido") + " (" + String(e.filename || "").split("/").pop() + ":" + (e.lineno || "?") + ")");
+});
+window.addEventListener("unhandledrejection", function (e) {
+  var r = e.reason; window.mostrarErrorApp("Error: " + ((r && r.message) || String(r)) + (r && r.stack ? "\n" + String(r.stack).split("\n").slice(0, 3).join("\n") : ""));
+});
+</script>
+</head>
+<body>
+
+<div id="pcMapa"></div>
+<aside id="pcInspector"></aside>
+
+<header class="app-header">
+  <div>
+    <h1>Terreno Topografía <span id="appVersion" style="font-size:11px; font-weight:600; opacity:.75; margin-left:4px;"></span></h1>
+    <div class="subtitle" id="headerSubtitle">Sin jornada activa</div>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+    <div style="display:flex; gap:6px; align-items:center;">
+      <div class="pill" id="headerPill">—</div>
+      <button id="btnPlantillas" title="Plantillas de objetivos" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); border-radius:999px; width:28px; height:28px; color:#fff; cursor:pointer; font-size:14px; line-height:1;">📋</button>
+      <button id="btnConfig" title="Configuración" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); border-radius:999px; width:28px; height:28px; color:#fff; cursor:pointer; font-size:14px; line-height:1;">⚙</button>
+    </div>
+    <div class="pill" id="nubePill" title="Toca para configurar la sincronización en la nube">☁ Conectar nube</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ TAB: JORNADA ============ -->
+  <section id="tab-jornada" class="tab-section active"></section>
+
+  <!-- ============ TAB: LEVANTAMIENTO ============ -->
+  <section id="tab-levantamiento" class="tab-section"></section>
+
+  <!-- ============ TAB: HISTORIAL ============ -->
+  <section id="tab-historial" class="tab-section"></section>
+
+  <!-- ============ TAB: REPORTES ============ -->
+  <section id="tab-reportes" class="tab-section"></section>
+
+  <!-- ============ TAB: MONOGRAFÍAS ============ -->
+  <section id="tab-monografias" class="tab-section"></section>
+
+</main>
+
+<nav class="tabbar">
+  <button data-tab="jornada" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    Jornada
+  </button>
+  <button data-tab="levantamiento">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    Levantamiento
+  </button>
+  <button data-tab="historial">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    Historial
+  </button>
+  <button data-tab="reportes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+    Reportes
+  </button>
+  <button data-tab="monografias">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/></svg>
+    Herramientas
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<!-- Modal selector de mapa (reutilizable) -->
+<div class="modal-overlay hidden" id="mapModal">
+  <div class="modal-sheet">
+    <button class="close-x" id="mapModalClose">&times;</button>
+    <h3>Marcar ubicación</h3>
+    <p class="muted">Toca el mapa para fijar el punto, o usa tu GPS.</p>
+    <div id="mapPicker"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="btnUsarGpsModal" type="button">📍 Usar mi GPS</button>
+      <button class="btn" id="btnConfirmarMapa" type="button">Usar esta ubicación</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal sincronización en la nube -->
+<div class="modal-overlay hidden" id="nubeModal">
+  <div class="modal-sheet">
+    <button class="close-x" id="nubeModalClose">&times;</button>
+    <h3>Sincronización en la nube</h3>
+    <p class="muted">Puedes activar una o varias. Cada una guarda su propia copia organizada por jornada, apenas hay internet.</p>
+
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Google Drive</h3>
+    <p class="muted" id="estadoGoogle">No conectado</p>
+    <label>Client ID de Google (OAuth)</label>
+    <input type="text" id="inpGoogleClientId" placeholder="xxxxxxxx.apps.googleusercontent.com">
+    <div class="modal-actions">
+      <button class="btn btn-outline danger btn-sm" id="btnDesconectarDrive" type="button">Desconectar</button>
+      <button class="btn btn-accent btn-sm" id="btnConectarDrive" type="button">Conectar</button>
+    </div>
+
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Nextcloud</h3>
+    <p class="muted" id="estadoNextcloud">No conectado</p>
+    <label>URL del servidor</label>
+    <input type="text" id="inpNextcloudUrl" placeholder="https://nube.miempresa.cl">
+    <label>Usuario</label>
+    <input type="text" id="inpNextcloudUsuario" placeholder="usuario">
+    <label>Contraseña de aplicación</label>
+    <input type="text" id="inpNextcloudPassword" placeholder="generada en Ajustes → Seguridad">
+    <p class="preview-note">ℹ️ No uses tu contraseña real: crea una "contraseña de aplicación" en Nextcloud (Ajustes → Seguridad), así se puede revocar sin afectar tu cuenta. El servidor debe permitir conexiones desde el navegador (CORS habilitado).</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline danger btn-sm" id="btnDesconectarNextcloud" type="button">Desconectar</button>
+      <button class="btn btn-accent btn-sm" id="btnConectarNextcloud" type="button">Conectar</button>
+    </div>
+
+    <div class="divider"></div>
+    <button class="btn btn-outline btn-sm" id="btnSyncManualTodos" type="button">Sincronizar ahora (todas)</button>
+  </div>
+</div>
+
+<!-- Modal Configuración -->
+<div class="modal-overlay hidden" id="configModal">
+  <div class="modal-sheet">
+    <button class="close-x" id="configModalClose">&times;</button>
+    <h3>Configuración</h3>
+
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Semáforo de doble posición (por tramo)</h3>
+    <p class="muted">Chequeo en vivo apenas ingresas las 4 lecturas de un tramo — independiente del cierre total. (La tolerancia de cierre ahora se elige en cada nivelación, con la clase del MOP.)</p>
+    <label>Verde hasta (mm)</label>
+    <input type="number" step="any" id="inpToleranciaVerde" placeholder="Ej: 2">
+    <label>Amarillo hasta (mm) — sobre este valor, rojo</label>
+    <input type="number" step="any" id="inpToleranciaAmarilla" placeholder="Ej: 10">
+
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Marca para Monografías</h3>
+    <p class="muted">Tu logo aparece fijo en todas las monografías GNSS que generes. El logo del cliente se sube aparte, por proyecto.</p>
+    <label>Nombre de tu empresa</label>
+    <input type="text" id="inpNombreEmpresa" placeholder="Ej: Sociedad Topoland Ltda.">
+    <label>Logo de tu empresa</label>
+    <div class="row" style="align-items:center; gap:10px;">
+      <div id="logoEmpresaPreview" class="muted" style="width:64px; height:64px; border:1px dashed var(--line); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; text-align:center; overflow:hidden;">Sin logo</div>
+      <input type="file" accept="image/*" id="inpLogoEmpresa" style="flex:1;">
+    </div>
+
+    <label>Tipo de letra</label>
+    <select id="selTipoFuente">
+      <option value="carlito">Carlito (= Calibri, incluida por defecto)</option>
+      <option value="helvetica">Helvetica (estándar PDF)</option>
+      <option value="times">Times New Roman (estándar PDF)</option>
+      <option value="personalizada">Subir mi propia fuente (.ttf)</option>
+    </select>
+    <div id="wrapFuentePersonalizada" style="display:none;">
+      <p class="muted">Solo archivos .ttf. Si no subes la versión negrita, los textos en negrita se verán con el mismo grosor normal.</p>
+      <label>Fuente regular (.ttf)</label>
+      <div class="row" style="align-items:center; gap:10px;">
+        <input type="file" accept=".ttf" id="inpFuenteRegular" style="flex:1;">
+      </div>
+      <div class="muted" id="fuenteRegularNombre" style="font-size:12px; margin-top:4px;">Sin archivo</div>
+      <label>Fuente negrita (.ttf, opcional)</label>
+      <div class="row" style="align-items:center; gap:10px;">
+        <input type="file" accept=".ttf" id="inpFuenteBold" style="flex:1;">
+      </div>
+      <div class="muted" id="fuenteBoldNombre" style="font-size:12px; margin-top:4px;">Sin archivo</div>
+    </div>
+
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Modo de la app</h3>
+    <p class="muted">Una sola app con dos vistas: teléfono (terreno) y computador (gabinete, más ancha). En automático se elige según el dispositivo.</p>
+    <select id="selModoApp">
+      <option value="auto">Automático (según el dispositivo)</option>
+      <option value="telefono">Teléfono</option>
+      <option value="pc">Computador</option>
+    </select>
+    <p class="muted" id="modoAppActual" style="margin-top:4px;"></p>
+    <div class="divider"></div>
+    <h3 style="font-size:14px;">Catastro — tipos de elemento</h3>
+    <p class="muted">Una línea por tipo: <code>Nombre: atributo 1, atributo 2…</code>. Los atributos aparecen en el formulario según el tipo elegido.</p>
+    <textarea id="txtCatastroTipos" rows="8" style="font-size:13px;"></textarea>
+    <button class="btn btn-outline btn-sm" id="btnCatastroTiposDefault" type="button" style="margin-top:6px;">Restablecer lista de fábrica</button>
+
+    <div class="divider"></div>
+    <label>Respaldo de datos</label>
+    <p class="muted">Guarda todas tus jornadas, levantamientos, fotos y monografías en un archivo, para pasarlas a otra versión de la app o tener un respaldo.</p>
+    <div class="row" style="gap:8px; margin-top:8px;">
+      <button class="btn btn-outline" id="btnExportarRespaldo" type="button" style="flex:1;">⬇ Exportar respaldo</button>
+      <label class="btn btn-outline" style="flex:1; text-align:center; margin:0; cursor:pointer;">⬆ Importar respaldo
+        <input type="file" accept=".json,application/json" id="inpImportarRespaldo" style="display:none;">
+      </label>
+    </div>
+    <div class="muted" id="respaldoEstado" style="font-size:12px; margin-top:6px;"></div>
+    <div class="row" style="gap:8px; margin-top:8px; align-items:center;">
+      <span class="muted" id="papeleraInfo" style="flex:1; font-size:12px;"></span>
+      <button class="btn btn-outline btn-sm" id="btnVaciarPapelera" type="button" style="display:none;">Vaciar papelera</button>
+    </div>
+    <div class="divider"></div>
+    <div id="acercaVersion" style="font-size:13px;"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-accent" id="btnGuardarConfig" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Plantillas de objetivos -->
+<div class="modal-overlay hidden" id="plantillasModal">
+  <div class="modal-sheet">
+    <button class="close-x" id="plantillasModalClose">&times;</button>
+    <h3>Plantillas de objetivos</h3>
+    <p class="muted">Definen todo lo que conlleva un tipo de trabajo, para adjuntarlas como objetivos del día en una jornada.</p>
+    <div class="divider"></div>
+    <div id="plantillasModalBody"></div>
+  </div>
+</div>
+
+<!-- Visor de foto -->
+<div class="modal-overlay hidden" id="photoModal">
+  <div class="modal-sheet" style="padding:0; background:transparent;">
+    <button class="close-x" id="photoModalClose" style="color:#fff; margin:8px;">&times;</button>
+    <img id="photoModalImg" style="width:100%; border-radius:8px;">
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="js/01-config.js"></script>
+<script src="js/02-datos.js"></script>
+<script src="js/03-utilidades.js"></script>
+<script src="js/04-fotos-imagenes.js"></script>
+<script src="js/05-nube-y-calculos.js"></script>
+<script src="js/06-modales-y-navegacion.js"></script>
+<script src="js/07-jornada.js"></script>
+<script src="js/08-levantamiento.js"></script>
+<script src="js/09-catastro.js"></script>
+<script src="js/10-historial-y-reportes.js"></script>
+<script src="js/11-monografias-lista.js"></script>
+<script src="js/12-monografias-vista-previa.js"></script>
+<script src="js/13-monografias-importador.js"></script>
+<script src="js/14-monografias-editor.js"></script>
+<script src="js/15-pdf-y-excel.js"></script>
+<script src="js/16-sesiones.js"></script>
+<script src="js/17-respaldo.js"></script>
+<script src="js/18-normas.js"></script>
+<script src="js/19-planillas.js"></script>
+<script src="js/20-fotos-req.js"></script>
+<script src="js/21-panel-web.js"></script>
+<script src="js/pronostico-vuelo.js"></script>
+<script src="js/99-inicio.js"></script>
+</body>
+</html>

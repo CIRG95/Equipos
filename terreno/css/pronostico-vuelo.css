@@ -1,0 +1,40 @@
+/* pronostico-vuelo.css — estilos de la tarjeta de pronóstico (paquete PronosticoVuelo, desde el módulo Vuelos).
+   Todo va dentro de .pv. Los colores toman las variables de la app si existen (--marca, --ink, --muted…) y si no, los de Topoland. */
+.pv{--pv-marca:var(--marca,#1D5C63);--pv-ink:var(--ink,#1C1F23);--pv-muted:var(--muted,#5B6168);--pv-line:var(--borde,#E2E0DA);--pv-line2:var(--borde-suave,#EFEDE8);
+  --pv-sup:var(--sup,#FFFFFF);--pv-go:#0F766E;--pv-no:#B42318;--pv-mono:var(--mono,'IBM Plex Mono',ui-monospace,Consolas,monospace);
+  display:flex;flex-direction:column;gap:10px;color:var(--pv-ink);background:var(--pv-sup);border:1px solid var(--pv-line);border-radius:10px;padding:14px 16px;min-width:0}
+.pv h2{margin:0;font-size:16px}
+.pv h3{margin:0 0 6px;font-size:14px}
+.pv-cab{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-start;justify-content:space-between}
+.pv-acc{display:flex;gap:8px;flex-wrap:wrap}
+.pv-dron{font:inherit;padding:7px 9px;border:1px solid var(--pv-line);border-radius:8px;background:var(--pv-sup);color:var(--pv-ink);max-width:100%}
+.pv-btn{font:inherit;border:1px solid var(--pv-line);background:var(--pv-sup);color:var(--pv-ink);border-radius:9px;padding:8px 14px;min-height:40px;cursor:pointer;align-self:flex-start}
+.pv-btn.pri{background:var(--pv-marca);border-color:var(--pv-marca);color:#fff;font-weight:600}
+.pv-btn:disabled{opacity:.55;cursor:default}
+.pv-tenue{margin:0;font-size:12px;color:var(--pv-muted)}
+.pv-error{background:#FEF0EE;color:#8A1C12;border-radius:8px;padding:8px 10px;font-size:13px}
+.pv-dias{display:flex;gap:6px;flex-wrap:wrap}
+.pv-chip{font:inherit;font-size:13px;border:1px solid var(--pv-line);background:var(--pv-sup);color:var(--pv-ink);border-radius:999px;padding:6px 12px;cursor:pointer;min-height:36px}
+.pv-chip.act{background:var(--pv-marca);border-color:var(--pv-marca);color:#fff;font-weight:600}
+.pv-res{display:flex;gap:6px;flex-wrap:wrap}
+.pv-pas{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--pv-line2)}
+.pv-pas.go{background:#E3F2EE;color:#0B5A53;font-weight:600}
+.pv-pas.no{background:#FDE8E6;color:#8A1C12;font-weight:600}
+.pv-dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
+.pv-caja{border:1px solid var(--pv-line2);border-radius:8px;padding:10px 12px;min-width:0}
+.pv-chk{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.pv-chk li{display:flex;justify-content:space-between;gap:10px}
+.pv-chk li b{font-weight:600;white-space:nowrap}
+.pv-chk li.si b{color:var(--pv-go)} .pv-chk li.no b{color:var(--pv-no)}
+.pv-metar{white-space:pre-wrap;font-family:var(--pv-mono);font-size:12px;background:#FAFAF8;border:1px solid var(--pv-line2);border-radius:8px;padding:8px 10px;margin:6px 0;overflow-x:auto}
+.pv-link{font-size:13px;color:var(--pv-marca)}
+.pv-enlaces{display:flex;flex-wrap:wrap;gap:6px 14px;border-top:1px solid var(--pv-line2);padding-top:8px}
+/* Gráfico (clases que genera graficos.js) */
+.pv .vu-graf{overflow-x:auto;margin:4px -4px 0;padding:0 4px}
+.pv .vu-graf-svg{display:block}
+.pv .vu-graf-fila{display:grid;gap:2px;align-items:center;margin-top:2px}
+.pv .vu-graf-tit{font-size:11px;color:var(--pv-muted)}
+.pv .vu-graf-celda{text-align:center;font-size:11px;font-family:var(--pv-mono);padding:3px 0;border-radius:4px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.pv .vu-graf-celda.azul{background:#E6ECF8} .pv .vu-graf-celda.gris{background:#ECEDEF} .pv .vu-graf-celda.ambar{background:#FCEDE6}
+.pv .vu-graf-estado{color:#fff;font-size:9px;font-weight:700;border-radius:3px;padding:0 3px}
+.pv .vu-flecha{display:inline-block;font-weight:700}

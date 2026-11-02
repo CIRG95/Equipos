@@ -1,4 +1,13 @@
-# Topoland · Sistema de trabajo — v0.8 (Monografías desde Terreno y sectores por eje)
+# Topoland · Sistema de trabajo — v0.8.1 (QR de vincular hacia la app de Terreno)
+
+## Qué cambia en v0.8.1
+- **Vincular teléfono:** el QR abre por defecto la app de Terreno publicada junto al Sistema (`terreno/`), ya no la página de prueba `paquete-conexion/ejemplo.html`. No hay que escribir la dirección.
+- Si se escribió otra dirección, se respeta. Una dirección guardada que apunte a la página de prueba se ignora.
+- Pieza nueva `app/url-terreno.js` (`resolverUrlTerreno`) con 3 pruebas (`pruebas/url-terreno.test.mjs`; total 37).
+
+---
+
+## Versión anterior: v0.8 (Monografías desde Terreno y sectores por eje)
 
 **Sistema v0.8 = v0.7 + Monografías 0.1 + Vuelos 0.6 + paquete de conexión 1.2.** Se sube igual que antes: todo menos `config.js`. **No borrar la carpeta `terreno/`** del repositorio (es la app de Terreno, la publica su chat).
 
@@ -53,7 +62,7 @@
   - Cada persona tiene un **código de 6 letras** y un **QR**.
   - El QR abre la app de Terreno con la carpeta de la nube y el código, y el teléfono queda vinculado a esa persona: sus proyectos (donde es encargado) y sus equipos en terreno.
   - «Cambiar código» invalida el anterior. Es provisorio, hasta que existan usuarios.
-  - **Dirección de la app de Terreno:** se escribe una vez. Mientras Terreno no tenga la conexión, el QR abre la página de prueba `paquete-conexion/ejemplo.html`.
+  - **Dirección de la app de Terreno:** por defecto es la app publicada junto al Sistema (`terreno/`); solo se escribe si Terreno está en otra dirección. Una dirección guardada que apunte a la página de prueba `paquete-conexion/ejemplo.html` (versiones ≤ 0.8) se ignora.
 - **Avisos de equipos:**
   - Desde terreno, botón **Problema o Aviso** sobre un equipo que salió a terreno. Queda como alerta del equipo (`tipo`: problema | aviso, `origen`: app-terreno).
   - Lo ven **el encargado del proyecto**, en la **campanita** arriba y en la bandeja `#/avisos`, y **Administración**, que ve todos y además los tiene en Equipos → Alertas.

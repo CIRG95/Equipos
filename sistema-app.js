@@ -10127,6 +10127,15 @@ ${escapar(t.nota)}${t.notaPor ? `
     }, 400);
   }
 
+  // app/url-terreno.js
+  var RUTA_TERRENO = "terreno/";
+  var ANTIGUA = "paquete-conexion/ejemplo.html";
+  function resolverUrlTerreno(guardada, paginaSistema) {
+    const g = (guardada || "").trim();
+    if (g && !g.includes(ANTIGUA)) return g;
+    return new URL(RUTA_TERRENO, String(paginaSistema).split("#")[0]).toString();
+  }
+
   // app/catalogo.js
   var ROLES = {
     terreno: "Encargado de terreno",
@@ -10215,7 +10224,7 @@ ${escapar(t.nota)}${t.notaPor ? `
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.8";
+  var VERSION_SISTEMA = "0.8.1";
   var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.6 + Seguimiento 0.1 + Monografías 0.1 (desde Terreno)";
 
   // app/vistas.js
@@ -10507,7 +10516,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       return d;
     }
   };
-  var urlTerreno = () => leerLS3("env_terreno_url") || new URL("paquete-conexion/ejemplo.html", location.href.split("#")[0]).toString();
+  var urlTerreno = () => resolverUrlTerreno(leerLS3("env_terreno_url"), location.href);
   async function tarjetaVincular(p) {
     if (!p) return "";
     const n = estado();
@@ -10533,9 +10542,9 @@ ${escapar(t.nota)}${t.notaPor ? `
         <p>Si el QR no se puede leer, en la app de Terreno escribe el código:</p>
         <p class="sis-codigo">${escapar(p.codigoVinculo)}</p>
         ${n.carpetaId ? '<p class="sis-tenue">El QR lleva la carpeta de la nube: el teléfono trae los datos al conectarse con Google.</p>' : '<div class="sis-aviso-linea">La nube no está conectada en este equipo: el QR funciona solo en este mismo navegador. Conecta la nube para vincular otro teléfono.</div>'}
-        <form class="sis-form" data-form="terreno-url"><label class="sis-campo"><span>Dirección de la app de Terreno</span><input name="url" value="${escapar(leerLS3("env_terreno_url"))}" placeholder="${escapar(urlTerreno())}"></label>
+        <form class="sis-form" data-form="terreno-url"><label class="sis-campo"><span>Dirección de la app de Terreno</span><input name="url" value="${escapar(leerLS3("env_terreno_url").includes("paquete-conexion/ejemplo.html") ? "" : leerLS3("env_terreno_url"))}" placeholder="${escapar(urlTerreno())}"></label>
           <div class="sis-acciones"><button class="sis-btn chico">Guardar dirección</button><button type="button" class="sis-btn chico" data-accion="nuevo-codigo" data-id="${escapar(p.id)}">Cambiar código</button></div>
-          <p class="sis-tenue">Mientras la app de Terreno no tenga la conexión, el QR abre la página de prueba del paquete de conexión.</p></form>
+          <p class="sis-tenue">Déjala vacía para usar la app de Terreno publicada junto al Sistema (carpeta terreno/).</p></form>
       </div>
     </div></section>`;
   }

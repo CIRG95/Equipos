@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.8
+# INTEGRACION.md — Sistema v0.8.1
 
 ## Qué contiene
 
@@ -108,3 +108,8 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - **Paquete de conexión 1.2:** usa solo `modulos/monografias/datos.js` (sin pantallas ni PDF).
 - **Vuelos 0.6:** `cortes.js` (forma, métodos, `generarCortes`), en `geom.js`: `ejeDePoligono`, `remuestrear`, `simplificar`, `cascoConvexo`, `rumboLadoLargo`, `cortesParalelos`, `distanciasPorSuperficie`, `anchoEn`. Hoja: `area.ejeCalc` (eje calculado en lon/lat, anchos y perfil), `area.auto` (`modo`, `cada`, `unidad`, `sup`, `unidadSup`, `n`, `rumbo`, `igual`, `bat`, `horas`, `primer`). El modo `inicio` de la v0.7 se lee como `distancia` en metros.
 - **Repositorio:** desde el 2-nov `terreno/` es la app de Terreno (la publica su chat). Las ramas del Sistema parten de `main` y no tocan `terreno/` ni `config.js`.
+
+## Sistema v0.8.1
+- `app/url-terreno.js`: `resolverUrlTerreno(guardada, paginaSistema)` → dirección de la app de Terreno para el QR de «Vincular teléfono». Sin dirección guardada usa `terreno/` junto al Sistema; ignora `paquete-conexion/ejemplo.html` (valor de las versiones ≤ 0.8).
+- `app/vistas.js` (`urlTerreno`) la usa. Sin cambios en módulos, datos ni en el paquete de conexión 1.2.
+

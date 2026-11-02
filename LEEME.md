@@ -1,4 +1,25 @@
-# Topoland · Sistema de trabajo — v0.7 (Vuelos: METAR, cortes del corredor y despegue en camino)
+# Topoland · Sistema de trabajo — v0.8 (Monografías desde Terreno y sectores por eje)
+
+**Sistema v0.8 = v0.7 + Monografías 0.1 + Vuelos 0.6 + paquete de conexión 1.2.** Se sube igual que antes: todo menos `config.js`. **No borrar la carpeta `terreno/`** del repositorio (es la app de Terreno, la publica su chat).
+
+## Qué cambia en v0.8
+- **Monografías (nuevo, menú «Monografías» y tarjeta en la ficha del proyecto):**
+  - Por proyecto llegan desde la app de Terreno las monografías, las jornadas y las fotos (paquete de conexión 1.2, botón «Enviar al Sistema» en Terreno).
+  - Lista de vértices con estado: enviada → en revisión → lista, o con observación (el encargado la ve en Terreno). Faltantes por monografía.
+  - Ficha con los mismos campos de Terreno: elegir fotos de terreno para el croquis, la panorámica y las fotos adicionales; coordenadas finales del postproceso; descripción, operador y revisó; qué secciones van en el PDF; chequeo ✔ – ! ?.
+  - Si Terreno vuelve a enviar una monografía ya revisada, aparece «Terreno envió cambios» con «Usar la de Terreno».
+  - **PDF idéntico al de Terreno:** el formato, el chequeo y el PDF se copiaron sin cambios del código de Terreno 0.5.6 (`modulos/monografias/pieza-terreno.js`, generado con `herramientas/extraer-pieza-monografia.mjs`). Uno por vértice o todos juntos. Logo de la empresa por computador.
+  - Las monografías creadas en gabinete también se pueden hacer aquí.
+- **Vuelos 0.6 · paso Área con sub-pestañas:** Origen · Forma · Sectores · Zonas y caminos, una tarjeta a la vez al lado del mapa (más alto y fijo).
+  - **Forma:** detecta un **área lineal** y calcula su **eje** (línea media entre los dos bordes) con largo y ancho mín./prom./máx. Se puede volar como polígono por sectores o como **corredor sobre el eje**. DM del inicio del eje.
+  - **Cortes con menú desplegable de método:** área lineal → por distancia (cada X m/km), por superficie (cada X ha/km²), alineados al DM, tramos del Seguimiento; cualquier área → en N sectores (cortes paralelos de igual superficie, con rotación ⟲ ⟳ y «Lado más largo»), por baterías, por días de vuelo; manual. Propone el método según la forma y muestra una vista previa.
+  - Los sectores de un área lineal quedan en el orden del eje y nombrados por DM.
+- **Paquete de conexión 1.2:** `publicarMonografia`, `publicarJornada`, `subirFoto`, `estadoMonografias` (ver `paquete-conexion/LEEME.md`).
+- **Pruebas:** 34 automáticas (nuevas: área lineal, cortes por método, cortes paralelos, rendimiento con 130 km y 20.000 vértices) y en navegador: Terreno → Sistema (publicar, revisar, observación, PDF).
+
+---
+
+# v0.7 (Vuelos: METAR, cortes del corredor y despegue en camino)
 
 **Sistema v0.7 = v0.6 + Vuelos 0.5.** Se sube igual que antes: todo menos `config.js` (el tuyo se queda como está).
 

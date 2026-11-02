@@ -11,9 +11,9 @@ import { CAMPOS_DRON } from './drones.js';
 import { alturaParaGsd, gsdCm, fmt, fmtDuracion, proyectar, areaM2 } from './calculo.js';
 import { leerArchivo, analizarKml, limpiarParaDji, kmlDePoligono, kmlDeLinea, limpiarEje, nombreArchivoSeguro, limpiarAnillo, autoInterseccion } from './kml.js';
 import { listarCapas, cargarCapaDesdeArchivo, quitarCapa } from './capas.js';
-import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, kmADm, distanciasCorte, cortesDeCorredor, distanciasPorBaterias } from './hoja.js';
+import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, totales } from './hoja.js';
 import * as Seguimiento from '../seguimiento/seguimiento.js';
-import { largo } from './geom.js';
+import { formaDe, metodoPropuesto, generarCortes, corredorDesdeEje, rumboCortesPropuesto } from './cortes.js';
 import { caminosEn, caminosDeHoja, recuadro, despegueSobreCamino } from './redvial.js';
 import { TIPO_KML } from './ui.js';
 import { crearVistaHojas } from './vista-hojas.js';
@@ -98,7 +98,7 @@ export function montarPantallas(contenedor, ctx) {
   const v = { st, base, ctx, raiz, mapas, geo, dron, familias, nomProy, nomPers, secSel, capasActivas, avisar, cambio, render, guardarAhora, refrescarArea, refrescarVuelo };
   Object.assign(v, crearVistaHojas(v), crearPasoArea(v), crearPasoVuelo(v), crearPasoClima(v), crearPasoPermisos(v), crearHerramientas(v), crearMapas(v));
   const {
-    vistaHojas, encabezadoHoja, vistaResumen, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo,
+    vistaHojas, encabezadoHoja, vistaResumen, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo, htmlVistaPrevia,
     vistaVuelo, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd,
     vistaClima, vistaRapido, consultarClima, guardarResumenClima, vistaPermisos, imprimir, vistaKml, vistaDrones,
     mapaArea, mapaVuelo, mapaKml, pintarArea, pintarVuelo, pintarDibujo,
@@ -135,37 +135,33 @@ export function montarPantallas(contenedor, ctx) {
   }
 
   async function cortarAutomatico(h) {
-    const a = h.area, au = a.auto || {}, dm = a.dm || {}, modo = au.modo || 'inicio';
-    const g = geometria(h); if (!g || a.tipo !== 'corredor') return;
-    const L = largo(a.eje.linea.map(g.marco.aXY));
-    let dist;
-    if (modo === 'baterias') {
-      const n = Number(au.bat) || 4;
-      avisar('Calculando cortes por baterías…');
-      dist = distanciasPorBaterias(h, dron(), n);
-    } else {
-      if ((modo === 'dm' || modo === 'tramos') && dm.inicio == null) { avisar('Escribe primero el DM del inicio del eje (ej. 10+000).', 'error'); return; }
-      let tramosKm = [];
-      if (modo === 'tramos') {
-        if (!h.proyectoId) { avisar('La hoja no tiene proyecto: elígelo en el encabezado para usar sus tramos.', 'error'); return; }
-        const t = await Seguimiento.tramosDeProyecto(h.proyectoId);
-        if (!t) { avisar('El proyecto no tiene seguimiento con tramos.', 'error'); return; }
-        for (const ar of t.areas) for (const x of ar.tramos) { if (x.ini != null) tramosKm.push(x.ini); if (x.fin != null) tramosKm.push(x.fin); }
-        if (!tramosKm.length) { avisar('Los tramos del seguimiento no tienen DM (como 45+200) en su nombre.', 'error'); return; }
-      }
-      dist = distanciasCorte(L, { modo, cada: au.cada || 1000, dmInicio: dm.inicio, desc: !!dm.desc, primerDM: au.primer ? dmAKm(au.primer) : null, tramosKm });
+    const a = h.area;
+    a.auto = a.auto || {};
+    if (a.auto.modo === 'inicio') { a.auto.modo = 'distancia'; a.auto.unidad = 'm'; } // hojas de la v0.7
+    const forma = formaDe(h);
+    if (!a.auto.modo) a.auto.modo = metodoPropuesto(forma);
+    const extra = { dron: dron(), primerDM: a.auto.primerKm ?? null };
+    if (a.auto.modo === 'tramos') {
+      if (!h.proyectoId) { avisar('La hoja no tiene proyecto: elígelo en el encabezado para usar sus tramos.', 'error'); return; }
+      const t = await Seguimiento.tramosDeProyecto(h.proyectoId);
+      if (!t) { avisar('El proyecto no tiene seguimiento con tramos.', 'error'); return; }
+      extra.tramosKm = [];
+      for (const ar of t.areas) for (const x of ar.tramos) { if (x.ini != null) extra.tramosKm.push(x.ini); if (x.fin != null) extra.tramosKm.push(x.fin); }
+      if (!extra.tramosKm.length) { avisar('Los tramos del seguimiento no tienen DM (como 45+200) en su nombre.', 'error'); return; }
     }
-    if (!dist.length && modo === 'baterias') { avisar(`Todo el corredor se vuela con ${Number(au.bat) || 4} batería${Number(au.bat) === 1 ? '' : 's'} o menos: no hace falta cortar.`); return; }
-    if (!dist.length) { avisar(modo === 'tramos' ? 'Ningún DM de los tramos cae dentro del eje: revisa el DM del inicio y si baja.' : 'Con esos datos no hay cortes dentro del eje.', 'error'); return; }
-    a.cortes = cortesDeCorredor(h, dist); a.sectores = []; a.sel = 0;
+    let r;
+    try { r = generarCortes(h, extra); } catch (e) { avisar(e.message, 'error'); return; }
+    a.cortes = r.cortes; a.sectores = []; a.sel = 0;
     cambio();
-    const n = geometria(h).sectores.length;
-    avisar(`Listo: ${dist.length} cortes, ${n} sectores${dm.inicio != null ? ` (${kmADm(Math.min(dm.inicio, dm.desc ? dm.inicio - L / 1000 : dm.inicio + L / 1000))} – ${kmADm(Math.max(dm.inicio, dm.desc ? dm.inicio - L / 1000 : dm.inicio + L / 1000))})` : ''}.`);
+    const g = geometria(h);
+    if (!r.cortes.length) { avisar(r.nota || 'No hizo falta cortar.'); return; }
+    const t = totales(h, dron(), g);
+    avisar(`Listo: ${g.sectores.length} sectores${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ''}${g.fallidos.length ? ` · ${g.fallidos.length} corte${g.fallidos.length > 1 ? 's' : ''} no cruzó el área (arrástralo o quítalo)` : ''}.${r.nota ? ' ' + r.nota : ''}`, g.fallidos.length ? 'error' : 'ok');
   }
 
   function refrescarArea() {
     const g = geo();
-    poner('vu-sectores', htmlSectores()); poner('vu-zonas', htmlZonas());
+    poner('vu-sectores', htmlSectores()); poner('vu-zonas', htmlZonas()); poner('vu-vista-previa', htmlVistaPrevia());
     const info = raiz.querySelector('#vu-margen-info');
     if (info && g) info.innerHTML = g.tipo === 'corredor' ? textoCorredor(g) : `${fmt(areaM2(g.original) / 10000, 2)} ha → <b>${fmt(g.areaVuelo / 10000, 2)} ha</b> de vuelo`;
     if (mapas.area && mapas.area.el.isConnected) pintarArea(mapas.area);
@@ -198,7 +194,8 @@ export function montarPantallas(contenedor, ctx) {
   // ─────────── Archivos ───────────
   function usarPoligono(p, archivo) {
     const a = st.hoja.area;
-    Object.assign(a, { tipo: 'poligono', original: { nombre: p.nombre, anillo: limpiarAnillo(p.coords || p.anillo) }, eje: null, archivo, cortes: [], sectores: [], sel: 0, problemas: p.problemas || [] });
+    Object.assign(a, { tipo: 'poligono', original: { nombre: p.nombre, anillo: limpiarAnillo(p.coords || p.anillo) }, eje: null, ejeCalc: null, auto: {}, archivo, cortes: [], sectores: [], sel: 0, problemas: p.problemas || [] });
+    st.subArea = 'forma';
     if (!st.hoja.nombre) st.hoja.nombre = p.nombre;
     st.candidatos = null; st.dibujo = null;
     if (p.area > 2000 * 10000) avisar(`El polígono tiene ${fmt(p.area / 10000, 0)} ha: revisa que sea el área de vuelo.`, 'error');
@@ -206,7 +203,8 @@ export function montarPantallas(contenedor, ctx) {
   }
   function usarEje(e, archivo) {
     const a = st.hoja.area;
-    Object.assign(a, { tipo: 'corredor', eje: { nombre: e.nombre, linea: e.linea, largo: e.largo }, original: null, archivo, cortes: [], sectores: [], sel: 0, problemas: e.problemas || [] });
+    Object.assign(a, { tipo: 'corredor', eje: { nombre: e.nombre, linea: e.linea, largo: e.largo }, original: null, ejeCalc: null, auto: {}, archivo, cortes: [], sectores: [], sel: 0, problemas: e.problemas || [] });
+    st.subArea = 'forma';
     if (!st.hoja.nombre) st.hoja.nombre = e.nombre;
     st.candidatos = null; st.dibujo = null;
     cambio();
@@ -313,8 +311,17 @@ export function montarPantallas(contenedor, ctx) {
         a.dm = a.dm || {}; a.auto = a.auto || {};
         if (k === 'dm') { const km = dmAKm(t.value); a.dm.texto = t.value.trim(); a.dm.inicio = t.value.trim() ? km : null; if (t.value.trim() && km == null) avisar('No entendí el DM: escríbelo como 10+000.', 'error'); }
         else if (k === 'desc') a.dm.desc = t.checked;
+        else if (k === 'igual') a.auto.igual = t.checked;
+        else if (k === 'primer') { a.auto.primer = t.value.trim(); a.auto.primerKm = t.value.trim() ? dmAKm(t.value) : null; }
         else a.auto[k] = t.value.trim();
-        cambio(); refrescarArea(); return;
+        if (k === 'n') { const x = raiz.querySelector('#vu-n-txt'); if (x) x.textContent = t.value; }
+        cambio();
+        if (k === 'modo' || k === 'unidad' || k === 'unidadSup') { await render(); return; }
+        refrescarArea(); return;
+      }
+      if (t.dataset.accionCambio === 'a-corredor') {
+        if (corredorDesdeEje(h)) { avisar('Ahora se vuela como corredor sobre el eje calculado. Ajusta el ancho si hace falta.'); cambio(); }
+        await render(); return;
       }
       if (t.dataset.area === 'rectas') { h.area.rectas = t.checked; cambio(); refrescarArea(); return; }
       if (t.dataset.area === 'mismo') { h.area.corredor.mismo = t.checked; if (!t.checked) h.area.corredor.der = h.area.corredor.izq; cambio(); await render(); return; }
@@ -391,6 +398,9 @@ export function montarPantallas(contenedor, ctx) {
         const modo = b.dataset.modo;
         st.dibujo = st.dibujo && st.dibujo.modo === modo ? null : { modo, puntos: [] };
         st.paso = 'area';
+        if (modo === 'corte') st.subArea = 'sectores';
+        if (modo === 'area' || modo === 'eje') st.subArea = 'origen';
+        if (modo === 'camino') st.subArea = 'zonas';
         if (st.dibujo && modo === 'corte') avisar('Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».');
       }
       else if (a === 'dibujo-deshacer') { st.dibujo.puntos.pop(); const bb = raiz.querySelector('#vu-barra-area'); if (bb) bb.innerHTML = barraDibujo(); if (mapas.area) pintarDibujo(mapas.area); return; }
@@ -421,7 +431,17 @@ export function montarPantallas(contenedor, ctx) {
         const i = Number(b.dataset.i), e = st.sugDesp && st.sugDesp.lista.find(x => x.i === i);
         if (e && e.res) { metaSector(h, i).despegue = e.res.lonLat; e.usado = true; h.area.sel = i; avisar(`Despegue de ${nombreSector(h, i, geo().sectores.length)} movido al camino.`); cambio(); }
       }
-      else if (a === 'auto-modo') { h.area.auto = { ...(h.area.auto || {}), modo: b.dataset.m }; cambio(); }
+      else if (a === 'sub-area') { st.subArea = b.dataset.s; st.paso = 'area'; if (st.dibujo && st.dibujo.modo === 'corte' && st.subArea !== 'sectores') st.dibujo = null; }
+      else if (a === 'auto-rumbo' || a === 'auto-lado') {
+        h.area.auto = h.area.auto || {};
+        const actual = h.area.auto.rumbo === '' || h.area.auto.rumbo == null ? Math.round(rumboCortesPropuesto(h)) : Number(h.area.auto.rumbo);
+        h.area.auto.rumbo = String(a === 'auto-lado' ? Math.round(rumboCortesPropuesto(h)) : (((actual + Number(b.dataset.d)) % 180) + 180) % 180);
+        cambio();
+      }
+      else if (a === 'a-poligono') {
+        const ar = h.area;
+        if (ar.original) { Object.assign(ar, { tipo: 'poligono', eje: null, cortes: [], sectores: [], sel: 0 }); avisar('Se vuelve a volar como polígono.'); cambio(); }
+      }
       else if (a === 'auto-cortar') await cortarAutomatico(h);
       else if (a === 'deshacer-corte') { h.area.cortes.pop(); cambio(); }
       else if (a === 'quitar-cortes') { h.area.cortes = []; h.area.sel = 0; cambio(); }

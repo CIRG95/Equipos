@@ -27,14 +27,18 @@ var TopolandConexion = (() => {
     codigoQR: () => codigoQR,
     conectarNube: () => conectarNube,
     desvincular: () => desvincular,
+    estadoMonografias: () => estadoMonografias2,
     estadoNube: () => estadoNube,
     iniciar: () => iniciar4,
     marcarTramoVolado: () => marcarTramoVolado2,
     misEquiposEnTerreno: () => misEquiposEnTerreno,
     misProyectos: () => misProyectos,
-    persona: () => persona2,
+    persona: () => persona3,
+    publicarJornada: () => publicarJornada2,
+    publicarMonografia: () => publicarMonografia2,
     reportar: () => reportar,
     sincronizar: () => sincronizar2,
+    subirFoto: () => subirFoto,
     tramosDeProyecto: () => tramosDeProyecto2,
     vincular: () => vincular
   });
@@ -725,6 +729,12 @@ Content-Type: ${mime}\r
     lista = lista.filter((p) => incluirOficina || p.id !== OFICINA_ID);
     return lista.sort((a, b) => a.id === OFICINA_ID ? -1 : b.id === OFICINA_ID ? 1 : porNombre(a, b));
   }
+  async function obtenerProyecto(id) {
+    if (!id) return null;
+    if (proveedor) return proveedor.obtenerProyecto(id);
+    if (id === OFICINA_ID) await asegurarOficina();
+    return obtener(ALM_PROYECTOS, id);
+  }
   async function listarPersonas() {
     if (proveedor) return (await proveedor.listarPersonas()).sort(porNombre);
     return (await todos(ALM_PERSONAS)).filter(activo).sort(porNombre);
@@ -734,6 +744,73 @@ Content-Type: ${mime}\r
   var ALM = "compartido_archivos";
   registrarAlmacenes([{ nombre: ALM, indices: [["dueno", ["duenoTipo", "duenoId"]]] }]);
   var TAMANO_MAXIMO = 15 * 1024 * 1024;
+  var LADO_MAXIMO_FOTO = 1600;
+  function leerComoDataURL(blob) {
+    return new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = () => rej(fr.error);
+      fr.readAsDataURL(blob);
+    });
+  }
+  async function reducirFoto(archivo) {
+    try {
+      const url = URL.createObjectURL(archivo);
+      const img = await new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = url;
+      });
+      URL.revokeObjectURL(url);
+      const escala = Math.min(1, LADO_MAXIMO_FOTO / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * escala);
+      c.height = Math.round(img.height * escala);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      return { datos: c.toDataURL("image/jpeg", 0.85), mime: "image/jpeg" };
+    } catch {
+      return { datos: await leerComoDataURL(archivo), mime: archivo.type || "application/octet-stream" };
+    }
+  }
+  var limpiar = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w.\-]+/g, "_").replace(/_+/g, "_");
+  async function guardarArchivo(archivo, meta, { personaId = null } = {}) {
+    if (archivo.size > TAMANO_MAXIMO) throw new Error(`«${archivo.name}» pesa ${(archivo.size / 1048576).toFixed(1)} MB; el máximo es 15 MB.`);
+    const esFoto = (archivo.type || "").startsWith("image/") && meta.rol !== "documento";
+    const { datos, mime } = esFoto ? await reducirFoto(archivo) : { datos: await leerComoDataURL(archivo), mime: archivo.type || "application/pdf" };
+    const nombre = archivo.name || `${meta.rol || "archivo"}.${mime.split("/")[1] || "bin"}`;
+    const reg = sellar({
+      modulo: meta.modulo || "",
+      duenoTipo: meta.duenoTipo,
+      duenoId: meta.duenoId,
+      rol: meta.rol || "documento",
+      proyectoId: meta.proyectoId || null,
+      nombre,
+      mime,
+      tamano: Math.round((datos.length - datos.indexOf(",") - 1) * 0.75),
+      ...meta.detalle ? { detalle: meta.detalle } : {},
+      datos,
+      nube: { estado: "local", ruta: meta.carpeta ? `${meta.carpeta}/${limpiar(nombre)}` : null }
+    }, { personaId });
+    return guardar(ALM, reg);
+  }
+  async function guardarArchivoDatos(dataURL, nombre, meta, ctx) {
+    const blob = aBlob(dataURL);
+    const archivo = new File([blob], nombre || `${meta.rol || "foto"}.${(blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg")}`, { type: blob.type });
+    return guardarArchivo(archivo, meta, ctx);
+  }
+  async function archivosDeProyecto(proyectoId, modulo = null) {
+    const lista = (await todos(ALM)).filter((a) => a.proyectoId === proyectoId && !a.eliminadoEn && (!modulo || a.modulo === modulo));
+    return lista.map(({ datos, ...resto }) => resto).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
+  }
+  function aBlob(dataURL) {
+    const [cab, b64] = dataURL.split(",");
+    const mime = (cab.match(/data:([^;]+)/) || [])[1] || "application/octet-stream";
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
 
   // modulos/equipos/modelo.js
   var SCHEMA_VERSION = 1;
@@ -1086,8 +1163,149 @@ Content-Type: ${mime}\r
     return eventos.length;
   }
 
+  // modulos/monografias/datos.js
+  var SCHEMA_VERSION3 = 1;
+  var ALM4 = { mono: "terreno_monografias", gabinete: "terreno_monografias_gabinete", revisiones: "terreno_revisiones", jornadas: "terreno_jornadas" };
+  var ESTADOS = {
+    enviada: { texto: "Enviada desde terreno", color: "gris" },
+    "en-revision": { texto: "En revisión", color: "azul" },
+    lista: { texto: "Lista", color: "verde" },
+    "con-observacion": { texto: "Con observación", color: "ambar" },
+    borrador: { texto: "Creada en gabinete", color: "gris" }
+  };
+  var IMAGENES = ["clienteLogo", "croquisImg", "panoramicaImg"];
+  var persona2 = null;
+  var registrado = false;
+  function iniciarDatos3({ personaId = null } = {}) {
+    if (!registrado) {
+      registrarAlmacenes([
+        { nombre: ALM4.mono, indices: [["proyectoId", "proyectoId"]] },
+        { nombre: ALM4.gabinete, indices: [["proyectoId", "proyectoId"]] },
+        { nombre: ALM4.revisiones, indices: [["monografiaId", "monografiaId"], ["proyectoId", "proyectoId"]] },
+        { nombre: ALM4.jornadas, indices: [["proyectoId", "proyectoId"]] }
+      ]);
+      registrado = true;
+    }
+    persona2 = personaId;
+  }
+  var sello3 = (r, p = persona2) => sellar(r, { personaId: p, schemaVersion: SCHEMA_VERSION3 });
+  var vivo3 = (r) => r && !r.eliminadoEn;
+  async function huella(texto) {
+    try {
+      const b = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(texto));
+      return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+    } catch {
+      return `${texto.length}-${texto.slice(-64)}`;
+    }
+  }
+  var esDataURL = (v) => typeof v === "string" && v.startsWith("data:");
+  var fechaCarpeta = (iso) => String(iso || (/* @__PURE__ */ new Date()).toISOString()).slice(0, 10);
+  async function guardarFoto(dataURL, { proyectoId, duenoTipo = "terreno_foto", duenoId = null, detalle = {}, personaId = persona2, nombreProyecto = "" } = {}) {
+    if (!esDataURL(dataURL)) throw new Error("La foto debe venir como dataURL.");
+    const h = await huella(dataURL);
+    const previa = (await archivosDeProyecto(proyectoId, "terreno")).find((a) => a.detalle && a.detalle.huella === h);
+    if (previa) return previa.id;
+    const tipo = detalle.tipo || "otra";
+    const carpeta = `Proyectos/${nombreProyecto || proyectoId}/Terreno/${fechaCarpeta(detalle.hora)}`;
+    const nombre = `${tipo}${detalle.punto ? "_" + detalle.punto : ""}_${String(detalle.hora || "").replace(/[^0-9]/g, "").slice(0, 14) || Date.now()}.jpg`;
+    const reg = await guardarArchivoDatos(dataURL, nombre, { modulo: "terreno", duenoTipo, duenoId: duenoId || proyectoId, rol: "foto", proyectoId, carpeta, detalle: { ...detalle, tipo, huella: h } }, { personaId });
+    return reg.id;
+  }
+  async function guardarImagenesDe(m, { proyectoId, personaId = persona2, nombreProyecto = "" } = {}) {
+    const copia = { ...m };
+    const det = (tipo, extra = {}) => ({ tipo, monografiaId: m.id, punto: m.puntoMedido || "", hora: m.fechaMedicion || m.creado || "", autor: m.operadorNombre || "", ...extra });
+    for (const k of IMAGENES) {
+      if (esDataURL(m[k])) copia[k] = { archivo: await guardarFoto(m[k], { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto, detalle: det(k === "croquisImg" ? "croquis" : k === "panoramicaImg" ? "panoramica" : "logo") }) };
+    }
+    copia.fotosExtra = [];
+    for (const f of m.fotosExtra || []) {
+      const g = { ...f };
+      if (esDataURL(f.img)) g.img = { archivo: await guardarFoto(f.img, { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto, detalle: det("detalle", { leyenda: f.leyenda || "" }) }) };
+      copia.fotosExtra.push(g);
+    }
+    return copia;
+  }
+  async function publicarMonografia(m, { proyectoId, personaId = persona2, nombreProyecto = "" } = {}) {
+    if (!m || !m.id) throw new Error("La monografía no tiene id.");
+    if (!proyectoId) throw new Error("Falta el proyecto del Sistema.");
+    const copia = await guardarImagenesDe(m, { proyectoId, personaId, nombreProyecto });
+    const previa = await obtener(ALM4.mono, m.id);
+    const reg = sello3({ ...copia, id: m.id, proyectoId, origen: "app-terreno", publicadoEn: (/* @__PURE__ */ new Date()).toISOString(), publicadoPor: personaId, creadoEn: previa ? previa.creadoEn : void 0 }, personaId);
+    await guardar(ALM4.mono, reg);
+    if (!previa) await agregarRevision({ monografiaId: m.id, proyectoId, estado: "enviada", observacion: "" }, personaId);
+    return { id: m.id, estado: (await estadoDe2(m.id)).estado };
+  }
+  async function revisionesDe(monografiaId) {
+    return (await porIndice(ALM4.revisiones, "monografiaId", monografiaId)).filter(vivo3).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
+  }
+  async function agregarRevision({ monografiaId, proyectoId, estado: estado2, observacion = "" }, personaId = persona2) {
+    if (!ESTADOS[estado2]) throw new Error("Estado desconocido: " + estado2);
+    return guardar(ALM4.revisiones, sello3({ id: uuid(), monografiaId, proyectoId, estado: estado2, observacion: String(observacion || "").trim(), por: personaId }, personaId));
+  }
+  async function estadoDe2(monografiaId) {
+    const r = (await revisionesDe(monografiaId)).pop();
+    return r ? { estado: r.estado, observacion: r.observacion, revisadoPor: r.por, fecha: r.creadoEn } : { estado: "borrador", observacion: "", revisadoPor: null, fecha: null };
+  }
+  async function monografiasDeProyecto(proyectoId) {
+    const [deTerreno, deGabinete, revs] = await Promise.all([porIndice(ALM4.mono, "proyectoId", proyectoId), porIndice(ALM4.gabinete, "proyectoId", proyectoId), porIndice(ALM4.revisiones, "proyectoId", proyectoId)]);
+    const ultima = /* @__PURE__ */ new Map();
+    for (const r of revs.filter(vivo3).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn))) ultima.set(r.monografiaId, r);
+    const terreno = new Map(deTerreno.filter(vivo3).map((m) => [m.id, m]));
+    const gab = new Map(deGabinete.filter(vivo3).map((m) => [m.id, m]));
+    const ids = /* @__PURE__ */ new Set([...terreno.keys(), ...gab.keys()]);
+    return [...ids].map((id) => {
+      const t = terreno.get(id) || null, g = gab.get(id) || null, r = ultima.get(id);
+      return {
+        id,
+        ficha: g || t,
+        terreno: t,
+        gabinete: g,
+        nuevaDeTerreno: !!(t && g && g.basadoEn && t.actualizadoEn > g.basadoEn),
+        estado: r ? r.estado : t ? "enviada" : "borrador",
+        observacion: r ? r.observacion : "",
+        revisadoPor: r ? r.por : null,
+        fechaEstado: r ? r.creadoEn : null
+      };
+    });
+  }
+  async function estadoMonografias(proyectoId) {
+    return (await monografiasDeProyecto(proyectoId)).filter((x) => x.terreno).map((x) => ({ id: x.id, punto: x.ficha.puntoMedido || "", estado: x.estado, observacion: x.observacion, revisadoPor: x.revisadoPor, fecha: x.fechaEstado }));
+  }
+  async function publicarJornada(jornada, levantamientos, { proyectoId, personaId = persona2, nombreProyecto = "" } = {}) {
+    var _a, _b;
+    if (!jornada || !jornada.id) throw new Error("La jornada no tiene id.");
+    if (!proyectoId) throw new Error("Falta el proyecto del Sistema.");
+    const levs = [];
+    let nFotos = 0;
+    for (const l of levantamientos || []) {
+      const puntos = [];
+      for (const p of l.puntos || []) {
+        const q = { ...p };
+        if (esDataURL(p.foto)) {
+          q.foto = { archivo: await guardarFoto(p.foto, { proyectoId, duenoTipo: "terreno_jornada", duenoId: jornada.id, personaId, nombreProyecto, detalle: { tipo: "punto", jornadaId: jornada.id, punto: p.valores && (p.valores.nombre || p.valores.punto || p.valores.id) || "", lat: (_a = p.lat) != null ? _a : null, lng: (_b = p.lng) != null ? _b : null, hora: p.timestamp || "", autor: jornada.operador || "" } }) };
+          nFotos++;
+        }
+        puntos.push(q);
+      }
+      const fotosReq = [];
+      for (const f of l.fotosReq || []) {
+        const g = { ...f };
+        if (esDataURL(f.foto)) {
+          g.foto = { archivo: await guardarFoto(f.foto, { proyectoId, duenoTipo: "terreno_jornada", duenoId: jornada.id, personaId, nombreProyecto, detalle: { tipo: "detalle", jornadaId: jornada.id, leyenda: f.nombre || f.texto || "", hora: f.hora || "", autor: jornada.operador || "" } }) };
+          nFotos++;
+        }
+        fotosReq.push(g);
+      }
+      levs.push({ ...l, puntos, fotosReq });
+    }
+    const previa = await obtener(ALM4.jornadas, jornada.id);
+    const { lat, lng, ...resto } = jornada;
+    await guardar(ALM4.jornadas, sello3({ ...resto, lat: lat != null ? lat : null, lng: lng != null ? lng : null, id: jornada.id, proyectoId, levantamientos: levs, publicadoEn: (/* @__PURE__ */ new Date()).toISOString(), creadoEn: previa ? previa.creadoEn : void 0 }, personaId));
+    return { id: jornada.id, fotos: nFotos };
+  }
+
   // app/conexion-terreno.js
-  var VERSION = "1.1 (Sistema v0.7)";
+  var VERSION = "1.2 (Sistema v0.8)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var leer = (k) => {
@@ -1105,9 +1323,10 @@ Content-Type: ${mime}\r
   };
   var codigoPendiente = null;
   function iniciar4({ clienteId } = {}) {
-    const p = persona2();
+    const p = persona3();
     iniciar2({ personaId: p ? p.id : null });
     iniciar3({ personaId: p ? p.id : null });
+    iniciarDatos3({ personaId: p ? p.id : null });
     configurar({ clienteId: clienteId || void 0 });
     iniciar();
     try {
@@ -1127,7 +1346,7 @@ Content-Type: ${mime}\r
     }
     return { persona: p, codigoPendiente, carpetaPendiente: leer(CLAVE_CARPETA) && !estado().carpetaId ? leer(CLAVE_CARPETA) : null };
   }
-  function persona2() {
+  function persona3() {
     return leer(CLAVE_PERSONA);
   }
   async function vincular(codigo) {
@@ -1139,6 +1358,7 @@ Content-Type: ${mime}\r
     escribir(CLAVE_PERSONA, datos);
     iniciar2({ personaId: p.id });
     iniciar3({ personaId: p.id });
+    iniciarDatos3({ personaId: p.id });
     codigoPendiente = null;
     return datos;
   }
@@ -1146,7 +1366,7 @@ Content-Type: ${mime}\r
     escribir(CLAVE_PERSONA, null);
   }
   var yo = () => {
-    const p = persona2();
+    const p = persona3();
     if (!p) throw new Error("Primero vincula el teléfono a una persona.");
     return p;
   };
@@ -1173,12 +1393,34 @@ Content-Type: ${mime}\r
     const p = yo();
     return marcarTramoVolado(proyectoId, tramoId, { volado: volado2, ...fecha ? { fecha } : {}, por: p.nombre, nota });
   }
+  async function opcionesProyecto(proyectoId) {
+    const p = yo();
+    if (!proyectoId) throw new Error("Elige el proyecto del Sistema.");
+    const proy = await obtenerProyecto(proyectoId);
+    if (!proy) throw new Error("Ese proyecto no está en este teléfono. Sincroniza con la nube del Sistema.");
+    return { proyectoId, personaId: p.id, nombreProyecto: proy.nombre };
+  }
+  async function publicarMonografia2(m, { proyectoId } = {}) {
+    return publicarMonografia(m, await opcionesProyecto(proyectoId));
+  }
+  async function publicarJornada2(jornada, levantamientos, { proyectoId } = {}) {
+    return publicarJornada(jornada, levantamientos, await opcionesProyecto(proyectoId));
+  }
+  async function subirFoto(dataUrl, { proyectoId, tipo = "otra", monografiaId = null, puntoId = null, punto = "", lat = null, lng = null, hora = null, leyenda = "" } = {}) {
+    const op = await opcionesProyecto(proyectoId);
+    const archivoId = await guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? "terreno_monografia" : "terreno_foto", duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || (/* @__PURE__ */ new Date()).toISOString(), leyenda, autor: persona3().nombre } });
+    return { archivoId };
+  }
+  async function estadoMonografias2(proyectoId) {
+    yo();
+    return estadoMonografias(proyectoId);
+  }
   async function conectarNube() {
     await conectar();
     const carpeta = leer(CLAVE_CARPETA);
     if (carpeta && !estado().carpetaId) await usarCarpeta(carpeta);
     else await sincronizar();
-    if (codigoPendiente && !persona2()) await vincular(codigoPendiente);
+    if (codigoPendiente && !persona3()) await vincular(codigoPendiente);
     return estado();
   }
   var estadoNube = () => estado();

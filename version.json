@@ -1,6 +1,6 @@
 {
- "version": "0.7",
- "armado": "2026-11-02T17:16:09.933Z",
+ "version": "0.8",
+ "armado": "2026-11-02T19:33:26.536Z",
  "archivos": [
   "./index.html",
   "./sistema-app.js",
@@ -9,10 +9,12 @@
   "./modulos/equipos/equipos.css",
   "./modulos/vuelos/vuelos.css",
   "./modulos/seguimiento/seguimiento.css",
+  "./modulos/monografias/monografias.css",
   "./iconos/icono-192.png",
   "./iconos/icono-512.png",
   "./iconos/icono-512-maskable.png",
   "./vendor/xlsx.full.min.js",
+  "./vendor/jspdf.umd.min.js",
   "./vendor/qrcode.js",
   "./vendor/leaflet/leaflet.js",
   "./vendor/leaflet/leaflet.css",

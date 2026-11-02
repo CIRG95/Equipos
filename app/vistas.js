@@ -10,6 +10,8 @@ import {
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
+import * as Monografias from '../modulos/monografias/monografias.js';
+import { ESTADOS as ESTADOS_MONO } from '../modulos/monografias/datos.js';
 import { ROLES, COLORES_MARCA, CATEGORIAS_TRABAJO, NOMBRE_CATEGORIA, tiposDeProyecto, textosTipos, ROLES_PERSONA, NOMBRE_ROL_PERSONA, REGIONES } from './catalogo.js';
 import { VERSION_SISTEMA } from './version.js';
 
@@ -174,7 +176,7 @@ async function proyectos(ctx) {
 async function proyecto(ctx, id) {
   const p = await obtenerProyecto(id);
   if (!p || p.eliminadoEn) return vacio('Este proyecto no existe o está en la papelera.', '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
-  const [personas, equipos, certs, planes, seg] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id), Vuelos.planesDeProyecto(id), Seguimiento.resumenDeProyecto(id)]);
+  const [personas, equipos, certs, planes, seg, mono] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id), Vuelos.planesDeProyecto(id), Seguimiento.resumenDeProyecto(id), Monografias.resumenDeProyecto(id)]);
   const nomPers = pid => (personas.find(x => x.id === pid) || {}).nombre || '';
   const enProyecto = equipos.filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.proyectoId === id);
   const esOficina = id === OFICINA_ID;
@@ -217,7 +219,12 @@ async function proyecto(ctx, id) {
           <div class="sg-mini" style="margin-top:6px"><i style="width:${pct}%"></i></div>${seg.plazo ? `<p class="sis-tenue" style="margin-top:6px">Entrega: ${fechaLegible(seg.plazo.vence)}${seg.plazo.quedan >= 0 ? ` · quedan ${seg.plazo.quedan} días hábiles` : ` · vencida hace ${-seg.plazo.quedan} días hábiles`}</p>` : ''}`; })()
           : '<div class="sis-vacio"><p>Sin seguimiento. Sirve para llevar qué tramos están volados, procesados y entregados.</p></div>'}
       </section>
-      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llegan desde la app de Terreno cuando quede conectada al Sistema.</p></section>
+      ${esOficina ? '' : `<section class="sis-tarjeta">
+        <div class="sis-cab"><h2>Monografías y terreno</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/monografias/${esc(id)}">Abrir</a>` : ''}</div>
+        ${mono.total || mono.jornadas.length ? `<div class="sis-chips">${Object.entries(mono.porEstado).map(([e, n]) => `<span class="sis-chip ${ESTADOS_MONO[e].color}">${n} ${esc(ESTADOS_MONO[e].texto.toLowerCase())}</span>`).join('')}</div>
+          <p class="sis-tenue" style="margin-top:6px">${mono.total} monografía${mono.total === 1 ? '' : 's'} · ${mono.jornadas.length} jornada${mono.jornadas.length === 1 ? '' : 's'} de terreno${mono.jornadas[0] && mono.jornadas[0].fechaInicio ? ` · última ${fechaLegible(String(mono.jornadas[0].fechaInicio).slice(0, 10))}` : ''}</p>`
+          : '<div class="sis-vacio"><p>Llegan desde la app de Terreno: jornadas, fotos y monografías del proyecto (botón «Enviar al Sistema»).</p></div>'}
+      </section>`}
     </div><aside>
       <section class="sis-tarjeta">
         <h2>Equipos ${esOficina ? 'asignados' : 'en el proyecto'}</h2>

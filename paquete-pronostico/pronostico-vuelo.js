@@ -550,7 +550,7 @@ var PronosticoVuelo = (() => {
   ];
 
   // modulos/vuelos/pronostico-widget.js
-  var VERSION = "1.1 (Vuelos 0.5)";
+  var VERSION = "1.1 (Vuelos 0.6)";
   var DRONES = DRONES_BASE.map((d) => ({ id: d.id, nombre: d.nombre, vientoMaxMs: d.vientoMaxMs, rafagaMaxMs: d.rafagaMaxMs }));
   var piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, cercanas, decodificar, comparar, graficoPronostico, checklistClima };
   var esc2 = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

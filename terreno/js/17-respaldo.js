@@ -112,10 +112,10 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.7.2: Ajustes ahora tiene 4 subpestañas (General, Marca, Sistema, Datos). La conexión con el Sistema es un paso a paso: 1 entrar con Google, 2 carpeta, 3 sincronizar, 4 vincular. Cada paso muestra si está hecho y, si algo falla, el error completo queda visible en pantalla."
+    "Versión 0.5.7.3: en Ajustes → Sistema, el paso 3 muestra cuánto lleva sincronizando y un botón «Reiniciar la app» si se cuelga. Nuevo botón «Ver qué hay en la carpeta de Drive» (solo lectura): dice si el computador ya subió datos y de qué tamaño. El aviso engañoso «falta sesión de Google o carpeta» ahora dice «ya hay una sincronización en curso»."
   ],
   probar: [
-    "Ajustes → Sistema: sigue los 4 pasos en orden y, si se corta, mándame captura del recuadro rojo «Último error» y de «Datos para diagnóstico»."
+    "Ajustes → Sistema → «Ver qué hay en la carpeta de Drive»: debe listar archivos en «datos». Si está vacía, sincroniza el Sistema del computador."
   ],
   conocidos: [
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",

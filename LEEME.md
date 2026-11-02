@@ -1,4 +1,72 @@
-# Topoland · Sistema de trabajo — v0.4 (hojas de vuelo)
+# Topoland · Sistema de trabajo — v0.5 (Seguimiento + Vuelos optimizado)
+
+**Sistema v0.5 = envoltorio global + Equipos 0.1f + Vuelos 0.4 + Seguimiento 0.1.**
+
+## Cómo subirlo
+- Desde ahora la versión se sube **directo al repositorio** desde Claude, en una rama, con un *pull request* que se acepta con un clic en GitHub. Ya no hay que subir carpetas a mano.
+- Si se sube a mano: **todas las carpetas** (`app/`, `compartido/`, `modulos/`, `vendor/`, `pruebas/`, `paquete-pronostico/`) más los archivos de la raíz. **No reemplazar `config.js`.**
+- **Aviso nuevo:** si al sitio le falta un archivo o la versión publicada no calza con la pantalla, la app muestra un aviso naranjo arriba con lo que falta.
+
+## Qué cambia en v0.5
+### Seguimiento de entregas (módulo nuevo, menú «Seguimiento»)
+- **Un seguimiento por proyecto.** Puede ser mensual (un ciclo por mes, con el N° de mes del contrato, que arma el nombre de carpeta, por ejemplo `012 Octubre`) o un trabajo único.
+- **Tramos desde los nombres de carpeta:** pega las rutas copiadas del explorador («Copiar como ruta»). Se leen el número y los DM.
+- **Pestaña Seguimiento:**
+  - Indicadores y franja kilométrica con dos barras. **Terreno:** verde volado, naranjo falta. **Gabinete:** naranjo falta, azul procesando, verde cargado en entrega; rayado si aún no se vuela.
+  - Al pasar el mouse se ve la fecha, quién, la nota y el estado de cada producto. Abajo, «Qué falta» en palabras.
+- **Pestaña Marcar avance:**
+  - Tabla de tramos × productos. Cada toque avanza falta → procesando → listo.
+  - Columnas que se **arrastran para moverlas** y cuyo **borde se arrastra para el ancho**.
+  - Selección de varios tramos, entregas E1, E2…, y la nota como **papelito** al final de la fila (cuadro en blanco si no hay).
+  - **Deshacer** en cada cambio.
+- **Revisar carpeta del mes (PC, Chrome o Edge):** eliges la carpeta y se marca listo lo que ya está, según la carpeta del tramo y la extensión de cada producto. Solo lee los nombres de archivo y no sube nada; Chrome dice «subir», pero no sale del PC.
+- **Pestaña Configurar:**
+  - Columnas: agregar o quitar productos con su extensión, cambiar nombre y orden, mostrar u ocultar.
+  - Áreas y tramos.
+  - Plazo: días hábiles desde la llegada de los datos, dentro de un mes, o sin plazo.
+  - «+ Nuevo mes» copia los tramos sin avance.
+- **Ficha del proyecto:** tarjeta «Seguimiento de entregas» con el avance y el plazo.
+- **Datos:**
+  - Se guarda en la base común con eventos de solo agregar (`seguimiento_planes`, `seguimiento_ciclos`, `seguimiento_eventos`, `seguimiento_entregas`) y se sincroniza con la nube.
+  - Al crear un seguimiento se puede cargar un ejemplo ficticio para probar.
+
+### Vuelos 0.4 (optimización)
+- `pantallas.js` (1.262 líneas) quedó dividido en un archivo por paso:
+  - `vista-hojas.js`
+  - `paso-area.js`
+  - `paso-vuelo.js`
+  - `paso-clima.js`
+  - `paso-permisos.js`
+  - `herramientas.js`
+  - `mapas.js`
+  - `ui.js`
+
+  El núcleo quedó en 436 líneas.
+- El paso Clima usa el mismo análisis que el **paquete del pronóstico para la app de Terreno** (`pronostico-widget.js`). Así no hay dos versiones.
+- «Más corto» quedó en un solo lugar (`hoja.js`).
+- **Mapa base configurable** con el botón «Mapa» en cada mapa:
+  - **Satélite Esri:** si en `config.js` agregas `esriClave: '…'` (cuenta gratuita de ArcGIS Location Platform), usa el servicio con clave. Sin clave, el de siempre.
+  - **Sentinel-2 2016:** libre, CC BY 4.0, 10 m por píxel. Respaldo si Esri no carga.
+- Arreglo encontrado por las pruebas: dos áreas con el mismo primer y último vértice podían compartir el cálculo guardado.
+
+### Piezas comunes nuevas (`compartido/`)
+- `tooltip.js`: globo al pasar el mouse.
+- `deshacer.js`: aviso con «Deshacer».
+- `columnas.js`: columnas que se mueven y cambian de ancho.
+- `data-solo-pc` y `data-solo-telefono` ya ocultan lo que corresponde.
+- La nube sincroniza también los prefijos `seguimiento_`, `terreno_` y `gastos_`.
+
+### Armado (`construir.sh`)
+1. Revisa la sintaxis.
+2. Corre **16 pruebas de cálculo** (`pruebas/`); si alguna falla, no arma.
+3. Arma `sistema-app.js`.
+4. Pone la versión en `sw.js`.
+5. Genera `version.json`.
+6. Rearma `paquete-pronostico/pronostico-vuelo.js` para la app de Terreno.
+
+---
+
+# v0.4 (hojas de vuelo)
 
 **Sistema v0.4 = envoltorio global + Equipos 0.1f + Vuelos 0.3.**
 

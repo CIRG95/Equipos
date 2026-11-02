@@ -166,15 +166,6 @@ export function calcularPlan(p) {
   };
 }
 
-/** Prueba rumbos cada 5° (y afina de a 1°) y devuelve el que da menos minutos de jornada. */
-export function rumboMasCorto(p) {
-  const prueba = r => calcularPlan({ ...p, rumbo: r }).minTotal;
-  let mejor = 0, minimo = Infinity;
-  for (let r = 0; r < 180; r += 5) { const m = prueba(r); if (m < minimo - 1e-6) { minimo = m; mejor = r; } }
-  for (let r = mejor - 4; r <= mejor + 4; r++) { const rr = (r + 180) % 180; const m = prueba(rr); if (m < minimo - 1e-6) { minimo = m; mejor = rr; } }
-  return mejor;
-}
-
 export function fmt(n, dec = 0) {
   if (n == null || !isFinite(n)) return '—';
   return n.toLocaleString('es-CL', { minimumFractionDigits: dec, maximumFractionDigits: dec });

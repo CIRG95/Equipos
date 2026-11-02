@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.2
+# INTEGRACION.md — Sistema v0.5
 
 ## Qué contiene
 
@@ -66,3 +66,11 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
   - `api.open-meteo.com` (pronóstico; uso no comercial gratis).
   - `services.swpc.noaa.gov` (Kp; si falla, se muestra sin Kp).
 - **Usa las clases `sis-` del Sistema** además de `vu-` (`vuelos.css`). No está pensado para funcionar fuera del Sistema.
+
+
+## Sistema v0.5
+- **Seguimiento 0.1** (`modulos/seguimiento/`): puerta `seguimiento.js` con `montar(contenedor, { rol, personaId, proyectoId?, tab? })` y `resumenDeProyecto(proyectoId)`. Rutas `#/seguimiento` y `#/seguimiento/<proyectoId>[/marcar|/config]`. Reglas puras en `modelo.js` (probadas en `pruebas/seguimiento.test.mjs`).
+- **Eventos de solo agregar** (`seguimiento_eventos`): `{ cicloId, planId, tramoId, tipo: terreno|prod|entrega|nota, col, valor, por }`. El estado se calcula con el último evento. **La app de Terreno**, cuando se conecte, escribirá eventos `tipo: 'terreno'` (tramo volado, con fecha y piloto) y `tipo: 'nota'`; no edita los planes.
+- **Vuelos 0.4**: pantallas divididas por paso (fábricas `crearX(v)` con el contexto compartido `v`). `pronostico-widget.js` es la pieza común con Terreno.
+- **compartido/**: `tooltip.js`, `deshacer.js`, `columnas.js`. Sincronizan `seguimiento_`, `terreno_`, `gastos_`.
+- **app/revision.js** + `version.json`: aviso de subida incompleta.

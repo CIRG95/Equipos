@@ -8,6 +8,7 @@ import {
 } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
+import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import { ROLES, COLORES_MARCA, CATEGORIAS_TRABAJO, NOMBRE_CATEGORIA, tiposDeProyecto, textosTipos, ROLES_PERSONA, NOMBRE_ROL_PERSONA, REGIONES } from './catalogo.js';
 import { VERSION_SISTEMA } from './version.js';
 
@@ -172,7 +173,7 @@ async function proyectos(ctx) {
 async function proyecto(ctx, id) {
   const p = await obtenerProyecto(id);
   if (!p || p.eliminadoEn) return vacio('Este proyecto no existe o está en la papelera.', '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
-  const [personas, equipos, certs, planes] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id), Vuelos.planesDeProyecto(id)]);
+  const [personas, equipos, certs, planes, seg] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id), Vuelos.planesDeProyecto(id), Seguimiento.resumenDeProyecto(id)]);
   const nomPers = pid => (personas.find(x => x.id === pid) || {}).nombre || '';
   const enProyecto = equipos.filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.proyectoId === id);
   const esOficina = id === OFICINA_ID;
@@ -209,7 +210,13 @@ async function proyecto(ctx, id) {
             <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>`).join('')}</div>`
           : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
       </section>
-      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llega cuando Terreno Topografía entre al Sistema.</p></section>
+      <section class="sis-tarjeta">
+        <div class="sis-cab"><h2>Seguimiento de entregas</h2>${seg ? `<a class="sis-btn chico" href="#/seguimiento/${esc(id)}">Abrir</a>` : (ctx.rol === 'terreno' && !esOficina ? `<a class="sis-btn chico" href="#/seguimiento/${esc(id)}">+ Seguimiento</a>` : '')}</div>
+        ${seg ? (() => { const c = seg.cuenta, pct = c.productos ? Math.round(100 * c.productosListos / c.productos) : 0; return `<p class="sis-tenue">${seg.ciclo ? esc(seg.ciclo.nombre || '') + ' · ' : ''}${c.total - c.sinvolar}/${c.total} tramos volados · ${c.productosListos}/${c.productos} productos · ${c.ok}/${c.total} entregados</p>
+          <div class="sg-mini" style="margin-top:6px"><i style="width:${pct}%"></i></div>${seg.plazo ? `<p class="sis-tenue" style="margin-top:6px">Entrega: ${fechaLegible(seg.plazo.vence)}${seg.plazo.quedan >= 0 ? ` · quedan ${seg.plazo.quedan} días hábiles` : ` · vencida hace ${-seg.plazo.quedan} días hábiles`}</p>` : ''}`; })()
+          : '<div class="sis-vacio"><p>Sin seguimiento. Sirve para llevar qué tramos están volados, procesados y entregados.</p></div>'}
+      </section>
+      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llegan desde la app de Terreno cuando quede conectada al Sistema.</p></section>
     </div><aside>
       <section class="sis-tarjeta">
         <h2>Equipos ${esOficina ? 'asignados' : 'en el proyecto'}</h2>

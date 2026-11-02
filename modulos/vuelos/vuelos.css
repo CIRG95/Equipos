@@ -252,3 +252,8 @@ body:not([data-modo="pc"]) .vu-dos > .vu-izquierda > *, body:not([data-modo="pc"
 body:not([data-modo="pc"]) .vu-dos #vu-detalle{order:5;}
 body:not([data-modo="pc"]) .vu-dos.ancho .vu-izquierda > *{order:1;}
 body:not([data-modo="pc"]) .vu-dos.ancho .vu-derecha > *{order:2;}
+
+/* Selector de mapa base (Esri / Sentinel-2): botón con texto, sin la imagen de Leaflet */
+.mod-vuelos .leaflet-control-layers-toggle{background-image:none !important; width:auto !important; height:auto !important; padding:7px 10px; font:600 12px/1 var(--sans, sans-serif); color:var(--ink); text-decoration:none;}
+.mod-vuelos .leaflet-control-layers-toggle::after{content:"Mapa";}
+.mod-vuelos .leaflet-control-layers-expanded{padding:8px 10px; font:13px/1.5 var(--sans, sans-serif);}

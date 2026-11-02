@@ -1,4 +1,33 @@
-# Topoland · Sistema de trabajo — v0.5 (Seguimiento + Vuelos optimizado)
+# Topoland · Sistema de trabajo — v0.6 (conexión con la app de Terreno)
+
+**Sistema v0.6 = v0.5 + vincular teléfono + avisos de equipos + paquete de conexión para Terreno.**
+
+## Qué cambia en v0.6
+- **Vincular teléfono** (Personas → «Vincular teléfono»):
+  - Cada persona tiene un **código de 6 letras** y un **QR**.
+  - El QR abre la app de Terreno con la carpeta de la nube y el código, y el teléfono queda vinculado a esa persona: sus proyectos (donde es encargado) y sus equipos en terreno.
+  - «Cambiar código» invalida el anterior. Es provisorio, hasta que existan usuarios.
+  - **Dirección de la app de Terreno:** se escribe una vez. Mientras Terreno no tenga la conexión, el QR abre la página de prueba `paquete-conexion/ejemplo.html`.
+- **Avisos de equipos:**
+  - Desde terreno, botón **Problema o Aviso** sobre un equipo que salió a terreno. Queda como alerta del equipo (`tipo`: problema | aviso, `origen`: app-terreno).
+  - Lo ven **el encargado del proyecto**, en la **campanita** arriba y en la bandeja `#/avisos`, y **Administración**, que ve todos y además los tiene en Equipos → Alertas.
+  - «Nuevo» se marca como visto al abrir la bandeja, por persona y por equipo.
+  - No hay notificaciones instantáneas: llega con la sincronización.
+- **Paquete de conexión** (`paquete-conexion/`): `topoland-conexion.js` (global `TopolandConexion`), con `ejemplo.html` y `LEEME.md` para el chat de Terreno. Funciones:
+  - vincular y ver la persona vinculada;
+  - mis proyectos y mis equipos en terreno;
+  - reportar;
+  - tramos y marcar tramo volado;
+  - conectar la nube y sincronizar.
+- **Seguimiento:** los tramos marcados desde Terreno llegan como eventos a la columna Terreno, con quién y la fecha.
+- **Menú:** se quitó «Libreta de terreno», porque Terreno sigue como app aparte.
+- **Puertas nuevas:**
+  - `Equipos.reportarProblema()` y `Equipos.listarAlertas()`. El cambio en `datos.js` es solo que `reportarAnomalia` acepta `tipo` y `origen`; hay que avisar al chat de Equipos.
+  - `Seguimiento.tramosDeProyecto()` y `Seguimiento.marcarTramoVolado()`.
+
+---
+
+# v0.5 (Seguimiento + Vuelos optimizado)
 
 **Sistema v0.5 = envoltorio global + Equipos 0.1f + Vuelos 0.4 + Seguimiento 0.1.**
 

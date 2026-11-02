@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.5
+# INTEGRACION.md — Sistema v0.6
 
 ## Qué contiene
 
@@ -74,3 +74,17 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - **Vuelos 0.4**: pantallas divididas por paso (fábricas `crearX(v)` con el contexto compartido `v`). `pronostico-widget.js` es la pieza común con Terreno.
 - **compartido/**: `tooltip.js`, `deshacer.js`, `columnas.js`. Sincronizan `seguimiento_`, `terreno_`, `gastos_`.
 - **app/revision.js** + `version.json`: aviso de subida incompleta.
+
+## Sistema v0.6
+- **Conexión con la app de Terreno** (`app/conexion-terreno.js` → `paquete-conexion/topoland-conexion.js`, global `TopolandConexion`):
+  - La app de Terreno lo incluye y usa la base `topoland` y la nube del Sistema sin programarlas.
+  - Persona vinculada en localStorage `topoland_conexion_persona`; carpeta del QR en `topoland_conexion_carpeta`.
+- **Personas:** campo `codigoVinculo` (6 letras sin ambiguas). El QR es `<dirección de Terreno>?carpeta=<id>#vincular=<código>`.
+- **Equipos (puerta):**
+  - `reportarProblema({ equipoId, descripcion, tipo, proyectoId, personaId, origen })` y `listarAlertas({ soloActivas })`.
+  - En `datos.js`, `reportarAnomalia` acepta `tipo` ('problema' | 'aviso') y `origen`; las alertas los guardan. **Avisar al chat de Equipos.**
+- **Seguimiento (puerta):** `tramosDeProyecto(proyectoId)` y `marcarTramoVolado(proyectoId, tramoId, { volado, fecha, por, nota })`, que escribe eventos con `origen: 'app-terreno'`.
+- **Avisos:**
+  - Ruta `#/avisos` (en el menú cuenta como Inicio) y campanita `#sis-avisos`.
+  - Destinatarios: rol rrhh (todos) y el encargado del proyecto (`encargadoId`).
+  - Visto: localStorage `env_avisos_vistos_<personaId>`.

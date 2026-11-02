@@ -204,13 +204,13 @@ export async function registrarUso(equipoId, personaId, proyectoId, nota = '') {
 }
 
 /** Terreno inicia el informe de anomalía. La alerta no bloquea el uso del equipo. */
-export async function reportarAnomalia({ equipoId, descripcion, proyectoId = null, personaId = null }) {
+export async function reportarAnomalia({ equipoId, descripcion, proyectoId = null, personaId = null, tipo = 'problema', origen = null }) {
   const est = await estadoDeEquipo(equipoId);
   const quien = personaId || personaActual;
   const proyecto = proyectoId || (est && est.ubicacion.proyectoId) || null;
   const ahora = ahoraISO();
   const alerta = sello({
-    equipoId, descripcion, estado: 'abierta', reportadaPor: quien, proyectoId: proyecto,
+    equipoId, descripcion, estado: 'abierta', reportadaPor: quien, proyectoId: proyecto, tipo, origen,
     fechaReporte: ahora,
     historial: [{ estado: 'abierta', fecha: ahora, personaId: quien, nota: descripcion }],
   });

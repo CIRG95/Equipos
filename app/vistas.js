@@ -1,7 +1,8 @@
 // app/vistas.js — pantallas propias del Sistema: Inicio, Proyectos, Personas y «Próximamente».
 // Las pantallas de Equipos las pone el propio módulo (montar()); aquí solo se leen sus datos por la puerta de entrada.
 
-import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre } from '../compartido/util.js';
+import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre, cargarScript } from '../compartido/util.js';
+import { estado as estadoNube } from '../compartido/nube.js';
 import { enviarAPapelera, enPapelera, restaurar } from '../compartido/papelera.js';
 import {
   listarProyectos, obtenerProyecto, guardarProyecto, listarPersonas, obtenerPersona, guardarPersona, OFICINA_ID,
@@ -295,9 +296,11 @@ async function personas(ctx) {
   return `<div class="sis-cab"><h1>Personas</h1>${editable && !p ? '<button class="sis-btn primario" data-accion="nueva-persona">+ Persona</button>' : ''}</div>
     <p class="sis-tenue">Quiénes usan el Sistema y qué rol cumplen. Una persona puede tener más de un rol. Los documentos del personal (licencias, exámenes) llegan más adelante, cuando el Sistema esté en el Nextcloud de la empresa.</p>
     ${form}
+    ${ctx.estado.vincular ? await tarjetaVincular(lista.find(x => x.id === ctx.estado.vincular)) : ''}
     <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map(x => `<div class="sis-fila">
         <span class="sis-fila-txt"><b>${esc(x.nombre)}</b><span class="sis-tenue">${esc(x.cargo || 'Sin cargo')}</span></span>
         <span class="sis-chips">${(x.roles || []).map(r => `<span class="sis-chip gris">${esc(NOMBRE_ROL_PERSONA[r] || r)}</span>`).join('')}
+        <button class="sis-btn chico" data-accion="vincular" data-id="${esc(x.id)}">Vincular teléfono</button>
         ${editable ? `<button class="sis-btn chico" data-accion="editar-persona" data-id="${esc(x.id)}">Editar</button>` : ''}</span></div>`).join('')}</div>`
       : vacio('Aún no hay personas.')}</section>
     ${editable ? '' : '<p class="sis-tenue">Solo Administración / RRHH edita esta lista.</p>'}
@@ -308,6 +311,82 @@ async function personas(ctx) {
         <div class="sis-acciones"><button class="sis-btn primario">Guardar</button></div>
         <p class="sis-tenue">Por ahora se guarda en este equipo (teléfono o computador). Cuando el Sistema esté en el Nextcloud de la empresa, lo define RRHH para todos, junto con el logo.</p>
       </form></section>`;
+}
+
+// ─────────────────────────── Vincular teléfono (app de Terreno) ───────────────────────────
+// Sin usuarios todavía: cada persona tiene un código corto. El QR abre la app de Terreno con la carpeta de la nube
+// (?carpeta=) y el código (#vincular=); la app carga el perfil de la persona: sus proyectos y sus equipos en terreno.
+
+const LETRAS_CODIGO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export const nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS_CODIGO[Math.floor(Math.random() * LETRAS_CODIGO.length)]).join('');
+const leerLS = (k, d = '') => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+export const urlTerreno = () => leerLS('env_terreno_url') || new URL('paquete-conexion/ejemplo.html', location.href.split('#')[0]).toString();
+
+async function tarjetaVincular(p) {
+  if (!p) return '';
+  const n = estadoNube();
+  const base = urlTerreno().split('#')[0];
+  const u = new URL(base);
+  if (n.carpetaId) u.searchParams.set('carpeta', n.carpetaId);
+  const enlace = `${u.toString()}#vincular=${p.codigoVinculo}`;
+  let qr = '<p class="sis-tenue">No se pudo generar el QR (falta vendor/qrcode.js).</p>';
+  try {
+    if (!globalThis.qrcode) await cargarScript('vendor/qrcode.js');
+    const q = globalThis.qrcode(0, 'M'); q.addData(enlace); q.make();
+    qr = q.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+  } catch (e) { console.warn(e); }
+  return `<section class="sis-tarjeta sis-vincular"><div class="sis-cab"><h2>Vincular teléfono · ${esc(p.nombre)}</h2><button class="sis-btn chico" data-accion="cerrar-vincular">Cerrar</button></div>
+    <div class="sis-vincular-cuerpo">
+      <div class="sis-qr" role="img" aria-label="Código QR para vincular la app de Terreno">${qr}</div>
+      <div>
+        <p>Escanea con la cámara del teléfono. Se abre la app de Terreno ya vinculada a <b>${esc(p.nombre)}</b>: sus proyectos, sus equipos en terreno y el botón para avisar un problema de un equipo.</p>
+        <p>Si el QR no se puede leer, en la app de Terreno escribe el código:</p>
+        <p class="sis-codigo">${esc(p.codigoVinculo)}</p>
+        ${n.carpetaId ? '<p class="sis-tenue">El QR lleva la carpeta de la nube: el teléfono trae los datos al conectarse con Google.</p>' : '<div class="sis-aviso-linea">La nube no está conectada en este equipo: el QR funciona solo en este mismo navegador. Conecta la nube para vincular otro teléfono.</div>'}
+        <form class="sis-form" data-form="terreno-url"><label class="sis-campo"><span>Dirección de la app de Terreno</span><input name="url" value="${esc(leerLS('env_terreno_url'))}" placeholder="${esc(urlTerreno())}"></label>
+          <div class="sis-acciones"><button class="sis-btn chico">Guardar dirección</button><button type="button" class="sis-btn chico" data-accion="nuevo-codigo" data-id="${esc(p.id)}">Cambiar código</button></div>
+          <p class="sis-tenue">Mientras la app de Terreno no tenga la conexión, el QR abre la página de prueba del paquete de conexión.</p></form>
+      </div>
+    </div></section>`;
+}
+
+// ─────────────────────────── Avisos de equipos ───────────────────────────
+// Problemas y avisos de equipos en terreno. Los ve Administración / RRHH (todos) y el encargado del proyecto (los suyos).
+// «Visto» es por persona y por equipo (localStorage): las notificaciones al teléfono quedan para más adelante.
+
+const claveVistos = pid => `env_avisos_vistos_${pid || 'nadie'}`;
+const leerVistos = pid => { try { return new Set(JSON.parse(localStorage.getItem(claveVistos(pid)) || '[]')); } catch { return new Set(); } };
+const guardarVistos = (pid, set) => { try { localStorage.setItem(claveVistos(pid), JSON.stringify([...set].slice(-500))); } catch { /* */ } };
+
+/** Avisos que le tocan a quien mira: { lista, nuevos }. */
+export async function avisosPara(ctx) {
+  const [alertas, proyectos] = await Promise.all([Equipos.listarAlertas(), listarProyectos()]);
+  let lista;
+  if (ctx.rol === 'rrhh') lista = alertas;
+  else if (!ctx.personaId) lista = [];
+  else {
+    const mios = new Set(proyectos.filter(p => p.encargadoId === ctx.personaId).map(p => p.id));
+    lista = alertas.filter(a => mios.has(a.proyectoId) || a.reportadaPor === ctx.personaId);
+  }
+  const vistos = leerVistos(ctx.personaId || ctx.rol);
+  return { lista, nuevos: lista.filter(a => !vistos.has(a.id)).length, vistos, proyectos };
+}
+
+async function avisos(ctx) {
+  const { lista, vistos, proyectos } = await avisosPara(ctx);
+  const personas = await listarPersonas();
+  const nomPers = id => (personas.find(x => x.id === id) || {}).nombre || 'Sin nombre';
+  const nomProy = id => (proyectos.find(x => x.id === id) || {}).nombre || 'Sin proyecto';
+  const ESTADO = { abierta: 'Abierta', mantencion: 'En mantención', recibida: 'Recibida' };
+  guardarVistos(ctx.personaId || ctx.rol, new Set([...vistos, ...lista.map(a => a.id)]));
+  return `<div class="sis-cab"><h1>Avisos de equipos</h1></div>
+    <p class="sis-tenue">${ctx.rol === 'rrhh' ? 'Problemas y avisos de todos los equipos.' : 'Problemas y avisos de equipos en tus proyectos (donde eres el encargado).'} Llegan desde la app de Terreno por la nube. Los estados se cambian en Equipos → Alertas.</p>
+    ${ctx.rol !== 'rrhh' && !ctx.personaId ? vacio('Elige quién eres arriba para ver los avisos de tus proyectos.') : ''}
+    <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map(a => `<a class="sis-fila${vistos.has(a.id) ? '' : ' sis-nuevo'}" href="#/equipos/${esc(a.equipoId)}">
+        <span class="sis-fila-txt"><b>${esc(a.equipo)}</b><span>${esc(a.descripcion || '')}</span>
+          <span class="sis-tenue">${esc(nomProy(a.proyectoId))} · ${esc(nomPers(a.reportadaPor))} · ${esc(fechaHoraLegible(a.fechaReporte))}${a.origen === 'app-terreno' ? ' · desde Terreno' : ''}</span></span>
+        <span class="sis-chips">${vistos.has(a.id) ? '' : '<span class="sis-chip azul">Nuevo</span>'}<span class="sis-chip ${a.tipo === 'aviso' ? 'ambar' : 'rojo'}">${a.tipo === 'aviso' ? 'Aviso' : 'Problema'}</span><span class="sis-chip gris">${esc(ESTADO[a.estado] || a.estado)}</span></span></a>`).join('')}</div>`
+      : vacio('No hay avisos abiertos.')}</section>`;
 }
 
 // ─────────────────────────── Próximamente ───────────────────────────
@@ -322,7 +401,7 @@ function pronto(ctx, clave) {
   return `<section class="sis-tarjeta sis-pronto grande"><h1>${x.titulo}</h1><p><span class="sis-chip ambar">Llega en ${x.version}</span></p><p>${x.texto}</p></section>`;
 }
 
-export const VISTAS = { inicio, proyectos, proyecto, proyectoEditar, personas, pronto };
+export const VISTAS = { inicio, proyectos, proyecto, proyectoEditar, personas, pronto, avisos };
 
 // ─────────────────────────── Acciones ───────────────────────────
 
@@ -341,6 +420,12 @@ export async function manejarEnvio(form, ctx) {
     ctx.estado.personaEditar = null;
     await ctx.recargarPersonas();
     ctx.avisar('Persona guardada');
+    return true;
+  }
+  if (form.dataset.form === 'terreno-url') {
+    const u = (datos.get('url') || '').trim();
+    try { if (u) { new URL(u); localStorage.setItem('env_terreno_url', u); } else localStorage.removeItem('env_terreno_url'); } catch { throw new Error('La dirección debe empezar con https://'); }
+    ctx.avisar('Dirección guardada');
     return true;
   }
   if (form.dataset.form === 'empresa') {
@@ -379,6 +464,13 @@ export async function manejarClic(boton, ctx) {
     case 'nueva-persona': ctx.estado.personaEditar = 'nueva'; return true;
     case 'editar-persona': ctx.estado.personaEditar = boton.dataset.id; return true;
     case 'cancelar-persona': ctx.estado.personaEditar = null; return true;
+    case 'vincular': case 'nuevo-codigo': {
+      const p = await obtenerPersona(boton.dataset.id);
+      if (p && (!p.codigoVinculo || boton.dataset.accion === 'nuevo-codigo')) await guardarPersona({ id: p.id, codigoVinculo: nuevoCodigo() }, { personaId: ctx.personaId });
+      if (boton.dataset.accion === 'nuevo-codigo') ctx.avisar('Código cambiado: el anterior ya no sirve');
+      ctx.estado.vincular = boton.dataset.id; return true;
+    }
+    case 'cerrar-vincular': ctx.estado.vincular = null; return true;
     case 'eliminar-proyecto': {
       const p = await obtenerProyecto(boton.dataset.id);
       if (!p || p.id === OFICINA_ID) return false;

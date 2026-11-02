@@ -303,6 +303,11 @@
     if (proveedor) return (await proveedor.listarPersonas()).sort(porNombre);
     return (await todos(ALM_PERSONAS)).filter(activo).sort(porNombre);
   }
+  async function obtenerPersona(id) {
+    if (!id) return null;
+    if (proveedor) return proveedor.obtenerPersona(id);
+    return obtener(ALM_PERSONAS, id);
+  }
   async function guardarPersona(datos, { personaId = null } = {}) {
     if (proveedor) return proveedor.guardarPersona(datos);
     const r = { ...datos.id ? await obtener(ALM_PERSONAS, datos.id) : {}, ...datos };
@@ -327,10 +332,12 @@
     certificadosDeProyecto: () => certificadosDeProyecto,
     equiposDeProyecto: () => equiposDeProyecto,
     iniciar: () => iniciar2,
+    listarAlertas: () => listarAlertas,
     listarEquiposConEstado: () => listarEquiposConEstado,
     montar: () => montar,
     obtenerEquipo: () => obtenerEquipo,
-    registrarUsoConAlerta: () => registrarUsoConAlerta
+    registrarUsoConAlerta: () => registrarUsoConAlerta,
+    reportarProblema: () => reportarProblema
   });
 
   // compartido/papelera.js
@@ -1387,15 +1394,15 @@ Content-Type: ${mime}\r
     return equipos.map((eq) => componerEstado(eq, evPor[eq.id] || [], alPor[eq.id] || []));
   }
   function avisosDe(estado3) {
-    const avisos = [];
-    for (const a of estado3.alertasActivas) avisos.push(`Alerta activa: ${a.descripcion}`);
-    if (estado3.calibracion.nivel === "vencida") avisos.push(`Calibración vencida (${fechaLegible(estado3.calibracion.proxima)})`);
-    if (estado3.calibracion.nivel === "por_vencer") avisos.push(`Calibración vence el ${fechaLegible(estado3.calibracion.proxima)}`);
+    const avisos2 = [];
+    for (const a of estado3.alertasActivas) avisos2.push(`Alerta activa: ${a.descripcion}`);
+    if (estado3.calibracion.nivel === "vencida") avisos2.push(`Calibración vencida (${fechaLegible(estado3.calibracion.proxima)})`);
+    if (estado3.calibracion.nivel === "por_vencer") avisos2.push(`Calibración vence el ${fechaLegible(estado3.calibracion.proxima)}`);
     for (const v of estado3.vencimientos || []) {
-      if (v.nivel === "vencida") avisos.push(`${v.nombre} vencido (${fechaLegible(v.fecha)})`);
-      if (v.nivel === "por_vencer") avisos.push(`${v.nombre} vence el ${fechaLegible(v.fecha)}`);
+      if (v.nivel === "vencida") avisos2.push(`${v.nombre} vencido (${fechaLegible(v.fecha)})`);
+      if (v.nivel === "por_vencer") avisos2.push(`${v.nombre} vence el ${fechaLegible(v.fecha)}`);
     }
-    return avisos;
+    return avisos2;
   }
   async function registrarSalida(items, { proyectoId, personaId, nota = "" }) {
     const ops = [];
@@ -1474,7 +1481,7 @@ Content-Type: ${mime}\r
     await guardar(ALM2.eventos, ev);
     return { evento: ev, alertas: est2.alertasActivas };
   }
-  async function reportarAnomalia({ equipoId, descripcion, proyectoId = null, personaId = null }) {
+  async function reportarAnomalia({ equipoId, descripcion, proyectoId = null, personaId = null, tipo = "problema", origen = null }) {
     const est2 = await estadoDeEquipo(equipoId);
     const quien = personaId || personaActual;
     const proyecto2 = proyectoId || est2 && est2.ubicacion.proyectoId || null;
@@ -1485,6 +1492,8 @@ Content-Type: ${mime}\r
       estado: "abierta",
       reportadaPor: quien,
       proyectoId: proyecto2,
+      tipo,
+      origen,
       fechaReporte: ahora,
       historial: [{ estado: "abierta", fecha: ahora, personaId: quien, nota: descripcion }]
     });
@@ -2662,12 +2671,12 @@ Content-Type: ${mime}\r
         const enTerreno = lista.filter((e) => e.ubicacion.lugar === "terreno").sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
         const fuera = lista.filter((e) => e.ubicacion.lugar === "mantencion");
         const item = (e, traspaso) => {
-          const avisos = avisosDe(e);
+          const avisos2 = avisosDe(e);
           const comps = e.equipo.accesorios;
           return `<div class="eq-check-item">
           <label class="eq-check-cab"><input type="checkbox" name="equipo" value="${e.equipo.id}" data-accion-cambio="mostrar-componentes">
             <span><b>${escapar(e.nombre)}</b><small>N° serie <span class="eq-mono">${escapar(e.equipo.numeroSerie || "—")}</span>${traspaso ? ` · hoy en ${escapar(proy(e.ubicacion.proyectoId))}` : ""}</small></span></label>
-          ${avisos.length ? `<div class="eq-avisos">${avisos.map((a) => `<div>⚠ ${escapar(a)}</div>`).join("")}<div class="eq-tenue">No bloquea la salida; queda registrado.</div></div>` : ""}
+          ${avisos2.length ? `<div class="eq-avisos">${avisos2.map((a) => `<div>⚠ ${escapar(a)}</div>`).join("")}<div class="eq-tenue">No bloquea la salida; queda registrado.</div></div>` : ""}
           <div class="eq-componentes" hidden>
             ${comps.length ? `<div class="eq-tenue">Marca lo que va en la caja:</div>${comps.map((a) => checkAccesorio(e.equipo.id, a)).join("")}
               <button type="button" class="eq-btn chico" data-accion="marcar-todo" data-id="${e.equipo.id}">Está todo</button>` : '<div class="eq-tenue">Este equipo no tiene accesorios registrados.</div>'}
@@ -3191,6 +3200,31 @@ Content-Type: ${mime}\r
   async function listarEquiposConEstado({ incluirBaja = false } = {}) {
     iniciar2();
     return (await listarConEstado()).filter((e) => incluirBaja || e.ubicacion.lugar !== "baja").map(resumen);
+  }
+  async function reportarProblema({ equipoId, descripcion, tipo = "problema", proyectoId = null, personaId = null, origen = "app-terreno" }) {
+    iniciar2();
+    const a = await reportarAnomalia({ equipoId, descripcion, tipo: tipo === "aviso" ? "aviso" : "problema", proyectoId, personaId, origen });
+    return { id: a.id, estado: a.estado, fechaReporte: a.fechaReporte };
+  }
+  async function listarAlertas({ soloActivas = true } = {}) {
+    iniciar2();
+    const [alertas, equipos] = await Promise.all([todasLasAlertas(), listarConEstado()]);
+    const nombre = (id) => {
+      const e = equipos.find((x) => x.equipo.id === id);
+      return e ? e.nombre : "Equipo";
+    };
+    return alertas.filter((a) => !a.eliminadoEn && (!soloActivas || alertaActiva(a))).sort((a, b) => (b.fechaReporte || "").localeCompare(a.fechaReporte || "")).map((a) => ({
+      id: a.id,
+      equipoId: a.equipoId,
+      equipo: nombre(a.equipoId),
+      tipo: a.tipo || "problema",
+      estado: a.estado,
+      descripcion: a.descripcion,
+      proyectoId: a.proyectoId || null,
+      reportadaPor: a.reportadaPor || null,
+      fechaReporte: a.fechaReporte,
+      origen: a.origen || null
+    }));
   }
 
   // modulos/vuelos/drones.js
@@ -3737,13 +3771,13 @@ Content-Type: ${mime}\r
     const intervalo2 = sepFotos / v;
     const densidad = barrido ? d.lidar.puntosPorSegundo / (v * sepLineas) : null;
     const densidadPasada = barrido ? d.lidar.puntosPorSegundo / (v * barrido) : null;
-    const avisos = [];
-    if (v > d.velocidadMaxMs) avisos.push(`La velocidad supera la máxima de misión del dron (${fmt(d.velocidadMaxMs, 1)} m/s).`);
-    if ((p.modo === "foto" || p.fotosEnLidar) && v > velBarrido) avisos.push(`A ${fmt(v, 1)} m/s la foto se arrastra más de medio píxel: baja a ${fmt(velBarrido, 1)} m/s o usa una exposición más corta.`);
-    if ((p.modo === "foto" || p.fotosEnLidar) && intervalo2 < d.intervaloMinS) avisos.push(`Habría que disparar cada ${fmt(intervalo2, 2)} s y la cámara necesita ${fmt(d.intervaloMinS, 1)} s: baja la velocidad a ${fmt(velIntervalo, 1)} m/s o el traslape frontal.`);
-    if (p.altura > 120) avisos.push("La altura supera los 120 m (400 ft): revisa la autorización DGAC.");
-    if (minUtiles <= 0) avisos.push("Con la reserva elegida no queda tiempo útil por batería: revisa autonomía y reserva.");
-    if (baterias.some((b) => b.excede)) avisos.push("Parte del recorrido queda más lejos de lo que alcanza una batería ida y vuelta desde el despegue: acerca el despegue o divide el área en sectores.");
+    const avisos2 = [];
+    if (v > d.velocidadMaxMs) avisos2.push(`La velocidad supera la máxima de misión del dron (${fmt(d.velocidadMaxMs, 1)} m/s).`);
+    if ((p.modo === "foto" || p.fotosEnLidar) && v > velBarrido) avisos2.push(`A ${fmt(v, 1)} m/s la foto se arrastra más de medio píxel: baja a ${fmt(velBarrido, 1)} m/s o usa una exposición más corta.`);
+    if ((p.modo === "foto" || p.fotosEnLidar) && intervalo2 < d.intervaloMinS) avisos2.push(`Habría que disparar cada ${fmt(intervalo2, 2)} s y la cámara necesita ${fmt(d.intervaloMinS, 1)} s: baja la velocidad a ${fmt(velIntervalo, 1)} m/s o el traslape frontal.`);
+    if (p.altura > 120) avisos2.push("La altura supera los 120 m (400 ft): revisa la autorización DGAC.");
+    if (minUtiles <= 0) avisos2.push("Con la reserva elegida no queda tiempo útil por batería: revisa autonomía y reserva.");
+    if (baterias.some((b) => b.excede)) avisos2.push("Parte del recorrido queda más lejos de lo que alcanza una batería ida y vuelta desde el despegue: acerca el despegue o divide el área en sectores.");
     return {
       gsd,
       huellaAncho,
@@ -3768,7 +3802,7 @@ Content-Type: ${mime}\r
       minTotal,
       densidad,
       densidadPasada,
-      avisos,
+      avisos: avisos2,
       baterias,
       trasladoM,
       corredor: !!pasadas && !girado,
@@ -8035,8 +8069,8 @@ ${escapar(t.nota)}${t.notaPor ? `
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.5";
-  var MODULOS_INCLUIDOS = "Equipos 0.1f + Vuelos 0.4 + Seguimiento 0.1";
+  var VERSION_SISTEMA = "0.6";
+  var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.4 + Seguimiento 0.1 (+ tramos desde Terreno)";
 
   // app/vistas.js
   var ICONO = {
@@ -8124,7 +8158,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       </aside></div>`;
     }
     const aMiCargo = yo ? equipos.filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.personaId === yo.id) : [];
-    const avisos = aMiCargo.filter((e) => e.alertasActivas.length || ["vencida", "por_vencer"].includes(e.calibracion.nivel));
+    const avisos2 = aMiCargo.filter((e) => e.alertasActivas.length || ["vencida", "por_vencer"].includes(e.calibracion.nivel));
     const misProyectos = yo ? activos.filter((p) => p.encargadoId === yo.id) : [];
     const otros = activos.filter((p) => !misProyectos.includes(p));
     const tarjetaProy = (p) => `<a class="sis-proy" href="#/proyecto/${escapar(p.id)}">
@@ -8132,8 +8166,8 @@ ${escapar(t.nota)}${t.notaPor ? `
       <span class="sis-chips">${tiposDeProyecto(p).categorias.map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_CATEGORIA[t])}</span>`).join("")}</span></a>`;
     return `${saludo}${bienvenida}
     <div class="sis-dos"><div>
-    ${avisos.length ? `<section class="sis-tarjeta sis-aviso"><h2>${ICONO.alerta} Ojo con estos equipos a tu cargo</h2>
-      <div class="sis-lista">${avisos.map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>
+    ${avisos2.length ? `<section class="sis-tarjeta sis-aviso"><h2>${ICONO.alerta} Ojo con estos equipos a tu cargo</h2>
+      <div class="sis-lista">${avisos2.map((e) => filaEquipo(e, { nombreProyecto: nomProy })).join("")}</div>
       <p class="sis-tenue">Se pueden usar igual: el uso con alerta queda registrado.</p></section>` : ""}
       <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Proyectos activos</h2><a class="sis-btn chico" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
@@ -8299,9 +8333,11 @@ ${escapar(t.nota)}${t.notaPor ? `
     return `<div class="sis-cab"><h1>Personas</h1>${editable && !p ? '<button class="sis-btn primario" data-accion="nueva-persona">+ Persona</button>' : ""}</div>
     <p class="sis-tenue">Quiénes usan el Sistema y qué rol cumplen. Una persona puede tener más de un rol. Los documentos del personal (licencias, exámenes) llegan más adelante, cuando el Sistema esté en el Nextcloud de la empresa.</p>
     ${form}
+    ${ctx2.estado.vincular ? await tarjetaVincular(lista.find((x) => x.id === ctx2.estado.vincular)) : ""}
     <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map((x) => `<div class="sis-fila">
         <span class="sis-fila-txt"><b>${escapar(x.nombre)}</b><span class="sis-tenue">${escapar(x.cargo || "Sin cargo")}</span></span>
         <span class="sis-chips">${(x.roles || []).map((r) => `<span class="sis-chip gris">${escapar(NOMBRE_ROL_PERSONA[r] || r)}</span>`).join("")}
+        <button class="sis-btn chico" data-accion="vincular" data-id="${escapar(x.id)}">Vincular teléfono</button>
         ${editable ? `<button class="sis-btn chico" data-accion="editar-persona" data-id="${escapar(x.id)}">Editar</button>` : ""}</span></div>`).join("")}</div>` : vacio2("Aún no hay personas.")}</section>
     ${editable ? "" : '<p class="sis-tenue">Solo Administración / RRHH edita esta lista.</p>'}
     <section class="sis-tarjeta" id="empresa"><h2>Empresa</h2>
@@ -8312,6 +8348,88 @@ ${escapar(t.nota)}${t.notaPor ? `
         <p class="sis-tenue">Por ahora se guarda en este equipo (teléfono o computador). Cuando el Sistema esté en el Nextcloud de la empresa, lo define RRHH para todos, junto con el logo.</p>
       </form></section>`;
   }
+  var LETRAS_CODIGO = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  var nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS_CODIGO[Math.floor(Math.random() * LETRAS_CODIGO.length)]).join("");
+  var leerLS3 = (k, d = "") => {
+    try {
+      return localStorage.getItem(k) || d;
+    } catch {
+      return d;
+    }
+  };
+  var urlTerreno = () => leerLS3("env_terreno_url") || new URL("paquete-conexion/ejemplo.html", location.href.split("#")[0]).toString();
+  async function tarjetaVincular(p) {
+    if (!p) return "";
+    const n = estado();
+    const base = urlTerreno().split("#")[0];
+    const u = new URL(base);
+    if (n.carpetaId) u.searchParams.set("carpeta", n.carpetaId);
+    const enlace = `${u.toString()}#vincular=${p.codigoVinculo}`;
+    let qr = '<p class="sis-tenue">No se pudo generar el QR (falta vendor/qrcode.js).</p>';
+    try {
+      if (!globalThis.qrcode) await cargarScript("vendor/qrcode.js");
+      const q = globalThis.qrcode(0, "M");
+      q.addData(enlace);
+      q.make();
+      qr = q.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+    } catch (e) {
+      console.warn(e);
+    }
+    return `<section class="sis-tarjeta sis-vincular"><div class="sis-cab"><h2>Vincular teléfono · ${escapar(p.nombre)}</h2><button class="sis-btn chico" data-accion="cerrar-vincular">Cerrar</button></div>
+    <div class="sis-vincular-cuerpo">
+      <div class="sis-qr" role="img" aria-label="Código QR para vincular la app de Terreno">${qr}</div>
+      <div>
+        <p>Escanea con la cámara del teléfono. Se abre la app de Terreno ya vinculada a <b>${escapar(p.nombre)}</b>: sus proyectos, sus equipos en terreno y el botón para avisar un problema de un equipo.</p>
+        <p>Si el QR no se puede leer, en la app de Terreno escribe el código:</p>
+        <p class="sis-codigo">${escapar(p.codigoVinculo)}</p>
+        ${n.carpetaId ? '<p class="sis-tenue">El QR lleva la carpeta de la nube: el teléfono trae los datos al conectarse con Google.</p>' : '<div class="sis-aviso-linea">La nube no está conectada en este equipo: el QR funciona solo en este mismo navegador. Conecta la nube para vincular otro teléfono.</div>'}
+        <form class="sis-form" data-form="terreno-url"><label class="sis-campo"><span>Dirección de la app de Terreno</span><input name="url" value="${escapar(leerLS3("env_terreno_url"))}" placeholder="${escapar(urlTerreno())}"></label>
+          <div class="sis-acciones"><button class="sis-btn chico">Guardar dirección</button><button type="button" class="sis-btn chico" data-accion="nuevo-codigo" data-id="${escapar(p.id)}">Cambiar código</button></div>
+          <p class="sis-tenue">Mientras la app de Terreno no tenga la conexión, el QR abre la página de prueba del paquete de conexión.</p></form>
+      </div>
+    </div></section>`;
+  }
+  var claveVistos = (pid) => `env_avisos_vistos_${pid || "nadie"}`;
+  var leerVistos = (pid) => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(claveVistos(pid)) || "[]"));
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+  };
+  var guardarVistos = (pid, set) => {
+    try {
+      localStorage.setItem(claveVistos(pid), JSON.stringify([...set].slice(-500)));
+    } catch {
+    }
+  };
+  async function avisosPara(ctx2) {
+    const [alertas, proyectos2] = await Promise.all([listarAlertas(), listarProyectos()]);
+    let lista;
+    if (ctx2.rol === "rrhh") lista = alertas;
+    else if (!ctx2.personaId) lista = [];
+    else {
+      const mios = new Set(proyectos2.filter((p) => p.encargadoId === ctx2.personaId).map((p) => p.id));
+      lista = alertas.filter((a) => mios.has(a.proyectoId) || a.reportadaPor === ctx2.personaId);
+    }
+    const vistos = leerVistos(ctx2.personaId || ctx2.rol);
+    return { lista, nuevos: lista.filter((a) => !vistos.has(a.id)).length, vistos, proyectos: proyectos2 };
+  }
+  async function avisos(ctx2) {
+    const { lista, vistos, proyectos: proyectos2 } = await avisosPara(ctx2);
+    const personas2 = await listarPersonas();
+    const nomPers = (id) => (personas2.find((x) => x.id === id) || {}).nombre || "Sin nombre";
+    const nomProy = (id) => (proyectos2.find((x) => x.id === id) || {}).nombre || "Sin proyecto";
+    const ESTADO = { abierta: "Abierta", mantencion: "En mantención", recibida: "Recibida" };
+    guardarVistos(ctx2.personaId || ctx2.rol, /* @__PURE__ */ new Set([...vistos, ...lista.map((a) => a.id)]));
+    return `<div class="sis-cab"><h1>Avisos de equipos</h1></div>
+    <p class="sis-tenue">${ctx2.rol === "rrhh" ? "Problemas y avisos de todos los equipos." : "Problemas y avisos de equipos en tus proyectos (donde eres el encargado)."} Llegan desde la app de Terreno por la nube. Los estados se cambian en Equipos → Alertas.</p>
+    ${ctx2.rol !== "rrhh" && !ctx2.personaId ? vacio2("Elige quién eres arriba para ver los avisos de tus proyectos.") : ""}
+    <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map((a) => `<a class="sis-fila${vistos.has(a.id) ? "" : " sis-nuevo"}" href="#/equipos/${escapar(a.equipoId)}">
+        <span class="sis-fila-txt"><b>${escapar(a.equipo)}</b><span>${escapar(a.descripcion || "")}</span>
+          <span class="sis-tenue">${escapar(nomProy(a.proyectoId))} · ${escapar(nomPers(a.reportadaPor))} · ${escapar(fechaHoraLegible(a.fechaReporte))}${a.origen === "app-terreno" ? " · desde Terreno" : ""}</span></span>
+        <span class="sis-chips">${vistos.has(a.id) ? "" : '<span class="sis-chip azul">Nuevo</span>'}<span class="sis-chip ${a.tipo === "aviso" ? "ambar" : "rojo"}">${a.tipo === "aviso" ? "Aviso" : "Problema"}</span><span class="sis-chip gris">${escapar(ESTADO[a.estado] || a.estado)}</span></span></a>`).join("")}</div>` : vacio2("No hay avisos abiertos.")}</section>`;
+  }
   var PRONTO = {
     gastos: { titulo: "Gastos", version: "una próxima versión", texto: "Cada gasto con la foto de su boleta, dentro de su proyecto (o en «Oficina»). La rendición pasa por borrador → emitida → devuelta → abonada, y RRHH registra el abono. Las boletas quedan respaldadas en la carpeta del proyecto." },
     terreno: { titulo: "Libreta de terreno", version: "una próxima versión", texto: "Terreno Topografía entra al Sistema: jornadas y levantamientos dentro de cada proyecto, con los equipos que salieron en el checklist. Mientras tanto, sigue usando la app de Terreno por separado." }
@@ -8320,7 +8438,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     const x = PRONTO[clave2];
     return `<section class="sis-tarjeta sis-pronto grande"><h1>${x.titulo}</h1><p><span class="sis-chip ambar">Llega en ${x.version}</span></p><p>${x.texto}</p></section>`;
   }
-  var VISTAS = { inicio, proyectos, proyecto, proyectoEditar, personas, pronto };
+  var VISTAS = { inicio, proyectos, proyecto, proyectoEditar, personas, pronto, avisos };
   async function manejarEnvio(form, ctx2) {
     const datos = new FormData(form);
     if (form.dataset.form === "persona-rapida") {
@@ -8335,6 +8453,19 @@ ${escapar(t.nota)}${t.notaPor ? `
       ctx2.estado.personaEditar = null;
       await ctx2.recargarPersonas();
       ctx2.avisar("Persona guardada");
+      return true;
+    }
+    if (form.dataset.form === "terreno-url") {
+      const u = (datos.get("url") || "").trim();
+      try {
+        if (u) {
+          new URL(u);
+          localStorage.setItem("env_terreno_url", u);
+        } else localStorage.removeItem("env_terreno_url");
+      } catch {
+        throw new Error("La dirección debe empezar con https://");
+      }
+      ctx2.avisar("Dirección guardada");
       return true;
     }
     if (form.dataset.form === "empresa") {
@@ -8379,6 +8510,17 @@ ${escapar(t.nota)}${t.notaPor ? `
         return true;
       case "cancelar-persona":
         ctx2.estado.personaEditar = null;
+        return true;
+      case "vincular":
+      case "nuevo-codigo": {
+        const p = await obtenerPersona(boton.dataset.id);
+        if (p && (!p.codigoVinculo || boton.dataset.accion === "nuevo-codigo")) await guardarPersona({ id: p.id, codigoVinculo: nuevoCodigo() }, { personaId: ctx2.personaId });
+        if (boton.dataset.accion === "nuevo-codigo") ctx2.avisar("Código cambiado: el anterior ya no sirve");
+        ctx2.estado.vincular = boton.dataset.id;
+        return true;
+      }
+      case "cerrar-vincular":
+        ctx2.estado.vincular = null;
         return true;
       case "eliminar-proyecto": {
         const p = await obtenerProyecto(boton.dataset.id);
@@ -8523,13 +8665,12 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     mas: ic('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>')
   };
   var MENU = [
-    { ruta: "inicio", texto: "Inicio", roles: ["terreno", "rrhh"] },
+    { ruta: "inicio", texto: "Inicio", roles: ["terreno", "rrhh"], tambien: ["avisos"] },
     { ruta: "proyectos", texto: "Proyectos", roles: ["terreno", "rrhh"], tambien: ["proyecto", "proyecto-editar"] },
     { ruta: "equipos", texto: "Equipos", roles: ["terreno", "rrhh"] },
     { ruta: "vuelos", texto: "Vuelos", roles: ["terreno"] },
     { ruta: "seguimiento", texto: "Seguimiento", roles: ["terreno"] },
     { ruta: "gastos", texto: "Gastos", roles: ["terreno", "rrhh"], pronto: true },
-    { ruta: "terreno", texto: "Libreta de terreno", roles: ["terreno"], pronto: true },
     { ruta: "personas", texto: "Personas", roles: ["rrhh", "terreno"] }
   ];
   var CABEN_ABAJO = 5;
@@ -8593,6 +8734,19 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     const partes = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     return { base: partes[0] || "inicio", arg: partes[1] || null };
   }
+  async function pintarAvisos() {
+    const b = $("sis-avisos");
+    if (!b) return;
+    try {
+      const { nuevos, lista } = await avisosPara(ctx());
+      b.hidden = !lista.length && selRol.value !== "rrhh";
+      b.querySelector("b").textContent = nuevos || "";
+      b.classList.toggle("con-nuevos", nuevos > 0);
+      b.setAttribute("aria-label", nuevos ? `${nuevos} aviso${nuevos > 1 ? "s" : ""} nuevo${nuevos > 1 ? "s" : ""} de equipos` : "Avisos de equipos");
+    } catch (e) {
+      console.warn(e);
+    }
+  }
   async function mostrar() {
     const { base, arg } = leerRuta();
     const item = MENU.find((m) => m.ruta === base || (m.tambien || []).includes(base));
@@ -8601,6 +8755,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       return;
     }
     pintarMenu(base);
+    pintarAvisos();
     const clave2 = `${base}/${arg || ""}/${selRol.value}/${selPersona.value}`;
     if (base === "vuelos") {
       const partes = location.hash.replace(/^#\/?/, "").split("/");
@@ -8747,6 +8902,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       pastilla: $("sis-nube"),
       alLlegarDatos: async () => {
         await cargarPersonas(selPersona.value || leer("env_persona", ""));
+        pintarAvisos();
         if (montado && montado.refrescar) montado.refrescar();
         else if (!contenedor.querySelector("form")) {
           rutaActual = "";

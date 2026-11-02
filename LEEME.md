@@ -1,4 +1,14 @@
-# Topoland · Sistema de trabajo — v0.8.1 (QR de vincular hacia la app de Terreno)
+# Topoland · Sistema de trabajo — v0.8.2 (Sistema y Terreno en el mismo teléfono)
+
+## Qué cambia en v0.8.2
+- **Arreglo:** con Terreno abierto en el mismo teléfono (aunque en segundo plano), el Sistema podía quedar en «El Sistema no cargó». Ambas apps comparten la base `topoland`; Terreno la creaba solo con sus partes y el Sistema tenía que agrandarla, esperando a que Terreno la soltara (en Android una app en segundo plano está congelada). Ahora hay un **esquema común** (`compartido/esquema.js`) que ambas crean completo desde el principio.
+- **Aviso claro** si aun así la base está ocupada: «Esperando los datos… ciérrala desde las apps recientes»; el Sistema termina de cargar solo apenas se suelta. El aviso genérico ya no menciona solo el computador.
+- **Paquete de conexión 1.3:** base completa, código del QR guardado en el teléfono, vinculación automática al llegar los datos de la nube, `alVincular` y `explicarVinculo` (ver `paquete-conexion/LEEME.md`). **Hay que copiarlo en Terreno** (lo hace su chat).
+- `almacen.js`: si un módulo agrega un índice a un almacén ya registrado, se suma (antes se ignoraba). Prueba `esquema.test.mjs`: avisa si un módulo registra algo que no está en el esquema. 40 pruebas.
+
+---
+
+## Versión anterior: v0.8.1 (QR de vincular hacia la app de Terreno)
 
 ## Qué cambia en v0.8.1
 - **Vincular teléfono:** el QR abre por defecto la app de Terreno publicada junto al Sistema (`terreno/`), ya no la página de prueba `paquete-conexion/ejemplo.html`. No hay que escribir la dirección.

@@ -8,6 +8,8 @@
 //   · marca tramos volados del Seguimiento;
 //   · publica jornadas, fotos y monografías por proyecto, y lee el estado de revisión de las monografías (v1.2);
 //   · sincroniza con la misma nube del Sistema (Google Drive en pruebas).
+// v1.3: crea la base «topoland» completa (esquema común, ver compartido/esquema.js) para no bloquear al Sistema;
+//       el código del QR queda guardado y se vincula solo cuando llegan las personas desde la nube.
 // Usa la base común «topoland» y el mismo formato que el Sistema: no hay que programar nada de eso en Terreno.
 
 import * as nube from '../compartido/nube.js';
@@ -17,13 +19,28 @@ import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import * as Mono from '../modulos/monografias/datos.js'; // solo datos: el paquete no lleva pantallas ni PDF
 import { obtenerProyecto } from '../compartido/catalogos.js';
 
-export const VERSION = '1.2 (Sistema v0.8)';
+export const VERSION = '1.3 (Sistema v0.8.2)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
+const CLAVE_CODIGO = 'topoland_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)
 const leer = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const escribir = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
 
 let codigoPendiente = null;
+const fijarCodigo = c => { codigoPendiente = c || null; escribir(CLAVE_CODIGO, codigoPendiente); };
+const oyentesDatos = new Set();
+const oyentesVinculo = new Set();
+let escuchando = false;
+
+// Si hay un código pendiente y ya llegaron las personas, vincula. Devuelve la persona o null.
+async function intentarCodigoPendiente() {
+  if (!codigoPendiente || persona()) return null;
+  try {
+    const p = await vincular(codigoPendiente);
+    if (p) for (const fn of oyentesVinculo) { try { fn(p); } catch (e) { console.warn(e); } }
+    return p;
+  } catch (e) { console.warn(e); return null; }
+}
 
 /**
  * Llamar una vez al abrir la app. clienteId: el «ID de cliente» de Google (el mismo del Sistema).
@@ -36,14 +53,25 @@ export function iniciar({ clienteId } = {}) {
   Mono.iniciarDatos({ personaId: p ? p.id : null });
   nube.configurar({ clienteId: clienteId || undefined });
   nube.iniciar();
+  codigoPendiente = leer(CLAVE_CODIGO);
+  if (!escuchando) {
+    escuchando = true;
+    // Primero se intenta el código pendiente y después se avisa a la app, así ya ve a la persona vinculada.
+    nube.alDatosRemotos(async (...a) => {
+      await intentarCodigoPendiente();
+      for (const fn of oyentesDatos) { try { await fn(...a); } catch (e) { console.warn(e); } }
+    });
+  }
   try {
     const u = new URL(location.href);
     const carpeta = u.searchParams.get('carpeta');
     if (carpeta) { escribir(CLAVE_CARPETA, carpeta); u.searchParams.delete('carpeta'); }
     const m = /vincular=([A-Za-z0-9]{4,12})/.exec(u.hash);
-    if (m) { codigoPendiente = m[1].toUpperCase(); u.hash = u.hash.replace(/&?vincular=[A-Za-z0-9]+/, '').replace(/^#$/, ''); }
+    if (m) { fijarCodigo(m[1].toUpperCase()); u.hash = u.hash.replace(/&?vincular=[A-Za-z0-9]+/, '').replace(/^#$/, ''); }
     if (carpeta || m) history.replaceState(null, '', u.pathname + u.search + u.hash);
   } catch { /* sin URL */ }
+  if (p && codigoPendiente) fijarCodigo(null);
+  else if (codigoPendiente) intentarCodigoPendiente(); // si las personas ya estaban en el teléfono
   return { persona: p, codigoPendiente, carpetaPendiente: leer(CLAVE_CARPETA) && !nube.estado().carpetaId ? leer(CLAVE_CARPETA) : null };
 }
 
@@ -66,10 +94,29 @@ export async function vincular(codigo) {
   Equipos.iniciar({ personaId: p.id });
   Seguimiento.iniciar({ personaId: p.id });
   Mono.iniciarDatos({ personaId: p.id });
-  codigoPendiente = null;
+  fijarCodigo(null);
   return datos;
 }
-export function desvincular() { escribir(CLAVE_PERSONA, null); }
+export function desvincular() { escribir(CLAVE_PERSONA, null); fijarCodigo(null); }
+
+/** Avisa cuando el teléfono queda vinculado solo (código del QR + personas recién llegadas de la nube). */
+export const alVincular = fn => { oyentesVinculo.add(fn); return () => oyentesVinculo.delete(fn); };
+
+/**
+ * Texto para la persona cuando no se pudo vincular: distingue «faltan los datos de la nube» de «código no encontrado».
+ * Devuelve '' si el teléfono ya está vinculado.
+ */
+export async function explicarVinculo(codigo = codigoPendiente) {
+  if (persona()) return '';
+  let n = 0;
+  try { n = (await listarPersonas()).length; } catch { /* sin base */ }
+  const c = String(codigo || '').trim().toUpperCase();
+  if (!n) return nube.estado().conectado
+    ? 'Todavía no llegan las personas del Sistema. Espera a que termine la sincronización; el teléfono se vincula solo.'
+    : 'Conecta la nube del Sistema (Google) para terminar de vincular: las personas vienen desde ahí.';
+  if (!c) return 'Escribe el código de 6 letras que muestra el Sistema en Personas → Vincular teléfono.';
+  return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Personas → Vincular teléfono) y sincroniza de nuevo.`;
+}
 
 // ───────── Lo de la persona ─────────
 const yo = () => { const p = persona(); if (!p) throw new Error('Primero vincula el teléfono a una persona.'); return p; };
@@ -155,11 +202,11 @@ export async function conectarNube() {
   const carpeta = leer(CLAVE_CARPETA);
   if (carpeta && !nube.estado().carpetaId) await nube.usarCarpeta(carpeta);
   else await nube.sincronizar();
-  if (codigoPendiente && !persona()) await vincular(codigoPendiente);
+  await intentarCodigoPendiente();
   return nube.estado();
 }
 export const estadoNube = () => nube.estado();
 export const alCambiarNube = fn => nube.alEstado(fn);
-export const alLlegarDatos = fn => nube.alDatosRemotos(fn);
+export const alLlegarDatos = fn => { oyentesDatos.add(fn); return () => oyentesDatos.delete(fn); };
 export const sincronizar = () => nube.sincronizar();
 export const codigoQR = () => codigoPendiente;

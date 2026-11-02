@@ -1,0 +1,39 @@
+// compartido/esquema.js — todas las partes (almacenes) de la base «topoland», en un solo lugar.
+// La base la comparten el Sistema y la app de Terreno (mismo dominio). Si cada app creara solo lo suyo,
+// la que llega después tendría que subir la versión de la base y esperar a que la otra la suelte; en Android,
+// una app en segundo plano está congelada y no la suelta nunca (el Sistema quedaba sin cargar).
+// Por eso almacen.js registra este esquema completo al cargarse: la abra quien la abra, se crea entera.
+// Al agregar un almacén o un índice en un módulo, agregarlo también aquí (la prueba esquema.test.mjs lo revisa).
+export const VERSION_ESQUEMA = 1;
+
+const porProyecto = [['proyectoId', 'proyectoId']];
+const porEquipo = [['equipoId', 'equipoId']];
+
+export const ESQUEMA = [
+  // compartido
+  { nombre: 'compartido_proyectos' },
+  { nombre: 'compartido_personas' },
+  { nombre: 'compartido_archivos', indices: [['dueno', ['duenoTipo', 'duenoId']]] },
+  // Equipos
+  { nombre: 'equipos_equipos' },
+  { nombre: 'equipos_eventos', indices: [['equipoId', 'equipoId'], ['proyectoId', 'proyectoId']] },
+  { nombre: 'equipos_alertas', indices: porEquipo },
+  { nombre: 'equipos_modelos' },
+  { nombre: 'equipos_certificados', indices: porEquipo },
+  { nombre: 'equipos_mantenciones', indices: porEquipo },
+  { nombre: 'equipos_notas', indices: porEquipo },
+  // Vuelos
+  { nombre: 'vuelos_planes', indices: porProyecto },
+  { nombre: 'vuelos_drones' },
+  { nombre: 'local_vuelos_capas' },
+  // Seguimiento
+  { nombre: 'seguimiento_planes', indices: porProyecto },
+  { nombre: 'seguimiento_ciclos', indices: [['planId', 'planId']] },
+  { nombre: 'seguimiento_eventos', indices: [['cicloId', 'cicloId']] },
+  { nombre: 'seguimiento_entregas', indices: [['cicloId', 'cicloId']] },
+  // Monografías (datos que llegan desde Terreno)
+  { nombre: 'terreno_monografias', indices: porProyecto },
+  { nombre: 'terreno_monografias_gabinete', indices: porProyecto },
+  { nombre: 'terreno_revisiones', indices: [['monografiaId', 'monografiaId'], ['proyectoId', 'proyectoId']] },
+  { nombre: 'terreno_jornadas', indices: porProyecto },
+];

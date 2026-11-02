@@ -40,11 +40,22 @@
   <script src="config.js"></script>
   <script src="sistema-app.js"></script>
   <script>
-    setTimeout(function () {
-      if (window.__sistemaCargado) return;
-      var c = document.getElementById('sis-contenido');
-      if (c && !c.children.length) c.innerHTML = '<div class="sis-error"><b>El Sistema no cargó.</b><br>Revisa que la carpeta tenga <code>sistema-app.js</code> junto a <code>index.html</code>. En GitHub Pages, recarga con Ctrl+Shift+R. La consola (F12) muestra el detalle.</div>';
-    }, 5000);
+    // Revisión del arranque. Si la base de datos está esperando a otra app (p. ej. Terreno en segundo plano),
+    // se dice eso y se sigue esperando: apenas la otra app la suelte, el Sistema termina de cargar solo.
+    (function () {
+      var inicio = Date.now();
+      var t = setInterval(function () {
+        var c = document.getElementById('sis-contenido');
+        if (window.__sistemaCargado) { clearInterval(t); return; }
+        if (!c || (c.children.length && !c.querySelector('.sis-espera-bd, .sis-error-carga'))) return;
+        var s = (Date.now() - inicio) / 1000;
+        if (window.__topolandBdEsperando && s > 3) {
+          if (!c.querySelector('.sis-espera-bd')) c.innerHTML = '<div class="sis-error sis-espera-bd"><b>Esperando los datos.</b><br>' + (window.__topolandBdBloqueada ? 'La app de Terreno u otra pestaña del Sistema tiene los datos abiertos.' : 'Otra app o pestaña está terminando de usar los datos.') + ' Ciérrala (en el teléfono, desde las apps recientes) y el Sistema terminará de cargar solo.</div>';
+        } else if (!window.__topolandBdEsperando && s > 8 && !c.querySelector('.sis-error-carga')) {
+          c.innerHTML = '<div class="sis-error sis-error-carga"><b>El Sistema no cargó.</b><br>Recarga la página (en el computador, Ctrl+Shift+R). Si sigue igual, revisa que la carpeta tenga <code>sistema-app.js</code> junto a <code>index.html</code>; la consola (F12) muestra el detalle.</div>';
+        }
+      }, 1000);
+    })();
   </script>
 </body>
 </html>

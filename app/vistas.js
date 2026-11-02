@@ -2,6 +2,7 @@
 // Las pantallas de Equipos las pone el propio módulo (montar()); aquí solo se leen sus datos por la puerta de entrada.
 
 import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre, cargarScript } from '../compartido/util.js';
+import { resolverUrlTerreno } from './url-terreno.js';
 import { estado as estadoNube } from '../compartido/nube.js';
 import { enviarAPapelera, enPapelera, restaurar } from '../compartido/papelera.js';
 import {
@@ -327,7 +328,7 @@ async function personas(ctx) {
 const LETRAS_CODIGO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS_CODIGO[Math.floor(Math.random() * LETRAS_CODIGO.length)]).join('');
 const leerLS = (k, d = '') => { try { return localStorage.getItem(k) || d; } catch { return d; } };
-export const urlTerreno = () => leerLS('env_terreno_url') || new URL('paquete-conexion/ejemplo.html', location.href.split('#')[0]).toString();
+export const urlTerreno = () => resolverUrlTerreno(leerLS('env_terreno_url'), location.href);
 
 async function tarjetaVincular(p) {
   if (!p) return '';
@@ -350,9 +351,9 @@ async function tarjetaVincular(p) {
         <p>Si el QR no se puede leer, en la app de Terreno escribe el código:</p>
         <p class="sis-codigo">${esc(p.codigoVinculo)}</p>
         ${n.carpetaId ? '<p class="sis-tenue">El QR lleva la carpeta de la nube: el teléfono trae los datos al conectarse con Google.</p>' : '<div class="sis-aviso-linea">La nube no está conectada en este equipo: el QR funciona solo en este mismo navegador. Conecta la nube para vincular otro teléfono.</div>'}
-        <form class="sis-form" data-form="terreno-url"><label class="sis-campo"><span>Dirección de la app de Terreno</span><input name="url" value="${esc(leerLS('env_terreno_url'))}" placeholder="${esc(urlTerreno())}"></label>
+        <form class="sis-form" data-form="terreno-url"><label class="sis-campo"><span>Dirección de la app de Terreno</span><input name="url" value="${esc(leerLS('env_terreno_url').includes('paquete-conexion/ejemplo.html') ? '' : leerLS('env_terreno_url'))}" placeholder="${esc(urlTerreno())}"></label>
           <div class="sis-acciones"><button class="sis-btn chico">Guardar dirección</button><button type="button" class="sis-btn chico" data-accion="nuevo-codigo" data-id="${esc(p.id)}">Cambiar código</button></div>
-          <p class="sis-tenue">Mientras la app de Terreno no tenga la conexión, el QR abre la página de prueba del paquete de conexión.</p></form>
+          <p class="sis-tenue">Déjala vacía para usar la app de Terreno publicada junto al Sistema (carpeta terreno/).</p></form>
       </div>
     </div></section>`;
 }

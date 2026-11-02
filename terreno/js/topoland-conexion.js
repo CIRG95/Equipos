@@ -24,11 +24,13 @@ var TopolandConexion = (() => {
     VERSION: () => VERSION,
     alCambiarNube: () => alCambiarNube,
     alLlegarDatos: () => alLlegarDatos,
+    alVincular: () => alVincular,
     codigoQR: () => codigoQR,
     conectarNube: () => conectarNube,
     desvincular: () => desvincular,
     estadoMonografias: () => estadoMonografias2,
     estadoNube: () => estadoNube,
+    explicarVinculo: () => explicarVinculo,
     iniciar: () => iniciar4,
     marcarTramoVolado: () => marcarTramoVolado2,
     misEquiposEnTerreno: () => misEquiposEnTerreno,
@@ -43,6 +45,38 @@ var TopolandConexion = (() => {
     vincular: () => vincular
   });
 
+  // compartido/esquema.js
+  var porProyecto = [["proyectoId", "proyectoId"]];
+  var porEquipo = [["equipoId", "equipoId"]];
+  var ESQUEMA = [
+    // compartido
+    { nombre: "compartido_proyectos" },
+    { nombre: "compartido_personas" },
+    { nombre: "compartido_archivos", indices: [["dueno", ["duenoTipo", "duenoId"]]] },
+    // Equipos
+    { nombre: "equipos_equipos" },
+    { nombre: "equipos_eventos", indices: [["equipoId", "equipoId"], ["proyectoId", "proyectoId"]] },
+    { nombre: "equipos_alertas", indices: porEquipo },
+    { nombre: "equipos_modelos" },
+    { nombre: "equipos_certificados", indices: porEquipo },
+    { nombre: "equipos_mantenciones", indices: porEquipo },
+    { nombre: "equipos_notas", indices: porEquipo },
+    // Vuelos
+    { nombre: "vuelos_planes", indices: porProyecto },
+    { nombre: "vuelos_drones" },
+    { nombre: "local_vuelos_capas" },
+    // Seguimiento
+    { nombre: "seguimiento_planes", indices: porProyecto },
+    { nombre: "seguimiento_ciclos", indices: [["planId", "planId"]] },
+    { nombre: "seguimiento_eventos", indices: [["cicloId", "cicloId"]] },
+    { nombre: "seguimiento_entregas", indices: [["cicloId", "cicloId"]] },
+    // Monografías (datos que llegan desde Terreno)
+    { nombre: "terreno_monografias", indices: porProyecto },
+    { nombre: "terreno_monografias_gabinete", indices: porProyecto },
+    { nombre: "terreno_revisiones", indices: [["monografiaId", "monografiaId"], ["proyectoId", "proyectoId"]] },
+    { nombre: "terreno_jornadas", indices: porProyecto }
+  ];
+
   // compartido/almacen.js
   var NOMBRE_BD = "topoland";
   var registrados = /* @__PURE__ */ new Map();
@@ -52,9 +86,17 @@ var TopolandConexion = (() => {
   function registrarAlmacenes(definiciones) {
     let nuevos = false;
     for (const d of definiciones) {
-      if (!registrados.has(d.nombre)) {
-        registrados.set(d.nombre, d);
+      const previo = registrados.get(d.nombre);
+      if (!previo) {
+        registrados.set(d.nombre, { ...d, indices: [...d.indices || []] });
         nuevos = true;
+        continue;
+      }
+      for (const ind of d.indices || []) {
+        if (!previo.indices.some(([n]) => n === ind[0])) {
+          previo.indices.push(ind);
+          nuevos = true;
+        }
       }
     }
     if (nuevos) promesaBD = null;
@@ -62,6 +104,13 @@ var TopolandConexion = (() => {
   function almacenesRegistrados() {
     return [...registrados.keys()];
   }
+  registrarAlmacenes(ESQUEMA);
+  var marcar = (k, v) => {
+    try {
+      globalThis[k] = v;
+    } catch {
+    }
+  };
   var oyentes = /* @__PURE__ */ new Set();
   function alCambiar(fn) {
     oyentes.add(fn);
@@ -77,8 +126,14 @@ var TopolandConexion = (() => {
       }
     }
   }
+  var MENSAJE_BLOQUEO = "Los datos están abiertos en otra app o pestaña (por ejemplo, la app de Terreno en segundo plano). Ciérrala desde las apps recientes y vuelve a abrir.";
   function abrirConVersion(version) {
     return new Promise((resolver, rechazar) => {
+      marcar("__topolandBdEsperando", true);
+      const listo = () => {
+        marcar("__topolandBdEsperando", false);
+        marcar("__topolandBdBloqueada", false);
+      };
       const req = version ? indexedDB.open(NOMBRE_BD, version) : indexedDB.open(NOMBRE_BD);
       req.onupgradeneeded = () => {
         const bd = req.result;
@@ -93,6 +148,7 @@ var TopolandConexion = (() => {
       let aviso = null;
       req.onsuccess = () => {
         clearTimeout(aviso);
+        listo();
         const bd = req.result;
         bd.onversionchange = () => {
           bd.close();
@@ -103,11 +159,16 @@ var TopolandConexion = (() => {
       };
       req.onerror = () => {
         clearTimeout(aviso);
+        listo();
         rechazar(req.error);
       };
       req.onblocked = () => {
         clearTimeout(aviso);
-        aviso = setTimeout(() => rechazar(new Error("La app está abierta en otra pestaña con una versión anterior. Ciérrala y vuelve a intentar.")), 1e4);
+        marcar("__topolandBdBloqueada", true);
+        aviso = setTimeout(() => {
+          listo();
+          rechazar(new Error(MENSAJE_BLOQUEO));
+        }, 6e4);
       };
     });
   }
@@ -1305,9 +1366,10 @@ Content-Type: ${mime}\r
   }
 
   // app/conexion-terreno.js
-  var VERSION = "1.2 (Sistema v0.8)";
+  var VERSION = "1.3 (Sistema v0.8.2)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
+  var CLAVE_CODIGO = "topoland_conexion_codigo";
   var leer = (k) => {
     try {
       return JSON.parse(localStorage.getItem(k) || "null");
@@ -1322,6 +1384,30 @@ Content-Type: ${mime}\r
     }
   };
   var codigoPendiente = null;
+  var fijarCodigo = (c) => {
+    codigoPendiente = c || null;
+    escribir(CLAVE_CODIGO, codigoPendiente);
+  };
+  var oyentesDatos2 = /* @__PURE__ */ new Set();
+  var oyentesVinculo = /* @__PURE__ */ new Set();
+  var escuchando = false;
+  async function intentarCodigoPendiente() {
+    if (!codigoPendiente || persona3()) return null;
+    try {
+      const p = await vincular(codigoPendiente);
+      if (p) for (const fn of oyentesVinculo) {
+        try {
+          fn(p);
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      return p;
+    } catch (e) {
+      console.warn(e);
+      return null;
+    }
+  }
   function iniciar4({ clienteId } = {}) {
     const p = persona3();
     iniciar2({ personaId: p ? p.id : null });
@@ -1329,6 +1415,20 @@ Content-Type: ${mime}\r
     iniciarDatos3({ personaId: p ? p.id : null });
     configurar({ clienteId: clienteId || void 0 });
     iniciar();
+    codigoPendiente = leer(CLAVE_CODIGO);
+    if (!escuchando) {
+      escuchando = true;
+      alDatosRemotos(async (...a) => {
+        await intentarCodigoPendiente();
+        for (const fn of oyentesDatos2) {
+          try {
+            await fn(...a);
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+      });
+    }
     try {
       const u = new URL(location.href);
       const carpeta = u.searchParams.get("carpeta");
@@ -1338,12 +1438,14 @@ Content-Type: ${mime}\r
       }
       const m = /vincular=([A-Za-z0-9]{4,12})/.exec(u.hash);
       if (m) {
-        codigoPendiente = m[1].toUpperCase();
+        fijarCodigo(m[1].toUpperCase());
         u.hash = u.hash.replace(/&?vincular=[A-Za-z0-9]+/, "").replace(/^#$/, "");
       }
       if (carpeta || m) history.replaceState(null, "", u.pathname + u.search + u.hash);
     } catch {
     }
+    if (p && codigoPendiente) fijarCodigo(null);
+    else if (codigoPendiente) intentarCodigoPendiente();
     return { persona: p, codigoPendiente, carpetaPendiente: leer(CLAVE_CARPETA) && !estado().carpetaId ? leer(CLAVE_CARPETA) : null };
   }
   function persona3() {
@@ -1359,11 +1461,28 @@ Content-Type: ${mime}\r
     iniciar2({ personaId: p.id });
     iniciar3({ personaId: p.id });
     iniciarDatos3({ personaId: p.id });
-    codigoPendiente = null;
+    fijarCodigo(null);
     return datos;
   }
   function desvincular() {
     escribir(CLAVE_PERSONA, null);
+    fijarCodigo(null);
+  }
+  var alVincular = (fn) => {
+    oyentesVinculo.add(fn);
+    return () => oyentesVinculo.delete(fn);
+  };
+  async function explicarVinculo(codigo = codigoPendiente) {
+    if (persona3()) return "";
+    let n = 0;
+    try {
+      n = (await listarPersonas()).length;
+    } catch {
+    }
+    const c = String(codigo || "").trim().toUpperCase();
+    if (!n) return estado().conectado ? "Todavía no llegan las personas del Sistema. Espera a que termine la sincronización; el teléfono se vincula solo." : "Conecta la nube del Sistema (Google) para terminar de vincular: las personas vienen desde ahí.";
+    if (!c) return "Escribe el código de 6 letras que muestra el Sistema en Personas → Vincular teléfono.";
+    return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Personas → Vincular teléfono) y sincroniza de nuevo.`;
   }
   var yo = () => {
     const p = persona3();
@@ -1420,12 +1539,15 @@ Content-Type: ${mime}\r
     const carpeta = leer(CLAVE_CARPETA);
     if (carpeta && !estado().carpetaId) await usarCarpeta(carpeta);
     else await sincronizar();
-    if (codigoPendiente && !persona3()) await vincular(codigoPendiente);
+    await intentarCodigoPendiente();
     return estado();
   }
   var estadoNube = () => estado();
   var alCambiarNube = (fn) => alEstado(fn);
-  var alLlegarDatos = (fn) => alDatosRemotos(fn);
+  var alLlegarDatos = (fn) => {
+    oyentesDatos2.add(fn);
+    return () => oyentesDatos2.delete(fn);
+  };
   var sincronizar2 = () => sincronizar();
   var codigoQR = () => codigoPendiente;
   return __toCommonJS(conexion_terreno_exports);

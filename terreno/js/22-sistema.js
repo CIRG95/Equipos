@@ -28,7 +28,10 @@ function sisIniciar() {
           .catch((err) => toast(err && err.message ? err.message : "No se pudo conectar la nube del Sistema"));
       } else toast("Abre ⚙ → Sistema y sigue los pasos para terminar.");
     }
-    if (info.codigoPendiente && !info.persona) {
+    // Paquete 1.3: el código del QR queda guardado y se vincula solo cuando llegan las personas desde la nube.
+    if (typeof TopolandConexion.alVincular === "function") {
+      TopolandConexion.alVincular((p) => { toast("Vinculado con el Sistema: " + p.nombre); sisRefrescar(); });
+    } else if (info.codigoPendiente && !info.persona) {
       TopolandConexion.vincular(info.codigoPendiente).then((p) => {
         if (p) toast("Vinculado con el Sistema: " + p.nombre);
         sisRefrescar();
@@ -98,6 +101,7 @@ function sisRenderConfig() {
   const cls = (k, ok) => "sis-paso" + (ok ? " hecho" : actual === k ? " actual" : "");
   const marca = (ok) => ok ? "✔" : "○";
   const err = [SIS.ultimoError, n.error].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
+  let qr = ""; try { qr = (!ok4 && TopolandConexion.codigoQR && TopolandConexion.codigoQR()) || ""; } catch (_) {}
   const resumen = ok4
     ? `<p><strong>Listo.</strong> Vinculado como <strong>${escapeHtml(p.nombre)}</strong>${p.cargo ? " · " + escapeHtml(p.cargo) : ""}.</p>`
     : "";
@@ -133,8 +137,9 @@ function sisRenderConfig() {
     <div class="${cls(4, ok4)}">
       <h4>${marca(ok4)} Paso 4 · Vincular tu persona</h4>
       ${ok4 ? `<button class="btn btn-outline" data-sis="desvincular" type="button" style="width:100%;">Desvincular este teléfono</button>`
-        : `<p class="muted" style="font-size:12px;">En el Sistema: Personas → Vincular teléfono. Escribe aquí el código de 6 letras.</p>
-      <input type="text" id="inpCodigoSistema" maxlength="8" autocapitalize="characters" placeholder="ABC234" style="text-transform:uppercase; letter-spacing:.2em; font-family:var(--mono);">
+        : `${qr ? `<p class="muted" style="font-size:12px;">Código del QR guardado: <strong style="font-family:var(--mono); letter-spacing:.15em;">${escapeHtml(qr)}</strong>. Se vincula solo al terminar el paso 3.</p>`
+          : `<p class="muted" style="font-size:12px;">En el Sistema: Personas → Vincular teléfono. Escribe aquí el código de 6 letras.</p>`}
+      <input type="text" id="inpCodigoSistema" maxlength="8" autocapitalize="characters" placeholder="ABC234" value="${escapeHtml(qr)}" style="text-transform:uppercase; letter-spacing:.2em; font-family:var(--mono);">
       <button class="btn btn-accent" data-sis="vincular" type="button" style="width:100%; margin-top:8px;">Vincular</button>`}
     </div>
 
@@ -154,7 +159,10 @@ document.addEventListener("click", async (ev) => {
       const cod = (document.getElementById("inpCodigoSistema").value || "").trim();
       if (!cod) return toast("Escribe el código de 6 letras.");
       const r = await TopolandConexion.vincular(cod);
-      if (!r) throw new Error("No encontré ese código. Revisa que el paso 3 haya terminado y que el código esté vigente en el Sistema.");
+      if (!r) {
+        const motivo = typeof TopolandConexion.explicarVinculo === "function" ? await TopolandConexion.explicarVinculo(cod) : "";
+        throw new Error(motivo || "No encontré ese código. Revisa que el paso 3 haya terminado y que el código esté vigente en el Sistema.");
+      }
       toast("Vinculado: " + r.nombre);
     } else if (k === "reiniciar") {
       location.reload(); return;

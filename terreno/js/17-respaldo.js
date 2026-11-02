@@ -112,10 +112,11 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.7.3: en Ajustes → Sistema, el paso 3 muestra cuánto lleva sincronizando y un botón «Reiniciar la app» si se cuelga. Nuevo botón «Ver qué hay en la carpeta de Drive» (solo lectura): dice si el computador ya subió datos y de qué tamaño. El aviso engañoso «falta sesión de Google o carpeta» ahora dice «ya hay una sincronización en curso»."
+    "Versión 0.5.8: paquete de conexión 1.3 del Sistema. Terreno crea la base compartida completa, así el Sistema abre en el mismo teléfono aunque Terreno quede en segundo plano. El código del QR queda guardado y el teléfono se vincula solo al terminar el paso 3. Si no se puede vincular, el aviso dice por qué (falta la nube, falta sincronizar o código no encontrado)."
   ],
   probar: [
-    "Ajustes → Sistema → «Ver qué hay en la carpeta de Drive»: debe listar archivos en «datos». Si está vacía, sincroniza el Sistema del computador."
+    "Escanear el QR del Sistema (con la nube del computador conectada) → Ajustes → Sistema → pasos 1 a 3: al terminar el paso 3 debe quedar vinculado sin escribir el código.",
+    "Con Terreno abierto en segundo plano, abrir el Sistema en el mismo teléfono: debe cargar (la primera vez después de actualizar, si la base es antigua, cerrar Terreno desde las apps recientes)."
   ],
   conocidos: [
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",

@@ -6,6 +6,7 @@
 //   · lee sus proyectos (donde es encargado) y sus equipos en terreno;
 //   · reporta un problema o aviso de un equipo (lo ven el encargado del proyecto y Administración en el Sistema);
 //   · marca tramos volados del Seguimiento;
+//   · publica jornadas, fotos y monografías por proyecto, y lee el estado de revisión de las monografías (v1.2);
 //   · sincroniza con la misma nube del Sistema (Google Drive en pruebas).
 // Usa la base común «topoland» y el mismo formato que el Sistema: no hay que programar nada de eso en Terreno.
 
@@ -13,8 +14,10 @@ import * as nube from '../compartido/nube.js';
 import { listarPersonas, listarProyectos, OFICINA_ID } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
+import * as Mono from '../modulos/monografias/datos.js'; // solo datos: el paquete no lleva pantallas ni PDF
+import { obtenerProyecto } from '../compartido/catalogos.js';
 
-export const VERSION = '1.1 (Sistema v0.7)';
+export const VERSION = '1.2 (Sistema v0.8)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
 const leer = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
@@ -30,6 +33,7 @@ export function iniciar({ clienteId } = {}) {
   const p = persona();
   Equipos.iniciar({ personaId: p ? p.id : null });
   Seguimiento.iniciar({ personaId: p ? p.id : null });
+  Mono.iniciarDatos({ personaId: p ? p.id : null });
   nube.configurar({ clienteId: clienteId || undefined });
   nube.iniciar();
   try {
@@ -61,6 +65,7 @@ export async function vincular(codigo) {
   escribir(CLAVE_PERSONA, datos);
   Equipos.iniciar({ personaId: p.id });
   Seguimiento.iniciar({ personaId: p.id });
+  Mono.iniciarDatos({ personaId: p.id });
   codigoPendiente = null;
   return datos;
 }
@@ -106,6 +111,42 @@ export function marcarTramoVolado(proyectoId, tramoId, { volado = true, fecha, n
   const p = yo();
   return Seguimiento.marcarTramoVolado(proyectoId, tramoId, { volado, ...(fecha ? { fecha } : {}), por: p.nombre, nota });
 }
+
+// ───────── Monografías, jornadas y fotos (v1.2) ─────────
+async function opcionesProyecto(proyectoId) {
+  const p = yo();
+  if (!proyectoId) throw new Error('Elige el proyecto del Sistema.');
+  const proy = await obtenerProyecto(proyectoId);
+  if (!proy) throw new Error('Ese proyecto no está en este teléfono. Sincroniza con la nube del Sistema.');
+  return { proyectoId, personaId: p.id, nombreProyecto: proy.nombre };
+}
+
+/**
+ * Publica (o vuelve a publicar) una monografía de Terreno tal como la guarda Terreno.
+ * Las imágenes dataURL (croquisImg, panoramicaImg, clienteLogo, fotosExtra[].img) pasan a archivos del proyecto en la nube del Sistema.
+ * Devuelve { id, estado }. Sin señal queda guardado y sale con la próxima sincronización.
+ */
+export async function publicarMonografia(m, { proyectoId } = {}) {
+  return Mono.publicarMonografia(m, await opcionesProyecto(proyectoId));
+}
+
+/** Publica una jornada con sus levantamientos; las fotos de los puntos (y fotosReq) pasan a archivos. Devuelve { id, fotos }. */
+export async function publicarJornada(jornada, levantamientos, { proyectoId } = {}) {
+  return Mono.publicarJornada(jornada, levantamientos, await opcionesProyecto(proyectoId));
+}
+
+/**
+ * Sube una foto suelta al proyecto. tipo: 'panoramica' | 'croquis' | 'placa' | 'detalle' | 'punto' | 'otra'.
+ * Devuelve { archivoId }. Si la misma foto ya estaba, devuelve la existente.
+ */
+export async function subirFoto(dataUrl, { proyectoId, tipo = 'otra', monografiaId = null, puntoId = null, punto = '', lat = null, lng = null, hora = null, leyenda = '' } = {}) {
+  const op = await opcionesProyecto(proyectoId);
+  const archivoId = await Mono.guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? 'terreno_monografia' : 'terreno_foto', duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || new Date().toISOString(), leyenda, autor: persona().nombre } });
+  return { archivoId };
+}
+
+/** Estado de revisión de las monografías del proyecto: [{ id, punto, estado, observacion, revisadoPor, fecha }]. estado: enviada | en-revision | lista | con-observacion */
+export async function estadoMonografias(proyectoId) { yo(); return Mono.estadoMonografias(proyectoId); }
 
 // ───────── Nube ─────────
 /** Conecta con Google (llamar desde un toque) y usa la carpeta que trajo el QR. Después intenta el código pendiente. */

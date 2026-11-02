@@ -1,0 +1,46 @@
+/* modulos/monografias/monografias.css — Monografías (gabinete). Usa las clases sis-* del envoltorio. */
+.mn{display:flex; flex-direction:column; gap:14px;}
+.mn-cab h1{margin:0; font-size:24px;}
+.mn-cab p{margin:4px 0 0;}
+.mn-cab-ficha{display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;}
+.mn-barra{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;}
+.mn-filtros{display:flex; flex-wrap:wrap; gap:6px;}
+.mn-tabla{width:100%; border-collapse:collapse; font-size:14px;}
+.mn-tabla th{text-align:left; font-size:12px; font-weight:600; color:#5B6168; padding:6px 8px; border-bottom:1px solid var(--line);}
+.mn-tabla td{padding:9px 8px; border-bottom:1px solid #EFEDE8; vertical-align:top;}
+.mn-tabla td a{color:inherit;}
+.mn-tabla small{display:block; font-size:12px;}
+.mn-acc{white-space:nowrap; text-align:right;} .mn-acc .sis-btn{margin-left:4px;}
+.mn-obs{color:#8A3410;} .mn-nueva{color:#1D3F63;}
+.mn-dos{display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:16px; align-items:start;}
+.mn-dos > div, .mn-dos > aside{display:flex; flex-direction:column; gap:14px; min-width:0;}
+.mn-campos{display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:0 12px;}
+.mn textarea{width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:10px; padding:9px 11px; font:inherit;}
+.mn-mods{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:2px 12px;}
+.mn-chequeo{display:flex; flex-direction:column;}
+.mn-ch{display:flex; gap:10px; align-items:flex-start; padding:5px 0; border-bottom:1px solid #EFEDE8; font-size:14px;}
+.mn-ch small{display:block; font-size:12px; color:#5B6168; font-family:'IBM Plex Mono', monospace; overflow-wrap:anywhere;}
+.mn-ch small.mn-av{font-family:inherit; color:#8A3410;}
+.mn-ch-ic{flex:none; width:22px; height:22px; border-radius:6px; display:grid; place-items:center; font-weight:700; font-size:13px;}
+.mn-ch-ic.ok{color:#0F5F58; background:#E3F2EF;} .mn-ch-ic.falta{color:#5B6168; background:#ECEDEF;}
+.mn-ch-ic.dup, .mn-ch-ic.calc{color:#5A4300; background:#FBE7A1;}
+.mn-ley{font-size:12px; margin:8px 0 0;}
+.mn-slot{padding:10px 0; border-bottom:1px solid #EFEDE8;}
+.mn-slot-tit{font-weight:600; font-size:14px; margin:6px 0;}
+.mn-slot-img{height:150px; border:1px dashed var(--line); border-radius:10px; display:grid; place-items:center; overflow:hidden; background:#FAFAF7; margin-bottom:8px;}
+.mn-slot-img img{max-width:100%; max-height:100%; object-fit:contain;}
+.mn-extra{display:grid; grid-template-columns:72px 1fr auto; gap:8px; align-items:center; margin-bottom:8px;}
+.mn-extra img{width:72px; height:54px; object-fit:cover; border-radius:6px;}
+.mn-extra input{min-height:38px; border:1px solid var(--line); border-radius:8px; padding:0 8px; font:inherit;}
+.mn-hist ul{margin:6px 0 0; padding-left:18px; font-size:13px;}
+.mn-aviso{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+.mn-logo{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.mn-logo img{height:44px; max-width:160px; object-fit:contain; border:1px solid var(--line); border-radius:8px; padding:4px; background:#fff;}
+.mn-modal{position:fixed; inset:0; background:rgba(28,31,35,.45); z-index:80; display:grid; place-items:center; padding:16px;}
+.mn-modal-caja{background:#fff; border-radius:14px; padding:16px; width:min(980px, 100%); max-height:86vh; overflow:auto;}
+.mn-grilla{display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:10px; margin-top:10px;}
+.mn-foto{display:flex; flex-direction:column; gap:6px; text-align:left; border:1px solid var(--line); border-radius:10px; padding:6px; background:#fff; cursor:pointer; font:inherit;}
+.mn-foto:hover, .mn-foto:focus-visible{border-color:var(--brand, #1D5C63); outline:2px solid var(--brand, #1D5C63);}
+.mn-foto img{width:100%; height:120px; object-fit:cover; border-radius:6px;}
+.mn-foto small{display:block; font-size:12px; color:#5B6168;}
+@media (max-width: 900px){ .mn-dos{grid-template-columns:1fr;} .mn-tabla{font-size:13px;} }

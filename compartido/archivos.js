@@ -46,6 +46,7 @@ const limpiar = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').re
  * meta: { modulo, duenoTipo, duenoId, rol, proyectoId?, carpeta? }
  *   rol: 'foto' | 'placa' | 'certificado' | 'manual' | 'ficha_tecnica' | 'documento' …
  *   carpeta: ruta lógica en la nube, ej. 'Equipos/Leica TS15 1669403/Certificados'
+ *   detalle: datos libres del archivo (p. ej. de una foto de terreno: tipo, punto, lat, lng, hora, leyenda, autor)
  */
 export async function guardarArchivo(archivo, meta, { personaId = null } = {}) {
   if (archivo.size > TAMANO_MAXIMO) throw new Error(`«${archivo.name}» pesa ${(archivo.size / 1048576).toFixed(1)} MB; el máximo es 15 MB.`);
@@ -56,6 +57,7 @@ export async function guardarArchivo(archivo, meta, { personaId = null } = {}) {
     modulo: meta.modulo || '', duenoTipo: meta.duenoTipo, duenoId: meta.duenoId, rol: meta.rol || 'documento',
     proyectoId: meta.proyectoId || null,
     nombre, mime, tamano: Math.round((datos.length - datos.indexOf(',') - 1) * 0.75),
+    ...(meta.detalle ? { detalle: meta.detalle } : {}),
     datos,
     nube: { estado: 'local', ruta: meta.carpeta ? `${meta.carpeta}/${limpiar(nombre)}` : null },
   }, { personaId });
@@ -68,6 +70,19 @@ export async function infoArchivo(id) {
   if (!a || a.eliminadoEn) return null;
   const { datos, ...resto } = a;
   return resto;
+}
+
+/** Guarda un archivo que viene como dataURL (fotos de la app de Terreno). */
+export async function guardarArchivoDatos(dataURL, nombre, meta, ctx) {
+  const blob = aBlob(dataURL);
+  const archivo = new File([blob], nombre || `${meta.rol || 'foto'}.${(blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')}`, { type: blob.type });
+  return guardarArchivo(archivo, meta, ctx);
+}
+
+/** Archivos de un proyecto (sin contenido), opcionalmente de un módulo. Los más nuevos primero. */
+export async function archivosDeProyecto(proyectoId, modulo = null) {
+  const lista = (await todos(ALM)).filter(a => a.proyectoId === proyectoId && !a.eliminadoEn && (!modulo || a.modulo === modulo));
+  return lista.map(({ datos, ...resto }) => resto).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
 }
 
 export async function archivosDe(duenoTipo, duenoId) {

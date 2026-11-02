@@ -493,10 +493,10 @@
       return res;
     }
     const esc3 = (s) => String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-    const CAMPOS = "files(id,name,mimeType,modifiedTime,parents)";
+    const CAMPOS2 = "files(id,name,mimeType,modifiedTime,parents)";
     const extra = "&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=1000";
     async function buscar(q) {
-      const r = await pedir2(`/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(CAMPOS)}${extra}`);
+      const r = await pedir2(`/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(CAMPOS2)}${extra}`);
       return (await r.json()).files || [];
     }
     async function datosCarpeta(id) {
@@ -911,6 +911,7 @@ Content-Type: ${mime}\r
       nombre,
       mime,
       tamano: Math.round((datos.length - datos.indexOf(",") - 1) * 0.75),
+      ...meta.detalle ? { detalle: meta.detalle } : {},
       datos,
       nube: { estado: "local", ruta: meta.carpeta ? `${meta.carpeta}/${limpiar(nombre)}` : null }
     }, { personaId });
@@ -921,6 +922,10 @@ Content-Type: ${mime}\r
     if (!a || a.eliminadoEn) return null;
     const { datos, ...resto } = a;
     return resto;
+  }
+  async function archivosDeProyecto(proyectoId, modulo = null) {
+    const lista = (await todos(ALM)).filter((a) => a.proyectoId === proyectoId && !a.eliminadoEn && (!modulo || a.modulo === modulo));
+    return lista.map(({ datos, ...resto }) => resto).sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
   }
   async function archivosDe(duenoTipo, duenoId) {
     const lista = (await todos(ALM)).filter((a) => a.duenoTipo === duenoTipo && a.duenoId === duenoId && !a.eliminadoEn);
@@ -2483,8 +2488,8 @@ Content-Type: ${mime}\r
   ];
   function montarPantallas(contenedor2, contexto) {
     const esRRHH = contexto.rol === "rrhh";
-    const persona3 = contexto.personaId || null;
-    fijarPersona(persona3);
+    const persona4 = contexto.personaId || null;
+    fijarPersona(persona4);
     const raiz = document.createElement("div");
     raiz.className = "mod-equipos";
     raiz.innerHTML = '<div class="eq-zona"></div><div class="eq-aviso" role="status" hidden></div>';
@@ -2690,7 +2695,7 @@ Content-Type: ${mime}\r
           <fieldset><legend>1. Destino</legend>
             <label class="eq-campo"><span>Proyecto</span><select name="proyectoId" required>${opcionesProyectos(proyectos2, "")}</select></label>
             ${catalogosEditables() ? '<button type="button" class="eq-btn chico" data-accion="nuevo-proyecto">+ Proyecto nuevo</button>' : ""}
-            <label class="eq-campo"><span>Responsable (encargado del trabajo)</span><select name="personaId" required>${opcionesPersonas(personas2, persona3)}</select></label>
+            <label class="eq-campo"><span>Responsable (encargado del trabajo)</span><select name="personaId" required>${opcionesPersonas(personas2, persona4)}</select></label>
           </fieldset>
           <fieldset><legend>2. Equipos en oficina (${disponibles.length})</legend>
             ${disponibles.map((e) => item(e, false)).join("") || '<p class="eq-tenue">No hay equipos en oficina.</p>'}
@@ -2858,7 +2863,7 @@ Content-Type: ${mime}\r
       }
     };
     const enlaceEquipo = contexto.enlaceEquipo || ((id) => `${location.href.split("#")[0]}#equipo=${id}`);
-    const ficha = crearFicha({ st, esc: escapar, proy, pers, avisar: avisar2, ir, render: () => render(), esRRHH, persona: persona3, chipUbicacion, chipCalibracion, describirEvento, enlaceEquipo });
+    const ficha = crearFicha({ st, esc: escapar, proy, pers, avisar: avisar2, ir, render: () => render(), esRRHH, persona: persona4, chipUbicacion, chipCalibracion, describirEvento, enlaceEquipo });
     Object.assign(VISTAS2, ficha.VISTAS);
     function celdasPlanilla(d) {
       return COLUMNAS_PLANILLA.map((c) => {
@@ -2952,7 +2957,7 @@ Content-Type: ${mime}\r
             await ir("lista");
             break;
           case "restaurar":
-            await restaurar(el.dataset.almacen, id, { personaId: persona3 });
+            await restaurar(el.dataset.almacen, id, { personaId: persona4 });
             avisar2("Restaurado");
             await render();
             break;
@@ -2968,7 +2973,7 @@ Content-Type: ${mime}\r
             const nombre = prompt("Nombre del proyecto");
             if (!nombre) return;
             const mandante = prompt("Mandante (opcional)", "") || "";
-            await guardarProyecto({ nombre: nombre.trim(), mandante: mandante.trim() }, { personaId: persona3 });
+            await guardarProyecto({ nombre: nombre.trim(), mandante: mandante.trim() }, { personaId: persona4 });
             avisar2("Proyecto agregado");
             await render();
             break;
@@ -3088,17 +3093,17 @@ Content-Type: ${mime}\r
             break;
           }
           case "reportar":
-            await reportarAnomalia({ equipoId: fd.equipoId, descripcion: fd.descripcion.trim(), personaId: persona3 });
+            await reportarAnomalia({ equipoId: fd.equipoId, descripcion: fd.descripcion.trim(), personaId: persona4 });
             avisar2("Alerta enviada a RRHH");
             if (st.reporteDesdeFicha && fd.equipoId === st.equipoId) await ir("ficha", { fichaTab: "mantencion", reporteDesdeFicha: false });
             else await ir("alertas");
             break;
           case "proyecto":
-            await guardarProyecto({ nombre: fd.nombre.trim(), mandante: fd.mandante.trim() }, { personaId: persona3 });
+            await guardarProyecto({ nombre: fd.nombre.trim(), mandante: fd.mandante.trim() }, { personaId: persona4 });
             await render();
             break;
           case "persona":
-            await guardarPersona({ nombre: fd.nombre.trim(), cargo: fd.cargo.trim() }, { personaId: persona3 });
+            await guardarPersona({ nombre: fd.nombre.trim(), cargo: fd.cargo.trim() }, { personaId: persona4 });
             await render();
             break;
         }
@@ -3681,6 +3686,199 @@ Content-Type: ${mime}\r
       acum += l;
     }
     return mejor.s;
+  }
+  function remuestrear(linea, n) {
+    const L = largo(linea);
+    if (n < 2 || !L) return [linea[0], linea[linea.length - 1]];
+    const out = [];
+    let i = 0, acum = 0;
+    for (let k = 0; k < n; k++) {
+      const s = L * k / (n - 1);
+      while (i + 2 < linea.length && acum + dist(linea[i], linea[i + 1]) < s) {
+        acum += dist(linea[i], linea[i + 1]);
+        i++;
+      }
+      const l = dist(linea[i], linea[i + 1]) || 1;
+      out.push(add(linea[i], mul(sub(linea[i + 1], linea[i]), Math.max(0, Math.min(1, (s - acum) / l)))));
+    }
+    return out;
+  }
+  function simplificar(linea, tol) {
+    if (linea.length < 3) return linea.slice();
+    const marca = new Uint8Array(linea.length);
+    marca[0] = marca[linea.length - 1] = 1;
+    const pila = [[0, linea.length - 1]];
+    while (pila.length) {
+      const [a, b] = pila.pop();
+      let max = -1, idx = -1;
+      for (let i = a + 1; i < b; i++) {
+        const d = distPuntoSegmento(linea[i], linea[a], linea[b]);
+        if (d > max) {
+          max = d;
+          idx = i;
+        }
+      }
+      if (max > tol) {
+        marca[idx] = 1;
+        pila.push([a, idx], [idx, b]);
+      }
+    }
+    return linea.filter((_, i) => marca[i]);
+  }
+  function ejeDePoligono(poli) {
+    const pts = limpiarVertices(poli, true);
+    const n = pts.length;
+    if (n < 4) return null;
+    const paso = Math.max(1, Math.ceil(n / 1500));
+    let mejor = { d: -1, i: 0, j: 0 };
+    for (let i2 = 0; i2 < n; i2 += paso) for (let j2 = i2 + paso; j2 < n; j2 += paso) {
+      const d = dist(pts[i2], pts[j2]);
+      if (d > mejor.d) mejor = { d, i: i2, j: j2 };
+    }
+    const afinar = (fijo, idx) => {
+      let b = idx, bd = dist(pts[fijo], pts[idx]);
+      for (let k = -paso; k <= paso; k++) {
+        const m2 = (idx + k + n) % n, d = dist(pts[fijo], pts[m2]);
+        if (d > bd) {
+          bd = d;
+          b = m2;
+        }
+      }
+      return b;
+    };
+    let { i, j } = mejor;
+    j = afinar(i, j);
+    i = afinar(j, i);
+    if (i > j) [i, j] = [j, i];
+    const A = pts.slice(i, j + 1);
+    const B = [...pts.slice(j), ...pts.slice(0, i + 1)].reverse();
+    const La = largo(A), Lb = largo(B);
+    const m = Math.max(50, Math.min(4e3, Math.round(Math.max(La, Lb) / 25)));
+    const ra = remuestrear(A, m), rb = remuestrear(B, m);
+    const medio = ra.map((p, k) => mul(add(p, rb[k]), 0.5));
+    const W = Math.max(10, Math.round(m / 40));
+    const cercano = (q2, cadena2, k) => {
+      let best = Infinity;
+      for (let i2 = Math.max(0, k - W); i2 <= Math.min(m - 2, k + W); i2++) best = Math.min(best, distPuntoSegmento(q2, cadena2[i2], cadena2[i2 + 1]));
+      return best;
+    };
+    const anchosBrutos = medio.map((q2, k) => cercano(q2, ra, k) + cercano(q2, rb, k));
+    const eje = simplificar(medio, 1.5);
+    const L = largo(medio);
+    const util = anchosBrutos.slice(Math.floor(m * 0.03), Math.ceil(m * 0.97));
+    const orden = util.slice().sort((x, y) => x - y);
+    const q = (f) => orden[Math.min(orden.length - 1, Math.max(0, Math.round(f * (orden.length - 1))))];
+    const anchoProm = util.reduce((s, x) => s + x, 0) / (util.length || 1);
+    return {
+      eje,
+      largo: L,
+      anchos: anchosBrutos.map((w, k) => ({ s: L * k / (m - 1), ancho: w })),
+      anchoMin: q(0.05),
+      anchoProm,
+      anchoMax: q(0.95),
+      razon: anchoProm ? L / anchoProm : 0
+    };
+  }
+  var esAreaLineal = (e) => !!e && e.razon >= 8 && e.largo >= 1e3;
+  function anchoEn(perfil, s) {
+    if (!perfil || !perfil.length) return 0;
+    let k = perfil.findIndex((p) => p.s >= s);
+    if (k <= 0) return perfil[Math.max(0, k)].ancho;
+    if (k < 0) return perfil[perfil.length - 1].ancho;
+    const a = perfil[k - 1], b = perfil[k], t = (s - a.s) / (b.s - a.s || 1);
+    return a.ancho + (b.ancho - a.ancho) * t;
+  }
+  function distanciasPorSuperficie(perfil, L, m2) {
+    if (!(m2 > 0) || !perfil || !perfil.length) return [];
+    const out = [];
+    let acum = 0, meta = m2;
+    for (let k = 1; k < perfil.length; k++) {
+      const ds = perfil[k].s - perfil[k - 1].s, w = (perfil[k].ancho + perfil[k - 1].ancho) / 2;
+      if (acum + ds * w >= meta) {
+        const falta = meta - acum;
+        out.push(perfil[k - 1].s + falta / (w || 1));
+        meta += m2;
+      }
+      acum += ds * w;
+    }
+    return out.filter((s) => s > 1 && s < L - 1);
+  }
+  function cascoConvexo(pts) {
+    const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    if (p.length < 3) return p;
+    const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], hi = [];
+    for (const x of p) {
+      while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], x) <= 0) lo.pop();
+      lo.push(x);
+    }
+    for (let i = p.length - 1; i >= 0; i--) {
+      const x = p[i];
+      while (hi.length >= 2 && cr(hi[hi.length - 2], hi[hi.length - 1], x) <= 0) hi.pop();
+      hi.push(x);
+    }
+    hi.pop();
+    lo.pop();
+    return lo.concat(hi);
+  }
+  function rumboLadoLargo(poli) {
+    const h = cascoConvexo(poli);
+    let mejor = { area: Infinity, rumbo: 0 };
+    for (let g = 0; g < 180; g++) {
+      const a = g * Math.PI / 180, d = [Math.sin(a), Math.cos(a)], n = [Math.cos(a), -Math.sin(a)];
+      let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+      for (const p of h) {
+        const x = p[0] * d[0] + p[1] * d[1], y = p[0] * n[0] + p[1] * n[1];
+        a0 = Math.min(a0, x);
+        a1 = Math.max(a1, x);
+        b0 = Math.min(b0, y);
+        b1 = Math.max(b1, y);
+      }
+      const area = (a1 - a0) * (b1 - b0);
+      if (area < mejor.area - 1e-6) mejor = { area, rumbo: a1 - a0 >= b1 - b0 ? g : (g + 90) % 180 };
+    }
+    return mejor.rumbo;
+  }
+  function recortarSemiplano(poli, n, c) {
+    const out = [], f = (p) => p[0] * n[0] + p[1] * n[1] - c;
+    for (let i = 0; i < poli.length; i++) {
+      const a = poli[i], b = poli[(i + 1) % poli.length], fa = f(a), fb = f(b);
+      if (fa <= 0) out.push(a);
+      if (fa < 0 && fb > 0 || fa > 0 && fb < 0) {
+        const t = fa / (fa - fb);
+        out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+    }
+    return out;
+  }
+  function cortesParalelos(poli, n, rumboCortes, { igualSuperficie = true } = {}) {
+    if (!(n >= 2)) return [];
+    const a = rumboCortes * Math.PI / 180, d = [Math.sin(a), Math.cos(a)], nn = [Math.cos(a), -Math.sin(a)];
+    const proy = poli.map((p) => p[0] * nn[0] + p[1] * nn[1]);
+    const c0 = Math.min(...proy), c1 = Math.max(...proy);
+    const largoCorte = Math.max(...poli.map((p) => p[0] * d[0] + p[1] * d[1])) - Math.min(...poli.map((p) => p[0] * d[0] + p[1] * d[1]));
+    const total = Math.abs(areaFirmada(poli));
+    const posiciones = [];
+    for (let k = 1; k < n; k++) {
+      if (!igualSuperficie) {
+        posiciones.push(c0 + (c1 - c0) * k / n);
+        continue;
+      }
+      const meta = total * k / n;
+      let lo = c0, hi = c1;
+      for (let it = 0; it < 40 && hi - lo > 0.05; it++) {
+        const m = (lo + hi) / 2;
+        if (Math.abs(areaFirmada(recortarSemiplano(poli, nn, m))) < meta) lo = m;
+        else hi = m;
+      }
+      posiciones.push((lo + hi) / 2);
+    }
+    const centroD = (Math.max(...poli.map((p) => p[0] * d[0] + p[1] * d[1])) + Math.min(...poli.map((p) => p[0] * d[0] + p[1] * d[1]))) / 2;
+    const semi = largoCorte / 2 + 50;
+    return posiciones.map((c) => {
+      const base = add(mul(nn, c), mul(d, centroD));
+      return [add(base, mul(d, -semi)), add(base, mul(d, semi))];
+    });
   }
 
   // modulos/vuelos/calculo.js
@@ -4285,7 +4483,7 @@ Content-Type: ${mime}\r
     const a = hoja2.area;
     const fuente = a.tipo === "corredor" ? a.eje && a.eje.linea : a.original && a.original.anillo;
     if (!fuente || fuente.length < 2) return null;
-    const clave2 = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes, a.dm]);
+    const clave2 = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes, a.dm, a.ejeCalc ? a.ejeCalc.linea : null]);
     if (cacheGeo.clave === clave2) return cacheGeo.valor;
     const marco = marcoDe(fuente);
     const cortes = (a.cortes || []).map((c) => c.map(marco.aXY));
@@ -4311,7 +4509,26 @@ Content-Type: ${mime}\r
       const original = fuente.map(marco.aXY);
       const vuelo = Number(a.margen) > 0 ? margenPoligono(original, Number(a.margen), { rectas: a.rectas !== false }) : original;
       const { sectores, fallidos } = aplicarCortes(vuelo, cortes);
-      valor = { marco, tipo: "poligono", original, vuelo, sectores: sectores.map((p) => ({ poligono: p, area: areaM2(p) })), fallidos };
+      let secs = sectores.map((p) => ({ poligono: p, area: areaM2(p) }));
+      if (a.ejeCalc && a.ejeCalc.linea && secs.length > 1) {
+        const ejeXY = a.ejeCalc.linea.map(marco.aXY);
+        for (const sec of secs) {
+          const pts = sec.poligono, paso = Math.max(1, Math.ceil(pts.length / 300));
+          let mn = Infinity, mx = -Infinity;
+          for (let i = 0; i < pts.length; i += paso) {
+            const d = distanciaEnEje(ejeXY, pts[i]);
+            if (d < mn) mn = d;
+            if (d > mx) mx = d;
+          }
+          sec.rango = [mn, mx];
+          if (a.dm && a.dm.inicio != null) {
+            const km = (x) => a.dm.desc ? a.dm.inicio - x / 1e3 : a.dm.inicio + x / 1e3;
+            sec.dm = [km(mn), km(mx)].sort((x, y) => x - y);
+          }
+        }
+        secs.sort((x, y) => x.rango[0] + x.rango[1] - (y.rango[0] + y.rango[1]));
+      }
+      valor = { marco, tipo: "poligono", original, vuelo, sectores: secs, fallidos };
     }
     valor.areaVuelo = areaM2(valor.vuelo);
     cacheGeo = { clave: clave2, valor };
@@ -4357,14 +4574,17 @@ Content-Type: ${mime}\r
     } else if (op.modo === "tramos" && op.dmInicio != null) out.push(...(op.tramosKm || []).map(aS));
     return [...new Set(out.map((s) => Math.round(s * 10) / 10))].filter((s) => s > 1 && s < L - 1).sort((x, y) => x - y);
   }
-  function cortesDeCorredor(hoja2, distancias) {
-    const a = hoja2.area, marco = marcoDe(a.eje.linea), eje = a.eje.linea.map(marco.aXY);
-    const semi = Math.max(Number(a.corredor.izq) || 0, a.corredor.mismo ? 0 : Number(a.corredor.der) || 0) + 40;
-    return cortesTransversales(eje, distancias, semi).map((c) => c.map(marco.aLonLat));
-  }
-  function distanciasPorBaterias(hoja2, d, n) {
-    const a = hoja2.area, marco = marcoDe(a.eje.linea), eje = a.eje.linea.map(marco.aXY), L = largo(eje);
-    const izq = Number(a.corredor.izq) || 0, der = a.corredor.mismo ? izq : Number(a.corredor.der) || 0;
+  function distanciasPorBaterias(hoja2, d, n, ejeDado = null) {
+    const a = hoja2.area;
+    let eje, izq, der;
+    if (ejeDado) ({ eje, izq, der } = ejeDado);
+    else {
+      const marco = marcoDe(a.eje.linea);
+      eje = a.eje.linea.map(marco.aXY);
+      izq = Number(a.corredor.izq) || 0;
+      der = a.corredor.mismo ? izq : Number(a.corredor.der) || 0;
+    }
+    const L = largo(eje);
     const pedazo = (s02, s1) => {
       const pts = [puntoEnEje(eje, s02).p];
       let acum = 0;
@@ -5860,6 +6080,172 @@ ${escapar(t.nota)}${t.notaPor ? `
     };
   }
 
+  // modulos/vuelos/cortes.js
+  var METODOS = {
+    distancia: { texto: "Por distancia", grupo: "lineal", ayuda: "Cortes perpendiculares al eje cada X m o km, desde el inicio del eje." },
+    superficie: { texto: "Por superficie", grupo: "lineal", ayuda: "Cortes perpendiculares al eje para que cada sector tenga la superficie indicada." },
+    dm: { texto: "Alineados al DM", grupo: "lineal", ayuda: "Cortes en DM redondos (cada 1 km: 11+000, 12+000…) o desde un primer DM. Necesita el DM del inicio del eje (pestaña Forma)." },
+    tramos: { texto: "Tramos del Seguimiento", grupo: "lineal", ayuda: "Corta en los DM de inicio y fin de los tramos del Seguimiento del proyecto de la hoja. Necesita el DM del inicio del eje." },
+    n: { texto: "En N sectores", grupo: "todas", ayuda: "Cortes rectos y paralelos, con la dirección que elijas, que dividen el área en N sectores de igual superficie (o igual distancia)." },
+    baterias: { texto: "Por baterías", grupo: "todas", ayuda: "Corta para que cada sector se vuele con esa cantidad de baterías o menos, con el despegue al centro del sector." },
+    dias: { texto: "Por días de vuelo", grupo: "todas", ayuda: "Arma un sector por día según las horas de vuelo que tienes por día (incluye traslados y cambios de batería)." },
+    manual: { texto: "Manual", grupo: "manual", ayuda: "Traza el corte por un camino, quebrada o cerco: toca afuera del área, sigue el borde tocando puntos y termina afuera." }
+  };
+  function formaDe(hoja2) {
+    const a = hoja2.area, g = geometria(hoja2);
+    if (!g) return null;
+    if (g.tipo === "corredor") {
+      const ancho = g.izq + g.der, L = largo(g.eje);
+      return { lineal: true, corredor: true, largo: L, anchoMin: ancho, anchoProm: ancho, anchoMax: ancho };
+    }
+    const clave2 = JSON.stringify([a.original && a.original.anillo.length, a.original && a.original.anillo[0], a.margen, a.rectas]);
+    if (!a.ejeCalc || a.ejeCalc.clave !== clave2) {
+      const e = ejeDePoligono(g.vuelo);
+      a.ejeCalc = e && esAreaLineal(e) ? {
+        clave: clave2,
+        linea: e.eje.map(g.marco.aLonLat),
+        largo: e.largo,
+        anchoMin: e.anchoMin,
+        anchoProm: e.anchoProm,
+        anchoMax: e.anchoMax,
+        perfil: e.anchos.filter((_, k, arr) => k % Math.max(1, Math.ceil(arr.length / 400)) === 0 || k === arr.length - 1).map((p) => [Math.round(p.s * 10) / 10, Math.round(p.ancho * 10) / 10])
+      } : { clave: clave2, linea: null };
+    }
+    const c = a.ejeCalc;
+    return c.linea ? { lineal: true, corredor: false, largo: c.largo, anchoMin: c.anchoMin, anchoProm: c.anchoProm, anchoMax: c.anchoMax } : { lineal: false, corredor: false };
+  }
+  var metodoPropuesto = (forma) => forma && forma.lineal ? "distancia" : "n";
+  function ejeDe(hoja2, g) {
+    const a = hoja2.area;
+    if (g.tipo === "corredor") {
+      const eje2 = a.eje.linea.map(g.marco.aXY), L2 = largo(eje2), ancho = g.izq + g.der;
+      return { eje: eje2, L: L2, perfil: [{ s: 0, ancho }, { s: L2, ancho }], semi: () => Math.max(g.izq, g.der) + 40, izq: g.izq, der: g.der };
+    }
+    if (!a.ejeCalc || !a.ejeCalc.linea) return null;
+    const eje = a.ejeCalc.linea.map(g.marco.aXY), L = largo(eje);
+    const perfil = a.ejeCalc.perfil.map(([s, ancho]) => ({ s: s * L / (a.ejeCalc.largo || L), ancho }));
+    const medio = a.ejeCalc.anchoProm / 2;
+    return { eje, L, perfil, semi: (s) => anchoEn(perfil, s) * 0.6 + 30, izq: medio, der: medio };
+  }
+  function rumboCortesPropuesto(hoja2) {
+    const g = geometria(hoja2);
+    return g ? (rumboLadoLargo(g.vuelo) + 90) % 180 : 0;
+  }
+  var metros = (v, u) => Number(String(v).replace(",", ".")) * (u === "km" ? 1e3 : 1);
+  var m2De = (v, u) => Number(String(v).replace(",", ".")) * (u === "km2" ? 1e6 : 1e4);
+  function distanciasLineales(hoja2, e, au, extra) {
+    const dm = hoja2.area.dm || {};
+    if (au.modo === "distancia") return distanciasCorte(e.L, { modo: "inicio", cada: metros(au.cada || 5, au.unidad || "km") });
+    if (au.modo === "superficie") return distanciasPorSuperficie(e.perfil, e.L, m2De(au.sup || 50, au.unidadSup || "ha"));
+    if (au.modo === "dm") return distanciasCorte(e.L, { modo: "dm", cada: metros(au.cada || 1, au.unidad || "km"), dmInicio: dm.inicio, desc: !!dm.desc, primerDM: extra.primerDM });
+    if (au.modo === "tramos") return distanciasCorte(e.L, { modo: "tramos", dmInicio: dm.inicio, desc: !!dm.desc, tramosKm: extra.tramosKm || [] });
+    return [];
+  }
+  function cortesEnDistancias(g, e, distancias) {
+    return distancias.flatMap((s) => cortesTransversales(e.eje, [s], e.semi(s))).map((c) => c.map(g.marco.aLonLat));
+  }
+  function vistaPrevia(hoja2) {
+    var _a;
+    const g = geometria(hoja2), au = hoja2.area.auto || {};
+    if (!g) return null;
+    const modo = au.modo === "inicio" ? "distancia" : au.modo || metodoPropuesto(formaDe(hoja2));
+    if (modo === "n") {
+      const n2 = Math.max(2, Math.min(60, Number(au.n) || 4));
+      return { sectores: n2, haPorSector: g.areaVuelo / n2 / 1e4 };
+    }
+    if (!["distancia", "superficie", "dm", "tramos"].includes(modo)) return null;
+    formaDe(hoja2);
+    const e = ejeDe(hoja2, g);
+    if (!e) return null;
+    if ((modo === "dm" || modo === "tramos") && (!hoja2.area.dm || hoja2.area.dm.inicio == null)) return null;
+    if (modo === "tramos") return null;
+    const n = distanciasLineales(hoja2, e, { ...au, modo }, { primerDM: (_a = au.primerKm) != null ? _a : null }).length + 1;
+    return { sectores: n, haPorSector: g.areaVuelo / n / 1e4 };
+  }
+  function generarCortes(hoja2, extra = {}) {
+    const g0 = geometria(hoja2), au = hoja2.area.auto || {};
+    if (!g0) throw new Error("Primero carga o dibuja el área.");
+    const sinCortes = { ...hoja2, area: { ...hoja2.area, cortes: [], sectores: [] } };
+    const g = geometria(sinCortes);
+    const forma = formaDe(hoja2);
+    const modo = au.modo || metodoPropuesto(forma);
+    const d = extra.dron;
+    if (["distancia", "superficie", "dm", "tramos"].includes(modo)) {
+      const e = forma && forma.lineal ? ejeDe(hoja2, g) : null;
+      if (!e) throw new Error("Este método usa el eje del área y el área no es lineal. Usa «En N sectores».");
+      if ((modo === "dm" || modo === "tramos") && (!hoja2.area.dm || hoja2.area.dm.inicio == null)) throw new Error("Escribe primero el DM del inicio del eje (pestaña Forma), por ejemplo 10+000.");
+      const dist2 = distanciasLineales(hoja2, e, au, extra);
+      if (!dist2.length) throw new Error(modo === "tramos" ? "Ningún DM de los tramos cae dentro del eje: revisa el DM del inicio y si baja." : "Con esos datos no hay cortes dentro del área.");
+      return { cortes: cortesEnDistancias(g, e, dist2) };
+    }
+    if (modo === "n") {
+      const n = Math.max(2, Math.min(60, Number(au.n) || 4));
+      const rumbo2 = au.rumbo === "" || au.rumbo == null ? rumboCortesPropuesto(hoja2) : Number(au.rumbo);
+      if (g.tipo === "corredor") {
+        const e = ejeDe(hoja2, g);
+        return { cortes: cortesEnDistancias(g, e, Array.from({ length: n - 1 }, (_, k) => e.L * (k + 1) / n)) };
+      }
+      return { cortes: cortesParalelos(g.vuelo, n, rumbo2, { igualSuperficie: au.igual !== false }).map((c) => c.map(g.marco.aLonLat)) };
+    }
+    if (modo === "baterias") {
+      if (!d) throw new Error("Elige el dron.");
+      const n = Math.max(1, Number(au.bat) || 4);
+      if (forma && forma.lineal) {
+        const e = ejeDe(hoja2, g);
+        const dist2 = g.tipo === "corredor" ? distanciasPorBaterias(sinCortes, d, n) : distanciasPorBaterias(sinCortes, d, n, { eje: e.eje, izq: e.izq, der: e.der });
+        if (!dist2.length) return { cortes: [], nota: `Toda el área se vuela con ${n} batería${n === 1 ? "" : "s"} o menos: no hace falta cortar.` };
+        return { cortes: cortesEnDistancias(g, e, dist2) };
+      }
+      return buscarN(hoja2, sinCortes, g, (r) => r.vuelos <= n, `Toda el área se vuela con ${n} batería${n === 1 ? "" : "s"} o menos: no hace falta cortar.`, d);
+    }
+    if (modo === "dias") {
+      if (!d) throw new Error("Elige el dron.");
+      const horas = Number(String(au.horas || 6).replace(",", "."));
+      if (!(horas > 0)) throw new Error("Escribe las horas de vuelo por día.");
+      return buscarN(hoja2, sinCortes, g, (r) => r.minTotal <= horas * 60, "Toda el área cabe en un día de vuelo: no hace falta cortar.", d);
+    }
+    throw new Error("Con el método manual se traza cada corte en el mapa («Trazar corte»).");
+  }
+  function buscarN(hoja2, sinCortes, g, cumple, notaUno, d) {
+    const forma = formaDe(hoja2), au = hoja2.area.auto || {};
+    const e = forma && forma.lineal ? ejeDe(hoja2, g) : null;
+    const rumbo2 = au.rumbo === "" || au.rumbo == null ? rumboCortesPropuesto(hoja2) : Number(au.rumbo);
+    const cortesN = (n) => {
+      if (n <= 1) return [];
+      if (e) return cortesEnDistancias(g, e, Array.from({ length: n - 1 }, (_, k) => e.L * (k + 1) / n));
+      return cortesParalelos(g.vuelo, n, rumbo2, { igualSuperficie: true }).map((c) => c.map(g.marco.aLonLat));
+    };
+    const ok = (n) => {
+      const prueba = { ...sinCortes, area: { ...sinCortes.area, cortes: cortesN(n), sectores: [] } };
+      const gp = geometria(prueba);
+      if (!gp || gp.fallidos.length) return false;
+      return gp.sectores.every((_, i) => {
+        const r = calcularSector(prueba, d, gp, i);
+        return r && cumple(r);
+      });
+    };
+    if (ok(1)) return { cortes: [], nota: notaUno };
+    let lo = 1, hi = 2;
+    while (hi < 60 && !ok(hi)) {
+      lo = hi;
+      hi = Math.min(60, hi * 2);
+    }
+    while (hi - lo > 1) {
+      const m = Math.floor((lo + hi) / 2);
+      if (ok(m)) hi = m;
+      else lo = m;
+    }
+    return { cortes: cortesN(hi), nota: hi >= 60 && !ok(60) ? "Con 60 sectores todavía hay alguno que no cumple: revisa los datos." : "" };
+  }
+  function corredorDesdeEje(hoja2) {
+    const a = hoja2.area, c = a.ejeCalc;
+    if (!c || !c.linea) return false;
+    const medio = Math.max(5, Math.round(c.anchoMax / 2));
+    const L = c.largo;
+    Object.assign(a, { tipo: "corredor", eje: { nombre: `Eje de ${a.original && a.original.nombre || "el área"}`, linea: c.linea, largo: L }, corredor: { izq: medio, der: medio, mismo: true }, cortes: [], sectores: [], sel: 0 });
+    return true;
+  }
+
   // modulos/vuelos/redvial.js
   var ATRIBUCION = "Red vial: Dirección de Vialidad MOP, 31-oct-2026";
   var indice = null;
@@ -6338,35 +6724,119 @@ ${escapar(t.nota)}${t.notaPor ? `
       if (!g || !st.capas || !st.capas.length) return null;
       return revisarZonas(g.vuelo.map(g.marco.aLonLat), g.marco, st.capas, capasActivas());
     }
-    function htmlCortesAuto() {
-      const a = st.hoja.area, dm = a.dm || {}, au = a.auto || {};
-      const modo = au.modo || "inicio";
-      const pild = (m, t) => `<button type="button" class="vu-pildora${modo === m ? " activo" : ""}" data-accion="auto-modo" data-m="${m}">${t}</button>`;
-      return `<section class="sis-tarjeta"><h2>Cortes automáticos</h2>
-      <div class="vu-fila-campos">
-        <label class="sis-campo"><span>DM del inicio del eje</span><input data-auto="dm" value="${escapar(dm.texto || "")}" placeholder="ej. 10+000"></label>
+    const SUBS = [["origen", "Origen"], ["forma", "Forma"], ["sectores", "Sectores"], ["zonas", "Zonas y caminos"]];
+    function subActual() {
+      const a = st.hoja.area;
+      if (!a.tipo) return "origen";
+      return SUBS.some(([k]) => k === st.subArea) ? st.subArea : "forma";
+    }
+    function htmlSubs(g) {
+      const a = st.hoja.area, act = subActual();
+      const zonas = g ? zonasDeHoja() || [] : [];
+      const cerca = zonas.filter((z) => z.toca || z.distancia < 5e3).length;
+      const marca = { origen: a.tipo ? " ✓" : "", forma: g ? " ✓" : "", sectores: g && g.sectores.length > 1 ? ` · ${g.sectores.length}` : "", zonas: cerca ? ` · ${cerca}` : "" };
+      return `<div class="vu-subs" role="tablist" aria-label="Partes del área">${SUBS.map(([k, t]) => `<button type="button" role="tab" aria-selected="${act === k}" class="vu-sub${act === k ? " activo" : ""}${k === "zonas" && cerca ? " aviso" : ""}" data-accion="sub-area" data-s="${k}" ${!a.tipo && k !== "origen" ? "disabled" : ""}>${t}${marca[k]}</button>`).join("")}</div>`;
+    }
+    function htmlDm() {
+      const dm = st.hoja.area.dm || {};
+      return `<div class="vu-fila-campos">
+        <label class="sis-campo"><span>DM del inicio del eje</span><input data-auto="dm" value="${escapar(dm.texto || "")}" placeholder="ej. 0+000"></label>
         <label class="sis-check"><input type="checkbox" data-auto="desc" ${dm.desc ? "checked" : ""}> El DM baja hacia el final del eje</label>
       </div>
-      <div class="vu-pildoras">${pild("inicio", "Cada X m desde el inicio")}${pild("dm", "Alineados al DM")}${pild("tramos", "Tramos del Seguimiento")}${pild("baterias", "Por baterías")}</div>
-      <div class="vu-fila-campos">
-        ${modo === "inicio" || modo === "dm" ? `<label class="sis-campo"><span>Cortar cada (m)</span><input type="number" min="50" step="50" data-auto="cada" value="${escapar(au.cada || "1000")}"></label>` : ""}
-        ${modo === "dm" ? `<label class="sis-campo"><span>Primer corte en el DM</span><input data-auto="primer" value="${escapar(au.primer || "")}" placeholder="ej. 10+500 (vacío: múltiplos)"></label>` : ""}
-        ${modo === "baterias" ? `<label class="sis-campo"><span>Baterías por sector (máx.)</span><input type="number" min="1" max="20" data-auto="bat" value="${escapar(au.bat || "4")}"></label>` : ""}
-      </div>
-      <p class="sis-tenue">${{ inicio: "Cortes perpendiculares al eje cada X m, contando desde su primer vértice.", dm: "Cortes en DM redondos (p. ej. cada 1 km: 11+000, 12+000…). Necesita el DM del inicio del eje.", tramos: "Usa los DM de inicio y fin de los tramos del Seguimiento del proyecto de la hoja. Necesita el DM del inicio del eje.", baterias: "Corta para que cada sector se vuele con esa cantidad de baterías o menos, con el despegue al medio del sector." }[modo]}
-        Con el DM, los sectores se nombran por su tramo (10+000 – 11+000). Los cortes quedan como los manuales: se pueden arrastrar o quitar.</p>
-      <div class="sis-acciones"><button class="sis-btn chico primario" data-accion="auto-cortar">Generar cortes</button></div>
+      <p class="sis-tenue">Con el DM, los sectores se nombran por su tramo (10+000 – 15+000) y se puede cortar alineado al DM o por los tramos del Seguimiento.</p>`;
+    }
+    function htmlForma(g) {
+      const a = st.hoja.area;
+      if (a.tipo === "corredor") return `<section class="sis-tarjeta"><h2>Corredor</h2>
+        ${deslizador("izq", a.corredor.mismo ? "Ancho a cada lado" : "Hacia la izquierda", a.corredor.izq, { min: 5, max: 300, paso: 1, sufijo: "m" })}
+        ${a.corredor.mismo ? "" : deslizador("der", "Hacia la derecha", a.corredor.der, { min: 5, max: 300, paso: 1, sufijo: "m" })}
+        <label class="sis-check"><input type="checkbox" data-area="mismo" ${a.corredor.mismo ? "checked" : ""}> Mismo ancho a los dos lados</label>
+        ${a.corredor.mismo ? "" : '<button class="sis-btn chico" data-accion="invertir">Invertir izquierda y derecha</button>'}
+        <p class="sis-tenue" id="vu-margen-info">${g ? textoCorredor(g) : ""}</p>
+        ${a.original ? '<button class="sis-btn chico" data-accion="a-poligono">Volver a volarla como polígono</button>' : ""}
+      </section>
+      <section class="sis-tarjeta"><h2>Cadenamiento</h2>${htmlDm()}</section>`;
+      const f = g ? formaDe(st.hoja) : null;
+      return `<section class="sis-tarjeta"><h2>Forma del área</h2>
+        ${f && f.lineal ? `<div class="vu-forma"><b>Área lineal detectada</b>
+            <dl><dt>Eje calculado</dt><dd>${fmt(f.largo / 1e3, 2)} km</dd><dt>Ancho</dt><dd>mín. ${fmt(f.anchoMin, 0)} m · prom. ${fmt(f.anchoProm, 0)} m · máx. ${fmt(f.anchoMax, 0)} m</dd><dt>Superficie</dt><dd>${fmt(g.areaVuelo / 1e4, 1)} ha</dd></dl>
+            <p class="sis-tenue">El eje es la línea media entre los dos bordes (punteado blanco en el mapa). Con él se corta por DM y cada sector lleva su propio despegue.</p></div>
+          <fieldset class="vu-como"><legend>Cómo volarla</legend>
+            <label class="sis-check"><input type="radio" name="comoVolar" checked> <span><b>Polígono por sectores</b><small>Líneas paralelas dentro de cada sector, con su rumbo y su despegue.</small></span></label>
+            <label class="sis-check"><input type="radio" name="comoVolar" data-accion-cambio="a-corredor"> <span><b>Corredor sobre el eje</b><small>Pasadas a lo largo del eje con el ancho medido (${fmt(Math.round(f.anchoMax / 2), 0)} m a cada lado). Para el modo corredor de DJI Pilot 2.</small></span></label>
+          </fieldset>
+          ${htmlDm()}` : g ? `<p><b>Área extensa</b> · ${fmt(g.areaVuelo / 1e4, 1)} ha. Para dividirla, usa «En N sectores» en la pestaña Sectores (cortes paralelos con la dirección que elijas).</p>` : ""}
+      </section>
+      <section class="sis-tarjeta"><h2>Margen</h2>
+        ${deslizador("margen", "Margen hacia afuera", a.margen || 0, { min: 0, max: 100, paso: 1, sufijo: "m" })}
+        <div class="vu-pildoras">${[0, 20, 30, 50].map((m) => `<button type="button" class="vu-pildora${Number(a.margen) === m ? " activo" : ""}" data-accion="margen" data-m="${m}">${m ? `${m} m` : "Sin margen"}</button>`).join("")}</div>
+        <label class="sis-check"><input type="checkbox" data-area="rectas" ${a.rectas !== false ? "checked" : ""}> Esquinas rectas (como se hace a mano)</label>
+        <p class="sis-tenue" id="vu-margen-info">${g ? `${fmt(areaM2(g.original) / 1e4, 2)} ha → <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b> de vuelo` : ""}</p>
+      </section>`;
+    }
+    function htmlVistaPrevia() {
+      const v0 = vistaPrevia(st.hoja);
+      return v0 ? `Vista previa: <b>${v0.sectores} sector${v0.sectores === 1 ? "" : "es"}</b> · ~${fmt(v0.haPorSector, 1)} ha cada uno` : "";
+    }
+    function htmlCortes(g) {
+      const a = st.hoja.area, au = a.auto || {}, f = g ? formaDe(st.hoja) : null;
+      const propuesto = metodoPropuesto(f);
+      const modo = au.modo || propuesto;
+      const opt = (k) => `<option value="${k}" ${modo === k ? "selected" : ""}>${METODOS[k].texto}${k === propuesto ? " (propuesto)" : ""}</option>`;
+      const lineal = f && f.lineal;
+      const num = (k, t, val, extra = "") => `<label class="sis-campo"><span>${t}</span><input type="number" data-auto="${k}" value="${escapar(val)}" ${extra}></label>`;
+      const sel = (k, t, val, ops) => `<label class="sis-campo"><span>${t}</span><select data-auto="${k}">${ops.map(([v2, x]) => `<option value="${v2}" ${val === v2 ? "selected" : ""}>${x}</option>`).join("")}</select></label>`;
+      const campos = {
+        distancia: () => {
+          var _a;
+          return `${num("cada", "Cortar cada", (_a = au.cada) != null ? _a : "5", 'min="0" step="any"')}${sel("unidad", "Unidad", au.unidad || "km", [["km", "km"], ["m", "m"]])}`;
+        },
+        superficie: () => {
+          var _a;
+          return `${num("sup", "Superficie de cada sector", (_a = au.sup) != null ? _a : "50", 'min="0" step="any"')}${sel("unidadSup", "Unidad", au.unidadSup || "ha", [["ha", "ha"], ["km2", "km²"]])}`;
+        },
+        dm: () => {
+          var _a;
+          return `${num("cada", "Cortar cada", (_a = au.cada) != null ? _a : "1", 'min="0" step="any"')}${sel("unidad", "Unidad", au.unidad || "km", [["km", "km"], ["m", "m"]])}<label class="sis-campo"><span>Primer corte en el DM</span><input data-auto="primer" value="${escapar(au.primer || "")}" placeholder="vacío: DM redondos"></label>`;
+        },
+        tramos: () => "",
+        n: () => `<label class="sis-campo vu-ancho"><span>Cantidad de sectores: <b id="vu-n-txt">${escapar(au.n || 4)}</b></span><input type="range" min="2" max="30" step="1" data-auto="n" value="${escapar(au.n || 4)}"></label>
+        ${lineal && a.tipo === "corredor" ? "" : `<div class="sis-campo vu-ancho"><span>Dirección de los cortes</span><div class="vu-rumbo-corte">
+          <button type="button" class="sis-btn chico" data-accion="auto-rumbo" data-d="-5" aria-label="Girar 5 grados a la izquierda">⟲ 5°</button>
+          <input type="number" min="0" max="179" data-auto="rumbo" value="${escapar(au.rumbo === "" || au.rumbo == null ? Math.round(rumboCortesPropuesto(st.hoja)) : au.rumbo)}" aria-label="Rumbo de los cortes en grados">
+          <button type="button" class="sis-btn chico" data-accion="auto-rumbo" data-d="5" aria-label="Girar 5 grados a la derecha">⟳ 5°</button>
+          <button type="button" class="sis-btn chico" data-accion="auto-lado">Lado más largo</button></div></div>
+        <label class="sis-check"><input type="checkbox" data-auto="igual" ${au.igual !== false ? "checked" : ""}> Igual superficie (si no, igual distancia)</label>`}`,
+        baterias: () => {
+          var _a;
+          return num("bat", "Baterías por sector (máx.)", (_a = au.bat) != null ? _a : "4", 'min="1" max="30"');
+        },
+        dias: () => {
+          var _a;
+          return num("horas", "Horas de vuelo por día", (_a = au.horas) != null ? _a : "6", 'min="1" max="14" step="0.5"');
+        },
+        manual: () => ""
+      };
+      return `<section class="sis-tarjeta"><h2>Cortes</h2>
+      <label class="sis-campo"><span>Método de corte</span><select data-auto="modo">
+        <optgroup label="Área lineal (usa el eje)">${lineal ? ["distancia", "superficie", "dm", "tramos"].map(opt).join("") : "<option disabled>Solo para áreas lineales</option>"}</optgroup>
+        <optgroup label="Cualquier área">${["n", "baterias", "dias"].map(opt).join("")}</optgroup>
+        <optgroup label="A mano">${opt("manual")}</optgroup>
+      </select></label>
+      <div class="vu-fila-campos">${(campos[modo] || (() => ""))()}</div>
+      <p class="sis-tenue">${escapar(METODOS[modo] ? METODOS[modo].ayuda : "")}</p>
+      <p class="vu-vista-previa" id="vu-vista-previa">${htmlVistaPrevia()}</p>
+      <div class="sis-acciones">${modo === "manual" ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === "corte" ? " primario" : ""}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>` : '<button class="sis-btn chico primario" data-accion="auto-cortar">Generar cortes</button>'}
+        ${a.cortes.length ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ""}</div>
+      <p class="sis-tenue">Los cortes generados quedan como los manuales: sus vértices blancos se arrastran en el mapa.</p>
     </section>`;
     }
     function vistaArea() {
       const h = st.hoja, a = h.area, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null;
       const grande = t && (t.baterias > UMBRAL_BATERIAS || t.excede) && g.sectores.length === 1;
-      return `${grande ? `<div class="vu-banner"><div><b>El área es grande: ${fmt(g.areaVuelo / 1e4, 0)} ha · ${t.baterias} baterías · unas ${fmtDuracion(t.minVuelo)} de vuelo</b>
-        <span>${t.excede ? "Parte del recorrido queda más lejos de lo que alcanza una batería desde el despegue. " : ""}Dividirla en sectores te deja planificar por día o por punto de despegue, con un rumbo y un KML para cada uno.</span></div>
-        <button class="sis-btn primario" data-accion="dibujar" data-modo="corte">Dividir en sectores</button></div>` : ""}
-      <div class="vu-dos">
-        <div class="vu-izquierda">
-          <section class="sis-tarjeta"><h2>Origen</h2>
+      const sub2 = subActual();
+      let tarjetas = "";
+      if (sub2 === "origen") tarjetas = `<section class="sis-tarjeta"><h2>Origen</h2>
             <div class="sis-acciones">
               <label class="sis-btn vu-archivo">Cargar KML / KMZ<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="area" hidden></label>
               <button class="sis-btn${st.dibujo && st.dibujo.modo === "area" ? " primario" : ""}" data-accion="dibujar" data-modo="area">Dibujar área</button>
@@ -6375,35 +6845,19 @@ ${escapar(t.nota)}${t.notaPor ? `
             ${st.candidatos ? vistaCandidatos() : ""}
             ${a.tipo ? `<p class="sis-tenue vu-area-info">${escapar(a.archivo || "")} · ${a.tipo === "corredor" ? `eje de ${fmt((a.eje.largo || 0) / 1e3, 2)} km · ${a.eje.linea.length} vértices` : `${fmt(areaM2(proyectar(a.original.anillo).puntos) / 1e4, 2)} ha · ${a.original.anillo.length} vértices`}</p>
               ${(a.problemas || []).length ? `<div class="vu-aviso"><b>Detalles que se corrigen al descargar:</b><ul>${a.problemas.map((p) => `<li>${escapar(p)}</li>`).join("")}</ul></div>` : ""}
-              <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-original">Descargar ${a.tipo === "corredor" ? "eje" : "área del mandante"} limpio (KML)</button></div>` : ""}
-          </section>
-          ${a.tipo === "poligono" ? `<section class="sis-tarjeta"><h2>Margen</h2>
-            ${deslizador("margen", "Margen hacia afuera", a.margen || 0, { min: 0, max: 100, paso: 1, sufijo: "m" })}
-            <div class="vu-pildoras">${[0, 20, 30, 50].map((m) => `<button type="button" class="vu-pildora${Number(a.margen) === m ? " activo" : ""}" data-accion="margen" data-m="${m}">${m ? `${m} m` : "Sin margen"}</button>`).join("")}</div>
-            <label class="sis-check"><input type="checkbox" data-area="rectas" ${a.rectas !== false ? "checked" : ""}> Esquinas rectas (como se hace a mano)</label>
-            <p class="sis-tenue" id="vu-margen-info">${g ? `${fmt(areaM2(g.original) / 1e4, 2)} ha → <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b> de vuelo` : ""}</p>
-          </section>` : ""}
-          ${a.tipo === "corredor" ? `<section class="sis-tarjeta"><h2>Corredor</h2>
-            ${deslizador("izq", a.corredor.mismo ? "Ancho a cada lado" : "Hacia la izquierda", a.corredor.izq, { min: 5, max: 300, paso: 1, sufijo: "m" })}
-            ${a.corredor.mismo ? "" : deslizador("der", "Hacia la derecha", a.corredor.der, { min: 5, max: 300, paso: 1, sufijo: "m" })}
-            <label class="sis-check"><input type="checkbox" data-area="mismo" ${a.corredor.mismo ? "checked" : ""}> Mismo ancho a los dos lados</label>
-            ${a.corredor.mismo ? "" : '<button class="sis-btn chico" data-accion="invertir">Invertir izquierda y derecha</button>'}
-            <p class="sis-tenue" id="vu-margen-info">${g ? textoCorredor(g) : ""}</p>
-          </section>
-          ${htmlCortesAuto()}` : ""}
-          ${g ? `<section class="sis-tarjeta"><h2>Sectores</h2><div id="vu-sectores">${htmlSectores()}</div>
-            <div class="sis-acciones">
-              <button class="sis-btn chico${st.dibujo && st.dibujo.modo === "corte" ? " primario" : ""}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>
-              ${a.cortes.length ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ""}
-            </div>
-            <p class="sis-tenue">Traza el corte por un camino, quebrada o cerco: toca afuera del área, sigue el borde tocando puntos y termina afuera. Los vértices blancos se pueden arrastrar.</p>
-          </section>` : ""}
-          <section class="sis-tarjeta"><h2>Zonas de referencia</h2><div id="vu-zonas">${htmlZonas()}</div></section>
-          ${htmlCaminos()}
-        </div>
+              <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-original">Descargar ${a.tipo === "corredor" ? "eje" : "área del mandante"} limpio (KML)</button>${g ? '<button class="sis-btn chico primario" data-accion="sub-area" data-s="forma">Siguiente: Forma →</button>' : ""}</div>` : ""}
+          </section>`;
+      else if (sub2 === "forma") tarjetas = `${htmlForma(g)}${g ? '<div class="sis-acciones"><button class="sis-btn chico primario" data-accion="sub-area" data-s="sectores">Siguiente: Sectores →</button></div>' : ""}`;
+      else if (sub2 === "sectores") tarjetas = g ? `${htmlCortes(g)}<section class="sis-tarjeta"><h2>Sectores</h2><div id="vu-sectores">${htmlSectores()}</div></section>` : "";
+      else tarjetas = `<section class="sis-tarjeta"><h2>Zonas de referencia</h2><div id="vu-zonas">${htmlZonas()}</div></section>${htmlCaminos()}`;
+      return `${grande ? `<div class="vu-banner"><div><b>El área es grande: ${fmt(g.areaVuelo / 1e4, 0)} ha · ${t.baterias} baterías · unas ${fmtDuracion(t.minVuelo)} de vuelo</b>
+        <span>${t.excede ? "Parte del recorrido queda más lejos de lo que alcanza una batería desde el despegue. " : ""}Dividirla en sectores te deja planificar por día o por punto de despegue, con un rumbo y un KML para cada uno.</span></div>
+        <button class="sis-btn primario" data-accion="sub-area" data-s="sectores">Dividir en sectores</button></div>` : ""}
+      <div class="vu-dos vu-area">
+        <div class="vu-izquierda">${htmlSubs(g)}${tarjetas}</div>
         <div class="vu-derecha">
-          <div class="vu-mapa-caja"><div class="vu-mapa-lugar" data-mapa="area"></div><div class="vu-mapa-barra" id="vu-barra-area">${barraDibujo()}</div></div>
-          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos. Imagen Esri con nombres y caminos.</p>
+          <div class="vu-mapa-caja vu-mapa-alto"><div class="vu-mapa-lugar" data-mapa="area"></div><div class="vu-mapa-barra" id="vu-barra-area">${barraDibujo()}</div></div>
+          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante y eje · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos.</p>
         </div>
       </div>`;
     }
@@ -6477,7 +6931,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       <button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-terminar" ${dib2.puntos.length >= min ? "" : "disabled"}>Terminar</button>
       <button type="button" class="vu-barra-btn" data-accion="dibujo-cancelar">Cancelar</button>`;
     }
-    return { zonasDeHoja, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo };
+    return { zonasDeHoja, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo, htmlVistaPrevia };
   }
 
   // modulos/vuelos/paso-vuelo.js
@@ -7425,10 +7879,11 @@ ${escapar(t.nota)}${t.notaPor ? `
       const LL = aLL(g);
       if (g.tipo === "poligono" && Number(h.area.margen)) m.capas.original = L.polygon(g.original.map(LL), { color: "#FFFFFF", weight: 2, dashArray: "6 5", fill: false, interactive: false }).addTo(mapa);
       if (g.tipo === "corredor") m.capas.eje = L.polyline(g.eje.map(LL), { color: "#FFFFFF", weight: 2, dashArray: "3 5", interactive: false }).addTo(mapa);
+      else if (h.area.ejeCalc && h.area.ejeCalc.linea) m.capas.eje = L.polyline(h.area.ejeCalc.linea.map(([lon, lat]) => [lat, lon]), { color: "#FFFFFF", weight: 2, dashArray: "3 5" }).bindTooltip("Eje calculado", { sticky: true }).addTo(mapa);
       const varios = g.sectores.length > 1;
       m.capas.sectores = L.layerGroup(g.sectores.map((s, i) => {
-        const p = L.polygon(s.poligono.map(LL), { color: "#E8611C", weight: 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? 0.25 : 0.1, interactive: false });
-        if (varios) p.bindTooltip(nombreSector(h, i, g.sectores.length), { permanent: true, direction: "center", className: "vu-etiqueta" });
+        const p = L.polygon(s.poligono.map(LL), { color: "#E8611C", weight: 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? 0.25 : 0.1, interactive: g.sectores.length > 8 });
+        if (varios) p.bindTooltip(nombreSector(h, i, g.sectores.length), { permanent: g.sectores.length <= 8, sticky: g.sectores.length > 8, direction: "center", className: "vu-etiqueta" });
         return p;
       })).addTo(mapa);
       const capas = [];
@@ -7677,6 +8132,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       htmlSectores,
       htmlZonas,
       barraDibujo,
+      htmlVistaPrevia,
       vistaVuelo,
       htmlTotalHoja,
       pieVelocidad,
@@ -7742,61 +8198,60 @@ ${escapar(t.nota)}${t.notaPor ? `
       else if (!st.mensaje || st.mensaje.tipo !== "error") avisar2(`Despegue sugerido para ${n} sector${n === 1 ? "" : "es"}: revisa y toca «Usar».`);
     }
     async function cortarAutomatico(h) {
-      const a = h.area, au = a.auto || {}, dm = a.dm || {}, modo = au.modo || "inicio";
-      const g = geometria(h);
-      if (!g || a.tipo !== "corredor") return;
-      const L = largo(a.eje.linea.map(g.marco.aXY));
-      let dist2;
-      if (modo === "baterias") {
-        const n2 = Number(au.bat) || 4;
-        avisar2("Calculando cortes por baterías…");
-        dist2 = distanciasPorBaterias(h, dron(), n2);
-      } else {
-        if ((modo === "dm" || modo === "tramos") && dm.inicio == null) {
-          avisar2("Escribe primero el DM del inicio del eje (ej. 10+000).", "error");
+      var _a;
+      const a = h.area;
+      a.auto = a.auto || {};
+      if (a.auto.modo === "inicio") {
+        a.auto.modo = "distancia";
+        a.auto.unidad = "m";
+      }
+      const forma = formaDe(h);
+      if (!a.auto.modo) a.auto.modo = metodoPropuesto(forma);
+      const extra = { dron: dron(), primerDM: (_a = a.auto.primerKm) != null ? _a : null };
+      if (a.auto.modo === "tramos") {
+        if (!h.proyectoId) {
+          avisar2("La hoja no tiene proyecto: elígelo en el encabezado para usar sus tramos.", "error");
           return;
         }
-        let tramosKm = [];
-        if (modo === "tramos") {
-          if (!h.proyectoId) {
-            avisar2("La hoja no tiene proyecto: elígelo en el encabezado para usar sus tramos.", "error");
-            return;
-          }
-          const t = await tramosDeProyecto(h.proyectoId);
-          if (!t) {
-            avisar2("El proyecto no tiene seguimiento con tramos.", "error");
-            return;
-          }
-          for (const ar of t.areas) for (const x of ar.tramos) {
-            if (x.ini != null) tramosKm.push(x.ini);
-            if (x.fin != null) tramosKm.push(x.fin);
-          }
-          if (!tramosKm.length) {
-            avisar2("Los tramos del seguimiento no tienen DM (como 45+200) en su nombre.", "error");
-            return;
-          }
+        const t2 = await tramosDeProyecto(h.proyectoId);
+        if (!t2) {
+          avisar2("El proyecto no tiene seguimiento con tramos.", "error");
+          return;
         }
-        dist2 = distanciasCorte(L, { modo, cada: au.cada || 1e3, dmInicio: dm.inicio, desc: !!dm.desc, primerDM: au.primer ? dmAKm(au.primer) : null, tramosKm });
+        extra.tramosKm = [];
+        for (const ar of t2.areas) for (const x of ar.tramos) {
+          if (x.ini != null) extra.tramosKm.push(x.ini);
+          if (x.fin != null) extra.tramosKm.push(x.fin);
+        }
+        if (!extra.tramosKm.length) {
+          avisar2("Los tramos del seguimiento no tienen DM (como 45+200) en su nombre.", "error");
+          return;
+        }
       }
-      if (!dist2.length && modo === "baterias") {
-        avisar2(`Todo el corredor se vuela con ${Number(au.bat) || 4} batería${Number(au.bat) === 1 ? "" : "s"} o menos: no hace falta cortar.`);
+      let r;
+      try {
+        r = generarCortes(h, extra);
+      } catch (e) {
+        avisar2(e.message, "error");
         return;
       }
-      if (!dist2.length) {
-        avisar2(modo === "tramos" ? "Ningún DM de los tramos cae dentro del eje: revisa el DM del inicio y si baja." : "Con esos datos no hay cortes dentro del eje.", "error");
-        return;
-      }
-      a.cortes = cortesDeCorredor(h, dist2);
+      a.cortes = r.cortes;
       a.sectores = [];
       a.sel = 0;
       cambio();
-      const n = geometria(h).sectores.length;
-      avisar2(`Listo: ${dist2.length} cortes, ${n} sectores${dm.inicio != null ? ` (${kmADm(Math.min(dm.inicio, dm.desc ? dm.inicio - L / 1e3 : dm.inicio + L / 1e3))} – ${kmADm(Math.max(dm.inicio, dm.desc ? dm.inicio - L / 1e3 : dm.inicio + L / 1e3))})` : ""}.`);
+      const g = geometria(h);
+      if (!r.cortes.length) {
+        avisar2(r.nota || "No hizo falta cortar.");
+        return;
+      }
+      const t = totales(h, dron(), g);
+      avisar2(`Listo: ${g.sectores.length} sectores${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ""}${g.fallidos.length ? ` · ${g.fallidos.length} corte${g.fallidos.length > 1 ? "s" : ""} no cruzó el área (arrástralo o quítalo)` : ""}.${r.nota ? " " + r.nota : ""}`, g.fallidos.length ? "error" : "ok");
     }
     function refrescarArea() {
       const g = geo();
       poner("vu-sectores", htmlSectores());
       poner("vu-zonas", htmlZonas());
+      poner("vu-vista-previa", htmlVistaPrevia());
       const info = raiz.querySelector("#vu-margen-info");
       if (info && g) info.innerHTML = g.tipo === "corredor" ? textoCorredor(g) : `${fmt(areaM2(g.original) / 1e4, 2)} ha → <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b> de vuelo`;
       if (mapas.area && mapas.area.el.isConnected) pintarArea(mapas.area);
@@ -7831,7 +8286,8 @@ ${escapar(t.nota)}${t.notaPor ? `
     }
     function usarPoligono(p, archivo) {
       const a = st.hoja.area;
-      Object.assign(a, { tipo: "poligono", original: { nombre: p.nombre, anillo: limpiarAnillo(p.coords || p.anillo) }, eje: null, archivo, cortes: [], sectores: [], sel: 0, problemas: p.problemas || [] });
+      Object.assign(a, { tipo: "poligono", original: { nombre: p.nombre, anillo: limpiarAnillo(p.coords || p.anillo) }, eje: null, ejeCalc: null, auto: {}, archivo, cortes: [], sectores: [], sel: 0, problemas: p.problemas || [] });
+      st.subArea = "forma";
       if (!st.hoja.nombre) st.hoja.nombre = p.nombre;
       st.candidatos = null;
       st.dibujo = null;
@@ -7840,7 +8296,8 @@ ${escapar(t.nota)}${t.notaPor ? `
     }
     function usarEje(e, archivo) {
       const a = st.hoja.area;
-      Object.assign(a, { tipo: "corredor", eje: { nombre: e.nombre, linea: e.linea, largo: e.largo }, original: null, archivo, cortes: [], sectores: [], sel: 0, problemas: e.problemas || [] });
+      Object.assign(a, { tipo: "corredor", eje: { nombre: e.nombre, linea: e.linea, largo: e.largo }, original: null, ejeCalc: null, auto: {}, archivo, cortes: [], sectores: [], sel: 0, problemas: e.problemas || [] });
+      st.subArea = "forma";
       if (!st.hoja.nombre) st.hoja.nombre = e.nombre;
       st.candidatos = null;
       st.dibujo = null;
@@ -8041,9 +8498,29 @@ ${escapar(t.nota)}${t.notaPor ? `
             a.dm.inicio = t.value.trim() ? km : null;
             if (t.value.trim() && km == null) avisar2("No entendí el DM: escríbelo como 10+000.", "error");
           } else if (k === "desc") a.dm.desc = t.checked;
-          else a.auto[k] = t.value.trim();
+          else if (k === "igual") a.auto.igual = t.checked;
+          else if (k === "primer") {
+            a.auto.primer = t.value.trim();
+            a.auto.primerKm = t.value.trim() ? dmAKm(t.value) : null;
+          } else a.auto[k] = t.value.trim();
+          if (k === "n") {
+            const x = raiz.querySelector("#vu-n-txt");
+            if (x) x.textContent = t.value;
+          }
           cambio();
+          if (k === "modo" || k === "unidad" || k === "unidadSup") {
+            await render();
+            return;
+          }
           refrescarArea();
+          return;
+        }
+        if (t.dataset.accionCambio === "a-corredor") {
+          if (corredorDesdeEje(h)) {
+            avisar2("Ahora se vuela como corredor sobre el eje calculado. Ajusta el ancho si hace falta.");
+            cambio();
+          }
+          await render();
           return;
         }
         if (t.dataset.area === "rectas") {
@@ -8196,6 +8673,9 @@ ${escapar(t.nota)}${t.notaPor ? `
           const modo = b.dataset.modo;
           st.dibujo = st.dibujo && st.dibujo.modo === modo ? null : { modo, puntos: [] };
           st.paso = "area";
+          if (modo === "corte") st.subArea = "sectores";
+          if (modo === "area" || modo === "eje") st.subArea = "origen";
+          if (modo === "camino") st.subArea = "zonas";
           if (st.dibujo && modo === "corte") avisar2("Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».");
         } else if (a === "dibujo-deshacer") {
           st.dibujo.puntos.pop();
@@ -8248,9 +8728,22 @@ ${escapar(t.nota)}${t.notaPor ? `
             avisar2(`Despegue de ${nombreSector(h, i, geo().sectores.length)} movido al camino.`);
             cambio();
           }
-        } else if (a === "auto-modo") {
-          h.area.auto = { ...h.area.auto || {}, modo: b.dataset.m };
+        } else if (a === "sub-area") {
+          st.subArea = b.dataset.s;
+          st.paso = "area";
+          if (st.dibujo && st.dibujo.modo === "corte" && st.subArea !== "sectores") st.dibujo = null;
+        } else if (a === "auto-rumbo" || a === "auto-lado") {
+          h.area.auto = h.area.auto || {};
+          const actual = h.area.auto.rumbo === "" || h.area.auto.rumbo == null ? Math.round(rumboCortesPropuesto(h)) : Number(h.area.auto.rumbo);
+          h.area.auto.rumbo = String(a === "auto-lado" ? Math.round(rumboCortesPropuesto(h)) : ((actual + Number(b.dataset.d)) % 180 + 180) % 180);
           cambio();
+        } else if (a === "a-poligono") {
+          const ar = h.area;
+          if (ar.original) {
+            Object.assign(ar, { tipo: "poligono", eje: null, cortes: [], sectores: [], sel: 0 });
+            avisar2("Se vuelve a volar como polígono.");
+            cambio();
+          }
         } else if (a === "auto-cortar") await cortarAutomatico(h);
         else if (a === "deshacer-corte") {
           h.area.cortes.pop();
@@ -8457,6 +8950,983 @@ ${escapar(t.nota)}${t.notaPor ? `
     iniciar4();
     const [planes, drones] = await Promise.all([planesDeProyecto(proyectoId), listarDrones()]);
     return planes.map((p) => ({ id: p.id, nombre: p.nombre, dronId: p.dronId, dron: (drones.find((d) => d.id === p.dronId) || {}).nombre || p.dronId, resumen: p.resumen || {} }));
+  }
+
+  // modulos/monografias/datos.js
+  var SCHEMA_VERSION4 = 1;
+  var ALM5 = { mono: "terreno_monografias", gabinete: "terreno_monografias_gabinete", revisiones: "terreno_revisiones", jornadas: "terreno_jornadas" };
+  var ESTADOS = {
+    enviada: { texto: "Enviada desde terreno", color: "gris" },
+    "en-revision": { texto: "En revisión", color: "azul" },
+    lista: { texto: "Lista", color: "verde" },
+    "con-observacion": { texto: "Con observación", color: "ambar" },
+    borrador: { texto: "Creada en gabinete", color: "gris" }
+  };
+  var IMAGENES = ["clienteLogo", "croquisImg", "panoramicaImg"];
+  var persona3 = null;
+  var registrado = false;
+  function iniciarDatos4({ personaId = null } = {}) {
+    if (!registrado) {
+      registrarAlmacenes([
+        { nombre: ALM5.mono, indices: [["proyectoId", "proyectoId"]] },
+        { nombre: ALM5.gabinete, indices: [["proyectoId", "proyectoId"]] },
+        { nombre: ALM5.revisiones, indices: [["monografiaId", "monografiaId"], ["proyectoId", "proyectoId"]] },
+        { nombre: ALM5.jornadas, indices: [["proyectoId", "proyectoId"]] }
+      ]);
+      registrado = true;
+    }
+    persona3 = personaId;
+  }
+  function fijarPersona4(p) {
+    persona3 = p;
+  }
+  var sello4 = (r, p = persona3) => sellar(r, { personaId: p, schemaVersion: SCHEMA_VERSION4 });
+  var vivo4 = (r) => r && !r.eliminadoEn;
+  async function fotosDeProyecto(proyectoId) {
+    return (await archivosDeProyecto(proyectoId, "terreno")).filter((a) => (a.mime || "").startsWith("image/"));
+  }
+  async function revisionesDe(monografiaId) {
+    return (await porIndice(ALM5.revisiones, "monografiaId", monografiaId)).filter(vivo4).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
+  }
+  async function agregarRevision({ monografiaId, proyectoId, estado: estado3, observacion = "" }, personaId = persona3) {
+    if (!ESTADOS[estado3]) throw new Error("Estado desconocido: " + estado3);
+    return guardar(ALM5.revisiones, sello4({ id: uuid(), monografiaId, proyectoId, estado: estado3, observacion: String(observacion || "").trim(), por: personaId }, personaId));
+  }
+  async function historialDe(monografiaId) {
+    return revisionesDe(monografiaId);
+  }
+  async function monografiasDeProyecto(proyectoId) {
+    const [deTerreno, deGabinete, revs] = await Promise.all([porIndice(ALM5.mono, "proyectoId", proyectoId), porIndice(ALM5.gabinete, "proyectoId", proyectoId), porIndice(ALM5.revisiones, "proyectoId", proyectoId)]);
+    const ultima = /* @__PURE__ */ new Map();
+    for (const r of revs.filter(vivo4).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn))) ultima.set(r.monografiaId, r);
+    const terreno = new Map(deTerreno.filter(vivo4).map((m) => [m.id, m]));
+    const gab = new Map(deGabinete.filter(vivo4).map((m) => [m.id, m]));
+    const ids = /* @__PURE__ */ new Set([...terreno.keys(), ...gab.keys()]);
+    return [...ids].map((id) => {
+      const t = terreno.get(id) || null, g = gab.get(id) || null, r = ultima.get(id);
+      return {
+        id,
+        ficha: g || t,
+        terreno: t,
+        gabinete: g,
+        nuevaDeTerreno: !!(t && g && g.basadoEn && t.actualizadoEn > g.basadoEn),
+        estado: r ? r.estado : t ? "enviada" : "borrador",
+        observacion: r ? r.observacion : "",
+        revisadoPor: r ? r.por : null,
+        fechaEstado: r ? r.creadoEn : null
+      };
+    });
+  }
+  async function guardarGabinete(m) {
+    const t = await obtener(ALM5.mono, m.id);
+    return guardar(ALM5.gabinete, sello4({ ...m, basadoEn: m.basadoEn || (t ? t.actualizadoEn : null) }));
+  }
+  async function usarVersionDeTerreno(id) {
+    const t = await obtener(ALM5.mono, id);
+    if (!t) return null;
+    const g = await obtener(ALM5.gabinete, id);
+    const nueva = { ...t, basadoEn: t.actualizadoEn, proyectoId: t.proyectoId };
+    delete nueva.origen;
+    return guardar(ALM5.gabinete, sello4({ ...nueva, creadoEn: g ? g.creadoEn : void 0 }));
+  }
+  async function jornadasDeProyecto(proyectoId) {
+    return (await porIndice(ALM5.jornadas, "proyectoId", proyectoId)).filter(vivo4).sort((a, b) => String(b.fechaInicio || "").localeCompare(String(a.fechaInicio || "")));
+  }
+  async function resumenDeProyecto2(proyectoId) {
+    const [monos, jornadas] = await Promise.all([monografiasDeProyecto(proyectoId), jornadasDeProyecto(proyectoId)]);
+    const por = {};
+    for (const m of monos) por[m.estado] = (por[m.estado] || 0) + 1;
+    return { total: monos.length, porEstado: por, jornadas };
+  }
+
+  // modulos/monografias/pieza-terreno.js
+  var state = { config: { marca: {}, fuenteMonografia: { tipo: "carlito" } }, monografias: [] };
+  function configurarPieza({ logoEmpresa: logoEmpresa2 = null, fuente = "carlito", monografias = null } = {}) {
+    state.config.marca = { ...state.config.marca, logoEmpresa: logoEmpresa2 };
+    state.config.fuenteMonografia = { tipo: fuente };
+    if (monografias) state.monografias = monografias;
+  }
+  function cargarImagenEl(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+  function calcRectImagen(iw, ih, bw, bh, aj) {
+    aj = aj || {};
+    const modo = aj.modo === "ajustar" ? "ajustar" : "llenar";
+    const zoom = Math.min(4, Math.max(1, Number(aj.zoom) || 1));
+    const base = modo === "ajustar" ? Math.min(bw / iw, bh / ih) : Math.max(bw / iw, bh / ih);
+    const s = base * zoom;
+    const w = iw * s, h = ih * s;
+    const sx = Math.max(0, (w - bw) / 2), sy = Math.max(0, (h - bh) / 2);
+    const ox = Math.min(1, Math.max(-1, Number(aj.ox) || 0)), oy = Math.min(1, Math.max(-1, Number(aj.oy) || 0));
+    return { x: (bw - w) / 2 + ox * sx, y: (bh - h) / 2 + oy * sy, w, h, sx, sy };
+  }
+  async function renderizarImagenAjustada(dataUrl, bw, bh, aj, opts) {
+    opts = opts || {};
+    const img = await cargarImagenEl(dataUrl);
+    const PX = opts.pxPorMm || 8;
+    const cw = Math.max(2, Math.round(bw * PX)), ch = Math.max(2, Math.round(bh * PX));
+    const c = document.createElement("canvas");
+    c.width = cw;
+    c.height = ch;
+    const ctx2 = c.getContext("2d");
+    if (!opts.png) {
+      ctx2.fillStyle = "#fff";
+      ctx2.fillRect(0, 0, cw, ch);
+    }
+    const giro2 = ((Number((aj || {}).giro) || 0) % 360 + 360) % 360;
+    const swap = giro2 === 90 || giro2 === 270;
+    const iw = swap ? img.naturalHeight : img.naturalWidth, ih = swap ? img.naturalWidth : img.naturalHeight;
+    const r = calcRectImagen(iw, ih, cw, ch, aj);
+    ctx2.save();
+    ctx2.beginPath();
+    ctx2.rect(0, 0, cw, ch);
+    ctx2.clip();
+    ctx2.translate(r.x + r.w / 2, r.y + r.h / 2);
+    ctx2.rotate(giro2 * Math.PI / 180);
+    ctx2.drawImage(img, -(swap ? r.h : r.w) / 2, -(swap ? r.w : r.h) / 2, swap ? r.h : r.w, swap ? r.w : r.h);
+    ctx2.restore();
+    return opts.png ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.9);
+  }
+  function impNum(s, decimal, esGeo) {
+    if (s == null) return null;
+    let t = String(s).trim();
+    if (!t) return null;
+    if (esGeo) {
+      const m = /^([+-]?)\s*(\d+(?:[.,]\d+)?)\s*[°º]\s*(?:(\d+(?:[.,]\d+)?)\s*['′]\s*)?(?:(\d+(?:[.,]\d+)?)\s*["″]\s*)?([NSEWOnsewo])?$/.exec(t);
+      if (m) {
+        const f = (x) => parseFloat(String(x || 0).replace(",", "."));
+        let v = f(m[2]) + f(m[3]) / 60 + f(m[4]) / 3600;
+        if (m[1] === "-" || /^[SsWwOo]$/.test(m[5] || "")) v = -v;
+        return { v, txt: t.replace(/\s+/g, " ") };
+      }
+      const g = /^([NSEWOnsewo])?\s*([+-]?)\s*(\d+(?:[.,]\d+)?)[\s:°º'′"″]+(\d+(?:[.,]\d+)?)(?:[\s:'′"″]+(\d+(?:[.,]\d+)?))?\s*['′"″]?\s*([NSEWOnsewo])?$/.exec(t);
+      if (g && !(g[1] && g[6])) {
+        const f = (x) => parseFloat(String(x || 0).replace(",", "."));
+        const gr = f(g[3]), mi = f(g[4]), se = f(g[5]);
+        if (mi < 60 && se < 60) {
+          let v = gr + mi / 60 + se / 3600;
+          const h = g[1] || g[6] || "";
+          if (g[2] === "-" || /^[SsWwOo]$/.test(h)) v = -v;
+          return { v, txt: t.replace(/\s+/g, " ") };
+        }
+      }
+    }
+    if (decimal === "coma") t = t.replace(",", ".");
+    if (!/^[+-]?\d+(\.\d+)?$/.test(t)) return null;
+    return { v: parseFloat(t), txt: t.replace(/^\+/, "") };
+  }
+  function monoResumenDatos(m) {
+    const mod = m.modulos || {};
+    const t = (v) => String(v == null ? "" : v).trim();
+    const num = (v) => {
+      const x = parseFloat(t(v).replace(",", "."));
+      return isFinite(x) ? x : null;
+    };
+    const mismas = state.monografias.filter((x) => x.id !== m.id && t(x.nombreProyecto) === t(m.nombreProyecto));
+    const nombres = (arr) => arr.map((x) => t(x.puntoMedido) || "(sin punto)").join(", ");
+    const dup = (fn) => mismas.filter(fn);
+    const eq = (a, b) => {
+      const x = num(a), y = num(b);
+      return x != null && y != null && Math.abs(x - y) < 1e-9;
+    };
+    const geo = (v) => {
+      const r = impNum(t(v), "punto", true);
+      return r ? r.v : null;
+    };
+    const eqGeo = (a, b) => {
+      const x = geo(a), y = geo(b);
+      return x != null && y != null && Math.abs(x - y) < 1e-9;
+    };
+    const filas = [];
+    const dPunto = dup((x) => t(x.puntoMedido).toLowerCase() === t(m.puntoMedido).toLowerCase() && t(m.puntoMedido) !== "");
+    filas.push({ k: "Punto", ok: !!t(m.puntoMedido), det: t(m.puntoMedido), dup: dPunto.length ? "código repetido en este proyecto (" + dPunto.length + " más)" : "" });
+    if (mod.utm !== false) {
+      const ok = !!(t(m.norte) && t(m.este));
+      const d = ok ? dup((x) => eq(x.norte, m.norte) && eq(x.este, m.este)) : [];
+      filas.push({
+        k: "Coordenadas UTM",
+        ok,
+        det: ok ? "N " + t(m.norte) + " · E " + t(m.este) : t(m.norte) || t(m.este) ? "incompletas" : "",
+        dup: d.length ? "mismas coordenadas que " + nombres(d) : "",
+        calc: ok && m.calc && m.calc.utm && t(m.calc.utm.norte) === t(m.norte) && t(m.calc.utm.este) === t(m.este) ? "calculadas por la app desde las geográficas" : ""
+      });
+    }
+    if (mod.geodesicas !== false) {
+      const ok = !!(t(m.latitud) && t(m.longitud));
+      const d = ok ? dup((x) => eqGeo(x.latitud, m.latitud) && eqGeo(x.longitud, m.longitud)) : [];
+      filas.push({
+        k: "Geográficas",
+        ok,
+        det: ok ? t(m.latitud) + ", " + t(m.longitud) : t(m.latitud) || t(m.longitud) ? "incompletas" : "",
+        dup: d.length ? "mismas coordenadas que " + nombres(d) : "",
+        calc: ok && m.calc && m.calc.geo && t(m.calc.geo.lat) === t(m.latitud) && t(m.calc.geo.lng) === t(m.longitud) ? "calculadas por la app desde UTM" : ""
+      });
+      const okH = !!t(m.alturaElipsoidal);
+      const dH = okH ? dup((x) => eq(x.alturaElipsoidal, m.alturaElipsoidal)) : [];
+      filas.push({ k: "H. elipsoidal", ok: okH, det: t(m.alturaElipsoidal), dup: dH.length ? "mismo valor que " + nombres(dH) : "" });
+    }
+    if (mod.utm !== false || mod.geodesicas !== false) {
+      const okC = !!t(m.cotaOrtometrica);
+      const dC = okC ? dup((x) => eq(x.cotaOrtometrica, m.cotaOrtometrica)) : [];
+      filas.push({ k: "Cota ortométrica", ok: okC, det: t(m.cotaOrtometrica), dup: dC.length ? "mismo valor que " + nombres(dC) : "" });
+    }
+    if (mod.croquis !== false) filas.push({ k: "Croquis", ok: !!m.croquisImg });
+    if (mod.panoramica !== false) filas.push({ k: "Fotografía panorámica", ok: !!m.panoramicaImg });
+    if (mod.fotos) {
+      const n = (m.fotosExtra || []).filter((f) => f.img).length;
+      filas.push({ k: "Fotos adicionales", ok: n > 0, det: n ? n + " foto" + (n === 1 ? "" : "s") : "" });
+    }
+    return filas;
+  }
+  function ordenNatural(a, b) {
+    return String(a.puntoMedido || "").localeCompare(String(b.puntoMedido || ""), "es", { numeric: true, sensitivity: "base" });
+  }
+  var FUENTE_CARLITO_REGULAR = "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";
+  var FUENTE_CARLITO_BOLD = "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";
+  function registrarFuenteMonografia(doc) {
+    doc.addFileToVFS("Carlito-Regular.ttf", FUENTE_CARLITO_REGULAR);
+    doc.addFont("Carlito-Regular.ttf", "Carlito", "normal");
+    doc.addFileToVFS("Carlito-Bold.ttf", FUENTE_CARLITO_BOLD);
+    doc.addFont("Carlito-Bold.ttf", "Carlito", "bold");
+  }
+  function prepararFuentePdf(doc) {
+    const cfg2 = state.config.fuenteMonografia || { tipo: "carlito" };
+    if (cfg2.tipo === "helvetica") return "helvetica";
+    if (cfg2.tipo === "times") return "times";
+    if (cfg2.tipo === "personalizada" && cfg2.personalizadaRegular) {
+      try {
+        doc.addFileToVFS("FuentePersonalizada-Regular.ttf", cfg2.personalizadaRegular);
+        doc.addFont("FuentePersonalizada-Regular.ttf", "DocFuente", "normal");
+        if (cfg2.personalizadaBold) {
+          doc.addFileToVFS("FuentePersonalizada-Bold.ttf", cfg2.personalizadaBold);
+          doc.addFont("FuentePersonalizada-Bold.ttf", "DocFuente", "bold");
+        } else {
+          doc.addFont("FuentePersonalizada-Regular.ttf", "DocFuente", "bold");
+        }
+        return "DocFuente";
+      } catch (e) {
+        registrarFuenteMonografia(doc);
+        return "Carlito";
+      }
+    }
+    registrarFuenteMonografia(doc);
+    return "Carlito";
+  }
+  var MONO_NAVY = [31, 58, 95];
+  var MONO_NEGRO = [20, 22, 21];
+  var MONO_GRIS = [90, 90, 90];
+  function dimsMonografia(m) {
+    const mod = m.modulos || {};
+    const lado = (m.disposicionImg || "lado") === "lado" && mod.croquis && mod.panoramica;
+    const wB = lado ? 95 : 190;
+    const hB = Math.min(120, Math.max(30, Number(m.altoImagenes) || 56));
+    const hE = Math.min(120, Math.max(30, Number(m.altoFotosExtra) || 60));
+    return {
+      lado,
+      hB,
+      hE,
+      clienteLogo: [36, 16],
+      logoEmpresa: [34, 16],
+      croquisImg: [wB - 1, hB - 1],
+      panoramicaImg: [wB - 1, hB - 1],
+      extra: [94, hE - 1]
+    };
+  }
+  function ajusteDe(m, clave2, porDefecto) {
+    return Object.assign({ modo: porDefecto || "llenar", zoom: 1, ox: 0, oy: 0, giro: 0 }, (m.ajustes || {})[clave2] || {});
+  }
+  async function prepararImagenesMonografia(m) {
+    const d = dimsMonografia(m), mod = m.modulos || {}, out = { extras: {} };
+    const marca = state.config.marca || {};
+    const hacer = async (url, dim, aj, png) => {
+      try {
+        return await renderizarImagenAjustada(url, dim[0], dim[1], aj, { png });
+      } catch (_) {
+        return null;
+      }
+    };
+    if (m.clienteLogo) out.clienteLogo = await hacer(m.clienteLogo, d.clienteLogo, ajusteDe(m, "clienteLogo", "ajustar"), true);
+    if (marca.logoEmpresa) out.logoEmpresa = await hacer(marca.logoEmpresa, d.logoEmpresa, { modo: "ajustar" }, true);
+    if (mod.croquis && m.croquisImg) out.croquisImg = await hacer(m.croquisImg, d.croquisImg, ajusteDe(m, "croquisImg"), false);
+    if (mod.panoramica && m.panoramicaImg) out.panoramicaImg = await hacer(m.panoramicaImg, d.panoramicaImg, ajusteDe(m, "panoramicaImg"), false);
+    if (mod.fotos) {
+      for (const f of m.fotosExtra || []) if (f.img) out.extras[f.id] = await hacer(f.img, d.extra, Object.assign({ modo: "llenar" }, f.aj || {}), false);
+    }
+    return out;
+  }
+  function construirMonografiaPdf(m, imgs, docExistente) {
+    imgs = imgs || { extras: {} };
+    const { jsPDF } = window.jspdf;
+    const doc = docExistente || new jsPDF();
+    if (docExistente) doc.addPage();
+    const nombreFuente = docExistente ? docExistente.__nombreFuente : prepararFuentePdf(doc);
+    doc.__nombreFuente = nombreFuente;
+    const X0 = 10, W = 190;
+    let y = 12;
+    const marca = state.config.marca;
+    function caja2(x, w, h, relleno) {
+      if (relleno) {
+        doc.setFillColor(...MONO_NAVY);
+        doc.rect(x, y, w, h, "F");
+      }
+      doc.setDrawColor(...MONO_NAVY);
+      doc.setLineWidth(0.3);
+      doc.rect(x, y, w, h);
+    }
+    function txt(s, x, yy, opts) {
+      opts = opts || {};
+      doc.setFont(nombreFuente, opts.bold ? "bold" : "normal");
+      doc.setFontSize(opts.size || 9);
+      doc.setTextColor(...opts.color || MONO_NEGRO);
+      doc.text(s, x, yy, { align: opts.align || "left" });
+    }
+    const hA = 26;
+    const wCliente = 42, wLogo = 42, wTitulo = W - wCliente - wLogo;
+    caja2(X0, wCliente, hA);
+    caja2(X0 + wCliente, wTitulo, hA);
+    caja2(X0 + wCliente + wTitulo, wLogo, hA);
+    txt("Cliente:", X0 + 2, y + 5, { size: 7.5 });
+    if (imgs.clienteLogo) {
+      try {
+        doc.addImage(imgs.clienteLogo, "PNG", X0 + 3, y + 7, wCliente - 6, hA - 10, void 0, "FAST");
+      } catch (e) {
+      }
+    }
+    txt(m.tituloDocumento || "Monografía de PRs y Monolitos", X0 + wCliente + wTitulo / 2, y + hA / 2 + 2, { bold: true, size: 15, align: "center", color: MONO_NEGRO });
+    if (imgs.logoEmpresa) {
+      try {
+        doc.addImage(imgs.logoEmpresa, "PNG", X0 + wCliente + wTitulo + 4, y + 5, wLogo - 8, hA - 10, void 0, "FAST");
+      } catch (e) {
+      }
+    }
+    y += hA;
+    if (m.nombreProyecto) {
+      const hB = 10;
+      caja2(X0, W, hB);
+      const tituloProy = m.nombreProyecto.toUpperCase();
+      let szProy = 10.5;
+      doc.setFont(nombreFuente, "bold");
+      while (szProy > 6.5) {
+        doc.setFontSize(szProy);
+        if (doc.getTextWidth(tituloProy) <= W - 8) break;
+        szProy -= 0.5;
+      }
+      txt(tituloProy, X0 + W / 2, y + hB / 2 + 2, { bold: true, size: szProy, align: "center" });
+      y += hB;
+    }
+    const hC = 15;
+    const wPunto = W * 0.62, wUbic = W - wPunto;
+    caja2(X0, wPunto, hC);
+    caja2(X0 + wPunto, wUbic, hC);
+    txt("Punto medido:", X0 + 3, y + hC / 2 + 1.5, { size: 9 });
+    txt(m.puntoMedido || "—", X0 + wPunto / 2 + 14, y + hC / 2 + 2, { bold: true, size: 15, align: "center" });
+    const unir = (...a) => a.map((v) => (v || "").trim()).filter(Boolean).join(", ");
+    const l1 = unir(m.ubicacion, m.localidad) || "—";
+    const l2 = unir(m.comuna, m.region || m.provincia);
+    const ajustar = (s, maxW, size) => {
+      doc.setFont(nombreFuente, "normal");
+      let z = size;
+      doc.setFontSize(z);
+      while (z > 5.5 && doc.getTextWidth(s) > maxW) {
+        z -= 0.5;
+        doc.setFontSize(z);
+      }
+      return z;
+    };
+    txt("Ubicación:", X0 + wPunto + 3, y + 6, { size: 9 });
+    const maxU = wUbic - 26 - 2;
+    txt(l1, X0 + wPunto + 26, y + 6, { size: ajustar(l1, maxU, 9) });
+    if (l2) txt(l2, X0 + wPunto + 26, y + 11.5, { size: ajustar(l2, maxU, 9) });
+    y += hC;
+    const utmOn = m.modulos.utm, geoOn = m.modulos.geodesicas;
+    if (utmOn || geoOn) {
+      let subcolsUTM = function(x0, w0) {
+        return [{ l: "Punto", w: w0 * 0.17 }, { l: "Norte(m)", w: w0 * 0.28 }, { l: "Este(m)", w: w0 * 0.28 }, { l: "Cota Ortométrica(m)", w: w0 * 0.27 }];
+      }, subcolsGEO = function(x0, w0) {
+        return [{ l: "Punto", w: w0 * 0.17 }, { l: "Latitud (°)", w: w0 * 0.28 }, { l: "Longitud (°)", w: w0 * 0.28 }, { l: "Altura Elip(m)", w: w0 * 0.27 }];
+      }, sizeParaAncho = function(texto3, anchoDisponible, bold) {
+        let tam = 8;
+        doc.setFont(nombreFuente, bold ? "bold" : "normal");
+        doc.setFontSize(tam);
+        while (tam > 5 && doc.getTextWidth(texto3) > anchoDisponible) {
+          tam -= 0.5;
+          doc.setFontSize(tam);
+        }
+        return tam;
+      }, filaCols = function(x0, w0, cols, valores, bold) {
+        let cx = x0;
+        cols.forEach((c, i) => {
+          doc.setDrawColor(...MONO_NAVY);
+          doc.setLineWidth(0.25);
+          doc.rect(cx, y, c.w, bold ? hHead : 6);
+          const tam = sizeParaAncho(valores[i], c.w - 2, bold);
+          txt(valores[i], cx + c.w / 2, y + (bold ? hHead : 6) / 2 + 1.5, { bold, size: tam, align: "center", color: bold ? [255, 255, 255] : MONO_NEGRO });
+          cx += c.w;
+        });
+      };
+      const mitad = utmOn && geoOn;
+      const wBloque = mitad ? W / 2 : W;
+      const hEnc = 5.5;
+      if (utmOn) {
+        caja2(X0, wBloque, hEnc);
+        txt("Coordenadas UTM - " + [m.datumUTM, m.zonaUTM].filter(Boolean).join("- Zona "), X0 + 2, y + hEnc - 1.5, { bold: true, size: 8 });
+      }
+      if (geoOn) {
+        const x = mitad ? X0 + wBloque : X0;
+        caja2(x, wBloque, hEnc);
+        txt("Coordenadas Geodésicas - " + (m.datumGeodesico || ""), x + 2, y + hEnc - 1.5, { bold: true, size: 8 });
+      }
+      y += hEnc;
+      const hNota = 4.5;
+      if (utmOn) {
+        caja2(X0, wBloque, hNota);
+        txt("Geoide: " + (m.geoide || "—"), X0 + 2, y + hNota - 1.2, { size: 7 });
+      }
+      if (geoOn) {
+        const x = mitad ? X0 + wBloque : X0;
+        caja2(x, wBloque, hNota);
+        const esGMS = /[°º'′"″]/.test(String(m.latitud || "") + String(m.longitud || ""));
+        txt(esGMS ? "Coordenadas en grados, minutos y segundos" : "Coordenadas en grados decimales", x + 2, y + hNota - 1.2, { size: 7, color: MONO_GRIS });
+      }
+      y += hNota;
+      const hHead = 6.5;
+      if (utmOn) {
+        doc.setFillColor(...MONO_NAVY);
+        doc.rect(X0, y, wBloque, hHead, "F");
+        filaCols(X0, wBloque, subcolsUTM(X0, wBloque), ["Punto", "Norte(m)", "Este(m)", "Cota Ortométrica(m)"], true);
+      }
+      if (geoOn) {
+        const x = mitad ? X0 + wBloque : X0;
+        doc.setFillColor(...MONO_NAVY);
+        doc.rect(x, y, wBloque, hHead, "F");
+        filaCols(x, wBloque, subcolsGEO(x, wBloque), ["Punto", "Latitud (°)", "Longitud (°)", "Altura Elip(m)"], true);
+      }
+      y += hHead;
+      if (utmOn) filaCols(X0, wBloque, subcolsUTM(X0, wBloque), [m.puntoMedido || "—", m.norte || "—", m.este || "—", m.cotaOrtometrica || "—"], false);
+      if (geoOn) filaCols(mitad ? X0 + wBloque : X0, wBloque, subcolsGEO(X0, wBloque), [m.puntoMedido || "—", m.latitud || "—", m.longitud || "—", m.alturaElipsoidal || "—"], false);
+      y += 6.5;
+    }
+    const croqOn = m.modulos.croquis, panoOn = m.modulos.panoramica;
+    if (croqOn || panoOn) {
+      const dm = dimsMonografia(m);
+      const mitad = croqOn && panoOn && dm.lado;
+      const wBloque = mitad ? W / 2 : W;
+      const imgH = dm.hB;
+      const bloques = [];
+      if (croqOn) bloques.push({ titulo: "Croquis Ubicación", img: imgs.croquisImg });
+      if (panoOn) bloques.push({ titulo: "Vista Panorámica", img: imgs.panoramicaImg });
+      const filas = mitad ? [bloques] : bloques.map((b) => [b]);
+      filas.forEach((fila2) => {
+        if (y + 6 + imgH > 282) {
+          doc.addPage();
+          y = 14;
+        }
+        const hEnc = 5.5;
+        fila2.forEach((b, k) => {
+          const x = X0 + k * wBloque;
+          caja2(x, wBloque, hEnc);
+          txt(b.titulo, x + 2, y + hEnc - 1.5, { bold: true, size: 8 });
+        });
+        y += hEnc;
+        fila2.forEach((b, k) => {
+          const x = X0 + k * wBloque;
+          caja2(x, wBloque, imgH);
+          if (b.img) {
+            try {
+              doc.addImage(b.img, "JPEG", x + 0.5, y + 0.5, wBloque - 1, imgH - 1, void 0, "FAST");
+            } catch (e) {
+            }
+          }
+        });
+        y += imgH;
+      });
+    }
+    if (m.modulos.descripcion) {
+      if (y > 255) {
+        doc.addPage();
+        y = 14;
+      }
+      const lineasTexto = (m.descripcion || "").split("\n").filter((l) => l.trim());
+      if (m.equipoGNSS) lineasTexto.push("Equipo GNSS: " + m.equipoGNSS);
+      if (m.tipoMedicion) lineasTexto.push("Tipo de Medición: " + m.tipoMedicion);
+      const hDescTxt = Math.max(lineasTexto.length * 4.3 + 2, 6);
+      const hEnc = 5.5;
+      caja2(X0, W, hEnc);
+      txt("Descripción:", X0 + 2, y + hEnc - 1.5, { bold: true, size: 8.5 });
+      y += hEnc;
+      caja2(X0, W, hDescTxt);
+      let ly = y + 4;
+      doc.setFont(nombreFuente, "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...MONO_NEGRO);
+      lineasTexto.forEach((l) => {
+        doc.text(l, X0 + 2, ly);
+        ly += 4.3;
+      });
+      y += hDescTxt;
+    }
+    if (m.modulos.fotos && (m.fotosExtra || []).length) {
+      const dm = dimsMonografia(m);
+      const fotos = m.fotosExtra.filter((f) => f.img);
+      const wF = W / 2, hEnc = 5.5, hLey = 6;
+      for (let i = 0; i < fotos.length; i += 2) {
+        if (y + hEnc + dm.hE + hLey > 285) {
+          doc.addPage();
+          y = 14;
+        }
+        if (i === 0) {
+          caja2(X0, W, hEnc);
+          txt("Fotografías adicionales", X0 + 2, y + hEnc - 1.5, { bold: true, size: 8 });
+          y += hEnc;
+        }
+        [fotos[i], fotos[i + 1]].forEach((f, k) => {
+          if (!f) return;
+          const x = X0 + k * wF;
+          caja2(x, wF, dm.hE);
+          const r = imgs.extras[f.id];
+          if (r) {
+            try {
+              doc.addImage(r, "JPEG", x + 0.5, y + 0.5, wF - 1, dm.hE - 1, void 0, "FAST");
+            } catch (e) {
+            }
+          }
+        });
+        y += dm.hE;
+        [fotos[i], fotos[i + 1]].forEach((f, k) => {
+          if (!f) return;
+          const x = X0 + k * wF;
+          caja2(x, wF, hLey);
+          txt(String(f.leyenda || "").slice(0, 70), x + 2, y + hLey - 1.8, { size: 8 });
+        });
+        y += hLey;
+      }
+    }
+    if (m.modulos.firma) {
+      if (y > 260) {
+        doc.addPage();
+        y = 14;
+      }
+      const wMitad = W / 2;
+      const hEnc = 6;
+      caja2(X0, wMitad, hEnc);
+      caja2(X0 + wMitad, wMitad, hEnc);
+      txt("Datos operador", X0 + wMitad / 2, y + hEnc - 2, { bold: true, size: 9, align: "center" });
+      txt("Revisó", X0 + wMitad + wMitad / 2, y + hEnc - 2, { bold: true, size: 9, align: "center" });
+      y += hEnc;
+      const filasIzq = ["Nombre: " + (m.operadorNombre || "—"), "Cargo: " + (m.operadorCargo || "—"), "Fecha Medición: " + (m.fechaMedicion ? fmtFechaCorta(m.fechaMedicion) : "—")];
+      const filasDer = [m.revisoNombre || "—", m.fechaRevision ? fmtFechaCorta(m.fechaRevision) : ""].filter(Boolean);
+      const hDatos = Math.max(filasIzq.length, 1) * 5 + 3;
+      caja2(X0, wMitad, hDatos);
+      caja2(X0 + wMitad, wMitad, hDatos);
+      let ly = y + 5;
+      filasIzq.forEach((l) => {
+        txt(l, X0 + 2, ly, { size: 8.5 });
+        ly += 5;
+      });
+      ly = y + 5;
+      filasDer.forEach((l) => {
+        txt(l, X0 + wMitad + wMitad / 2, ly, { size: 8.5, align: "center" });
+        ly += 5;
+      });
+      y += hDatos;
+    }
+    return doc;
+  }
+  function fmtFechaCorta(isoDate) {
+    if (!isoDate) return "—";
+    const [a, m, d] = isoDate.split("-");
+    return d + "-" + m + "-" + a;
+  }
+  function cargarMonografiaDefaults() {
+    return {
+      tituloDocumento: "Monografía de PRs y Monolitos",
+      clienteNombre: "",
+      clienteLogo: null,
+      nombreProyecto: "",
+      datumUTM: "WGS84",
+      zonaUTM: "",
+      datumGeodesico: "ITRF2008",
+      geoide: "EGM08",
+      equipoGNSS: "",
+      tipoMedicion: "Estática",
+      modulos: { utm: true, geodesicas: true, croquis: true, panoramica: true, descripcion: true, firma: true, fotos: false }
+    };
+  }
+
+  // modulos/monografias/pdf.js
+  var CLAVE_LOGO = "mono_logo_empresa";
+  function logoEmpresa() {
+    try {
+      return localStorage.getItem(CLAVE_LOGO) || null;
+    } catch {
+      return null;
+    }
+  }
+  function fijarLogoEmpresa(dataURL) {
+    try {
+      dataURL ? localStorage.setItem(CLAVE_LOGO, dataURL) : localStorage.removeItem(CLAVE_LOGO);
+    } catch {
+    }
+  }
+  async function urlImagen(v) {
+    if (!v) return null;
+    if (typeof v === "string") return v;
+    if (v.archivo) return urlArchivo(v.archivo);
+    return null;
+  }
+  async function materializar(m) {
+    const c = { ...m, modulos: { ...m.modulos || {} } };
+    for (const k of IMAGENES) c[k] = await urlImagen(m[k]);
+    c.fotosExtra = [];
+    for (const f of m.fotosExtra || []) c.fotosExtra.push({ ...f, img: await urlImagen(f.img) });
+    return c;
+  }
+  async function jsPDFListo() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) await cargarScript("vendor/jspdf.umd.min.js");
+  }
+  async function pdfDe(lista, { alAvanzar } = {}) {
+    await jsPDFListo();
+    configurarPieza({ logoEmpresa: logoEmpresa() });
+    let doc = null, i = 0;
+    for (const m0 of lista) {
+      alAvanzar && alAvanzar(++i, lista.length);
+      const m = await materializar(m0);
+      doc = construirMonografiaPdf(m, await prepararImagenesMonografia(m), doc);
+    }
+    return doc ? doc.output("blob") : null;
+  }
+
+  // modulos/monografias/pantallas.js
+  var CAMPOS = [
+    ["General", [["tituloDocumento", "Título del documento"], ["clienteNombre", "Cliente"], ["nombreProyecto", "Nombre del proyecto"]]],
+    ["Punto", [["puntoMedido", "Punto medido"], ["ubicacion", "Ubicación (sector / lugar)"], ["localidad", "Localidad"], ["comuna", "Comuna"], ["region", "Región"]]],
+    ["utm", [["datumUTM", "Datum"], ["zonaUTM", "Zona"], ["norte", "Norte (m)"], ["este", "Este (m)"], ["cotaOrtometrica", "Cota ortométrica (m)"]]],
+    ["geodesicas", [["datumGeodesico", "Datum geodésico"], ["geoide", "Geoide"], ["latitud", "Latitud"], ["longitud", "Longitud"], ["alturaElipsoidal", "Altura elipsoidal (m)"]]],
+    ["firma", [["equipoGNSS", "Equipo GNSS"], ["tipoMedicion", "Tipo de medición"], ["operadorNombre", "Operador"], ["operadorCargo", "Cargo"], ["fechaMedicion", "Fecha de medición", "date"], ["revisoNombre", "Revisó"], ["fechaRevision", "Fecha de revisión", "date"]]]
+  ];
+  var MODULOS = [["utm", "Coordenadas UTM"], ["geodesicas", "Coordenadas geodésicas"], ["croquis", "Croquis de ubicación"], ["panoramica", "Vista panorámica"], ["descripcion", "Descripción"], ["fotos", "Fotografías adicionales"], ["firma", "Datos operador / Revisó"]];
+  var TIPO_FOTO = { panoramica: "Panorámica", croquis: "Croquis", placa: "Placa", detalle: "Detalle", punto: "Punto", logo: "Logo", otra: "Foto" };
+  var ranura = { croquisImg: "Croquis de ubicación", panoramicaImg: "Vista panorámica", clienteLogo: "Logo del cliente" };
+  function montarPantallas4(raiz, ctx2) {
+    const st = { proyectoId: ctx2.proyectoId || null, monoId: ctx2.monografiaId || null, lista: [], ficha: null, fotos: [], elegir: null, mensaje: null, filtro: "", nombres: {}, guardando: null, vivo: true };
+    raiz.innerHTML = '<div class="mn"></div>';
+    const cont = raiz.querySelector(".mn");
+    const avisar2 = (texto3, tipo = "ok") => {
+      st.mensaje = { texto: texto3, tipo };
+    };
+    const ir = (proy, mono) => {
+      location.hash = `#/monografias${proy ? "/" + proy : ""}${mono ? "/" + mono : ""}`;
+    };
+    async function vistaProyectos() {
+      const proys = (await listarProyectos()).filter((p) => p.id !== OFICINA_ID && p.estado !== "cerrado");
+      const filas = await Promise.all(proys.map(async (p) => ({ p, r: await resumenDeProyecto2(p.id) })));
+      filas.sort((a, b) => b.r.total - a.r.total || a.p.nombre.localeCompare(b.p.nombre, "es"));
+      return `<div class="mn-cab"><h1>Monografías</h1><p class="sis-tenue">Por proyecto: lo que llega desde la app de Terreno (monografías, jornadas y fotos), la revisión en gabinete y el PDF.</p></div>
+      <section class="sis-tarjeta"><div class="sis-lista">${filas.map(({ p, r }) => `<a class="sis-fila" href="#/monografias/${escapar(p.id)}">
+          <span class="sis-fila-txt"><b>${escapar(p.nombre)}</b><span class="sis-tenue">${escapar(p.mandante || "")}${r.jornadas.length ? ` · ${r.jornadas.length} jornada${r.jornadas.length > 1 ? "s" : ""} de terreno` : ""}</span></span>
+          <span class="sis-chips">${r.total ? Object.entries(r.porEstado).map(([e, n]) => `<span class="sis-chip ${ESTADOS[e].color}">${n} ${escapar(ESTADOS[e].texto.toLowerCase())}</span>`).join("") : '<span class="sis-chip gris">sin monografías</span>'}</span></a>`).join("") || '<div class="sis-vacio"><p>No hay proyectos activos.</p></div>'}</div></section>`;
+    }
+    async function vistaProyecto() {
+      const p = await obtenerProyecto(st.proyectoId);
+      if (!p) return '<section class="sis-tarjeta sis-vacio"><p>No se encontró el proyecto.</p></section>';
+      st.proyecto = p;
+      st.lista = await monografiasDeProyecto(st.proyectoId);
+      configurarPieza({ monografias: st.lista.map((x) => x.ficha) });
+      const jornadas = await jornadasDeProyecto(st.proyectoId);
+      const fotos = await fotosDeProyecto(st.proyectoId);
+      const lista = st.lista.filter((x) => !st.filtro || x.estado === st.filtro).sort((a, b) => ordenNatural(a.ficha, b.ficha));
+      const cuenta2 = (e) => st.lista.filter((x) => x.estado === e).length;
+      const faltan = (f) => monoResumenDatos(f).filter((c) => !c.ok).length;
+      return `<a class="sis-volver" href="#/monografias">← Monografías</a>
+      <div class="mn-cab"><h1>${escapar(p.nombre)}</h1><p class="sis-tenue">${escapar(p.mandante || "")} · ${st.lista.length} monografía${st.lista.length === 1 ? "" : "s"} · ${jornadas.length} jornada${jornadas.length === 1 ? "" : "s"} y ${fotos.length} foto${fotos.length === 1 ? "" : "s"} desde Terreno</p></div>
+      <div class="mn-barra">
+        <div class="mn-filtros">${[["", `Todas · ${st.lista.length}`], ...Object.keys(ESTADOS).filter(cuenta2).map((e) => [e, `${ESTADOS[e].texto} · ${cuenta2(e)}`])].map(([e, t]) => `<button type="button" class="vu-pildora${st.filtro === e ? " activo" : ""}" data-mn="filtro" data-e="${e}">${escapar(t)}</button>`).join("")}</div>
+        <div class="sis-acciones"><button class="sis-btn" data-mn="nueva">+ Monografía en gabinete</button><button class="sis-btn primario" data-mn="pdf-todas" ${lista.length ? "" : "disabled"}>PDF de ${st.filtro ? "estas" : "todas"} (${lista.length})</button></div>
+      </div>
+      <section class="sis-tarjeta">${lista.length ? `<table class="mn-tabla"><thead><tr><th>Punto</th><th>Estado</th><th>Faltan</th><th>Medición</th><th>Operador</th><th></th></tr></thead><tbody>
+        ${lista.map((x) => {
+        const f = x.ficha, n = faltan(f);
+        return `<tr>
+          <td><a href="#/monografias/${escapar(st.proyectoId)}/${escapar(x.id)}"><b>${escapar(f.puntoMedido || "(sin punto)")}</b></a>${x.nuevaDeTerreno ? '<small class="mn-nueva">Terreno envió cambios</small>' : ""}</td>
+          <td><span class="sis-chip ${ESTADOS[x.estado].color}">${escapar(ESTADOS[x.estado].texto)}</span>${x.observacion ? `<small class="mn-obs">${escapar(x.observacion)}</small>` : ""}</td>
+          <td>${n ? `<span class="sis-chip ambar">${n}</span>` : '<span class="sis-chip verde">completa</span>'}</td>
+          <td>${f.fechaMedicion ? escapar(fechaLegible(f.fechaMedicion)) : "—"}</td><td>${escapar(f.operadorNombre || "—")}</td>
+          <td class="mn-acc"><a class="sis-btn chico" href="#/monografias/${escapar(st.proyectoId)}/${escapar(x.id)}">Abrir</a><button class="sis-btn chico" data-mn="pdf" data-id="${escapar(x.id)}">PDF</button></td></tr>`;
+      }).join("")}
+        </tbody></table>` : `<div class="sis-vacio"><p>${st.lista.length ? "Ninguna con ese estado." : "Aún no llegan monografías de este proyecto. En la app de Terreno: elige el proyecto del Sistema en la monografía y toca «Enviar al Sistema». También puedes crear una aquí."}</p></div>`}</section>
+      ${jornadas.length ? `<section class="sis-tarjeta"><h2>Jornadas de terreno</h2><div class="sis-lista">${jornadas.slice(0, 12).map((j) => `<div class="sis-fila"><span class="sis-fila-txt"><b>${escapar(j.fechaInicio ? fechaHoraLegible(j.fechaInicio) : "Jornada")}</b><span class="sis-tenue">${escapar(j.operador || "")}${j.horas != null ? ` · ${Number(j.horas).toLocaleString("es-CL", { maximumFractionDigits: 1 })} h` : ""}</span></span>
+          <span class="sis-chips"><span class="sis-chip gris">${(j.levantamientos || []).length} levantamiento${(j.levantamientos || []).length === 1 ? "" : "s"}</span><span class="sis-chip gris">${(j.levantamientos || []).reduce((s, l) => s + (l.puntos || []).length, 0)} puntos</span></span></div>`).join("")}</div></section>` : ""}
+      <section class="sis-tarjeta"><h2>Logo de la empresa en el PDF</h2>
+        <div class="mn-logo">${logoEmpresa() ? `<img src="${logoEmpresa()}" alt="Logo de la empresa">` : '<span class="sis-tenue">Sin logo</span>'}
+          <label class="sis-btn chico">Cargar logo (PNG)<input type="file" accept="image/*" data-mn-archivo="logo" hidden></label>${logoEmpresa() ? '<button class="sis-btn chico" data-mn="quitar-logo">Quitar</button>' : ""}</div>
+        <p class="sis-tenue">Se guarda en este computador, igual que en Terreno (⚙ Marca).</p></section>`;
+    }
+    function campo2(k, t, tipo = "text") {
+      var _a;
+      const f = st.ficha;
+      return `<label class="sis-campo"><span>${escapar(t)}</span><input type="${tipo}" data-f="${k}" value="${escapar((_a = f[k]) != null ? _a : "")}"${/norte|este|cota|latitud|longitud|altura/i.test(k) ? ' inputmode="decimal"' : ""}></label>`;
+    }
+    function chequeoHtml() {
+      const filas = monoResumenDatos(st.ficha);
+      return `<div class="mn-chequeo">${filas.map((f) => `<div class="mn-ch"><span class="mn-ch-ic ${f.ok ? f.dup ? "dup" : f.calc ? "calc" : "ok" : "falta"}" aria-hidden="true">${f.ok ? f.dup ? "!" : f.calc ? "?" : "✔" : "–"}</span><span>${escapar(f.k)}${f.det ? `<small>${escapar(f.det)}</small>` : ""}${f.dup ? `<small class="mn-av">${escapar(f.dup)}</small>` : ""}${f.calc ? `<small class="mn-av">${escapar(f.calc)}</small>` : ""}</span></div>`).join("")}</div>
+      <p class="sis-tenue mn-ley">✔ ingresado · – falta · ! repetido en el proyecto · ? calculado por la app de Terreno</p>`;
+    }
+    async function imagenHtml(clave2, titulo) {
+      const url = await urlImagen(st.ficha[clave2]);
+      return `<div class="mn-slot"><div class="mn-slot-tit">${escapar(titulo)}</div>
+      <div class="mn-slot-img">${url ? `<img src="${escapar(url)}" alt="${escapar(titulo)}">` : '<span class="sis-tenue">Sin imagen</span>'}</div>
+      <div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="${clave2}">Elegir de terreno</button><label class="sis-btn chico">Subir<input type="file" accept="image/*" data-mn-archivo="${clave2}" hidden></label>${url ? `<button class="sis-btn chico" data-mn="quitar-img" data-slot="${clave2}">Quitar</button>` : ""}</div></div>`;
+    }
+    async function vistaFicha() {
+      if (!st.proyecto || st.proyecto.id !== st.proyectoId) st.proyecto = await obtenerProyecto(st.proyectoId);
+      const x = (await monografiasDeProyecto(st.proyectoId)).find((y) => y.id === st.monoId);
+      if (!x) return `<a class="sis-volver" href="#/monografias/${escapar(st.proyectoId)}">← Volver</a><section class="sis-tarjeta sis-vacio"><p>No se encontró la monografía.</p></section>`;
+      st.x = x;
+      if (!st.ficha || st.ficha.id !== x.id) st.ficha = JSON.parse(JSON.stringify(x.ficha));
+      st.lista = await monografiasDeProyecto(st.proyectoId);
+      configurarPieza({ monografias: st.lista.map((y) => y.id === x.id ? st.ficha : y.ficha) });
+      st.fotos = await fotosDeProyecto(st.proyectoId);
+      const f = st.ficha, mod = f.modulos || (f.modulos = { utm: true, geodesicas: true, croquis: true, panoramica: true, descripcion: true, firma: true, fotos: false });
+      const hist = await historialDe(x.id);
+      const extras = await Promise.all((f.fotosExtra || []).map(async (e, i) => {
+        const u = await urlImagen(e.img);
+        return `<div class="mn-extra">${u ? `<img src="${escapar(u)}" alt="">` : '<span class="sis-tenue">Sin imagen</span>'}<input data-extra="${i}" value="${escapar(e.leyenda || "")}" placeholder="Leyenda" aria-label="Leyenda de la foto ${i + 1}"><button class="sis-btn chico" data-mn="quitar-extra" data-i="${i}">Quitar</button></div>`;
+      }));
+      return `<a class="sis-volver" href="#/monografias/${escapar(st.proyectoId)}">← ${escapar(st.proyecto ? st.proyecto.nombre : "Proyecto")}</a>
+      <div class="mn-cab mn-cab-ficha"><div><h1>Monografía · ${escapar(f.puntoMedido || "(sin punto)")}</h1>
+        <p class="sis-tenue">${x.terreno ? `Enviada desde Terreno${x.terreno.publicadoEn ? " el " + escapar(fechaHoraLegible(x.terreno.publicadoEn)) : ""}` : "Creada en gabinete"}${x.gabinete ? " · revisada en gabinete" : ""} · <span id="mn-guardado">Guardado</span></p></div>
+        <div class="sis-acciones"><button class="sis-btn" data-mn="ver-pdf">Vista previa PDF</button><button class="sis-btn primario" data-mn="pdf" data-id="${escapar(x.id)}">Descargar PDF</button></div></div>
+      ${x.nuevaDeTerreno ? `<div class="sis-tarjeta sis-aviso mn-aviso"><b>Terreno envió una versión más nueva de esta monografía.</b> <span>La que ves es la revisada en gabinete.</span> <button class="sis-btn chico" data-mn="usar-terreno">Usar la de Terreno</button></div>` : ""}
+      <div class="mn-dos"><div>
+        <section class="sis-tarjeta"><h2>Estado de revisión</h2>
+          <p><span class="sis-chip ${ESTADOS[x.estado].color}">${escapar(ESTADOS[x.estado].texto)}</span>${x.observacion ? ` <span class="mn-obs">${escapar(x.observacion)}</span>` : ""}</p>
+          <label class="sis-campo"><span>Observación para terreno (si hay que corregir algo)</span><textarea id="mn-obs" rows="2" placeholder="Ej.: retomar la foto de la placa">${x.estado === "con-observacion" ? escapar(x.observacion) : ""}</textarea></label>
+          <div class="sis-acciones"><button class="sis-btn chico" data-mn="estado" data-e="en-revision">En revisión</button><button class="sis-btn chico" data-mn="estado" data-e="con-observacion">Con observación</button><button class="sis-btn chico primario" data-mn="estado" data-e="lista">Lista</button></div>
+          ${hist.length ? `<details class="mn-hist"><summary>Historial (${hist.length})</summary><ul>${hist.slice().reverse().map((r) => `<li>${escapar(fechaHoraLegible(r.creadoEn))} · ${escapar(ESTADOS[r.estado].texto)}${r.por ? " · " + escapar(st.nombres[r.por] || "") : ""}${r.observacion ? " — " + escapar(r.observacion) : ""}</li>`).join("")}</ul></details>` : ""}
+        </section>
+        <section class="sis-tarjeta"><h2>Qué incluye el PDF</h2><div class="mn-mods">${MODULOS.map(([k, t]) => `<label class="sis-check"><input type="checkbox" data-mod="${k}" ${mod[k] ? "checked" : ""}> ${escapar(t)}</label>`).join("")}</div></section>
+        ${CAMPOS.filter(([g]) => !["utm", "geodesicas", "firma"].includes(g) || mod[g]).map(([g, cs]) => `<section class="sis-tarjeta"><h2>${{ utm: "Coordenadas UTM (finales del postproceso)", geodesicas: "Coordenadas geodésicas", firma: "Equipo, operador y revisión" }[g] || g}</h2><div class="mn-campos">${cs.map((c) => campo2(...c)).join("")}</div></section>`).join("")}
+        ${mod.descripcion ? `<section class="sis-tarjeta"><h2>Descripción</h2><textarea data-f="descripcion" rows="4">${escapar(f.descripcion || "")}</textarea><p class="sis-tenue">Una línea por renglón, como en la plantilla.</p></section>` : ""}
+      </div><aside>
+        <section class="sis-tarjeta"><h2>Chequeo</h2>${chequeoHtml()}</section>
+        <section class="sis-tarjeta"><h2>Imágenes</h2>
+          ${mod.croquis ? await imagenHtml("croquisImg", ranura.croquisImg) : ""}
+          ${mod.panoramica ? await imagenHtml("panoramicaImg", ranura.panoramicaImg) : ""}
+          ${await imagenHtml("clienteLogo", ranura.clienteLogo)}
+          ${mod.fotos ? `<div class="mn-slot-tit">Fotografías adicionales</div>${extras.join("")}<div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="extra">+ Elegir de terreno</button><label class="sis-btn chico">+ Subir<input type="file" accept="image/*" data-mn-archivo="extra" hidden></label></div>` : ""}
+        </section>
+      </aside></div>
+      ${st.elegir ? await selectorFotos() : ""}`;
+    }
+    async function selectorFotos() {
+      const fotos = await Promise.all(st.fotos.map(async (a) => ({ a, url: await urlArchivo(a.id) })));
+      return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="Elegir foto de terreno"><div class="mn-modal-caja">
+      <div class="sis-cab"><h2>Fotos de terreno del proyecto · ${escapar(st.elegir === "extra" ? "Fotografía adicional" : ranura[st.elegir])}</h2><button class="sis-btn chico" data-mn="cerrar-elegir">Cerrar</button></div>
+      ${fotos.length ? `<div class="mn-grilla">${fotos.map(({ a, url }) => {
+        const d = a.detalle || {};
+        return `<button type="button" class="mn-foto" data-mn="usar-foto" data-id="${escapar(a.id)}">${url ? `<img src="${escapar(url)}" alt="">` : '<span class="sis-tenue">En la nube</span>'}<span><b>${escapar(TIPO_FOTO[d.tipo] || "Foto")}${d.punto ? " · " + escapar(d.punto) : ""}</b><small>${escapar(d.hora ? fechaHoraLegible(d.hora) : "")}${d.autor ? " · " + escapar(d.autor) : ""}</small>${d.leyenda ? `<small>${escapar(d.leyenda)}</small>` : ""}</span></button>`;
+      }).join("")}</div>` : '<div class="sis-vacio"><p>Aún no llegan fotos de este proyecto desde Terreno.</p></div>'}
+    </div></div>`;
+    }
+    async function render() {
+      if (!st.vivo) return;
+      try {
+        if (!Object.keys(st.nombres).length) for (const p of await listarPersonas()) st.nombres[p.id] = p.nombre;
+        const html = st.monoId ? await vistaFicha() : st.proyectoId ? await vistaProyecto() : await vistaProyectos();
+        cont.innerHTML = `${st.mensaje ? `<div class="vu-msg ${st.mensaje.tipo === "error" ? "error" : ""}" role="status">${escapar(st.mensaje.texto)}</div>` : ""}${html}`;
+        st.mensaje = null;
+      } catch (e) {
+        console.error(e);
+        cont.innerHTML = `<section class="sis-tarjeta sis-error"><p>${escapar(e.message || "Error")}</p></section>`;
+      }
+    }
+    function marcarGuardado(t) {
+      const el = cont.querySelector("#mn-guardado");
+      if (el) el.textContent = t;
+    }
+    async function guardarAhora() {
+      clearTimeout(st.guardando);
+      st.guardando = null;
+      const x = st.x;
+      await guardarGabinete({ ...st.ficha, proyectoId: st.proyectoId, basadoEn: x.gabinete ? x.gabinete.basadoEn : x.terreno ? x.terreno.actualizadoEn : null });
+      if (x.estado === "enviada") {
+        await agregarRevision({ monografiaId: x.id, proyectoId: st.proyectoId, estado: "en-revision" });
+        x.estado = "en-revision";
+      }
+      x.gabinete = x.gabinete || { basadoEn: x.terreno ? x.terreno.actualizadoEn : null };
+      marcarGuardado("Guardado");
+    }
+    function cambio({ refrescar = false } = {}) {
+      marcarGuardado("Guardando…");
+      clearTimeout(st.guardando);
+      st.guardando = setTimeout(async () => {
+        await guardarAhora();
+        if (refrescar) await render();
+        else refrescarChequeo();
+      }, 500);
+    }
+    function refrescarChequeo() {
+      const s = cont.querySelector(".mn-chequeo");
+      if (s) s.parentElement.innerHTML = "<h2>Chequeo</h2>" + chequeoHtml();
+    }
+    async function descargarPdf(lista, nombre) {
+      avisar2("Generando PDF…");
+      await render();
+      const blob = await pdfDe(lista);
+      if (blob) {
+        descargar(nombre, blob, "application/pdf");
+        avisar2(`PDF listo: ${lista.length} monografía${lista.length === 1 ? "" : "s"}.`);
+      }
+    }
+    const nombreArchivo = (s) => String(s || "punto").replace(/[^a-z0-9_-]+/gi, "_");
+    cont.addEventListener("input", (ev) => {
+      const t = ev.target;
+      if (!st.ficha) return;
+      if (t.dataset.f) {
+        st.ficha[t.dataset.f] = t.value;
+        cambio();
+      } else if (t.dataset.extra != null) {
+        st.ficha.fotosExtra[Number(t.dataset.extra)].leyenda = t.value;
+        cambio();
+      }
+    });
+    cont.addEventListener("change", async (ev) => {
+      const t = ev.target;
+      try {
+        if (t.dataset.mod && st.ficha) {
+          st.ficha.modulos[t.dataset.mod] = t.checked;
+          cambio({ refrescar: true });
+          return;
+        }
+        if (t.dataset.mnArchivo && t.files && t.files[0]) {
+          const archivo = t.files[0], slot = t.dataset.mnArchivo;
+          t.value = "";
+          if (slot === "logo") {
+            const r = new FileReader();
+            r.onload = async () => {
+              fijarLogoEmpresa(r.result);
+              avisar2("Logo guardado");
+              await render();
+            };
+            r.readAsDataURL(archivo);
+            return;
+          }
+          const reg = await guardarArchivo(archivo, { modulo: "terreno", duenoTipo: "terreno_monografia", duenoId: st.ficha.id, rol: "foto", proyectoId: st.proyectoId, carpeta: `Proyectos/${st.proyecto ? st.proyecto.nombre : st.proyectoId}/Monografías`, detalle: { tipo: slot === "croquisImg" ? "croquis" : slot === "panoramicaImg" ? "panoramica" : slot === "clienteLogo" ? "logo" : "detalle", punto: st.ficha.puntoMedido || "", origen: "gabinete" } });
+          ponerImagen(slot, { archivo: reg.id });
+          await guardarAhora();
+          await render();
+        }
+      } catch (e) {
+        console.error(e);
+        avisar2(e.message || "No se pudo", "error");
+        await render();
+      }
+    });
+    function ponerImagen(slot, valor) {
+      if (slot === "extra") {
+        st.ficha.fotosExtra = st.ficha.fotosExtra || [];
+        st.ficha.fotosExtra.push({ id: uuid(), img: valor, leyenda: "" });
+      } else st.ficha[slot] = valor;
+    }
+    cont.addEventListener("click", async (ev) => {
+      const b = ev.target.closest("[data-mn]");
+      if (!b) return;
+      const a = b.dataset.mn;
+      try {
+        if (a === "filtro") {
+          st.filtro = b.dataset.e;
+        } else if (a === "nueva") {
+          const d = cargarMonografiaDefaults(), p = st.proyecto || await obtenerProyecto(st.proyectoId);
+          const m = { ...d, id: uuid(), proyectoId: st.proyectoId, nombreProyecto: d.nombreProyecto || (p ? p.nombre : ""), clienteNombre: d.clienteNombre || (p ? p.mandante || "" : ""), puntoMedido: "", ubicacion: "", localidad: "", comuna: p ? p.comuna || "" : "", region: p ? p.region || "" : "", norte: "", este: "", cotaOrtometrica: "", latitud: "", longitud: "", alturaElipsoidal: "", croquisImg: null, panoramicaImg: null, descripcion: "", operadorNombre: "", operadorCargo: "Geomensor", fechaMedicion: "", revisoNombre: "", fechaRevision: "", fotosExtra: [], creado: (/* @__PURE__ */ new Date()).toISOString() };
+          await guardarGabinete(m);
+          st.ficha = null;
+          ir(st.proyectoId, m.id);
+          return;
+        } else if (a === "pdf") {
+          const x = (st.lista || []).find((y) => y.id === b.dataset.id) || st.x;
+          if (st.ficha && st.ficha.id === b.dataset.id) await guardarAhora();
+          const f = st.ficha && st.ficha.id === b.dataset.id ? st.ficha : x.ficha;
+          await descargarPdf([f], `monografia_${nombreArchivo(f.puntoMedido)}.pdf`);
+        } else if (a === "pdf-todas") {
+          const lista = st.lista.filter((x) => !st.filtro || x.estado === st.filtro).map((x) => x.ficha).sort(ordenNatural);
+          await descargarPdf(lista, `monografias_${nombreArchivo(st.proyecto ? st.proyecto.nombre : "proyecto")}_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.pdf`);
+        } else if (a === "ver-pdf") {
+          await guardarAhora();
+          const w = window.open("", "_blank");
+          const blob = await pdfDe([st.ficha]);
+          const url = URL.createObjectURL(blob);
+          if (w) w.location.href = url;
+          else descargar(`monografia_${nombreArchivo(st.ficha.puntoMedido)}.pdf`, blob, "application/pdf");
+          return;
+        } else if (a === "estado") {
+          const e = b.dataset.e, obs = (cont.querySelector("#mn-obs") || {}).value || "";
+          if (e === "con-observacion" && !obs.trim()) {
+            avisar2("Escribe la observación para terreno.", "error");
+          } else {
+            if (st.guardando) await guardarAhora();
+            await agregarRevision({ monografiaId: st.x.id, proyectoId: st.proyectoId, estado: e, observacion: e === "con-observacion" ? obs : "" });
+            if (e === "lista" && !st.ficha.revisoNombre && ctx2.personaId && st.nombres[ctx2.personaId]) {
+              st.ficha.revisoNombre = st.nombres[ctx2.personaId];
+              st.ficha.fechaRevision = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+              await guardarAhora();
+            }
+            avisar2(e === "con-observacion" ? "Observación enviada: el encargado la verá en la app de Terreno." : `Estado: ${ESTADOS[e].texto}.`);
+          }
+        } else if (a === "usar-terreno") {
+          await usarVersionDeTerreno(st.x.id);
+          st.ficha = null;
+          avisar2("Se tomó la versión que envió Terreno.");
+        } else if (a === "elegir") {
+          st.elegir = b.dataset.slot;
+        } else if (a === "cerrar-elegir") {
+          st.elegir = null;
+        } else if (a === "usar-foto") {
+          ponerImagen(st.elegir, { archivo: b.dataset.id });
+          st.elegir = null;
+          await guardarAhora();
+        } else if (a === "quitar-img") {
+          st.ficha[b.dataset.slot] = null;
+          await guardarAhora();
+        } else if (a === "quitar-extra") {
+          st.ficha.fotosExtra.splice(Number(b.dataset.i), 1);
+          await guardarAhora();
+        } else if (a === "quitar-logo") {
+          fijarLogoEmpresa(null);
+        } else return;
+      } catch (e) {
+        console.error(e);
+        avisar2(e.message || "No se pudo", "error");
+      }
+      await render();
+    });
+    render();
+    return { desmontar() {
+      st.vivo = false;
+      if (st.guardando) guardarAhora();
+    }, refrescar: render };
+  }
+
+  // modulos/monografias/monografias.js
+  var ALMACENES4 = Object.values(ALM5);
+  var iniciado4 = false;
+  function iniciar5({ personaId } = {}) {
+    if (!iniciado4) {
+      iniciarDatos4({ personaId: personaId != null ? personaId : null });
+      iniciado4 = true;
+    } else if (personaId !== void 0) fijarPersona4(personaId);
+  }
+  function montar4(contenedor2, contexto) {
+    iniciar5({ personaId: contexto.personaId });
+    return montarPantallas4(contenedor2, contexto);
+  }
+  async function resumenDeProyecto3(proyectoId) {
+    iniciar5();
+    return resumenDeProyecto2(proyectoId);
   }
 
   // app/nube-panel.js
@@ -8745,8 +10215,8 @@ ${escapar(t.nota)}${t.notaPor ? `
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.7";
-  var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.5 + Seguimiento 0.1 (+ tramos desde Terreno)";
+  var VERSION_SISTEMA = "0.8";
+  var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.6 + Seguimiento 0.1 + Monografías 0.1 (desde Terreno)";
 
   // app/vistas.js
   var ICONO = {
@@ -8888,7 +10358,7 @@ ${escapar(t.nota)}${t.notaPor ? `
   async function proyecto(ctx2, id) {
     const p = await obtenerProyecto(id);
     if (!p || p.eliminadoEn) return vacio2("Este proyecto no existe o está en la papelera.", '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
-    const [personas2, equipos, certs, planes, seg] = await Promise.all([listarPersonas(), listarEquiposConEstado(), certificadosDeProyecto(id), planesDeProyecto2(id), resumenDeProyecto(id)]);
+    const [personas2, equipos, certs, planes, seg, mono] = await Promise.all([listarPersonas(), listarEquiposConEstado(), certificadosDeProyecto(id), planesDeProyecto2(id), resumenDeProyecto(id), resumenDeProyecto3(id)]);
     const nomPers = (pid) => (personas2.find((x) => x.id === pid) || {}).nombre || "";
     const enProyecto = equipos.filter((e) => e.ubicacion.lugar === "terreno" && e.ubicacion.proyectoId === id);
     const esOficina = id === OFICINA_ID;
@@ -8932,7 +10402,11 @@ ${escapar(t.nota)}${t.notaPor ? `
           <div class="sg-mini" style="margin-top:6px"><i style="width:${pct}%"></i></div>${seg.plazo ? `<p class="sis-tenue" style="margin-top:6px">Entrega: ${fechaLegible(seg.plazo.vence)}${seg.plazo.quedan >= 0 ? ` · quedan ${seg.plazo.quedan} días hábiles` : ` · vencida hace ${-seg.plazo.quedan} días hábiles`}</p>` : ""}`;
     })() : '<div class="sis-vacio"><p>Sin seguimiento. Sirve para llevar qué tramos están volados, procesados y entregados.</p></div>'}
       </section>
-      <section class="sis-tarjeta sis-pronto"><h2>Jornadas de terreno</h2><p>Llegan desde la app de Terreno cuando quede conectada al Sistema.</p></section>
+      ${esOficina ? "" : `<section class="sis-tarjeta">
+        <div class="sis-cab"><h2>Monografías y terreno</h2>${ctx2.rol === "terreno" ? `<a class="sis-btn chico" href="#/monografias/${escapar(id)}">Abrir</a>` : ""}</div>
+        ${mono.total || mono.jornadas.length ? `<div class="sis-chips">${Object.entries(mono.porEstado).map(([e, n]) => `<span class="sis-chip ${ESTADOS[e].color}">${n} ${escapar(ESTADOS[e].texto.toLowerCase())}</span>`).join("")}</div>
+          <p class="sis-tenue" style="margin-top:6px">${mono.total} monografía${mono.total === 1 ? "" : "s"} · ${mono.jornadas.length} jornada${mono.jornadas.length === 1 ? "" : "s"} de terreno${mono.jornadas[0] && mono.jornadas[0].fechaInicio ? ` · última ${fechaLegible(String(mono.jornadas[0].fechaInicio).slice(0, 10))}` : ""}</p>` : '<div class="sis-vacio"><p>Llegan desde la app de Terreno: jornadas, fotos y monografías del proyecto (botón «Enviar al Sistema»).</p></div>'}
+      </section>`}
     </div><aside>
       <section class="sis-tarjeta">
         <h2>Equipos ${esOficina ? "asignados" : "en el proyecto"}</h2>
@@ -9335,6 +10809,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     equipos: ic('<path d="M12 3v11"/><path d="M5 21l7-7 7 7"/><circle cx="12" cy="3" r="1.5"/>'),
     vuelos: ic('<path d="M12 9v6M9 12h6"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/>'),
     seguimiento: ic('<path d="M4 18h4V9H4zM10 18h4V5h-4zM16 18h4v-6h-4z"/><path d="M3 21h18"/>'),
+    monografias: ic('<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><circle cx="12" cy="13" r="2.5"/><path d="M12 10.5V9M12 17v-1.5"/>'),
     gastos: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
     terreno: ic('<path d="M4 20l5-14 5 9 3-5 3 10z"/>'),
     personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
@@ -9346,6 +10821,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     { ruta: "equipos", texto: "Equipos", roles: ["terreno", "rrhh"] },
     { ruta: "vuelos", texto: "Vuelos", roles: ["terreno"] },
     { ruta: "seguimiento", texto: "Seguimiento", roles: ["terreno"] },
+    { ruta: "monografias", texto: "Monografías", roles: ["terreno"] },
     { ruta: "gastos", texto: "Gastos", roles: ["terreno", "rrhh"], pronto: true },
     { ruta: "personas", texto: "Personas", roles: ["rrhh", "terreno"] }
   ];
@@ -9458,6 +10934,16 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
       window.scrollTo(0, 0);
       return;
     }
+    if (base === "monografias") {
+      const partes = location.hash.replace(/^#\/?/, "").split("/");
+      desmontar();
+      contenedor.innerHTML = "";
+      contenedor.dataset.vista = "modulo";
+      montado = montar4(contenedor, { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, monografiaId: partes[2] || null });
+      rutaActual = clave2;
+      window.scrollTo(0, 0);
+      return;
+    }
     if (base === "equipos") {
       desmontar();
       contenedor.innerHTML = "";
@@ -9544,6 +11030,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
     iniciar2({ personaId: selPersona.value || null });
     iniciar4({ personaId: selPersona.value || null });
     iniciar3({ personaId: selPersona.value || null });
+    iniciar5({ personaId: selPersona.value || null });
     selRol.addEventListener("change", () => {
       escribir("env_rol", selRol.value);
       rutaActual = "";

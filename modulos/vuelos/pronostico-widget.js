@@ -9,7 +9,7 @@ import { htmlPanelMetar } from './metar-ui.js';
 import { graficoPronostico, checklistClima } from './graficos.js';
 import { DRONES_BASE } from './drones.js';
 
-export const VERSION = '1.1 (Vuelos 0.5)';
+export const VERSION = '1.1 (Vuelos 0.6)';
 export const DRONES = DRONES_BASE.map(d => ({ id: d.id, nombre: d.nombre, vientoMaxMs: d.vientoMaxMs, rafagaMaxMs: d.rafagaMaxMs }));
 export const piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, cercanas, decodificar, comparar, graficoPronostico, checklistClima };
 

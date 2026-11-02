@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.7
+# INTEGRACION.md — Sistema v0.8
 
 ## Qué contiene
 
@@ -99,3 +99,12 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - **Seguimiento (puerta):** `tramosDeProyecto()` agrega `ini` y `fin` (km) por tramo.
 - **Paquete de pronóstico 1.1:** METAR pegado en vez de leído; `resumen.metar` queda en lo que devuelve.
 - **Paquete de conexión 1.1:** `tramosDeProyecto()` trae `ini`/`fin`.
+
+## Sistema v0.8
+- **Monografías 0.1** (`modulos/monografias/`): `monografias.js` (puerta: `montar`, `resumenDeProyecto`, `publicarMonografia`, `publicarJornada`, `subirFoto`, `estadoMonografias`), `datos.js`, `pantallas.js`, `pdf.js`, `pieza-terreno.js` (GENERADO desde Terreno con `herramientas/extraer-pieza-monografia.mjs <terreno/js>`; no editar a mano).
+  - Almacenes (prefijo `terreno_`, se sincronizan): `terreno_monografias` (lo que envía Terreno; imágenes → `{ archivo: id }`), `terreno_monografias_gabinete` (versión revisada; `basadoEn`), `terreno_revisiones` (estados, solo se agregan), `terreno_jornadas`.
+  - Fotos en `compartido_archivos` con `modulo: 'terreno'`, `proyectoId` y `detalle` (tipo, punto, lat, lng, hora, leyenda, autor, huella). `compartido/archivos.js` agrega `guardarArchivoDatos` y `archivosDeProyecto`, y guarda `meta.detalle`.
+  - `vendor/jspdf.umd.min.js` (el mismo de Terreno) se carga solo al generar un PDF.
+- **Paquete de conexión 1.2:** usa solo `modulos/monografias/datos.js` (sin pantallas ni PDF).
+- **Vuelos 0.6:** `cortes.js` (forma, métodos, `generarCortes`), en `geom.js`: `ejeDePoligono`, `remuestrear`, `simplificar`, `cascoConvexo`, `rumboLadoLargo`, `cortesParalelos`, `distanciasPorSuperficie`, `anchoEn`. Hoja: `area.ejeCalc` (eje calculado en lon/lat, anchos y perfil), `area.auto` (`modo`, `cada`, `unidad`, `sup`, `unidadSup`, `n`, `rumbo`, `igual`, `bat`, `horas`, `primer`). El modo `inicio` de la v0.7 se lee como `distancia` en metros.
+- **Repositorio:** desde el 2-nov `terreno/` es la app de Terreno (la publica su chat). Las ramas del Sistema parten de `main` y no tocan `terreno/` ni `config.js`.

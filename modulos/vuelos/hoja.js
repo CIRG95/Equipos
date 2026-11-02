@@ -75,7 +75,7 @@ export function geometria(hoja) {
   const a = hoja.area;
   const fuente = a.tipo === 'corredor' ? (a.eje && a.eje.linea) : (a.original && a.original.anillo);
   if (!fuente || fuente.length < 2) return null;
-  const clave = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes, a.dm]); // con todos los vértices: dos áreas con el mismo primer y último punto no deben compartir caché
+  const clave = JSON.stringify([a.tipo, fuente, a.margen, a.rectas, a.corredor, a.cortes, a.dm, a.ejeCalc ? a.ejeCalc.linea : null]); // con todos los vértices: dos áreas con el mismo primer y último punto no deben compartir caché
   if (cacheGeo.clave === clave) return cacheGeo.valor;
   const marco = marcoDe(fuente);
   const cortes = (a.cortes || []).map(c => c.map(marco.aXY));
@@ -100,7 +100,20 @@ export function geometria(hoja) {
     const original = fuente.map(marco.aXY);
     const vuelo = Number(a.margen) > 0 ? margenPoligono(original, Number(a.margen), { rectas: a.rectas !== false }) : original;
     const { sectores, fallidos } = aplicarCortes(vuelo, cortes);
-    valor = { marco, tipo: 'poligono', original, vuelo, sectores: sectores.map(p => ({ poligono: p, area: areaM2(p) })), fallidos };
+    let secs = sectores.map(p => ({ poligono: p, area: areaM2(p) }));
+    // Área lineal con eje calculado: sectores en el orden del eje y, con DM, nombrados por su tramo (v0.8).
+    if (a.ejeCalc && a.ejeCalc.linea && secs.length > 1) {
+      const ejeXY = a.ejeCalc.linea.map(marco.aXY);
+      for (const sec of secs) {
+        const pts = sec.poligono, paso = Math.max(1, Math.ceil(pts.length / 300));
+        let mn = Infinity, mx = -Infinity;
+        for (let i = 0; i < pts.length; i += paso) { const d = distanciaEnEje(ejeXY, pts[i]); if (d < mn) mn = d; if (d > mx) mx = d; }
+        sec.rango = [mn, mx];
+        if (a.dm && a.dm.inicio != null) { const km = x => a.dm.desc ? a.dm.inicio - x / 1000 : a.dm.inicio + x / 1000; sec.dm = [km(mn), km(mx)].sort((x, y) => x - y); }
+      }
+      secs.sort((x, y) => (x.rango[0] + x.rango[1]) - (y.rango[0] + y.rango[1]));
+    }
+    valor = { marco, tipo: 'poligono', original, vuelo, sectores: secs, fallidos };
   }
   valor.areaVuelo = areaM2(valor.vuelo);
   cacheGeo = { clave, valor };
@@ -155,9 +168,12 @@ export function cortesDeCorredor(hoja, distancias) {
 }
 
 /** Cortes para que cada sector se vuele con a lo más n baterías desde un despegue en su centro. Devuelve distancias. */
-export function distanciasPorBaterias(hoja, d, n) {
-  const a = hoja.area, marco = marcoDe(a.eje.linea), eje = a.eje.linea.map(marco.aXY), L = largo(eje);
-  const izq = Number(a.corredor.izq) || 0, der = a.corredor.mismo ? izq : (Number(a.corredor.der) || 0);
+export function distanciasPorBaterias(hoja, d, n, ejeDado = null) {
+  const a = hoja.area;
+  let eje, izq, der;
+  if (ejeDado) ({ eje, izq, der } = ejeDado); // área lineal: eje calculado y medio ancho promedio a cada lado
+  else { const marco = marcoDe(a.eje.linea); eje = a.eje.linea.map(marco.aXY); izq = Number(a.corredor.izq) || 0; der = a.corredor.mismo ? izq : (Number(a.corredor.der) || 0); }
+  const L = largo(eje);
   const pedazo = (s0, s1) => { const pts = [puntoEnEje(eje, s0).p]; let acum = 0; for (let i = 0; i + 1 < eje.length; i++) { acum += Math.hypot(eje[i + 1][0] - eje[i][0], eje[i + 1][1] - eje[i][1]); if (acum > s0 && acum < s1) pts.push(eje[i + 1]); } pts.push(puntoEnEje(eje, s1).p); return pts; };
   const baterias = (s0, s1) => {
     const sub = pedazo(s0, s1), medio = puntoEnEje(eje, (s0 + s1) / 2).p;

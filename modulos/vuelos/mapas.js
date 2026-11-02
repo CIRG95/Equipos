@@ -112,10 +112,12 @@ export function crearMapas(v) {
     const LL = aLL(g);
     if (g.tipo === 'poligono' && Number(h.area.margen)) m.capas.original = L.polygon(g.original.map(LL), { color: '#FFFFFF', weight: 2, dashArray: '6 5', fill: false, interactive: false }).addTo(mapa);
     if (g.tipo === 'corredor') m.capas.eje = L.polyline(g.eje.map(LL), { color: '#FFFFFF', weight: 2, dashArray: '3 5', interactive: false }).addTo(mapa);
+    else if (h.area.ejeCalc && h.area.ejeCalc.linea) m.capas.eje = L.polyline(h.area.ejeCalc.linea.map(([lon, lat]) => [lat, lon]), { color: '#FFFFFF', weight: 2, dashArray: '3 5' }).bindTooltip('Eje calculado', { sticky: true }).addTo(mapa);
     const varios = g.sectores.length > 1;
     m.capas.sectores = L.layerGroup(g.sectores.map((s, i) => {
-      const p = L.polygon(s.poligono.map(LL), { color: '#E8611C', weight: 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? 0.25 : 0.1, interactive: false });
-      if (varios) p.bindTooltip(nombreSector(h, i, g.sectores.length), { permanent: true, direction: 'center', className: 'vu-etiqueta' });
+      const p = L.polygon(s.poligono.map(LL), { color: '#E8611C', weight: 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? 0.25 : 0.1, interactive: g.sectores.length > 8 });
+      // Con muchos sectores las etiquetas fijas se tapan entre sí: se muestran al pasar el mouse.
+      if (varios) p.bindTooltip(nombreSector(h, i, g.sectores.length), { permanent: g.sectores.length <= 8, sticky: g.sectores.length > 8, direction: 'center', className: 'vu-etiqueta' });
       return p;
     })).addTo(mapa);
     const capas = [];

@@ -314,3 +314,161 @@ export function distanciaEnEje(eje, q) {
   }
   return mejor.s;
 }
+
+// ─────────── Eje automático de un área lineal y cortes paralelos (v0.8) ───────────
+
+/** Puntos a distancias iguales a lo largo de una polilínea (n puntos, incluye extremos). */
+export function remuestrear(linea, n) {
+  const L = largo(linea);
+  if (n < 2 || !L) return [linea[0], linea[linea.length - 1]];
+  const out = [];
+  let i = 0, acum = 0;
+  for (let k = 0; k < n; k++) {
+    const s = L * k / (n - 1);
+    while (i + 2 < linea.length && acum + dist(linea[i], linea[i + 1]) < s) { acum += dist(linea[i], linea[i + 1]); i++; }
+    const l = dist(linea[i], linea[i + 1]) || 1;
+    out.push(add(linea[i], mul(sub(linea[i + 1], linea[i]), Math.max(0, Math.min(1, (s - acum) / l)))));
+  }
+  return out;
+}
+
+/** Simplificación Douglas-Peucker (tolerancia en metros), iterativa. */
+export function simplificar(linea, tol) {
+  if (linea.length < 3) return linea.slice();
+  const marca = new Uint8Array(linea.length); marca[0] = marca[linea.length - 1] = 1;
+  const pila = [[0, linea.length - 1]];
+  while (pila.length) {
+    const [a, b] = pila.pop();
+    let max = -1, idx = -1;
+    for (let i = a + 1; i < b; i++) { const d = distPuntoSegmento(linea[i], linea[a], linea[b]); if (d > max) { max = d; idx = i; } }
+    if (max > tol) { marca[idx] = 1; pila.push([a, idx], [idx, b]); }
+  }
+  return linea.filter((_, i) => marca[i]);
+}
+
+/**
+ * Eje (línea media) de un polígono alargado: se buscan los dos vértices más lejanos, se separan los dos bordes
+ * y se une el punto medio entre ellos. Devuelve { eje, largo, anchos: [{ s, ancho }], anchoMin, anchoProm, anchoMax, razon }.
+ */
+export function ejeDePoligono(poli) {
+  const pts = limpiarVertices(poli, true);
+  const n = pts.length;
+  if (n < 4) return null;
+  // Extremos: los dos vértices más lejanos (sobre una muestra si el polígono es muy grande).
+  const paso = Math.max(1, Math.ceil(n / 1500));
+  let mejor = { d: -1, i: 0, j: 0 };
+  for (let i = 0; i < n; i += paso) for (let j = i + paso; j < n; j += paso) { const d = dist(pts[i], pts[j]); if (d > mejor.d) mejor = { d, i, j }; }
+  // Afinar alrededor de cada extremo.
+  const afinar = (fijo, idx) => { let b = idx, bd = dist(pts[fijo], pts[idx]); for (let k = -paso; k <= paso; k++) { const m = (idx + k + n) % n, d = dist(pts[fijo], pts[m]); if (d > bd) { bd = d; b = m; } } return b; };
+  let { i, j } = mejor; j = afinar(i, j); i = afinar(j, i);
+  if (i > j) [i, j] = [j, i];
+  const A = pts.slice(i, j + 1);                                   // de i a j por un lado
+  const B = [...pts.slice(j), ...pts.slice(0, i + 1)].reverse();   // de i a j por el otro
+  const La = largo(A), Lb = largo(B);
+  const m = Math.max(50, Math.min(4000, Math.round(Math.max(La, Lb) / 25)));
+  const ra = remuestrear(A, m), rb = remuestrear(B, m);
+  const medio = ra.map((p, k) => mul(add(p, rb[k]), 0.5));
+  // Ancho en cada punto del eje: distancia al borde más cercano de cada lado (en una ventana, porque los dos bordes
+  // no miden lo mismo en las curvas y emparejarlos por fracción del largo sobrestima el ancho).
+  const W = Math.max(10, Math.round(m / 40));
+  const cercano = (q, cadena, k) => { let best = Infinity; for (let i = Math.max(0, k - W); i <= Math.min(m - 2, k + W); i++) best = Math.min(best, distPuntoSegmento(q, cadena[i], cadena[i + 1])); return best; };
+  const anchosBrutos = medio.map((q, k) => cercano(q, ra, k) + cercano(q, rb, k));
+  const eje = simplificar(medio, 1.5);
+  const L = largo(medio);
+  // Ancho representativo: se descartan los extremos (donde los bordes se juntan).
+  const util = anchosBrutos.slice(Math.floor(m * 0.03), Math.ceil(m * 0.97));
+  const orden = util.slice().sort((x, y) => x - y);
+  const q = f => orden[Math.min(orden.length - 1, Math.max(0, Math.round(f * (orden.length - 1))))];
+  const anchoProm = util.reduce((s, x) => s + x, 0) / (util.length || 1);
+  return {
+    eje, largo: L, anchos: anchosBrutos.map((w, k) => ({ s: L * k / (m - 1), ancho: w })),
+    anchoMin: q(0.05), anchoProm, anchoMax: q(0.95), razon: anchoProm ? L / anchoProm : 0,
+  };
+}
+
+/** ¿Es un área lineal (larga y angosta)? */
+export const esAreaLineal = e => !!e && e.razon >= 8 && e.largo >= 1000;
+
+/** Ancho del área en la distancia s del eje (interpolado del perfil de anchos). */
+export function anchoEn(perfil, s) {
+  if (!perfil || !perfil.length) return 0;
+  let k = perfil.findIndex(p => p.s >= s);
+  if (k <= 0) return perfil[Math.max(0, k)].ancho;
+  if (k < 0) return perfil[perfil.length - 1].ancho;
+  const a = perfil[k - 1], b = perfil[k], t = (s - a.s) / ((b.s - a.s) || 1);
+  return a.ancho + (b.ancho - a.ancho) * t;
+}
+
+/** Distancias del eje donde la superficie acumulada llega a cada múltiplo de m2 (con el perfil de anchos). */
+export function distanciasPorSuperficie(perfil, L, m2) {
+  if (!(m2 > 0) || !perfil || !perfil.length) return [];
+  const out = []; let acum = 0, meta = m2;
+  for (let k = 1; k < perfil.length; k++) {
+    const ds = perfil[k].s - perfil[k - 1].s, w = (perfil[k].ancho + perfil[k - 1].ancho) / 2;
+    if (acum + ds * w >= meta) { const falta = meta - acum; out.push(perfil[k - 1].s + falta / (w || 1)); meta += m2; }
+    acum += ds * w;
+  }
+  return out.filter(s => s > 1 && s < L - 1);
+}
+
+/** Casco convexo (cadena monótona). */
+export function cascoConvexo(pts) {
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], hi = [];
+  for (const x of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], x) <= 0) lo.pop(); lo.push(x); }
+  for (let i = p.length - 1; i >= 0; i--) { const x = p[i]; while (hi.length >= 2 && cr(hi[hi.length - 2], hi[hi.length - 1], x) <= 0) hi.pop(); hi.push(x); }
+  hi.pop(); lo.pop();
+  return lo.concat(hi);
+}
+
+/** Rumbo (0–179°, desde el norte) del lado más largo del rectángulo mínimo que contiene al polígono. */
+export function rumboLadoLargo(poli) {
+  const h = cascoConvexo(poli);
+  let mejor = { area: Infinity, rumbo: 0 };
+  for (let g = 0; g < 180; g++) {
+    const a = g * Math.PI / 180, d = [Math.sin(a), Math.cos(a)], n = [Math.cos(a), -Math.sin(a)];
+    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+    for (const p of h) { const x = p[0] * d[0] + p[1] * d[1], y = p[0] * n[0] + p[1] * n[1]; a0 = Math.min(a0, x); a1 = Math.max(a1, x); b0 = Math.min(b0, y); b1 = Math.max(b1, y); }
+    const area = (a1 - a0) * (b1 - b0);
+    if (area < mejor.area - 1e-6) mejor = { area, rumbo: (a1 - a0) >= (b1 - b0) ? g : (g + 90) % 180 };
+  }
+  return mejor.rumbo;
+}
+
+/** Recorta un polígono con el semiplano { p · n <= c } (Sutherland–Hodgman). */
+function recortarSemiplano(poli, n, c) {
+  const out = [], f = p => p[0] * n[0] + p[1] * n[1] - c;
+  for (let i = 0; i < poli.length; i++) {
+    const a = poli[i], b = poli[(i + 1) % poli.length], fa = f(a), fb = f(b);
+    if (fa <= 0) out.push(a);
+    if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) { const t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+  }
+  return out;
+}
+
+/**
+ * Cortes rectos paralelos que dividen el polígono en n partes. rumboCortes: dirección de las líneas de corte (0–179°, desde el norte).
+ * igualSuperficie: cada parte con la misma superficie (si no, a igual distancia). Devuelve cortes [[p, q]] en metros.
+ */
+export function cortesParalelos(poli, n, rumboCortes, { igualSuperficie = true } = {}) {
+  if (!(n >= 2)) return [];
+  const a = rumboCortes * Math.PI / 180, d = [Math.sin(a), Math.cos(a)], nn = [Math.cos(a), -Math.sin(a)]; // nn: normal a los cortes
+  const proy = poli.map(p => p[0] * nn[0] + p[1] * nn[1]);
+  const c0 = Math.min(...proy), c1 = Math.max(...proy);
+  const largoCorte = Math.max(...poli.map(p => p[0] * d[0] + p[1] * d[1])) - Math.min(...poli.map(p => p[0] * d[0] + p[1] * d[1]));
+  const total = Math.abs(areaFirmada(poli));
+  const posiciones = [];
+  for (let k = 1; k < n; k++) {
+    if (!igualSuperficie) { posiciones.push(c0 + (c1 - c0) * k / n); continue; }
+    const meta = total * k / n;
+    let lo = c0, hi = c1;
+    for (let it = 0; it < 40 && hi - lo > 0.05; it++) { const m = (lo + hi) / 2; if (Math.abs(areaFirmada(recortarSemiplano(poli, nn, m))) < meta) lo = m; else hi = m; }
+    posiciones.push((lo + hi) / 2);
+  }
+  // Cada corte: recta {p · nn = c}, larga como todo el polígono más un margen.
+  const centroD = (Math.max(...poli.map(p => p[0] * d[0] + p[1] * d[1])) + Math.min(...poli.map(p => p[0] * d[0] + p[1] * d[1]))) / 2;
+  const semi = largoCorte / 2 + 50;
+  return posiciones.map(c => { const base = add(mul(nn, c), mul(d, centroD)); return [add(base, mul(d, -semi)), add(base, mul(d, semi))]; });
+}

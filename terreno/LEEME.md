@@ -1,4 +1,4 @@
-# Terreno Topografía — app de terreno (v0.5.6)
+# Terreno Topografía — app de terreno (v0.5.7)
 
 App aparte, liviana, para el teléfono (y PC). Alimenta al Sistema sin integrarse a él. Se publica con GitHub Pages en `…/equipos/terreno/`.
 

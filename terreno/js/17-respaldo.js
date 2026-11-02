@@ -112,15 +112,15 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.6: conexión con el Sistema Topoland. En ⚙ → «Sistema Topoland» vinculas este teléfono a tu persona (QR del Sistema o código de 6 letras) y, si quieres, conectas la nube del Sistema. Al iniciar la jornada puedes elegir el proyecto de una lista («Proyecto del Sistema», con «Oficina»); la jornada guarda su proyectoId y el texto sigue funcionando.",
-    "Sin vincular, la app funciona igual que antes."
+    "Versión 0.5.7: monografías y jornadas hacia el Sistema (paquete de conexión 1.2). Estando vinculado: cada monografía guarda el proyecto del Sistema (por defecto el de la jornada en curso o de la que nace) y tiene el botón «Enviar al Sistema» (en la ficha, en el listado y «Enviar todas»). Al terminar una jornada con proyecto del Sistema se ofrece enviarla. En el listado se ve el estado que devuelve gabinete: En revisión, Lista o Con observación, con el texto de la observación.",
+    "La monografía, su chequeo y su PDF no cambian. Sin vincular o con un paquete antiguo, los botones no aparecen y todo sigue como antes."
   ],
   probar: [
-    "Vincula con un código del Sistema, inicia una jornada eligiendo un proyecto y revisa que quede con su nombre. En un teléfono nuevo, conecta primero la nube del Sistema."
+    "Con datos ficticios: vincula, elige proyecto en una monografía, envíala, y revisa el estado en el listado. Después de que gabinete marque una observación, sincroniza y debe verse el texto."
   ],
   conocidos: [
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",
-    "Aún no: avisos de equipos y tramos volados (0.5.7). El Sistema todavía no lee las jornadas de Terreno.",
+    "Aún no: avisos de equipos y tramos volados.",
     "Hay dos conexiones de Google distintas: la de Terreno (⚙ Nube, por jornada) y la del Sistema (⚙ Sistema Topoland). Se unificarán con la nube común.",
     "Consultar necesita internet (Open-Meteo, NOAA). Open-Meteo es gratis solo para uso no comercial: ver plan pagado antes de usarlo en la empresa.",
     "Sin ubicación en la jornada la tarjeta pide capturarla (GPS o mapa).",

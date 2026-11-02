@@ -236,6 +236,7 @@ function renderMonografias() {
       </div>
       <button class="btn btn-outline" id="btnMonografiaImportar" type="button" style="width:100%; margin-top:8px;">📄 Importar puntos desde TXT / CSV</button>
       <button class="btn btn-outline" id="btnMonografiasJuntas" type="button" style="width:100%; margin-top:8px;">⬇ Descargar todas juntas (un PDF)</button>
+      ${typeof sisBotonTodasHtml === "function" ? sisBotonTodasHtml() : ""}
     </div>
     ${panelComunesHtml()}
     ${state.monografias.length ? state.monografias.slice().sort((a, b) => new Date(b.creado) - new Date(a.creado)).map((m) => `
@@ -245,6 +246,7 @@ function renderMonografias() {
             <div style="font-weight:700;">${escapeHtml(m.puntoMedido || "(sin punto)")} <span class="muted" data-chev style="font-weight:400;">${state.monoAbiertas && state.monoAbiertas.has(m.id) ? "▴" : "▾"}</span></div>
             <div class="muted" style="font-size:12px;">${escapeHtml(m.nombreProyecto || "Sin proyecto")}${m.clienteNombre ? " · " + escapeHtml(m.clienteNombre) : ""}</div>
             <div style="margin-top:2px;">${monoAvisosCorto(m)}</div>
+            ${typeof sisEstadoMonoHtml === "function" ? sisEstadoMonoHtml(m) + sisBotonMonoHtml(m) : ""}
           </div>
           <div style="display:flex; gap:6px;">
             <button class="btn btn-outline btn-sm" data-editar-monografia="${m.id}" type="button">Editar</button>
@@ -260,6 +262,7 @@ function renderMonografias() {
 
   document.getElementById("btnVolverHerramientas").addEventListener("click", () => { state.herramienta = null; renderMonografias(); });
   wirePanelComunes(el);
+  if (typeof sisDespuesDeListado === "function") sisDespuesDeListado();
   document.getElementById("btnNuevaMonografia").addEventListener("click", async () => {
     const m = crearMonografiaDesdeDefaults();
     state.monografias.push(m);
@@ -342,6 +345,7 @@ function abrirSelectorPuntoGnss() {
       m.fechaMedicion = d.punto.timestamp ? d.punto.timestamp.slice(0, 10) : (m.fechaMedicion || "");
       m.equipoGNSS = m.equipoGNSS || "";
       if (!m.nombreProyecto && d.jornada && d.jornada.proyecto) m.nombreProyecto = d.jornada.proyecto;
+      if (d.jornada && d.jornada.proyectoId) m.proyectoId = d.jornada.proyectoId;   // v0.5.7
       m.tipoMedicion = d.lev.tipoNombre === "RTK" ? "RTK" : "Estática";
       // Coordenadas de referencia (GPS del punto, no es precisión de post-proceso):
       // se dejan en Geodésicas como punto de partida — el usuario las reemplaza

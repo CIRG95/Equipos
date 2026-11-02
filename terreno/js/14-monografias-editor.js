@@ -19,6 +19,7 @@ function renderEditorMonografia(el) {
       <div id="campoClienteLogo"></div>
       <label>Nombre del proyecto</label>
       <input type="text" id="mNombreProyecto" value="${escapeHtml(m.nombreProyecto)}" placeholder='Ej: MATERIALIZACIÓN DE MONOLITOS PROYECTO "..."'>
+      <div id="mProyectoSistema"></div>
 
       <div class="divider"></div>
       <label>Punto medido</label>
@@ -134,6 +135,7 @@ function renderEditorMonografia(el) {
   `;
 
   document.getElementById("btnVolverMonografias").addEventListener("click", () => { state.monografiaEnEdicionId = null; renderMonografias(); });
+  if (typeof sisMonoEditor === "function") sisMonoEditor(m, leerCamposAEstado);
 
   // Toggle de visibilidad en vivo para cada módulo
   [["mModUtm", "mWrapUtm"], ["mModGeo", "mWrapGeo"], ["mModCroquis", "mWrapCroquis"], ["mModPano", "mWrapPano"], ["mModFotos", "mWrapFotos"], ["mModDesc", "mWrapDesc"], ["mModFirma", "mWrapFirma"]].forEach(([chkId, wrapId]) => {
@@ -259,6 +261,8 @@ function renderEditorMonografia(el) {
     m.tituloDocumento = document.getElementById("mTituloDocumento").value.trim();
     m.clienteNombre = document.getElementById("mClienteNombre").value.trim();
     m.nombreProyecto = document.getElementById("mNombreProyecto").value.trim();
+    const selSis = document.getElementById("mSelProyectoSistema");
+    if (selSis) m.proyectoId = selSis.value || null;   // v0.5.7
     m.puntoMedido = document.getElementById("mPuntoMedido").value.trim();
     m.localidad = document.getElementById("mLocalidad").value.trim();
     m.ubicacion = document.getElementById("mUbicacion").value.trim();

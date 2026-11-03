@@ -1,7 +1,7 @@
 "use strict";
 
 /* =========================================================================
-   v0.5.6 — CONEXIÓN CON EL SISTEMA TOPOLAND (paquete TopolandConexion)
+   v0.5.6 — CONEXIÓN CON EL SISTEMA (paquete de conexión)
    Terreno sigue siendo su propia app: se vincula a una persona del Sistema y
    lee sus proyectos para elegirlos al iniciar la jornada. Nada de esto es
    obligatorio: sin vincular, la app funciona igual que antes.
@@ -105,6 +105,30 @@ function sisRenderConfig() {
   const resumen = ok4
     ? `<p><strong>Listo.</strong> Vinculado como <strong>${escapeHtml(p.nombre)}</strong>${p.cargo ? " · " + escapeHtml(p.cargo) : ""}.</p>`
     : "";
+  if (ok4 && ok2) {
+    // Ya vinculado y con carpeta: vista corta. La sesión de Google dura 1 hora; si venció, basta un toque para renovarla.
+    const diag = `Sitio: ${escapeHtml(location.origin)}<br>Internet: ${navigator.onLine ? "sí" : "no"}<br>Sesión de Google: ${ok1 ? "sí" : "vencida"}<br>Carpeta: ${escapeHtml(n.carpetaNombre || "conectada")}<br>Última sincronización: ${hora || "—"}`;
+    el.innerHTML = `
+      <div class="sis-paso hecho">
+        <h4>✔ Conectado con el Sistema</h4>
+        <p style="margin:2px 0;">Vinculado como <strong>${escapeHtml(p.nombre)}</strong>${p.cargo ? " · " + escapeHtml(p.cargo) : ""}.</p>
+        <p class="muted" style="font-size:12px; margin:2px 0;">Nube: <strong>${escapeHtml(n.carpetaNombre || "conectada")}</strong>${hora ? " · última sincronización " + hora : ""}${n.pendiente ? " · hay cambios por subir" : ""}</p>
+        ${n.sincronizando ? `<p class="muted" style="font-size:12px;">Sincronizando desde hace ${seg} s…</p>
+          <button class="btn btn-outline" data-sis="reiniciar" type="button" style="width:100%;">Reiniciar la app</button>`
+        : ok1 ? `<button class="btn btn-accent" data-sis="sync" type="button" style="width:100%; margin-top:8px;">Sincronizar ahora</button>`
+        : `<p class="muted" style="font-size:12px; margin-top:6px;">La sesión de Google se cierra sola cada hora. Tus datos no se pierden: toca para renovarla y sincronizar.</p>
+          <button class="btn btn-accent" data-sis="google" type="button" style="width:100%;">Renovar sesión de Google</button>`}
+      </div>
+      ${err.length ? `<div class="sis-err"><strong>Último error:</strong><br>${err.map(escapeHtml).join("<br>")}</div>` : ""}
+      <details style="margin-top:12px; font-size:12px;" class="muted">
+        <summary>Más opciones</summary>
+        <div style="margin-top:6px;">${diag}</div>
+        ${ok1 ? `<button class="btn btn-outline btn-sm" data-sis="probar" type="button" style="width:100%; margin-top:8px;">Ver qué hay en la carpeta de Drive</button>
+        <div id="sisProbar" style="margin-top:6px; word-break:break-word;">${SIS.probar || ""}</div>` : ""}
+        <button class="btn btn-outline btn-sm danger" data-sis="desvincular" type="button" style="width:100%; margin-top:8px;">Desvincular este teléfono</button>
+      </details>`;
+    return;
+  }
   el.innerHTML = `
     <p class="muted">Conecta este teléfono con el Sistema en 4 pasos. Haz cada uno en orden.</p>
     ${resumen}

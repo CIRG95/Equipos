@@ -68,7 +68,7 @@ function formatoImagenJsPDF(dataUrl) {
   return "JPEG";
 }
 
-/* Réplica fiel del formato tipo de Topoland (monografía de PRs y monolitos):
+/* Réplica fiel del formato tipo de la empresa (monografía de PRs y monolitos):
    cuadrícula de líneas azul marino, título en 3 columnas (cliente/título/
    logo propio), barra de proyecto, fila Punto Medido + Ubicación, tabla
    combinada UTM+Geodésicas en una sola franja con encabezado azul sólido,

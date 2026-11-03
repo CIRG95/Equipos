@@ -1,4 +1,4 @@
-// modulos/monografias/pieza-terreno.js — GENERADO por herramientas/extraer-pieza-monografia.mjs desde Terreno v0.5.6.
+// modulos/monografias/pieza-terreno.js — GENERADO por herramientas/extraer-pieza-monografia.mjs desde Terreno v0.5.8.
 // Es el código de monografías de la app de Terreno copiado sin cambios (formato, chequeo ✔ – ! ?, ajuste de
 // imágenes y PDF con jsPDF + fuente Carlito), para que la monografía salga idéntica en el Sistema y en Terreno.
 // NO EDITAR A MANO: si Terreno cambia su monografía, se vuelve a correr la herramienta.
@@ -471,5 +471,5 @@ function cargarMonografiaDefaults() {
   };
 }
 
-export const VERSION_TERRENO = '0.5.6';
-export { cargarMonografiaDefaults as valoresPorDefecto, monoResumenDatos as chequeoMonografia, prepararImagenesMonografia, construirMonografiaPdf, dimsMonografia, ordenNatural, impNum, fmtFechaCorta };
+export const VERSION_TERRENO = '0.5.8';
+export { cargarMonografiaDefaults as valoresPorDefecto, monoResumenDatos as chequeoMonografia, prepararImagenesMonografia, construirMonografiaPdf, dimsMonografia, ajusteDe, calcRectImagen, cargarImagenEl, ordenNatural, impNum, fmtFechaCorta };

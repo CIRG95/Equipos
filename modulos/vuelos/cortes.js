@@ -2,10 +2,11 @@
 // Métodos: área lineal (usa el eje) → distancia · superficie · dm · tramos; cualquier área → n (paralelos con rotación) ·
 // baterias · dias; manual = trazar a mano. Todos devuelven cortes en lon/lat que quedan en h.area.cortes como los manuales.
 
-import { geometria, marcoDe, distanciasCorte, distanciasPorBaterias, calcularSector } from './hoja.js';
+import { geometria, marcoDe, distanciasCorte, distanciasPorBaterias, calcularSector, dmAKm, kmADm, kmEnEje, sDeKm } from './hoja.js';
 import { ejeDePoligono, esAreaLineal, cortesTransversales, cortesParalelos, rumboLadoLargo, distanciasPorSuperficie, largo, anchoEn } from './geom.js';
 
 export const METODOS = {
+  medida: { texto: 'Cortes a medida', grupo: 'lineal', ayuda: 'Cortes fijos en los DM que elijas (escritos o marcados en el eje) y, después del último, cortes cada X m o km hasta el fin del eje. El último sector termina en el fin del eje.' },
   distancia: { texto: 'Por distancia', grupo: 'lineal', ayuda: 'Cortes perpendiculares al eje cada X m o km, desde el inicio del eje.' },
   superficie: { texto: 'Por superficie', grupo: 'lineal', ayuda: 'Cortes perpendiculares al eje para que cada sector tenga la superficie indicada.' },
   dm: { texto: 'Alineados al DM', grupo: 'lineal', ayuda: 'Cortes en DM redondos (cada 1 km: 11+000, 12+000…) o desde un primer DM. Necesita el DM del inicio del eje (pestaña Forma).' },
@@ -37,7 +38,8 @@ export function formaDe(hoja) {
 }
 
 /** Método que la app propone según la forma. */
-export const metodoPropuesto = forma => (forma && forma.lineal ? 'distancia' : 'n');
+export const metodoPropuesto = forma => (forma && forma.lineal ? 'medida' : 'n');
+export const METODOS_LINEALES = ['medida', 'distancia', 'superficie', 'dm', 'tramos'];
 
 /** Eje en metros (marco de la geometría) con su perfil de anchos. */
 function ejeDe(hoja, g) {
@@ -62,14 +64,60 @@ export function rumboCortesPropuesto(hoja) {
 const metros = (v, u) => Number(String(v).replace(',', '.')) * (u === 'km' ? 1000 : 1);
 const m2De = (v, u) => Number(String(v).replace(',', '.')) * (u === 'km2' ? 1e6 : 1e4);
 
-/** Distancias de corte sobre el eje para los métodos lineales. */
+/**
+ * Cortes a medida (v0.9): DM (km) de los cortes. fijos = DM elegidos; después del último fijo (o desde el inicio si no hay),
+ * un corte cada «cada» metros hasta el fin del eje. Devuelve los DM ordenados en el sentido de avance.
+ */
+export function kmCortesAMedida(kmIni, kmFin, fijosKm, cada) {
+  const sube = kmFin >= kmIni, dentro = k => (sube ? k > kmIni + 1e-6 && k < kmFin - 1e-6 : k < kmIni - 1e-6 && k > kmFin + 1e-6);
+  const orden = (x, y) => (sube ? x - y : y - x);
+  const fijos = [...new Set(fijosKm.filter(k => k != null && isFinite(k)).map(k => Math.round(k * 1000) / 1000))].filter(dentro).sort(orden);
+  const out = [...fijos];
+  const paso = Number(cada) / 1000;
+  if (paso > 0.0005) {
+    let k = (fijos.length ? fijos[fijos.length - 1] : kmIni) + (sube ? paso : -paso);
+    for (let n = 0; dentro(k) && n < 2000; n++) { out.push(Math.round(k * 1000) / 1000); k += sube ? paso : -paso; }
+  }
+  return out;
+}
+
+/** DM del inicio y del fin del eje (km), en el sentido de avance. */
+function kmExtremos(hoja, e) {
+  const a = hoja.area;
+  return [kmEnEje(a, a.dm && a.dm.inv ? e.L : 0, e.L), kmEnEje(a, a.dm && a.dm.inv ? 0 : e.L, e.L)];
+}
+
+/** Distancias de corte sobre el eje (m desde el primer vértice guardado) para los métodos lineales. */
 function distanciasLineales(hoja, e, au, extra) {
-  const dm = hoja.area.dm || {};
-  if (au.modo === 'distancia') return distanciasCorte(e.L, { modo: 'inicio', cada: metros(au.cada || 5, au.unidad || 'km') });
-  if (au.modo === 'superficie') return distanciasPorSuperficie(e.perfil, e.L, m2De(au.sup || 50, au.unidadSup || 'ha'));
-  if (au.modo === 'dm') return distanciasCorte(e.L, { modo: 'dm', cada: metros(au.cada || 1, au.unidad || 'km'), dmInicio: dm.inicio, desc: !!dm.desc, primerDM: extra.primerDM });
-  if (au.modo === 'tramos') return distanciasCorte(e.L, { modo: 'tramos', dmInicio: dm.inicio, desc: !!dm.desc, tramosKm: extra.tramosKm || [] });
+  const a = hoja.area, dm = a.dm || {}, inv = !!dm.inv, L = e.L;
+  const espejo = arr => (inv ? arr.map(s => L - s).sort((x, y) => x - y) : arr); // métodos que cuentan desde el primer vértice
+  if (au.modo === 'medida') {
+    const [k0, k1] = kmExtremos(hoja, e);
+    const fijos = (au.fijos || []).map(dmAKm);
+    return kmCortesAMedida(k0, k1, fijos, metros(au.cada || 5, au.unidad || 'km')).map(k => sDeKm(a, k, L)).filter(s => s > 1 && s < L - 1).sort((x, y) => x - y);
+  }
+  if (au.modo === 'distancia') return espejo(distanciasCorte(L, { modo: 'inicio', cada: metros(au.cada || 5, au.unidad || 'km') }));
+  if (au.modo === 'superficie') {
+    const perfil = inv ? e.perfil.map(p => ({ s: L - p.s, ancho: p.ancho })).reverse() : e.perfil;
+    return espejo(distanciasPorSuperficie(perfil, L, m2De(au.sup || 50, au.unidadSup || 'ha')));
+  }
+  // dm y tramos: distanciasCorte cuenta desde el vértice donde está el DM del inicio
+  if (au.modo === 'dm') return espejo(distanciasCorte(L, { modo: 'dm', cada: metros(au.cada || 1, au.unidad || 'km'), dmInicio: dm.inicio, desc: !!dm.desc, primerDM: extra.primerDM }));
+  if (au.modo === 'tramos') return espejo(distanciasCorte(L, { modo: 'tramos', dmInicio: dm.inicio, desc: !!dm.desc, tramosKm: extra.tramosKm || [] }));
   return [];
+}
+
+/** Tramos (texto DM) que darían los cortes a medida, para la vista previa. */
+export function tramosVistaPrevia(hoja) {
+  const g = geometria(hoja), au = hoja.area.auto || {};
+  if (!g) return null;
+  formaDe(hoja);
+  const e = ejeDe(hoja, g);
+  if (!e) return null;
+  const [k0, k1] = kmExtremos(hoja, e);
+  const cortes = kmCortesAMedida(k0, k1, (au.fijos || []).map(dmAKm), metros(au.cada || 5, au.unidad || 'km'));
+  const pts = [k0, ...cortes, k1];
+  return { inicio: k0, fin: k1, tramos: pts.slice(1).map((k, i) => [pts[i], k]).map(([x, y]) => `${kmADm(Math.min(x, y))} – ${kmADm(Math.max(x, y))}`) };
 }
 
 function cortesEnDistancias(g, e, distancias) {
@@ -82,7 +130,7 @@ export function vistaPrevia(hoja) {
   if (!g) return null;
   const modo = au.modo === 'inicio' ? 'distancia' : (au.modo || metodoPropuesto(formaDe(hoja)));
   if (modo === 'n') { const n = Math.max(2, Math.min(60, Number(au.n) || 4)); return { sectores: n, haPorSector: g.areaVuelo / n / 1e4 }; }
-  if (!['distancia', 'superficie', 'dm', 'tramos'].includes(modo)) return null;
+  if (!METODOS_LINEALES.includes(modo)) return null;
   formaDe(hoja);
   const e = ejeDe(hoja, g);
   if (!e) return null;
@@ -106,11 +154,12 @@ export function generarCortes(hoja, extra = {}) {
   const modo = au.modo || metodoPropuesto(forma);
   const d = extra.dron;
 
-  if (['distancia', 'superficie', 'dm', 'tramos'].includes(modo)) {
+  if (METODOS_LINEALES.includes(modo)) {
     const e = forma && forma.lineal ? ejeDe(hoja, g) : null;
     if (!e) throw new Error('Este método usa el eje del área y el área no es lineal. Usa «En N sectores».');
     if ((modo === 'dm' || modo === 'tramos') && (!hoja.area.dm || hoja.area.dm.inicio == null)) throw new Error('Escribe primero el DM del inicio del eje (pestaña Forma), por ejemplo 10+000.');
     const dist = distanciasLineales(hoja, e, au, extra);
+    if (!dist.length && modo === 'medida') return { cortes: [], nota: 'Con esos datos no hay cortes dentro del eje: queda un solo sector.' };
     if (!dist.length) throw new Error(modo === 'tramos' ? 'Ningún DM de los tramos cae dentro del eje: revisa el DM del inicio y si baja.' : 'Con esos datos no hay cortes dentro del área.');
     return { cortes: cortesEnDistancias(g, e, dist) };
   }

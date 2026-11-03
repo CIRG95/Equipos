@@ -4556,13 +4556,10 @@ Content-Type: ${mime}\r
       sectores.forEach((s) => {
         s.area = areaM2(s.poligono);
       });
-      const ejeOrig = fuente.map(marco.aXY);
-      if (a.dm && a.dm.inicio != null) for (const s of sectores) {
-        const s0 = distanciaEnEje(ejeOrig, s.eje[0]), s1 = distanciaEnEje(ejeOrig, s.eje[s.eje.length - 1]);
-        const km = (x) => a.dm.desc ? a.dm.inicio - x / 1e3 : a.dm.inicio + x / 1e3;
-        const [k0, k1] = [km(s0), km(s1)].sort((x, y) => x - y);
-        s.dm = [k0, k1];
-      }
+      const ejeOrig = fuente.map(marco.aXY), Lo = largo(ejeOrig);
+      for (const s of sectores) s.rango = [distanciaEnEje(ejeOrig, s.eje[0]), distanciaEnEje(ejeOrig, s.eje[s.eje.length - 1])].sort((x, y) => x - y);
+      if (a.dm && a.dm.inicio != null) for (const s of sectores) s.dm = s.rango.map((x) => kmEnEje(a, x, Lo)).sort((x, y) => x - y);
+      if (a.dm && a.dm.inv) sectores.sort((x, y) => y.rango[0] + y.rango[1] - (x.rango[0] + x.rango[1]));
       valor = { marco, tipo: "corredor", eje, izq, der, vuelo: poligonoCorredor(eje, izq, der), original: null, sectores, fallidos: cortes.length && tramos.length < cortes.length + 1 ? ["algún corte no cruza el eje"] : [] };
     } else {
       const original = fuente.map(marco.aXY);
@@ -4570,7 +4567,7 @@ Content-Type: ${mime}\r
       const { sectores, fallidos } = aplicarCortes(vuelo, cortes);
       let secs = sectores.map((p) => ({ poligono: p, area: areaM2(p) }));
       if (a.ejeCalc && a.ejeCalc.linea && secs.length > 1) {
-        const ejeXY = a.ejeCalc.linea.map(marco.aXY);
+        const ejeXY = a.ejeCalc.linea.map(marco.aXY), Le = largo(ejeXY);
         for (const sec of secs) {
           const pts = sec.poligono, paso = Math.max(1, Math.ceil(pts.length / 300));
           let mn = Infinity, mx = -Infinity;
@@ -4580,12 +4577,10 @@ Content-Type: ${mime}\r
             if (d > mx) mx = d;
           }
           sec.rango = [mn, mx];
-          if (a.dm && a.dm.inicio != null) {
-            const km = (x) => a.dm.desc ? a.dm.inicio - x / 1e3 : a.dm.inicio + x / 1e3;
-            sec.dm = [km(mn), km(mx)].sort((x, y) => x - y);
-          }
+          if (a.dm && a.dm.inicio != null) sec.dm = [kmEnEje(a, mn, Le), kmEnEje(a, mx, Le)].sort((x, y) => x - y);
         }
-        secs.sort((x, y) => x.rango[0] + x.rango[1] - (y.rango[0] + y.rango[1]));
+        const signo = a.dm && a.dm.inv ? -1 : 1;
+        secs.sort((x, y) => signo * (x.rango[0] + x.rango[1] - (y.rango[0] + y.rango[1])));
       }
       valor = { marco, tipo: "poligono", original, vuelo, sectores: secs, fallidos };
     }
@@ -4605,6 +4600,18 @@ Content-Type: ${mime}\r
     const s = g && g.sectores[i];
     if (s && s.dm && total > 1) return `${kmADm(s.dm[0])} – ${kmADm(s.dm[1])}`;
     return total > 1 ? `S${i + 1}` : "Área completa";
+  }
+  var desdeInicio = (a, s, L) => a.dm && a.dm.inv ? L - s : s;
+  function kmEnEje(a, s, L) {
+    const dm = a.dm || {}, ini = dm.inicio != null ? dm.inicio : 0, x = desdeInicio(a, s, L) / 1e3;
+    return dm.desc ? ini - x : ini + x;
+  }
+  function sDeKm(a, km, L) {
+    const dm = a.dm || {}, ini = dm.inicio != null ? dm.inicio : 0;
+    return desdeInicio(a, (dm.desc ? ini - km : km - ini) * 1e3, L);
+  }
+  function lineaEje(a) {
+    return a.tipo === "corredor" ? a.eje && a.eje.linea : a.ejeCalc && a.ejeCalc.linea || null;
   }
   function dmAKm(t) {
     const m = /^\s*(\d+)\s*\+\s*(\d{1,3})(?:[.,](\d+))?\s*$/.exec(String(t));
@@ -6141,6 +6148,7 @@ ${escapar(t.nota)}${t.notaPor ? `
 
   // modulos/vuelos/cortes.js
   var METODOS = {
+    medida: { texto: "Cortes a medida", grupo: "lineal", ayuda: "Cortes fijos en los DM que elijas (escritos o marcados en el eje) y, después del último, cortes cada X m o km hasta el fin del eje. El último sector termina en el fin del eje." },
     distancia: { texto: "Por distancia", grupo: "lineal", ayuda: "Cortes perpendiculares al eje cada X m o km, desde el inicio del eje." },
     superficie: { texto: "Por superficie", grupo: "lineal", ayuda: "Cortes perpendiculares al eje para que cada sector tenga la superficie indicada." },
     dm: { texto: "Alineados al DM", grupo: "lineal", ayuda: "Cortes en DM redondos (cada 1 km: 11+000, 12+000…) o desde un primer DM. Necesita el DM del inicio del eje (pestaña Forma)." },
@@ -6173,7 +6181,8 @@ ${escapar(t.nota)}${t.notaPor ? `
     const c = a.ejeCalc;
     return c.linea ? { lineal: true, corredor: false, largo: c.largo, anchoMin: c.anchoMin, anchoProm: c.anchoProm, anchoMax: c.anchoMax } : { lineal: false, corredor: false };
   }
-  var metodoPropuesto = (forma) => forma && forma.lineal ? "distancia" : "n";
+  var metodoPropuesto = (forma) => forma && forma.lineal ? "medida" : "n";
+  var METODOS_LINEALES = ["medida", "distancia", "superficie", "dm", "tramos"];
   function ejeDe(hoja2, g) {
     const a = hoja2.area;
     if (g.tipo === "corredor") {
@@ -6192,13 +6201,52 @@ ${escapar(t.nota)}${t.notaPor ? `
   }
   var metros = (v, u) => Number(String(v).replace(",", ".")) * (u === "km" ? 1e3 : 1);
   var m2De = (v, u) => Number(String(v).replace(",", ".")) * (u === "km2" ? 1e6 : 1e4);
+  function kmCortesAMedida(kmIni, kmFin, fijosKm, cada) {
+    const sube = kmFin >= kmIni, dentro = (k) => sube ? k > kmIni + 1e-6 && k < kmFin - 1e-6 : k < kmIni - 1e-6 && k > kmFin + 1e-6;
+    const orden = (x, y) => sube ? x - y : y - x;
+    const fijos = [...new Set(fijosKm.filter((k) => k != null && isFinite(k)).map((k) => Math.round(k * 1e3) / 1e3))].filter(dentro).sort(orden);
+    const out = [...fijos];
+    const paso = Number(cada) / 1e3;
+    if (paso > 5e-4) {
+      let k = (fijos.length ? fijos[fijos.length - 1] : kmIni) + (sube ? paso : -paso);
+      for (let n = 0; dentro(k) && n < 2e3; n++) {
+        out.push(Math.round(k * 1e3) / 1e3);
+        k += sube ? paso : -paso;
+      }
+    }
+    return out;
+  }
+  function kmExtremos(hoja2, e) {
+    const a = hoja2.area;
+    return [kmEnEje(a, a.dm && a.dm.inv ? e.L : 0, e.L), kmEnEje(a, a.dm && a.dm.inv ? 0 : e.L, e.L)];
+  }
   function distanciasLineales(hoja2, e, au, extra) {
-    const dm = hoja2.area.dm || {};
-    if (au.modo === "distancia") return distanciasCorte(e.L, { modo: "inicio", cada: metros(au.cada || 5, au.unidad || "km") });
-    if (au.modo === "superficie") return distanciasPorSuperficie(e.perfil, e.L, m2De(au.sup || 50, au.unidadSup || "ha"));
-    if (au.modo === "dm") return distanciasCorte(e.L, { modo: "dm", cada: metros(au.cada || 1, au.unidad || "km"), dmInicio: dm.inicio, desc: !!dm.desc, primerDM: extra.primerDM });
-    if (au.modo === "tramos") return distanciasCorte(e.L, { modo: "tramos", dmInicio: dm.inicio, desc: !!dm.desc, tramosKm: extra.tramosKm || [] });
+    const a = hoja2.area, dm = a.dm || {}, inv = !!dm.inv, L = e.L;
+    const espejo = (arr) => inv ? arr.map((s) => L - s).sort((x, y) => x - y) : arr;
+    if (au.modo === "medida") {
+      const [k0, k1] = kmExtremos(hoja2, e);
+      const fijos = (au.fijos || []).map(dmAKm);
+      return kmCortesAMedida(k0, k1, fijos, metros(au.cada || 5, au.unidad || "km")).map((k) => sDeKm(a, k, L)).filter((s) => s > 1 && s < L - 1).sort((x, y) => x - y);
+    }
+    if (au.modo === "distancia") return espejo(distanciasCorte(L, { modo: "inicio", cada: metros(au.cada || 5, au.unidad || "km") }));
+    if (au.modo === "superficie") {
+      const perfil = inv ? e.perfil.map((p) => ({ s: L - p.s, ancho: p.ancho })).reverse() : e.perfil;
+      return espejo(distanciasPorSuperficie(perfil, L, m2De(au.sup || 50, au.unidadSup || "ha")));
+    }
+    if (au.modo === "dm") return espejo(distanciasCorte(L, { modo: "dm", cada: metros(au.cada || 1, au.unidad || "km"), dmInicio: dm.inicio, desc: !!dm.desc, primerDM: extra.primerDM }));
+    if (au.modo === "tramos") return espejo(distanciasCorte(L, { modo: "tramos", dmInicio: dm.inicio, desc: !!dm.desc, tramosKm: extra.tramosKm || [] }));
     return [];
+  }
+  function tramosVistaPrevia(hoja2) {
+    const g = geometria(hoja2), au = hoja2.area.auto || {};
+    if (!g) return null;
+    formaDe(hoja2);
+    const e = ejeDe(hoja2, g);
+    if (!e) return null;
+    const [k0, k1] = kmExtremos(hoja2, e);
+    const cortes = kmCortesAMedida(k0, k1, (au.fijos || []).map(dmAKm), metros(au.cada || 5, au.unidad || "km"));
+    const pts = [k0, ...cortes, k1];
+    return { inicio: k0, fin: k1, tramos: pts.slice(1).map((k, i) => [pts[i], k]).map(([x, y]) => `${kmADm(Math.min(x, y))} – ${kmADm(Math.max(x, y))}`) };
   }
   function cortesEnDistancias(g, e, distancias) {
     return distancias.flatMap((s) => cortesTransversales(e.eje, [s], e.semi(s))).map((c) => c.map(g.marco.aLonLat));
@@ -6212,7 +6260,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       const n2 = Math.max(2, Math.min(60, Number(au.n) || 4));
       return { sectores: n2, haPorSector: g.areaVuelo / n2 / 1e4 };
     }
-    if (!["distancia", "superficie", "dm", "tramos"].includes(modo)) return null;
+    if (!METODOS_LINEALES.includes(modo)) return null;
     formaDe(hoja2);
     const e = ejeDe(hoja2, g);
     if (!e) return null;
@@ -6229,11 +6277,12 @@ ${escapar(t.nota)}${t.notaPor ? `
     const forma = formaDe(hoja2);
     const modo = au.modo || metodoPropuesto(forma);
     const d = extra.dron;
-    if (["distancia", "superficie", "dm", "tramos"].includes(modo)) {
+    if (METODOS_LINEALES.includes(modo)) {
       const e = forma && forma.lineal ? ejeDe(hoja2, g) : null;
       if (!e) throw new Error("Este método usa el eje del área y el área no es lineal. Usa «En N sectores».");
       if ((modo === "dm" || modo === "tramos") && (!hoja2.area.dm || hoja2.area.dm.inicio == null)) throw new Error("Escribe primero el DM del inicio del eje (pestaña Forma), por ejemplo 10+000.");
       const dist2 = distanciasLineales(hoja2, e, au, extra);
+      if (!dist2.length && modo === "medida") return { cortes: [], nota: "Con esos datos no hay cortes dentro del eje: queda un solo sector." };
       if (!dist2.length) throw new Error(modo === "tramos" ? "Ningún DM de los tramos cae dentro del eje: revisa el DM del inicio y si baja." : "Con esos datos no hay cortes dentro del área.");
       return { cortes: cortesEnDistancias(g, e, dist2) };
     }
@@ -6796,13 +6845,25 @@ ${escapar(t.nota)}${t.notaPor ? `
       const marca = { origen: a.tipo ? " ✓" : "", forma: g ? " ✓" : "", sectores: g && g.sectores.length > 1 ? ` · ${g.sectores.length}` : "", zonas: cerca ? ` · ${cerca}` : "" };
       return `<div class="vu-subs" role="tablist" aria-label="Partes del área">${SUBS.map(([k, t]) => `<button type="button" role="tab" aria-selected="${act === k}" class="vu-sub${act === k ? " activo" : ""}${k === "zonas" && cerca ? " aviso" : ""}" data-accion="sub-area" data-s="${k}" ${!a.tipo && k !== "origen" ? "disabled" : ""}>${t}${marca[k]}</button>`).join("")}</div>`;
     }
+    function extremosEje() {
+      const a = st.hoja.area, linea = lineaEje(a);
+      if (!linea || linea.length < 2) return null;
+      const m = marcoDe(linea), L = largo(linea.map(m.aXY));
+      return { L, ini: kmEnEje(a, a.dm && a.dm.inv ? L : 0, L), fin: kmEnEje(a, a.dm && a.dm.inv ? 0 : L, L) };
+    }
     function htmlDm() {
-      const dm = st.hoja.area.dm || {};
-      return `<div class="vu-fila-campos">
-        <label class="sis-campo"><span>DM del inicio del eje</span><input data-auto="dm" value="${escapar(dm.texto || "")}" placeholder="ej. 0+000"></label>
-        <label class="sis-check"><input type="checkbox" data-auto="desc" ${dm.desc ? "checked" : ""}> El DM baja hacia el final del eje</label>
+      const dm = st.hoja.area.dm || {}, x = extremosEje();
+      return `<div class="vu-sentido">
+        <div class="vu-sentido-fila"><span class="vu-marca-ini">Inicio</span><b class="vu-mono">${x ? kmADm(x.ini) : "—"}</b><span class="sis-tenue">${dm.inv ? "último vértice del archivo" : "primer vértice del archivo"}</span></div>
+        <div class="vu-sentido-fila"><span class="vu-marca-fin">Fin</span><b class="vu-mono">${x ? kmADm(x.fin) : "—"}</b><span class="sis-tenue">${dm.inv ? "primer vértice del archivo" : "último vértice del archivo"}</span></div>
+        <button type="button" class="sis-btn chico" data-accion="invertir-sentido">⇄ Invertir sentido</button>
+        <p class="sis-tenue">El inicio y el fin se marcan en el mapa, con flechas en el sentido de avance. Al invertir, el DM, el orden de los sectores (S1 en el inicio) y sus nombres se recalculan.</p>
       </div>
-      <p class="sis-tenue">Con el DM, los sectores se nombran por su tramo (10+000 – 15+000) y se puede cortar alineado al DM o por los tramos del Seguimiento.</p>`;
+      <div class="vu-fila-campos">
+        <label class="sis-campo"><span>DM del inicio del eje</span><input data-auto="dm" value="${escapar(dm.texto || "")}" placeholder="0+000"></label>
+        <label class="sis-check"><input type="checkbox" data-auto="desc" ${dm.desc ? "checked" : ""}> El DM decrece hacia el fin</label>
+      </div>
+      <p class="sis-tenue">Con el DM, los sectores se nombran por su tramo (10+000 – 15+000). Sin DM del inicio se cuenta desde 0+000.</p>`;
     }
     function htmlForma(g) {
       const a = st.hoja.area;
@@ -6814,7 +6875,7 @@ ${escapar(t.nota)}${t.notaPor ? `
         <p class="sis-tenue" id="vu-margen-info">${g ? textoCorredor(g) : ""}</p>
         ${a.original ? '<button class="sis-btn chico" data-accion="a-poligono">Volver a volarla como polígono</button>' : ""}
       </section>
-      <section class="sis-tarjeta"><h2>Cadenamiento</h2>${htmlDm()}</section>`;
+      <section class="sis-tarjeta"><h2>Sentido y cadenamiento del eje</h2>${htmlDm()}</section>`;
       const f = g ? formaDe(st.hoja) : null;
       return `<section class="sis-tarjeta"><h2>Forma del área</h2>
         ${f && f.lineal ? `<div class="vu-forma"><b>Área lineal detectada</b>
@@ -6824,7 +6885,7 @@ ${escapar(t.nota)}${t.notaPor ? `
             <label class="sis-check"><input type="radio" name="comoVolar" checked> <span><b>Polígono por sectores</b><small>Líneas paralelas dentro de cada sector, con su rumbo y su despegue.</small></span></label>
             <label class="sis-check"><input type="radio" name="comoVolar" data-accion-cambio="a-corredor"> <span><b>Corredor sobre el eje</b><small>Pasadas a lo largo del eje con el ancho medido (${fmt(Math.round(f.anchoMax / 2), 0)} m a cada lado). Para el modo corredor de DJI Pilot 2.</small></span></label>
           </fieldset>
-          ${htmlDm()}` : g ? `<p><b>Área extensa</b> · ${fmt(g.areaVuelo / 1e4, 1)} ha. Para dividirla, usa «En N sectores» en la pestaña Sectores (cortes paralelos con la dirección que elijas).</p>` : ""}
+          <h3 class="vu-subtit">Sentido y cadenamiento del eje</h3>${htmlDm()}` : g ? `<p><b>Área extensa</b> · ${fmt(g.areaVuelo / 1e4, 1)} ha. Para dividirla, usa «En N sectores» en la pestaña Sectores (cortes paralelos con la dirección que elijas).</p>` : ""}
       </section>
       <section class="sis-tarjeta"><h2>Margen</h2>
         ${deslizador("margen", "Margen hacia afuera", a.margen || 0, { min: 0, max: 100, paso: 1, sufijo: "m" })}
@@ -6834,6 +6895,13 @@ ${escapar(t.nota)}${t.notaPor ? `
       </section>`;
     }
     function htmlVistaPrevia() {
+      const au = st.hoja.area.auto || {}, modo = au.modo || metodoPropuesto(formaDe(st.hoja));
+      if (modo === "medida") {
+        const t = tramosVistaPrevia(st.hoja);
+        if (!t) return "";
+        const n = t.tramos.length, lista = n <= 6 ? t.tramos.join(" · ") : `${t.tramos.slice(0, 4).join(" · ")} · … · ${t.tramos[n - 1]}`;
+        return `Vista previa: <b>${n} sector${n === 1 ? "" : "es"}</b><span class="vu-mono vu-tramos">${escapar(lista)}</span>`;
+      }
       const v0 = vistaPrevia(st.hoja);
       return v0 ? `Vista previa: <b>${v0.sectores} sector${v0.sectores === 1 ? "" : "es"}</b> · ~${fmt(v0.haPorSector, 1)} ha cada uno` : "";
     }
@@ -6845,7 +6913,18 @@ ${escapar(t.nota)}${t.notaPor ? `
       const lineal = f && f.lineal;
       const num = (k, t, val, extra = "") => `<label class="sis-campo"><span>${t}</span><input type="number" data-auto="${k}" value="${escapar(val)}" ${extra}></label>`;
       const sel = (k, t, val, ops) => `<label class="sis-campo"><span>${t}</span><select data-auto="${k}">${ops.map(([v2, x]) => `<option value="${v2}" ${val === v2 ? "selected" : ""}>${x}</option>`).join("")}</select></label>`;
+      const marcando = st.dibujo && st.dibujo.modo === "dmfijo";
+      const fijos = au.fijos || [];
+      const ultimo = fijos.length ? fijos[fijos.length - 1] : null;
       const campos = {
+        medida: () => {
+          var _a;
+          return `<div class="sis-campo vu-ancho"><span>Cortes fijos (DM)</span>
+          <div class="vu-chips">${fijos.length ? fijos.map((f2, i) => `<span class="vu-chip-dm">${escapar(f2)}<button type="button" data-accion="quitar-fijo" data-i="${i}" aria-label="Quitar el corte ${escapar(f2)}">✕</button></span>`).join("") : '<span class="sis-tenue">Sin cortes fijos: se corta desde el inicio.</span>'}</div>
+          <div class="vu-fila-dm"><input id="vu-nuevo-fijo" placeholder="ej. 4+900" aria-label="DM del corte fijo"><button type="button" class="sis-btn chico" data-accion="agregar-fijo">+ Agregar</button>
+            <button type="button" class="sis-btn chico${marcando ? " primario" : ""}" data-accion="dibujar" data-modo="dmfijo">◎ ${marcando ? "Marcando en el mapa" : "Marcar en el mapa"}</button></div></div>
+        ${num("cada", ultimo ? `Después de ${escapar(ultimo)}, cortar cada` : "Cortar cada", (_a = au.cada) != null ? _a : "5", 'min="0" step="any"')}${sel("unidad", "Unidad", au.unidad || "km", [["km", "km"], ["m", "m"]])}`;
+        },
         distancia: () => {
           var _a;
           return `${num("cada", "Cortar cada", (_a = au.cada) != null ? _a : "5", 'min="0" step="any"')}${sel("unidad", "Unidad", au.unidad || "km", [["km", "km"], ["m", "m"]])}`;
@@ -6878,7 +6957,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       };
       return `<section class="sis-tarjeta"><h2>Cortes</h2>
       <label class="sis-campo"><span>Método de corte</span><select data-auto="modo">
-        <optgroup label="Área lineal (usa el eje)">${lineal ? ["distancia", "superficie", "dm", "tramos"].map(opt).join("") : "<option disabled>Solo para áreas lineales</option>"}</optgroup>
+        <optgroup label="Área lineal (usa el eje)">${lineal ? METODOS_LINEALES.map(opt).join("") : "<option disabled>Solo para áreas lineales</option>"}</optgroup>
         <optgroup label="Cualquier área">${["n", "baterias", "dias"].map(opt).join("")}</optgroup>
         <optgroup label="A mano">${opt("manual")}</optgroup>
       </select></label>
@@ -6907,7 +6986,7 @@ ${escapar(t.nota)}${t.notaPor ? `
               <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-original">Descargar ${a.tipo === "corredor" ? "eje" : "área del mandante"} limpio (KML)</button>${g ? '<button class="sis-btn chico primario" data-accion="sub-area" data-s="forma">Siguiente: Forma →</button>' : ""}</div>` : ""}
           </section>`;
       else if (sub2 === "forma") tarjetas = `${htmlForma(g)}${g ? '<div class="sis-acciones"><button class="sis-btn chico primario" data-accion="sub-area" data-s="sectores">Siguiente: Sectores →</button></div>' : ""}`;
-      else if (sub2 === "sectores") tarjetas = g ? `${htmlCortes(g)}<section class="sis-tarjeta"><h2>Sectores</h2><div id="vu-sectores">${htmlSectores()}</div></section>` : "";
+      else if (sub2 === "sectores") tarjetas = g ? htmlCortes(g) : "";
       else tarjetas = `<section class="sis-tarjeta"><h2>Zonas de referencia</h2><div id="vu-zonas">${htmlZonas()}</div></section>${htmlCaminos()}`;
       return `${grande ? `<div class="vu-banner"><div><b>El área es grande: ${fmt(g.areaVuelo / 1e4, 0)} ha · ${t.baterias} baterías · unas ${fmtDuracion(t.minVuelo)} de vuelo</b>
         <span>${t.excede ? "Parte del recorrido queda más lejos de lo que alcanza una batería desde el despegue. " : ""}Dividirla en sectores te deja planificar por día o por punto de despegue, con un rumbo y un KML para cada uno.</span></div>
@@ -6916,9 +6995,10 @@ ${escapar(t.nota)}${t.notaPor ? `
         <div class="vu-izquierda">${htmlSubs(g)}${tarjetas}</div>
         <div class="vu-derecha">
           <div class="vu-mapa-caja vu-mapa-alto"><div class="vu-mapa-lugar" data-mapa="area"></div><div class="vu-mapa-barra" id="vu-barra-area">${barraDibujo()}</div></div>
-          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante y eje · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos.</p>
+          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante y eje · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos${lineaEje(a) ? " · flechas: sentido de avance del DM" : ""}.</p>
         </div>
-      </div>`;
+      </div>
+      ${sub2 === "sectores" && g ? `<section class="sis-tarjeta vu-sectores-ancho"><div id="vu-sectores">${htmlSectores()}</div></section>` : ""}`;
     }
     const textoCorredor = (g) => `${fmt(g.izq + g.der, 0)} m × ${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1e3, 2)} km = <b>${fmt(g.areaVuelo / 1e4, 2)} ha</b>. Las pasadas siguen el eje.`;
     function vistaCandidatos() {
@@ -6937,22 +7017,47 @@ ${escapar(t.nota)}${t.notaPor ? `
       }).join("")}</div>
       <button class="vu-link" data-accion="cerrar-candidatos">Cancelar</button></div>`;
     }
+    const largoSector = (s) => s.largo != null ? s.largo : s.rango ? s.rango[1] - s.rango[0] : null;
+    function htmlCinta(g, sel) {
+      const pesos = g.sectores.map((s) => {
+        var _a;
+        return (_a = largoSector(s)) != null ? _a : s.area;
+      }), total = pesos.reduce((x2, y) => x2 + y, 0) || 1;
+      const x = extremosEje(), conDm = g.sectores.some((s) => s.dm);
+      let acum = 0;
+      const marcas = [];
+      const paso = Math.max(1, Math.ceil(g.sectores.length / 8));
+      g.sectores.forEach((s, i) => {
+        if (i % paso === 0 && s.dm) marcas.push(`<span class="vu-cinta-km" style="left:${(acum / total * 100).toFixed(2)}%">${kmADm(x && x.fin < x.ini ? s.dm[1] : s.dm[0])}</span>`);
+        acum += pesos[i];
+      });
+      if (conDm && x) marcas.push(`<span class="vu-cinta-km fin">${kmADm(x.fin)}</span>`);
+      return `<div class="vu-cinta" role="group" aria-label="Sectores a escala del eje">${g.sectores.map((s, i) => `<button type="button" class="vu-cinta-seg${i === sel ? " sel" : ""}" style="flex-grow:${(pesos[i] / total * 1e3).toFixed(2)}; background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}" data-accion="sel-sector" data-i="${i}" title="S${i + 1}${s.dm ? " · " + kmADm(s.dm[0]) + " – " + kmADm(s.dm[1]) : ""}" aria-label="Sector ${i + 1}"></button>`).join("")}</div>
+      ${marcas.length ? `<div class="vu-cinta-marcas">${marcas.join("")}</div>` : ""}`;
+    }
     function htmlSectores() {
       const h = st.hoja, g = geo(), d = dron();
       if (!g) return "";
       const t = d ? totales(h, d, g) : null;
-      return `${g.fallidos.length ? '<div class="vu-aviso">Un corte no atraviesa el área de lado a lado y no se aplicó: arrastra sus puntos o deshazlo.</div>' : ""}
-      <div class="vu-sectores">${g.sectores.map((s, i) => {
-        const r = t && t.sectores[i];
-        return `<div class="vu-sector">
-        <i style="background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}"></i>
-        ${g.sectores.length > 1 ? `<input class="vu-sector-nombre" data-sector-nombre="${i}" value="${escapar(h.area.sectores[i] && h.area.sectores[i].nombre || "")}" placeholder="${escapar(g.sectores[i].dm ? `${kmADm(g.sectores[i].dm[0])} – ${kmADm(g.sectores[i].dm[1])}` : `S${i + 1}`)}" aria-label="Nombre del sector ${i + 1}">` : "<b>Área completa</b>"}
-        <span class="vu-sector-dato">${fmt(s.area / 1e4, 1)} ha${r ? ` · ${r.vuelos} bat. · ${fmtDuracion(r.minTotal)}` : ""}</span>
-        <span class="vu-sector-acc">${g.sectores.length > 1 ? `<button class="vu-link" data-accion="kml-sector" data-i="${i}">KML</button>` : ""}<button class="vu-link" data-accion="ir-sector" data-i="${i}">volar →</button></span>
-      </div>`;
-      }).join("")}</div>
-      ${g.sectores.length > 1 && t ? `<p class="vu-total">Total: ${g.sectores.length} sectores · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada</p>
-        <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-sectores">Descargar KML de cada sector</button></div>` : ""}`;
+      const n = g.sectores.length, sel = Math.max(0, Math.min(h.area.sel || 0, n - 1));
+      const lineal = g.sectores.some((s) => largoSector(s) != null);
+      const kmTotal = lineal ? g.sectores.reduce((x, s) => x + (largoSector(s) || 0), 0) / 1e3 : null;
+      const aviso = g.fallidos.length ? '<div class="vu-aviso">Un corte no atraviesa el área de lado a lado y no se aplicó: arrastra sus puntos o deshazlo.</div>' : "";
+      const cab = `<div class="vu-sec-cab"><div><h2>Sectores${n > 1 ? " · " + n : ""}</h2>
+        <span class="sis-tenue">Total: ${kmTotal != null ? fmt(kmTotal, 2) + " km · " : ""}${fmt(g.areaVuelo / 1e4, 1)} ha${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ""}</span></div>
+        ${n > 1 ? '<button class="sis-btn chico" data-accion="kml-sectores">Descargar KML de cada sector</button>' : ""}</div>`;
+      const fila2 = (s, i) => {
+        const r = t && t.sectores[i], L = largoSector(s);
+        return `<tr class="${i === sel ? "sel" : ""}">
+        <td><button type="button" class="vu-sec-id" data-accion="sel-sector" data-i="${i}" aria-label="Ver el sector ${i + 1} en el mapa"><i style="background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}"></i>S${i + 1}</button></td>
+        <td>${n > 1 ? `<input class="vu-sector-nombre" data-sector-nombre="${i}" value="${escapar(h.area.sectores[i] && h.area.sectores[i].nombre || "")}" placeholder="${escapar(s.dm ? `${kmADm(s.dm[0])} – ${kmADm(s.dm[1])}` : `S${i + 1}`)}" aria-label="Nombre del sector ${i + 1}">` : "<b>Área completa</b>"}</td>
+        <td class="num">${L != null ? fmt(L / 1e3, 2) + " km" : "—"}</td><td class="num">${fmt(s.area / 1e4, 1)} ha</td>
+        <td class="num">${r ? r.vuelos + " bat." : "—"}</td><td class="num">${r ? fmtDuracion(r.minTotal) : "—"}</td>
+        <td class="acc">${n > 1 ? `<button class="vu-link" data-accion="kml-sector" data-i="${i}">KML</button>` : ""}<button class="vu-link" data-accion="ir-sector" data-i="${i}">volar →</button></td></tr>`;
+      };
+      return `${aviso}${cab}${n > 1 ? htmlCinta(g, sel) : ""}
+      <div class="vu-sec-tabla"><table><thead><tr><th>Sector</th><th>Nombre (tramo)</th><th class="num">Largo</th><th class="num">Superficie</th><th class="num">Baterías</th><th class="num">Vuelo</th><th></th></tr></thead>
+        <tbody>${g.sectores.map(fila2).join("")}</tbody></table></div>`;
     }
     function htmlZonas() {
       const capas = st.capas || [];
@@ -6983,6 +7088,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     function barraDibujo() {
       const dib2 = st.dibujo;
       if (!dib2) return st.hoja && !geo() ? '<span class="vu-barra-txt">Carga un KML/KMZ o dibuja el área o el eje.</span>' : "";
+      if (dib2.modo === "dmfijo") return `<span class="vu-barra-txt">Toca el eje para agregar un corte fijo en ese DM</span><button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-cancelar">Terminar</button>`;
       const min = dib2.modo === "area" ? 3 : 2;
       const txt = { area: "Toca el mapa para marcar los vértices del área", eje: "Toca el mapa siguiendo el eje del corredor", corte: "Toca afuera del área, sigue el camino y termina afuera", camino: "Toca el mapa siguiendo el camino o la huella" }[dib2.modo];
       return `<span class="vu-barra-txt">${txt} · ${dib2.puntos.length} punto${dib2.puntos.length === 1 ? "" : "s"}</span>
@@ -7848,6 +7954,7 @@ ${escapar(t.nota)}${t.notaPor ? `
         m = mapas[clave2] = { el, mapa, capas: {}, L, encuadre: null };
         mapa.setView(CENTRO_CHILE, 7);
         mapa.on("click", (ev) => alClicMapa(clave2, ev));
+        mapa.on("mousemove", (ev) => alMoverMapa(clave2, ev));
       }
       if (m.el.parentNode !== lugar) lugar.appendChild(m.el);
       m.mapa.invalidateSize();
@@ -7931,7 +8038,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     function pintarArea(m) {
       const { L, mapa } = m;
       const g = geo(), h = st.hoja;
-      quitar(m, "original", "sectores", "cortes", "eje");
+      quitar(m, "original", "sectores", "cortes", "eje", "sentido");
       pintarZonas(m);
       pintarCaminos(m);
       if (!g) return;
@@ -7940,8 +8047,10 @@ ${escapar(t.nota)}${t.notaPor ? `
       if (g.tipo === "corredor") m.capas.eje = L.polyline(g.eje.map(LL), { color: "#FFFFFF", weight: 2, dashArray: "3 5", interactive: false }).addTo(mapa);
       else if (h.area.ejeCalc && h.area.ejeCalc.linea) m.capas.eje = L.polyline(h.area.ejeCalc.linea.map(([lon, lat]) => [lat, lon]), { color: "#FFFFFF", weight: 2, dashArray: "3 5" }).bindTooltip("Eje calculado", { sticky: true }).addTo(mapa);
       const varios = g.sectores.length > 1;
+      const sel = Math.max(0, Math.min(h.area.sel || 0, g.sectores.length - 1));
       m.capas.sectores = L.layerGroup(g.sectores.map((s, i) => {
-        const p = L.polygon(s.poligono.map(LL), { color: "#E8611C", weight: 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? 0.25 : 0.1, interactive: g.sectores.length > 8 });
+        const elegido = varios && i === sel;
+        const p = L.polygon(s.poligono.map(LL), { color: elegido ? "#FFFFFF" : "#E8611C", weight: elegido ? 5 : 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? elegido ? 0.5 : 0.25 : 0.1, interactive: g.sectores.length > 8 });
         if (varios) p.bindTooltip(nombreSector(h, i, g.sectores.length), { permanent: g.sectores.length <= 8, sticky: g.sectores.length > 8, direction: "center", className: "vu-etiqueta" });
         return p;
       })).addTo(mapa);
@@ -7960,7 +8069,16 @@ ${escapar(t.nota)}${t.notaPor ? `
         });
       });
       m.capas.cortes = L.layerGroup(capas).addTo(mapa);
+      pintarSentido(m);
+      if (m.capas.sectores) m.capas.sectores.eachLayer((l) => {
+        if (l.options.weight === 5) l.bringToFront();
+      });
       encuadrar(m, g.vuelo.map(LL), `area:${JSON.stringify(g.vuelo[0])}:${g.vuelo.length}`);
+      if (st.zoomSector && varios) {
+        st.zoomSector = false;
+        const b = L.latLngBounds(g.sectores[sel].poligono.map(LL));
+        if (b.isValid()) mapa.fitBounds(b, { padding: [60, 60], maxZoom: 16 });
+      }
     }
     function pintarZonas(m) {
       const { L, mapa } = m;
@@ -8052,8 +8170,63 @@ ${escapar(t.nota)}${t.notaPor ? `
       m.mapa.fitBounds(m.capas.kml.getBounds(), { padding: [24, 24] });
       m.kml = st.kml;
     }
+    function ejeActual() {
+      const a = st.hoja && st.hoja.area, linea = a && lineaEje(a);
+      if (!linea || linea.length < 2) return null;
+      const marco = marcoDe(linea), xy = linea.map(marco.aXY);
+      return { a, marco, xy, L: largo(xy) };
+    }
+    function pintarSentido(m) {
+      const { L, mapa } = m, e = ejeActual();
+      if (!e) return;
+      const inv = !!(e.a.dm && e.a.dm.inv), aLL2 = (p) => {
+        const [lon, lat] = e.marco.aLonLat(p);
+        return [lat, lon];
+      };
+      const sIni = inv ? e.L : 0, sFin = inv ? 0 : e.L;
+      const etiqueta = (s, txt, clase) => L.marker(aLL2(puntoEnEje(e.xy, s).p), { interactive: false, keyboard: false, icon: L.divIcon({ className: "vu-extremo " + clase, html: `<span>${txt}</span>`, iconSize: null }) });
+      const capas = [etiqueta(sIni, `Inicio · ${kmADm(kmEnEje(e.a, sIni, e.L))}`, "ini"), etiqueta(sFin, `Fin · ${kmADm(kmEnEje(e.a, sFin, e.L))}`, "fin")];
+      for (const f of [0.2, 0.4, 0.6, 0.8]) {
+        const s = e.L * f, p0 = puntoEnEje(e.xy, s).p, p1 = puntoEnEje(e.xy, Math.min(e.L, s + Math.max(5, e.L * 2e-3))).p;
+        let ang = Math.atan2(p1[0] - p0[0], p1[1] - p0[1]) * 180 / Math.PI;
+        if (inv) ang += 180;
+        capas.push(L.marker(aLL2(p0), { interactive: false, keyboard: false, icon: L.divIcon({ className: "vu-flecha", html: `<span style="transform:rotate(${ang.toFixed(1)}deg)">▲</span>`, iconSize: [18, 18], iconAnchor: [9, 9] }) }));
+      }
+      m.capas.sentido = L.layerGroup(capas).addTo(mapa);
+    }
+    function puntoEjeCercano(latlng) {
+      const e = ejeActual();
+      if (!e) return null;
+      const q = e.marco.aXY([latlng.lng, latlng.lat]), s = distanciaEnEje(e.xy, q), p = puntoEnEje(e.xy, s).p, [lon, lat] = e.marco.aLonLat(p);
+      return { s, km: kmEnEje(e.a, s, e.L), latlng: [lat, lon] };
+    }
+    let movPendiente = null;
+    function alMoverMapa(clave2, ev) {
+      if (clave2 !== "area" || !st.dibujo || st.dibujo.modo !== "dmfijo") {
+        if (mapas.area && mapas.area.capas.cursorDm) quitar(mapas.area, "cursorDm");
+        return;
+      }
+      if (movPendiente) {
+        movPendiente = ev;
+        return;
+      }
+      movPendiente = ev;
+      requestAnimationFrame(() => {
+        const e2 = movPendiente;
+        movPendiente = null;
+        const m = mapas.area, r = m && puntoEjeCercano(e2.latlng);
+        if (!m || !r) return;
+        quitar(m, "cursorDm");
+        m.capas.cursorDm = m.L.circleMarker(r.latlng, { radius: 7, color: "#1C1F23", weight: 3, fillColor: "#FFFFFF", fillOpacity: 1, interactive: false }).bindTooltip(`DM ${kmADm(r.km)} · toca para cortar aquí`, { permanent: true, direction: "right", offset: [10, 0], className: "vu-tip-dm" }).addTo(m.mapa);
+      });
+    }
     function alClicMapa(clave2, ev) {
       if (clave2 !== "area" || !st.dibujo) return;
+      if (st.dibujo.modo === "dmfijo") {
+        const r = puntoEjeCercano(ev.latlng);
+        if (r && v.agregarFijo(kmADm(r.km))) render();
+        return;
+      }
       st.dibujo.puntos.push([ev.latlng.lng, ev.latlng.lat]);
       const b = raiz.querySelector("#vu-barra-area");
       if (b) b.innerHTML = barraDibujo();
@@ -8090,7 +8263,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       hoja: null,
       candidatos: null,
       dibujo: null,
-      // { modo: 'area'|'eje'|'corte', puntos: [] }
+      // { modo: 'area'|'eje'|'corte'|'camino'|'dmfijo', puntos: [] }
       leyendaAbierta: false,
       velA: 5,
       velB: 10,
@@ -8256,6 +8429,23 @@ ${escapar(t.nota)}${t.notaPor ? `
       if (!n) avisar2("No hay caminos a menos de 1,5 km. Dibuja uno en Área → Caminos.", "error");
       else if (!st.mensaje || st.mensaje.tipo !== "error") avisar2(`Despegue sugerido para ${n} sector${n === 1 ? "" : "es"}: revisa y toca «Usar».`);
     }
+    function agregarFijo(texto3) {
+      const h = st.hoja, km = dmAKm(String(texto3 || "").trim());
+      if (km == null) {
+        avisar2("Escribe el DM del corte, por ejemplo 4+900.", "error");
+        render();
+        return false;
+      }
+      const au = h.area.auto = h.area.auto || {};
+      au.modo = "medida";
+      const lista = new Map((au.fijos || []).map((f) => [Math.round(dmAKm(f) * 1e3), f]));
+      lista.set(Math.round(km * 1e3), kmADm(km));
+      const sube = !(h.area.dm && h.area.dm.desc);
+      au.fijos = [...lista.entries()].sort((x, y) => sube ? x[0] - y[0] : y[0] - x[0]).map((e) => e[1]);
+      cambio();
+      return true;
+    }
+    v.agregarFijo = agregarFijo;
     async function cortarAutomatico(h) {
       var _a;
       const a = h.area;
@@ -8267,6 +8457,9 @@ ${escapar(t.nota)}${t.notaPor ? `
       const forma = formaDe(h);
       if (!a.auto.modo) a.auto.modo = metodoPropuesto(forma);
       const extra = { dron: dron(), primerDM: (_a = a.auto.primerKm) != null ? _a : null };
+      if (a.auto.modo === "medida" && (!a.dm || a.dm.inicio == null)) {
+        a.dm = { ...a.dm || {}, texto: "0+000", inicio: 0 };
+      }
       if (a.auto.modo === "tramos") {
         if (!h.proyectoId) {
           avisar2("La hoja no tiene proyecto: elígelo en el encabezado para usar sus tramos.", "error");
@@ -8625,6 +8818,11 @@ ${escapar(t.nota)}${t.notaPor ? `
         await render();
       }
     });
+    raiz.addEventListener("keydown", async (ev) => {
+      if (ev.key !== "Enter" || !ev.target || ev.target.id !== "vu-nuevo-fijo") return;
+      ev.preventDefault();
+      if (agregarFijo(ev.target.value)) await render();
+    });
     raiz.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const form = ev.target;
@@ -8732,7 +8930,7 @@ ${escapar(t.nota)}${t.notaPor ? `
           const modo = b.dataset.modo;
           st.dibujo = st.dibujo && st.dibujo.modo === modo ? null : { modo, puntos: [] };
           st.paso = "area";
-          if (modo === "corte") st.subArea = "sectores";
+          if (modo === "corte" || modo === "dmfijo") st.subArea = "sectores";
           if (modo === "area" || modo === "eje") st.subArea = "origen";
           if (modo === "camino") st.subArea = "zonas";
           if (st.dibujo && modo === "corte") avisar2("Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».");
@@ -8790,7 +8988,26 @@ ${escapar(t.nota)}${t.notaPor ? `
         } else if (a === "sub-area") {
           st.subArea = b.dataset.s;
           st.paso = "area";
-          if (st.dibujo && st.dibujo.modo === "corte" && st.subArea !== "sectores") st.dibujo = null;
+          if (st.dibujo && (st.dibujo.modo === "corte" || st.dibujo.modo === "dmfijo") && st.subArea !== "sectores") st.dibujo = null;
+        } else if (a === "invertir-sentido") {
+          const ar = h.area, n = (geo() || { sectores: [] }).sectores.length;
+          ar.dm = ar.dm || {};
+          ar.dm.inv = !ar.dm.inv;
+          if (ar.sectores && ar.sectores.length === n) ar.sectores.reverse();
+          if (n) ar.sel = n - 1 - Math.min(ar.sel || 0, n - 1);
+          avisar2(`Sentido invertido: el inicio quedó en el ${ar.dm.inv ? "último" : "primer"} vértice del eje.`);
+          cambio();
+        } else if (a === "agregar-fijo") {
+          if (!agregarFijo((raiz.querySelector("#vu-nuevo-fijo") || {}).value)) return;
+        } else if (a === "quitar-fijo") {
+          h.area.auto.fijos.splice(Number(b.dataset.i), 1);
+          cambio();
+        } else if (a === "sel-sector") {
+          h.area.sel = Number(b.dataset.i);
+          st.zoomSector = true;
+          cambio();
+          refrescarArea();
+          return;
         } else if (a === "auto-rumbo" || a === "auto-lado") {
           h.area.auto = h.area.auto || {};
           const actual = h.area.auto.rumbo === "" || h.area.auto.rumbo == null ? Math.round(rumboCortesPropuesto(h)) : Number(h.area.auto.rumbo);
@@ -9617,6 +9834,116 @@ ${escapar(t.nota)}${t.notaPor ? `
     };
   }
 
+  // modulos/monografias/ajuste.js
+  var BASE = { modo: "llenar", zoom: 1, ox: 0, oy: 0, giro: 0 };
+  function colocarImagen(img, nat, PW, PH, aj) {
+    const giro2 = ((aj.giro || 0) % 360 + 360) % 360, swap = giro2 === 90 || giro2 === 270;
+    const r = calcRectImagen(swap ? nat.h : nat.w, swap ? nat.w : nat.h, PW, PH, aj);
+    const dw = swap ? r.h : r.w, dh = swap ? r.w : r.h;
+    Object.assign(img.style, { position: "absolute", maxWidth: "none", width: dw + "px", height: dh + "px", left: r.x + r.w / 2 - dw / 2 + "px", top: r.y + r.h / 2 - dh / 2 + "px", transform: `rotate(${giro2}deg)` });
+    return r;
+  }
+  function abrirAjuste({ titulo, url, bw, bh, ajuste, porDefecto = "llenar" }) {
+    return new Promise((resolver) => {
+      const aj = { ...BASE, modo: porDefecto, ...ajuste || {} };
+      const PW = Math.min(520, Math.max(260, window.innerWidth - 80)), PH = Math.max(60, Math.round(PW * bh / bw));
+      const capa = document.createElement("div");
+      capa.className = "mn-modal";
+      capa.setAttribute("role", "dialog");
+      capa.setAttribute("aria-modal", "true");
+      capa.setAttribute("aria-label", "Ajustar encuadre");
+      capa.innerHTML = `<div class="mn-modal-caja mn-aj">
+      <div class="sis-cab"><h2>Ajustar encuadre · ${escapar(titulo || "")}</h2><button class="sis-btn chico" data-aj="cancelar">Cerrar</button></div>
+      <p class="sis-tenue">Así se verá en el PDF (${Math.round(bw)} × ${Math.round(bh)} mm). Arrastra la imagen para moverla.</p>
+      <div class="mn-aj-caja" style="width:${PW}px; height:${PH}px"><img alt="" draggable="false"></div>
+      <div class="mn-aj-modos"><button type="button" class="sis-btn chico" data-aj-modo="llenar">Llenar (recorta)</button><button type="button" class="sis-btn chico" data-aj-modo="ajustar">Entera (con márgenes)</button></div>
+      <label class="sis-campo"><span>Zoom: <b data-aj-txt>100%</b></span><input type="range" min="1" max="4" step="0.05" data-aj-r="zoom"></label>
+      <div class="mn-aj-fila"><label class="sis-campo"><span>Mover ← →</span><input type="range" min="-1" max="1" step="0.01" data-aj-r="ox"></label><label class="sis-campo"><span>Mover ↑ ↓</span><input type="range" min="-1" max="1" step="0.01" data-aj-r="oy"></label></div>
+      <div class="sis-acciones"><button type="button" class="sis-btn chico" data-aj="giro-i">↺ Girar</button><button type="button" class="sis-btn chico" data-aj="giro-d">↻ Girar</button><button type="button" class="sis-btn chico" data-aj="reset">Restablecer</button></div>
+      <div class="sis-acciones mn-aj-pie"><button type="button" class="sis-btn" data-aj="cancelar">Cancelar</button><button type="button" class="sis-btn primario" data-aj="aplicar">Aplicar</button></div>
+    </div>`;
+      document.body.appendChild(capa);
+      const $2 = (s) => capa.querySelector(s), img = $2("img"), caja2 = $2(".mn-aj-caja");
+      let nat = null, rect = null;
+      function pintar() {
+        if (!nat) return;
+        rect = colocarImagen(img, nat, PW, PH, aj);
+        capa.querySelectorAll("[data-aj-modo]").forEach((b) => b.classList.toggle("primario", b.dataset.ajModo === aj.modo));
+        $2('[data-aj-r="zoom"]').value = aj.zoom;
+        $2('[data-aj-r="ox"]').value = aj.ox;
+        $2('[data-aj-r="oy"]').value = aj.oy;
+        $2("[data-aj-txt]").textContent = Math.round(aj.zoom * 100) + "%";
+      }
+      const cerrar = (valor) => {
+        capa.remove();
+        document.removeEventListener("keydown", tecla);
+        resolver(valor);
+      };
+      const tecla = (ev) => {
+        if (ev.key === "Escape") cerrar(null);
+      };
+      document.addEventListener("keydown", tecla);
+      cargarImagenEl(url).then((im) => {
+        nat = { w: im.naturalWidth, h: im.naturalHeight };
+        img.src = url;
+        pintar();
+      }).catch(() => {
+        caja2.innerHTML = '<p class="sis-tenue" style="padding:12px">No se pudo cargar la imagen.</p>';
+      });
+      capa.addEventListener("input", (ev) => {
+        const k = ev.target.dataset.ajR;
+        if (k) {
+          aj[k] = parseFloat(ev.target.value);
+          pintar();
+        }
+      });
+      capa.addEventListener("click", (ev) => {
+        const m = ev.target.closest("[data-aj-modo]");
+        if (m) {
+          aj.modo = m.dataset.ajModo;
+          pintar();
+          return;
+        }
+        const b = ev.target.closest("[data-aj]");
+        if (!b) {
+          if (ev.target === capa) cerrar(null);
+          return;
+        }
+        const a = b.dataset.aj;
+        if (a === "cancelar") cerrar(null);
+        else if (a === "aplicar") cerrar({ ...aj });
+        else if (a === "giro-i") {
+          aj.giro = ((aj.giro || 0) + 270) % 360;
+          pintar();
+        } else if (a === "giro-d") {
+          aj.giro = ((aj.giro || 0) + 90) % 360;
+          pintar();
+        } else if (a === "reset") {
+          Object.assign(aj, BASE, { modo: porDefecto });
+          pintar();
+        }
+      });
+      let arrastre = null;
+      caja2.addEventListener("pointerdown", (ev) => {
+        arrastre = { x: ev.clientX, y: ev.clientY, ox: aj.ox, oy: aj.oy };
+        caja2.setPointerCapture(ev.pointerId);
+        caja2.classList.add("arrastrando");
+      });
+      caja2.addEventListener("pointermove", (ev) => {
+        if (!arrastre || !rect) return;
+        if (rect.sx > 0.5) aj.ox = Math.min(1, Math.max(-1, arrastre.ox + (ev.clientX - arrastre.x) / rect.sx));
+        if (rect.sy > 0.5) aj.oy = Math.min(1, Math.max(-1, arrastre.oy + (ev.clientY - arrastre.y) / rect.sy));
+        pintar();
+      });
+      const fin = () => {
+        arrastre = null;
+        caja2.classList.remove("arrastrando");
+      };
+      caja2.addEventListener("pointerup", fin);
+      caja2.addEventListener("pointercancel", fin);
+    });
+  }
+
   // modulos/monografias/pdf.js
   var CLAVE_LOGO = "mono_logo_empresa";
   function logoEmpresa() {
@@ -9671,6 +9998,8 @@ ${escapar(t.nota)}${t.notaPor ? `
   var MODULOS = [["utm", "Coordenadas UTM"], ["geodesicas", "Coordenadas geodésicas"], ["croquis", "Croquis de ubicación"], ["panoramica", "Vista panorámica"], ["descripcion", "Descripción"], ["fotos", "Fotografías adicionales"], ["firma", "Datos operador / Revisó"]];
   var TIPO_FOTO = { panoramica: "Panorámica", croquis: "Croquis", placa: "Placa", detalle: "Detalle", punto: "Punto", logo: "Logo", otra: "Foto" };
   var ranura = { croquisImg: "Croquis de ubicación", panoramicaImg: "Vista panorámica", clienteLogo: "Logo del cliente" };
+  var MODO_DEF = { clienteLogo: "ajustar", croquisImg: "llenar", panoramicaImg: "llenar" };
+  var ANCHO_MINI = { croquisImg: 300, panoramicaImg: 300, clienteLogo: 180, extra: 220 };
   function montarPantallas4(raiz, ctx2) {
     const st = { proyectoId: ctx2.proyectoId || null, monoId: ctx2.monografiaId || null, lista: [], ficha: null, fotos: [], elegir: null, mensaje: null, filtro: "", nombres: {}, guardando: null, vivo: true };
     raiz.innerHTML = '<div class="mn"></div>';
@@ -9735,11 +10064,34 @@ ${escapar(t.nota)}${t.notaPor ? `
       return `<div class="mn-chequeo">${filas.map((f) => `<div class="mn-ch"><span class="mn-ch-ic ${f.ok ? f.dup ? "dup" : f.calc ? "calc" : "ok" : "falta"}" aria-hidden="true">${f.ok ? f.dup ? "!" : f.calc ? "?" : "✔" : "–"}</span><span>${escapar(f.k)}${f.det ? `<small>${escapar(f.det)}</small>` : ""}${f.dup ? `<small class="mn-av">${escapar(f.dup)}</small>` : ""}${f.calc ? `<small class="mn-av">${escapar(f.calc)}</small>` : ""}</span></div>`).join("")}</div>
       <p class="sis-tenue mn-ley">✔ ingresado · – falta · ! repetido en el proyecto · ? calculado por la app de Terreno</p>`;
     }
+    function miniHtml(url, dim, ancho, datos, titulo) {
+      return `<div class="mn-mini" style="width:${ancho}px; aspect-ratio:${dim[0].toFixed(1)} / ${dim[1].toFixed(1)}" ${datos}>${url ? `<img src="${escapar(url)}" alt="${escapar(titulo)}" draggable="false">` : '<span class="sis-tenue">Sin imagen</span>'}</div>`;
+    }
     async function imagenHtml(clave2, titulo) {
-      const url = await urlImagen(st.ficha[clave2]);
+      const url = await urlImagen(st.ficha[clave2]), dim = dimsMonografia(st.ficha)[clave2];
       return `<div class="mn-slot"><div class="mn-slot-tit">${escapar(titulo)}</div>
-      <div class="mn-slot-img">${url ? `<img src="${escapar(url)}" alt="${escapar(titulo)}">` : '<span class="sis-tenue">Sin imagen</span>'}</div>
-      <div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="${clave2}">Elegir de terreno</button><label class="sis-btn chico">Subir<input type="file" accept="image/*" data-mn-archivo="${clave2}" hidden></label>${url ? `<button class="sis-btn chico" data-mn="quitar-img" data-slot="${clave2}">Quitar</button>` : ""}</div></div>`;
+      ${miniHtml(url, dim, ANCHO_MINI[clave2], `data-mini="${clave2}"`, titulo)}
+      <div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="${clave2}">Elegir de terreno</button><label class="sis-btn chico">Subir<input type="file" accept="image/*" data-mn-archivo="${clave2}" hidden></label>${url ? `<button class="sis-btn chico" data-mn="ajustar" data-slot="${clave2}">✂ Ajustar encuadre</button><button class="sis-btn chico" data-mn="quitar-img" data-slot="${clave2}">Quitar</button>` : ""}</div></div>`;
+    }
+    function presentacionHtml(mod) {
+      const f = st.ficha, ambas = mod.croquis && mod.panoramica;
+      if (!mod.croquis && !mod.panoramica && !mod.fotos) return "";
+      const alto = Number(f.altoImagenes) || 56, altoE = Number(f.altoFotosExtra) || 60;
+      return `<section class="sis-tarjeta"><h2>Presentación de las imágenes</h2>
+      ${ambas ? `<label class="sis-campo"><span>Disposición croquis / panorámica</span><select data-pres="disposicionImg"><option value="lado" ${(f.disposicionImg || "lado") === "lado" ? "selected" : ""}>Lado a lado</option><option value="apiladas" ${f.disposicionImg === "apiladas" ? "selected" : ""}>Una bajo la otra (ancho completo)</option></select></label>` : ""}
+      ${mod.croquis || mod.panoramica ? `<label class="sis-campo"><span>Alto de cada imagen: <b data-pres-txt="altoImagenes">${alto}</b> mm</span><input type="range" min="35" max="120" step="1" data-pres="altoImagenes" value="${alto}"></label>` : ""}
+      ${mod.fotos ? `<label class="sis-campo"><span>Alto de las fotografías adicionales: <b data-pres-txt="altoFotosExtra">${altoE}</b> mm</span><input type="range" min="35" max="120" step="1" data-pres="altoFotosExtra" value="${altoE}"></label>` : ""}
+      <p class="sis-tenue">Cada imagen se encuadra con «✂ Ajustar encuadre»: llenar o entera, zoom, mover y girar, como en la app de Terreno.</p></section>`;
+    }
+    function colocarMinis() {
+      for (const caja2 of cont.querySelectorAll(".mn-mini")) {
+        const img = caja2.querySelector("img");
+        if (!img || !st.ficha) continue;
+        const clave2 = caja2.dataset.mini, i = caja2.dataset.miniExtra;
+        const aj = i != null ? { modo: "llenar", zoom: 1, ox: 0, oy: 0, giro: 0, ...(st.ficha.fotosExtra[Number(i)] || {}).aj || {} } : ajusteDe(st.ficha, clave2, MODO_DEF[clave2]);
+        cargarImagenEl(img.src).then((im) => colocarImagen(img, { w: im.naturalWidth, h: im.naturalHeight }, caja2.clientWidth, caja2.clientHeight, aj)).catch(() => {
+        });
+      }
     }
     async function vistaFicha() {
       if (!st.proyecto || st.proyecto.id !== st.proyectoId) st.proyecto = await obtenerProyecto(st.proyectoId);
@@ -9752,9 +10104,10 @@ ${escapar(t.nota)}${t.notaPor ? `
       st.fotos = await fotosDeProyecto(st.proyectoId);
       const f = st.ficha, mod = f.modulos || (f.modulos = { utm: true, geodesicas: true, croquis: true, panoramica: true, descripcion: true, firma: true, fotos: false });
       const hist = await historialDe(x.id);
+      const dimE = dimsMonografia(f).extra;
       const extras = await Promise.all((f.fotosExtra || []).map(async (e, i) => {
         const u = await urlImagen(e.img);
-        return `<div class="mn-extra">${u ? `<img src="${escapar(u)}" alt="">` : '<span class="sis-tenue">Sin imagen</span>'}<input data-extra="${i}" value="${escapar(e.leyenda || "")}" placeholder="Leyenda" aria-label="Leyenda de la foto ${i + 1}"><button class="sis-btn chico" data-mn="quitar-extra" data-i="${i}">Quitar</button></div>`;
+        return `<div class="mn-extra">${miniHtml(u, dimE, ANCHO_MINI.extra, `data-mini-extra="${i}"`, `Foto ${i + 1}`)}<div class="mn-extra-datos"><input data-extra="${i}" value="${escapar(e.leyenda || "")}" placeholder="Leyenda" aria-label="Leyenda de la foto ${i + 1}"><div class="sis-acciones">${u ? `<button class="sis-btn chico" data-mn="ajustar" data-i="${i}">✂ Ajustar encuadre</button>` : ""}<button class="sis-btn chico" data-mn="quitar-extra" data-i="${i}">Quitar</button></div></div></div>`;
       }));
       return `<a class="sis-volver" href="#/monografias/${escapar(st.proyectoId)}">← ${escapar(st.proyecto ? st.proyecto.nombre : "Proyecto")}</a>
       <div class="mn-cab mn-cab-ficha"><div><h1>Monografía · ${escapar(f.puntoMedido || "(sin punto)")}</h1>
@@ -9773,6 +10126,7 @@ ${escapar(t.nota)}${t.notaPor ? `
         ${mod.descripcion ? `<section class="sis-tarjeta"><h2>Descripción</h2><textarea data-f="descripcion" rows="4">${escapar(f.descripcion || "")}</textarea><p class="sis-tenue">Una línea por renglón, como en la plantilla.</p></section>` : ""}
       </div><aside>
         <section class="sis-tarjeta"><h2>Chequeo</h2>${chequeoHtml()}</section>
+        ${presentacionHtml(mod)}
         <section class="sis-tarjeta"><h2>Imágenes</h2>
           ${mod.croquis ? await imagenHtml("croquisImg", ranura.croquisImg) : ""}
           ${mod.panoramica ? await imagenHtml("panoramicaImg", ranura.panoramicaImg) : ""}
@@ -9799,6 +10153,7 @@ ${escapar(t.nota)}${t.notaPor ? `
         const html = st.monoId ? await vistaFicha() : st.proyectoId ? await vistaProyecto() : await vistaProyectos();
         cont.innerHTML = `${st.mensaje ? `<div class="vu-msg ${st.mensaje.tipo === "error" ? "error" : ""}" role="status">${escapar(st.mensaje.texto)}</div>` : ""}${html}`;
         st.mensaje = null;
+        if (st.monoId) colocarMinis();
       } catch (e) {
         console.error(e);
         cont.innerHTML = `<section class="sis-tarjeta sis-error"><p>${escapar(e.message || "Error")}</p></section>`;
@@ -9849,6 +10204,9 @@ ${escapar(t.nota)}${t.notaPor ? `
       if (t.dataset.f) {
         st.ficha[t.dataset.f] = t.value;
         cambio();
+      } else if (t.dataset.pres && t.type === "range") {
+        const x = cont.querySelector(`[data-pres-txt="${t.dataset.pres}"]`);
+        if (x) x.textContent = t.value;
       } else if (t.dataset.extra != null) {
         st.ficha.fotosExtra[Number(t.dataset.extra)].leyenda = t.value;
         cambio();
@@ -9859,6 +10217,11 @@ ${escapar(t.nota)}${t.notaPor ? `
       try {
         if (t.dataset.mod && st.ficha) {
           st.ficha.modulos[t.dataset.mod] = t.checked;
+          cambio({ refrescar: true });
+          return;
+        }
+        if (t.dataset.pres && st.ficha) {
+          st.ficha[t.dataset.pres] = t.type === "range" ? Number(t.value) : t.value;
           cambio({ refrescar: true });
           return;
         }
@@ -9889,8 +10252,11 @@ ${escapar(t.nota)}${t.notaPor ? `
     function ponerImagen(slot, valor) {
       if (slot === "extra") {
         st.ficha.fotosExtra = st.ficha.fotosExtra || [];
-        st.ficha.fotosExtra.push({ id: uuid(), img: valor, leyenda: "" });
-      } else st.ficha[slot] = valor;
+        st.ficha.fotosExtra.push({ id: uuid(), img: valor, leyenda: "", aj: { modo: "llenar", zoom: 1, ox: 0, oy: 0, giro: 0 } });
+      } else {
+        st.ficha[slot] = valor;
+        if (st.ficha.ajustes) delete st.ficha.ajustes[slot];
+      }
     }
     cont.addEventListener("click", async (ev) => {
       const b = ev.target.closest("[data-mn]");
@@ -9948,8 +10314,24 @@ ${escapar(t.nota)}${t.notaPor ? `
           ponerImagen(st.elegir, { archivo: b.dataset.id });
           st.elegir = null;
           await guardarAhora();
+        } else if (a === "ajustar") {
+          const f = st.ficha, d = dimsMonografia(f), i = b.dataset.i;
+          const extra = i != null ? f.fotosExtra[Number(i)] : null, clave2 = b.dataset.slot;
+          const url = await urlImagen(extra ? extra.img : f[clave2]);
+          if (!url) return;
+          const dim = extra ? d.extra : d[clave2];
+          const aj = await abrirAjuste({ titulo: extra ? extra.leyenda || `Fotografía ${Number(i) + 1}` : ranura[clave2], url, bw: dim[0], bh: dim[1], ajuste: extra ? extra.aj : (f.ajustes || {})[clave2], porDefecto: extra ? "llenar" : MODO_DEF[clave2] });
+          if (!aj) return;
+          if (extra) extra.aj = aj;
+          else {
+            f.ajustes = f.ajustes || {};
+            f.ajustes[clave2] = aj;
+          }
+          await guardarAhora();
+          avisar2("Encuadre aplicado: así queda en el PDF.");
         } else if (a === "quitar-img") {
           st.ficha[b.dataset.slot] = null;
+          if (st.ficha.ajustes) delete st.ficha.ajustes[b.dataset.slot];
           await guardarAhora();
         } else if (a === "quitar-extra") {
           st.ficha.fotosExtra.splice(Number(b.dataset.i), 1);
@@ -10283,7 +10665,7 @@ ${escapar(t.nota)}${t.notaPor ? `
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.8.2";
+  var VERSION_SISTEMA = "0.9";
   var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.6 + Seguimiento 0.1 + Monografías 0.1 (desde Terreno)";
 
   // app/vistas.js

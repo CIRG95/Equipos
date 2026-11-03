@@ -11,7 +11,7 @@ import { CAMPOS_DRON } from './drones.js';
 import { alturaParaGsd, gsdCm, fmt, fmtDuracion, proyectar, areaM2 } from './calculo.js';
 import { leerArchivo, analizarKml, limpiarParaDji, kmlDePoligono, kmlDeLinea, limpiarEje, nombreArchivoSeguro, limpiarAnillo, autoInterseccion } from './kml.js';
 import { listarCapas, cargarCapaDesdeArchivo, quitarCapa } from './capas.js';
-import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, totales } from './hoja.js';
+import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, kmADm, totales } from './hoja.js';
 import * as Seguimiento from '../seguimiento/seguimiento.js';
 import { formaDe, metodoPropuesto, generarCortes, corredorDesdeEje, rumboCortesPropuesto } from './cortes.js';
 import { caminosEn, caminosDeHoja, recuadro, despegueSobreCamino } from './redvial.js';
@@ -40,7 +40,7 @@ export function montarPantallas(contenedor, ctx) {
     vista: ctx.planId || ctx.proyectoId ? 'hoja' : (ctx.tab || 'hojas'),
     paso: 'resumen',
     hoja: null, candidatos: null,
-    dibujo: null, // { modo: 'area'|'eje'|'corte', puntos: [] }
+    dibujo: null, // { modo: 'area'|'eje'|'corte'|'camino'|'dmfijo', puntos: [] }
     leyendaAbierta: false, velA: 5, velB: 10, gsdExtra: [],
     pron: null, pronError: '', pronCargando: false, kps: null, dia: null,
     metar: null, metarError: '',
@@ -134,6 +134,21 @@ export function montarPantallas(contenedor, ctx) {
     else if (!st.mensaje || st.mensaje.tipo !== 'error') avisar(`Despegue sugerido para ${n} sector${n === 1 ? '' : 'es'}: revisa y toca «Usar».`);
   }
 
+  /** Agrega un corte fijo (texto DM o km) a «Cortes a medida». Devuelve false si no se entendió. */
+  function agregarFijo(texto) {
+    const h = st.hoja, km = dmAKm(String(texto || '').trim());
+    if (km == null) { avisar('Escribe el DM del corte, por ejemplo 4+900.', 'error'); render(); return false; }
+    const au = h.area.auto = h.area.auto || {};
+    au.modo = 'medida';
+    const lista = new Map((au.fijos || []).map(f => [Math.round(dmAKm(f) * 1000), f]));
+    lista.set(Math.round(km * 1000), kmADm(km));
+    const sube = !(h.area.dm && h.area.dm.desc);
+    au.fijos = [...lista.entries()].sort((x, y) => (sube ? x[0] - y[0] : y[0] - x[0])).map(e => e[1]);
+    cambio();
+    return true;
+  }
+  v.agregarFijo = agregarFijo;
+
   async function cortarAutomatico(h) {
     const a = h.area;
     a.auto = a.auto || {};
@@ -141,6 +156,7 @@ export function montarPantallas(contenedor, ctx) {
     const forma = formaDe(h);
     if (!a.auto.modo) a.auto.modo = metodoPropuesto(forma);
     const extra = { dron: dron(), primerDM: a.auto.primerKm ?? null };
+    if (a.auto.modo === 'medida' && (!a.dm || a.dm.inicio == null)) { a.dm = { ...(a.dm || {}), texto: '0+000', inicio: 0 }; } // el DM cuenta desde 0+000
     if (a.auto.modo === 'tramos') {
       if (!h.proyectoId) { avisar('La hoja no tiene proyecto: elígelo en el encabezado para usar sus tramos.', 'error'); return; }
       const t = await Seguimiento.tramosDeProyecto(h.proyectoId);
@@ -332,6 +348,13 @@ export function montarPantallas(contenedor, ctx) {
     } catch (e) { console.error(e); avisar(e.message || 'No se pudo completar', 'error'); await render(); }
   });
 
+  // Enter en el DM de un corte fijo = «+ Agregar»
+  raiz.addEventListener('keydown', async ev => {
+    if (ev.key !== 'Enter' || !ev.target || ev.target.id !== 'vu-nuevo-fijo') return;
+    ev.preventDefault();
+    if (agregarFijo(ev.target.value)) await render();
+  });
+
   raiz.addEventListener('submit', async ev => {
     ev.preventDefault();
     const form = ev.target;
@@ -398,7 +421,7 @@ export function montarPantallas(contenedor, ctx) {
         const modo = b.dataset.modo;
         st.dibujo = st.dibujo && st.dibujo.modo === modo ? null : { modo, puntos: [] };
         st.paso = 'area';
-        if (modo === 'corte') st.subArea = 'sectores';
+        if (modo === 'corte' || modo === 'dmfijo') st.subArea = 'sectores';
         if (modo === 'area' || modo === 'eje') st.subArea = 'origen';
         if (modo === 'camino') st.subArea = 'zonas';
         if (st.dibujo && modo === 'corte') avisar('Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».');
@@ -431,7 +454,19 @@ export function montarPantallas(contenedor, ctx) {
         const i = Number(b.dataset.i), e = st.sugDesp && st.sugDesp.lista.find(x => x.i === i);
         if (e && e.res) { metaSector(h, i).despegue = e.res.lonLat; e.usado = true; h.area.sel = i; avisar(`Despegue de ${nombreSector(h, i, geo().sectores.length)} movido al camino.`); cambio(); }
       }
-      else if (a === 'sub-area') { st.subArea = b.dataset.s; st.paso = 'area'; if (st.dibujo && st.dibujo.modo === 'corte' && st.subArea !== 'sectores') st.dibujo = null; }
+      else if (a === 'sub-area') { st.subArea = b.dataset.s; st.paso = 'area'; if (st.dibujo && (st.dibujo.modo === 'corte' || st.dibujo.modo === 'dmfijo') && st.subArea !== 'sectores') st.dibujo = null; }
+      // Sentido del eje y cortes a medida (v0.9)
+      else if (a === 'invertir-sentido') {
+        const ar = h.area, n = (geo() || { sectores: [] }).sectores.length;
+        ar.dm = ar.dm || {}; ar.dm.inv = !ar.dm.inv;
+        // Los datos de cada sector (nombre, despegue, rumbo) siguen a su sector: se invierte su orden.
+        if (ar.sectores && ar.sectores.length === n) ar.sectores.reverse();
+        if (n) ar.sel = n - 1 - Math.min(ar.sel || 0, n - 1);
+        avisar(`Sentido invertido: el inicio quedó en el ${ar.dm.inv ? 'último' : 'primer'} vértice del eje.`); cambio();
+      }
+      else if (a === 'agregar-fijo') { if (!agregarFijo((raiz.querySelector('#vu-nuevo-fijo') || {}).value)) return; }
+      else if (a === 'quitar-fijo') { h.area.auto.fijos.splice(Number(b.dataset.i), 1); cambio(); }
+      else if (a === 'sel-sector') { h.area.sel = Number(b.dataset.i); st.zoomSector = true; cambio(); refrescarArea(); return; }
       else if (a === 'auto-rumbo' || a === 'auto-lado') {
         h.area.auto = h.area.auto || {};
         const actual = h.area.auto.rumbo === '' || h.area.auto.rumbo == null ? Math.round(rumboCortesPropuesto(h)) : Number(h.area.auto.rumbo);

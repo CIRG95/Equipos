@@ -1,4 +1,24 @@
-# Topoland · Sistema de trabajo — v0.8.2 (Sistema y Terreno en el mismo teléfono)
+# Topoland · Sistema de trabajo — v0.9 (sectores a medida y encuadre de fotos en monografías)
+
+**Sistema v0.9 = v0.8.2 + Vuelos 0.7 + Monografías 0.2.** Paquete de conexión sin cambios (1.3): la app de Terreno no necesita actualizarse.
+
+## Qué cambia en v0.9
+**Vuelos 0.7 · paso Área**
+- **Sentido del eje (Forma → «Sentido y cadenamiento del eje»):** muestra el DM del inicio y del fin y de qué extremo del archivo es cada uno; botón **«⇄ Invertir sentido»**. En el mapa: etiquetas «Inicio · 0+000» y «Fin · …» y flechas blancas en el sentido de avance. Al invertir se recalculan el DM, el orden de los sectores (S1 en el inicio) y sus nombres; los nombres, despegues y rumbos de cada sector lo siguen. El eje guardado no se modifica (se guarda `area.dm.inv`).
+- **Método «Cortes a medida» (propuesto para áreas lineales):** cortes fijos en los DM que elijas (escritos, o con «◎ Marcar en el mapa», que muestra el DM bajo el cursor y corta al tocar el eje) y, después del último, cortes cada X m o km hasta el fin del eje. El último sector termina en el fin del eje. Vista previa con los tramos. Ejemplo: 4+900 y 10+200 fijos y luego cada 5 km → 0+000–4+900 · 4+900–10+200 · 10+200–15+200 · … hasta el fin.
+- **Los demás métodos lineales** (distancia, superficie, DM, tramos) respetan el sentido elegido.
+- **Sectores a todo el ancho bajo el mapa:** cinta del cadenamiento (sectores a escala de su largo, con DM) y tabla compacta (sector, nombre/tramo, largo, superficie, baterías, vuelo, KML, volar) con desplazamiento propio. Tocar un sector en la cinta o la tabla lo resalta y lo encuadra en el mapa.
+
+**Monografías 0.2**
+- **Acomodar las fotos como en Terreno:** cada imagen (croquis, panorámica, logo del cliente y fotografías adicionales) tiene **«✂ Ajustar encuadre»**: llenar (recorta) o entera (con márgenes), zoom, mover arrastrando o con deslizadores, girar de a 90° y restablecer. La miniatura muestra el encuadre real del PDF.
+- **Presentación de las imágenes:** disposición croquis/panorámica (lado a lado o una bajo la otra) y alto de las imágenes y de las fotografías adicionales.
+- Usa los mismos campos que Terreno (`ajustes`, `fotosExtra[].aj`, `disposicionImg`, `altoImagenes`, `altoFotosExtra`) y el mismo código del PDF (`pieza-terreno.js`, regenerada desde Terreno 0.5.8 sin cambios en la monografía).
+
+**Pruebas:** 44 automáticas (nueva `cortes-medida.test.mjs`: ejemplo de 32 sectores, sentido normal e invertido) y en navegador: eje de 158,7 km con 32 sectores, marcar en el mapa, invertir, teléfono; encuadre y PDF de una monografía; Terreno 0.5.8.1 y el Sistema juntos en un teléfono (vinculación y base sin cambios).
+
+---
+
+## Versión anterior: v0.8.2 (Sistema y Terreno en el mismo teléfono)
 
 ## Qué cambia en v0.8.2
 - **Arreglo:** con Terreno abierto en el mismo teléfono (aunque en segundo plano), el Sistema podía quedar en «El Sistema no cargó». Ambas apps comparten la base `topoland`; Terreno la creaba solo con sus partes y el Sistema tenía que agrandarla, esperando a que Terreno la soltara (en Android una app en segundo plano está congelada). Ahora hay un **esquema común** (`compartido/esquema.js`) que ambas crean completo desde el principio.

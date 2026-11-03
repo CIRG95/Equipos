@@ -88,13 +88,11 @@ export function geometria(hoja) {
     const sectores = tramos.map(t => ({ eje: t, poligono: poligonoCorredor(t, izq, der), largo: largo(t) }));
     sectores.forEach(s => { s.area = areaM2(s.poligono); });
     // DM de cada sector (si la hoja tiene el DM del inicio del eje): sirve para nombrarlos «10+200 – 15+200».
-    const ejeOrig = fuente.map(marco.aXY);
-    if (a.dm && a.dm.inicio != null) for (const s of sectores) {
-      const s0 = distanciaEnEje(ejeOrig, s.eje[0]), s1 = distanciaEnEje(ejeOrig, s.eje[s.eje.length - 1]);
-      const km = x => a.dm.desc ? a.dm.inicio - x / 1000 : a.dm.inicio + x / 1000;
-      const [k0, k1] = [km(s0), km(s1)].sort((x, y) => x - y);
-      s.dm = [k0, k1];
-    }
+    const ejeOrig = fuente.map(marco.aXY), Lo = largo(ejeOrig);
+    for (const s of sectores) s.rango = [distanciaEnEje(ejeOrig, s.eje[0]), distanciaEnEje(ejeOrig, s.eje[s.eje.length - 1])].sort((x, y) => x - y);
+    if (a.dm && a.dm.inicio != null) for (const s of sectores) s.dm = s.rango.map(x => kmEnEje(a, x, Lo)).sort((x, y) => x - y);
+    // Sentido invertido (v0.9): el inicio (S1) es el otro extremo del eje.
+    if (a.dm && a.dm.inv) sectores.sort((x, y) => (y.rango[0] + y.rango[1]) - (x.rango[0] + x.rango[1]));
     valor = { marco, tipo: 'corredor', eje, izq, der, vuelo: poligonoCorredor(eje, izq, der), original: null, sectores, fallidos: cortes.length && tramos.length < cortes.length + 1 ? ['algún corte no cruza el eje'] : [] };
   } else {
     const original = fuente.map(marco.aXY);
@@ -103,15 +101,16 @@ export function geometria(hoja) {
     let secs = sectores.map(p => ({ poligono: p, area: areaM2(p) }));
     // Área lineal con eje calculado: sectores en el orden del eje y, con DM, nombrados por su tramo (v0.8).
     if (a.ejeCalc && a.ejeCalc.linea && secs.length > 1) {
-      const ejeXY = a.ejeCalc.linea.map(marco.aXY);
+      const ejeXY = a.ejeCalc.linea.map(marco.aXY), Le = largo(ejeXY);
       for (const sec of secs) {
         const pts = sec.poligono, paso = Math.max(1, Math.ceil(pts.length / 300));
         let mn = Infinity, mx = -Infinity;
         for (let i = 0; i < pts.length; i += paso) { const d = distanciaEnEje(ejeXY, pts[i]); if (d < mn) mn = d; if (d > mx) mx = d; }
         sec.rango = [mn, mx];
-        if (a.dm && a.dm.inicio != null) { const km = x => a.dm.desc ? a.dm.inicio - x / 1000 : a.dm.inicio + x / 1000; sec.dm = [km(mn), km(mx)].sort((x, y) => x - y); }
+        if (a.dm && a.dm.inicio != null) sec.dm = [kmEnEje(a, mn, Le), kmEnEje(a, mx, Le)].sort((x, y) => x - y);
       }
-      secs.sort((x, y) => (x.rango[0] + x.rango[1]) - (y.rango[0] + y.rango[1]));
+      const signo = a.dm && a.dm.inv ? -1 : 1; // sentido invertido: S1 en el otro extremo
+      secs.sort((x, y) => signo * ((x.rango[0] + x.rango[1]) - (y.rango[0] + y.rango[1])));
     }
     valor = { marco, tipo: 'poligono', original, vuelo, sectores: secs, fallidos };
   }
@@ -137,6 +136,24 @@ export function nombreSector(hoja, i, total) {
 }
 
 // ─────────── Cadenamiento (DM) y cortes automáticos del corredor ───────────
+/**
+ * Sentido del eje (v0.9). El eje se guarda tal como vino del KML; h.area.dm.inv = true pone el inicio (DM del inicio)
+ * en su último vértice. s = metros desde el primer vértice guardado; L = largo del eje.
+ */
+export const desdeInicio = (a, s, L) => (a.dm && a.dm.inv ? L - s : s);
+/** DM (km) del punto a s metros del primer vértice guardado. Sin DM del inicio cuenta desde 0+000. */
+export function kmEnEje(a, s, L) {
+  const dm = a.dm || {}, ini = dm.inicio != null ? dm.inicio : 0, x = desdeInicio(a, s, L) / 1000;
+  return dm.desc ? ini - x : ini + x;
+}
+/** Metros desde el primer vértice guardado del punto con ese DM (km). */
+export function sDeKm(a, km, L) {
+  const dm = a.dm || {}, ini = dm.inicio != null ? dm.inicio : 0;
+  return desdeInicio(a, (dm.desc ? ini - km : km - ini) * 1000, L);
+}
+/** Línea del eje (lon/lat, en el orden guardado) que usa la hoja: la del corredor o la calculada del área lineal. */
+export function lineaEje(a) { return a.tipo === 'corredor' ? (a.eje && a.eje.linea) : (a.ejeCalc && a.ejeCalc.linea) || null; }
+
 /** «45+200» → 45.2 (km); null si no se entiende. */
 export function dmAKm(t) { const m = /^\s*(\d+)\s*\+\s*(\d{1,3})(?:[.,](\d+))?\s*$/.exec(String(t)); if (m) return Number(m[1]) + Number(m[2].padEnd(3, '0')) / 1000; const n = Number(String(t).replace(',', '.')); return isFinite(n) && String(t).trim() !== '' ? n : null; }
 export function kmADm(x) { const k = Math.floor(x + 1e-9); return `${k}+${String(Math.round((x - k) * 1000)).padStart(3, '0')}`; }

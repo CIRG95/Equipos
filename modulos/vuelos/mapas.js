@@ -1,7 +1,8 @@
 // modulos/vuelos/mapas.js — mapas Leaflet de Vuelos (área, vuelo, KML) con el mapa base elegido en mapa-base.js.
 
 import { cargarScript } from '../../compartido/util.js';
-import { calcularSector, metaSector, nombreSector } from './hoja.js';
+import { calcularSector, metaSector, nombreSector, lineaEje, kmEnEje, kmADm, marcoDe } from './hoja.js';
+import { largo, distanciaEnEje, puntoEnEje } from './geom.js';
 import { TIPOS_CAPA } from './capas.js';
 import { COLORES_BATERIA, COLORES_SECTOR } from './ui.js';
 import { agregarMapaBase } from './mapa-base.js';
@@ -37,6 +38,7 @@ export function crearMapas(v) {
       m = mapas[clave] = { el, mapa, capas: {}, L, encuadre: null };
       mapa.setView(CENTRO_CHILE, 7);
       mapa.on('click', ev => alClicMapa(clave, ev));
+      mapa.on('mousemove', ev => alMoverMapa(clave, ev));
     }
     if (m.el.parentNode !== lugar) lugar.appendChild(m.el);
     m.mapa.invalidateSize();
@@ -105,7 +107,7 @@ export function crearMapas(v) {
   function pintarArea(m) {
     const { L, mapa } = m;
     const g = geo(), h = st.hoja;
-    quitar(m, 'original', 'sectores', 'cortes', 'eje');
+    quitar(m, 'original', 'sectores', 'cortes', 'eje', 'sentido');
     pintarZonas(m);
     pintarCaminos(m);
     if (!g) return;
@@ -114,8 +116,10 @@ export function crearMapas(v) {
     if (g.tipo === 'corredor') m.capas.eje = L.polyline(g.eje.map(LL), { color: '#FFFFFF', weight: 2, dashArray: '3 5', interactive: false }).addTo(mapa);
     else if (h.area.ejeCalc && h.area.ejeCalc.linea) m.capas.eje = L.polyline(h.area.ejeCalc.linea.map(([lon, lat]) => [lat, lon]), { color: '#FFFFFF', weight: 2, dashArray: '3 5' }).bindTooltip('Eje calculado', { sticky: true }).addTo(mapa);
     const varios = g.sectores.length > 1;
+    const sel = Math.max(0, Math.min(h.area.sel || 0, g.sectores.length - 1));
     m.capas.sectores = L.layerGroup(g.sectores.map((s, i) => {
-      const p = L.polygon(s.poligono.map(LL), { color: '#E8611C', weight: 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? 0.25 : 0.1, interactive: g.sectores.length > 8 });
+      const elegido = varios && i === sel;
+      const p = L.polygon(s.poligono.map(LL), { color: elegido ? '#FFFFFF' : '#E8611C', weight: elegido ? 5 : 3, fillColor: COLORES_SECTOR[i % COLORES_SECTOR.length], fillOpacity: varios ? (elegido ? 0.5 : 0.25) : 0.1, interactive: g.sectores.length > 8 });
       // Con muchos sectores las etiquetas fijas se tapan entre sí: se muestran al pasar el mouse.
       if (varios) p.bindTooltip(nombreSector(h, i, g.sectores.length), { permanent: g.sectores.length <= 8, sticky: g.sectores.length > 8, direction: 'center', className: 'vu-etiqueta' });
       return p;
@@ -130,7 +134,10 @@ export function crearMapas(v) {
       });
     });
     m.capas.cortes = L.layerGroup(capas).addTo(mapa);
+    pintarSentido(m);
+    if (m.capas.sectores) m.capas.sectores.eachLayer(l => { if (l.options.weight === 5) l.bringToFront(); });
     encuadrar(m, g.vuelo.map(LL), `area:${JSON.stringify(g.vuelo[0])}:${g.vuelo.length}`);
+    if (st.zoomSector && varios) { st.zoomSector = false; const b = L.latLngBounds(g.sectores[sel].poligono.map(LL)); if (b.isValid()) mapa.fitBounds(b, { padding: [60, 60], maxZoom: 16 }); }
   }
 
   function pintarZonas(m) {
@@ -207,8 +214,57 @@ export function crearMapas(v) {
     m.kml = st.kml;
   }
 
+  // ─────────── Sentido del eje (v0.9): inicio, fin y flechas de avance ───────────
+  function ejeActual() {
+    const a = st.hoja && st.hoja.area, linea = a && lineaEje(a);
+    if (!linea || linea.length < 2) return null;
+    const marco = marcoDe(linea), xy = linea.map(marco.aXY);
+    return { a, marco, xy, L: largo(xy) };
+  }
+  function pintarSentido(m) {
+    const { L, mapa } = m, e = ejeActual();
+    if (!e) return;
+    const inv = !!(e.a.dm && e.a.dm.inv), aLL = p => { const [lon, lat] = e.marco.aLonLat(p); return [lat, lon]; };
+    const sIni = inv ? e.L : 0, sFin = inv ? 0 : e.L;
+    const etiqueta = (s, txt, clase) => L.marker(aLL(puntoEnEje(e.xy, s).p), { interactive: false, keyboard: false, icon: L.divIcon({ className: 'vu-extremo ' + clase, html: `<span>${txt}</span>`, iconSize: null }) });
+    const capas = [etiqueta(sIni, `Inicio · ${kmADm(kmEnEje(e.a, sIni, e.L))}`, 'ini'), etiqueta(sFin, `Fin · ${kmADm(kmEnEje(e.a, sFin, e.L))}`, 'fin')];
+    for (const f of [0.2, 0.4, 0.6, 0.8]) {
+      const s = e.L * f, p0 = puntoEnEje(e.xy, s).p, p1 = puntoEnEje(e.xy, Math.min(e.L, s + Math.max(5, e.L * 0.002))).p;
+      let ang = Math.atan2(p1[0] - p0[0], p1[1] - p0[1]) * 180 / Math.PI; // rumbo en grados desde el norte
+      if (inv) ang += 180;
+      capas.push(L.marker(aLL(p0), { interactive: false, keyboard: false, icon: L.divIcon({ className: 'vu-flecha', html: `<span style="transform:rotate(${ang.toFixed(1)}deg)">▲</span>`, iconSize: [18, 18], iconAnchor: [9, 9] }) }));
+    }
+    m.capas.sentido = L.layerGroup(capas).addTo(mapa);
+  }
+  /** Punto del eje más cercano a un clic: { s (m desde el primer vértice), km, latlng }. */
+  function puntoEjeCercano(latlng) {
+    const e = ejeActual();
+    if (!e) return null;
+    const q = e.marco.aXY([latlng.lng, latlng.lat]), s = distanciaEnEje(e.xy, q), p = puntoEnEje(e.xy, s).p, [lon, lat] = e.marco.aLonLat(p);
+    return { s, km: kmEnEje(e.a, s, e.L), latlng: [lat, lon] };
+  }
+  let movPendiente = null;
+  function alMoverMapa(clave, ev) {
+    if (clave !== 'area' || !st.dibujo || st.dibujo.modo !== 'dmfijo') { if (mapas.area && mapas.area.capas.cursorDm) quitar(mapas.area, 'cursorDm'); return; }
+    if (movPendiente) { movPendiente = ev; return; }
+    movPendiente = ev;
+    requestAnimationFrame(() => {
+      const e2 = movPendiente; movPendiente = null;
+      const m = mapas.area, r = m && puntoEjeCercano(e2.latlng);
+      if (!m || !r) return;
+      quitar(m, 'cursorDm');
+      m.capas.cursorDm = m.L.circleMarker(r.latlng, { radius: 7, color: '#1C1F23', weight: 3, fillColor: '#FFFFFF', fillOpacity: 1, interactive: false })
+        .bindTooltip(`DM ${kmADm(r.km)} · toca para cortar aquí`, { permanent: true, direction: 'right', offset: [10, 0], className: 'vu-tip-dm' }).addTo(m.mapa);
+    });
+  }
+
   function alClicMapa(clave, ev) {
     if (clave !== 'area' || !st.dibujo) return;
+    if (st.dibujo.modo === 'dmfijo') {
+      const r = puntoEjeCercano(ev.latlng);
+      if (r && v.agregarFijo(kmADm(r.km))) render();
+      return;
+    }
     st.dibujo.puntos.push([ev.latlng.lng, ev.latlng.lat]);
     const b = raiz.querySelector('#vu-barra-area'); if (b) b.innerHTML = barraDibujo();
     if (mapas.area) pintarDibujo(mapas.area);

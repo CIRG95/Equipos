@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.8.2
+# INTEGRACION.md — Sistema v0.9
 
 ## Qué contiene
 
@@ -118,4 +118,13 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - `almacen.js`: `registrarAlmacenes` suma índices nuevos a un almacén ya registrado; `definicionesRegistradas()`; marca `globalThis.__topolandBdEsperando` / `__topolandBdBloqueada` mientras una apertura espera (lo usa `index.html` para el aviso «Esperando los datos»). El rechazo por bloqueo pasa de 10 s a 60 s.
 - **Paquete de conexión 1.3:** `alVincular(fn)`, `explicarVinculo(codigo?)`; código del QR en `localStorage['topoland_conexion_codigo']`; `alLlegarDatos` avisa después de intentar el código pendiente.
 - **Chat de Terreno:** copiar `paquete-conexion/topoland-conexion.js` en `terreno/js/`, subir el caché del `sw.js` y usar `explicarVinculo` / `alVincular` en ⚙ → Sistema.
+
+## Sistema v0.9
+- **Vuelos 0.7** (`modulos/vuelos/`):
+  - `hoja.js`: `kmEnEje(area, s, L)`, `sDeKm(area, km, L)`, `desdeInicio`, `lineaEje(area)`. Campo nuevo de la hoja: `area.dm.inv` (sentido invertido: el inicio es el último vértice guardado). `geometria()` ordena los sectores en el sentido de avance y agrega `rango` (m sobre el eje) a los sectores del corredor.
+  - `cortes.js`: método `medida` (`area.auto.fijos` = lista de DM en texto, `auto.cada`/`auto.unidad`), `kmCortesAMedida`, `tramosVistaPrevia`, `METODOS_LINEALES`. Método propuesto para áreas lineales: `medida` (sin cortes fijos equivale a «Por distancia»).
+  - `paso-area.js` / `mapas.js` / `pantallas.js`: sentido en Forma, chips de cortes fijos, modo de dibujo `dmfijo` (clic en el eje = corte fijo, DM bajo el cursor), sectores a todo el ancho (cinta + tabla), sector elegido resaltado y encuadrado (`st.zoomSector`).
+  - Sin almacenes ni índices nuevos: `compartido/esquema.js` y el paquete de conexión no cambian.
+- **Monografías 0.2** (`modulos/monografias/`): `ajuste.js` (diálogo «Ajustar encuadre» y `colocarImagen`), tarjeta «Presentación de las imágenes». `herramientas/extraer-pieza-monografia.mjs` exporta además `ajusteDe`, `calcRectImagen`, `cargarImagenEl`; `pieza-terreno.js` regenerada desde Terreno 0.5.8.
+- **Terreno:** sin cambios. Lo que Terreno envía con sus ajustes de imagen se ve igual en el Sistema, y el ajuste hecho en gabinete queda en la versión revisada (`terreno_monografias_gabinete`).
 

@@ -30,7 +30,7 @@
 .mn-slot-img{height:150px; border:1px dashed var(--line); border-radius:10px; display:grid; place-items:center; overflow:hidden; background:#FAFAF7; margin-bottom:8px;}
 .mn-slot-img img{max-width:100%; max-height:100%; object-fit:contain;}
 .mn-extra{display:grid; grid-template-columns:72px 1fr auto; gap:8px; align-items:center; margin-bottom:8px;}
-.mn-extra img{width:72px; height:54px; object-fit:cover; border-radius:6px;}
+.mn-extra > img{width:72px; height:54px; object-fit:cover; border-radius:6px;}
 .mn-extra input{min-height:38px; border:1px solid var(--line); border-radius:8px; padding:0 8px; font:inherit;}
 .mn-hist ul{margin:6px 0 0; padding-left:18px; font-size:13px;}
 .mn-aviso{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
@@ -44,3 +44,20 @@
 .mn-foto img{width:100%; height:120px; object-fit:cover; border-radius:6px;}
 .mn-foto small{display:block; font-size:12px; color:#5B6168;}
 @media (max-width: 900px){ .mn-dos{grid-template-columns:1fr;} .mn-tabla{font-size:13px;} }
+
+/* ── v0.9 · Encuadre de imágenes como en Terreno ── */
+.mn-mini{position:relative; overflow:hidden; max-width:100%; background:#fff; border:1px solid var(--line); border-radius:4px; display:grid; place-items:center; margin-bottom:8px;}
+.mn-mini img{user-select:none; pointer-events:none;}
+.mn-extra{grid-template-columns:1fr; align-items:start; padding-bottom:10px; border-bottom:1px solid #EFEDE8;}
+.mn-extra .mn-mini{margin:0;}
+.mn-extra-datos{display:flex; flex-direction:column; gap:6px;}
+.mn-extra-datos input{width:100%; box-sizing:border-box;}
+.mn-aj{width:min(600px, 100%);}
+.mn-aj-caja{position:relative; overflow:hidden; margin:10px auto; background:#fff; border:2px solid var(--marca); border-radius:4px; touch-action:none; cursor:grab; max-width:100%;}
+.mn-aj-caja.arrastrando{cursor:grabbing;}
+.mn-aj-caja img{user-select:none; pointer-events:none;}
+.mn-aj-modos{display:flex; gap:6px; margin:6px 0 10px;}
+.mn-aj-modos .sis-btn{flex:1;}
+.mn-aj-fila{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.mn-aj input[type=range]{width:100%; accent-color:var(--marca);}
+.mn-aj-pie{justify-content:flex-end; margin-top:12px;}

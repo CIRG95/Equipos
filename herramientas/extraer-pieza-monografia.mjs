@@ -53,7 +53,7 @@ ${partes.join('\n\n')}
 ${defaults}
 
 export const VERSION_TERRENO = '${version}';
-export { cargarMonografiaDefaults as valoresPorDefecto, monoResumenDatos as chequeoMonografia, prepararImagenesMonografia, construirMonografiaPdf, dimsMonografia, ordenNatural, impNum, fmtFechaCorta };
+export { cargarMonografiaDefaults as valoresPorDefecto, monoResumenDatos as chequeoMonografia, prepararImagenesMonografia, construirMonografiaPdf, dimsMonografia, ajusteDe, calcRectImagen, cargarImagenEl, ordenNatural, impNum, fmtFechaCorta };
 `;
 writeFileSync(new URL('../modulos/monografias/pieza-terreno.js', import.meta.url), salida);
 console.log('pieza-terreno.js generada desde Terreno v' + version + ' (' + Math.round(salida.length / 1024) + ' KB)');

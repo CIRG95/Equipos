@@ -315,3 +315,49 @@ body[data-modo] .vu-mapa-alto .vu-mapa-lugar, body[data-modo] .vu-mapa-alto .vu-
 .vu-rumbo-corte { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .vu-rumbo-corte input { width: 72px; min-height: 38px; border: 1px solid var(--line); border-radius: 8px; text-align: center; font: inherit; }
 @media (max-width: 900px) { .vu-area .vu-derecha { position: static; } body[data-modo] .vu-mapa-alto .vu-mapa-lugar, body[data-modo] .vu-mapa-alto .vu-mapa { height: 380px; min-height: 0; } .vu-subs { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── v0.9 · Sentido del eje, cortes a medida y sectores a todo el ancho ── */
+.vu-mono{font-family:'IBM Plex Mono', ui-monospace, monospace;}
+.vu-subtit{font-size:14px; margin:14px 0 6px;}
+.vu-sentido{display:flex; flex-direction:column; gap:6px; margin:0 0 10px;}
+.vu-sentido-fila{display:grid; grid-template-columns:54px 84px 1fr; gap:8px; align-items:center; font-size:13px;}
+.vu-marca-ini, .vu-marca-fin{display:inline-block; text-align:center; padding:2px 6px; border-radius:6px; color:#fff; font-size:12px; font-weight:600;}
+.vu-marca-ini{background:var(--marca);}
+.vu-marca-fin{background:#1C1F23;}
+.vu-sentido .sis-btn{align-self:flex-start;}
+.vu-chips{display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 6px;}
+.vu-chip-dm{display:inline-flex; align-items:center; gap:6px; padding:4px 4px 4px 10px; border-radius:999px; background:var(--marca-suave); border:1px solid var(--line); font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:13px; font-weight:600;}
+.vu-chip-dm button{width:26px; height:26px; border:0; border-radius:50%; background:rgba(0,0,0,.08); font:inherit; font-size:12px; cursor:pointer; color:inherit;}
+.vu-fila-dm{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+.vu-fila-dm input{width:110px; min-height:36px; border:1px solid var(--line); border-radius:8px; padding:0 8px; font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:14px;}
+.vu-tramos{display:block; font-size:12px; color:var(--tenue, #5B6168); margin-top:2px; word-break:break-word;}
+.vu-sectores-ancho{margin-top:16px;}
+.vu-sec-cab{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:10px;}
+.vu-sec-cab h2{margin:0 0 2px;}
+.vu-cinta{display:flex; height:34px; border-radius:6px; overflow:hidden; border:1px solid var(--line);}
+.vu-cinta-seg{flex-basis:0; min-width:3px; border:0; border-right:1px solid #fff; padding:0; cursor:pointer;}
+.vu-cinta-seg:last-child{border-right:0;}
+.vu-cinta-seg.sel{box-shadow:inset 0 0 0 3px #1C1F23;}
+.vu-cinta-seg:focus-visible{outline:3px solid var(--marca); outline-offset:-3px;}
+.vu-cinta-marcas{position:relative; height:20px; margin:4px 0 10px;}
+.vu-cinta-km{position:absolute; top:0; transform:translateX(-50%); font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:11px; color:var(--tenue, #5B6168); white-space:nowrap;}
+.vu-cinta-km:first-child{transform:none;}
+.vu-cinta-km.fin{right:0; left:auto; transform:none; font-weight:600;}
+.vu-sec-tabla{max-height:380px; overflow:auto; border:1px solid var(--line); border-radius:8px;}
+.vu-sec-tabla table{width:100%; border-collapse:collapse; font-size:13px;}
+.vu-sec-tabla th{position:sticky; top:0; z-index:1; background:#F1EFEA; text-align:left; font-size:12px; font-weight:600; color:var(--tenue, #5B6168); padding:8px 10px; white-space:nowrap;}
+.vu-sec-tabla td{padding:4px 10px; border-top:1px solid #EFEDE8; white-space:nowrap;}
+.vu-sec-tabla .num{text-align:right;}
+.vu-sec-tabla .acc{text-align:right;}
+.vu-sec-tabla .acc .vu-link{margin-left:12px;}
+.vu-sec-tabla tr.sel td{background:var(--marca-suave);}
+.vu-sec-tabla .vu-sector-nombre{width:190px; font-family:'IBM Plex Mono', ui-monospace, monospace; font-weight:500;}
+.vu-sec-id{display:inline-flex; align-items:center; gap:8px; min-height:34px; border:0; background:none; font:inherit; font-weight:700; cursor:pointer; padding:0; color:inherit;}
+.vu-sec-id i{width:14px; height:14px; border-radius:3px;}
+.vu-extremo span{display:inline-block; transform:translate(-50%, -140%); white-space:nowrap; padding:3px 8px; border-radius:6px; color:#fff; font:600 12px 'IBM Plex Mono', ui-monospace, monospace; box-shadow:0 1px 4px rgba(0,0,0,.35);}
+.vu-extremo.ini span{background:var(--marca);}
+.vu-extremo.fin span{background:rgba(28,31,35,.9);}
+.vu-flecha span{display:block; width:18px; height:18px; line-height:18px; text-align:center; color:#fff; font-size:13px; text-shadow:0 0 3px #000, 0 0 2px #000;}
+.vu-tip-dm{font-family:'IBM Plex Mono', ui-monospace, monospace; font-weight:600;}
+body[data-modo="telefono"] .vu-sec-tabla{max-height:420px;}
+body[data-modo="telefono"] .vu-sec-tabla .vu-sector-nombre{width:150px;}

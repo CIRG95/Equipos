@@ -5,7 +5,8 @@ import { escapar as esc, descargar, fechaLegible, fechaHoraLegible, uuid } from 
 import { listarProyectos, obtenerProyecto, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
 import { urlArchivo, guardarArchivo } from '../../compartido/archivos.js';
 import * as D from './datos.js';
-import { configurarPieza, chequeoMonografia, valoresPorDefecto } from './pieza-terreno.js';
+import { configurarPieza, chequeoMonografia, valoresPorDefecto, dimsMonografia, ajusteDe, cargarImagenEl } from './pieza-terreno.js';
+import { abrirAjuste, colocarImagen } from './ajuste.js';
 import { pdfDe, urlImagen, logoEmpresa, fijarLogoEmpresa, ordenNatural } from './pdf.js';
 
 const CAMPOS = [
@@ -18,6 +19,9 @@ const CAMPOS = [
 const MODULOS = [['utm', 'Coordenadas UTM'], ['geodesicas', 'Coordenadas geodésicas'], ['croquis', 'Croquis de ubicación'], ['panoramica', 'Vista panorámica'], ['descripcion', 'Descripción'], ['fotos', 'Fotografías adicionales'], ['firma', 'Datos operador / Revisó']];
 const TIPO_FOTO = { panoramica: 'Panorámica', croquis: 'Croquis', placa: 'Placa', detalle: 'Detalle', punto: 'Punto', logo: 'Logo', otra: 'Foto' };
 const ranura = { croquisImg: 'Croquis de ubicación', panoramicaImg: 'Vista panorámica', clienteLogo: 'Logo del cliente' };
+const MODO_DEF = { clienteLogo: 'ajustar', croquisImg: 'llenar', panoramicaImg: 'llenar' };
+// Ancho en pantalla (px) de la miniatura de cada recuadro; el alto sale de las medidas del PDF.
+const ANCHO_MINI = { croquisImg: 300, panoramicaImg: 300, clienteLogo: 180, extra: 220 };
 
 export function montarPantallas(raiz, ctx) {
   const st = { proyectoId: ctx.proyectoId || null, monoId: ctx.monografiaId || null, lista: [], ficha: null, fotos: [], elegir: null, mensaje: null, filtro: '', nombres: {}, guardando: null, vivo: true };
@@ -79,11 +83,36 @@ export function montarPantallas(raiz, ctx) {
     return `<div class="mn-chequeo">${filas.map(f => `<div class="mn-ch"><span class="mn-ch-ic ${f.ok ? (f.dup ? 'dup' : f.calc ? 'calc' : 'ok') : 'falta'}" aria-hidden="true">${f.ok ? (f.dup ? '!' : f.calc ? '?' : '✔') : '–'}</span><span>${esc(f.k)}${f.det ? `<small>${esc(f.det)}</small>` : ''}${f.dup ? `<small class="mn-av">${esc(f.dup)}</small>` : ''}${f.calc ? `<small class="mn-av">${esc(f.calc)}</small>` : ''}</span></div>`).join('')}</div>
       <p class="sis-tenue mn-ley">✔ ingresado · – falta · ! repetido en el proyecto · ? calculado por la app de Terreno</p>`;
   }
+  /** Miniatura con el encuadre real del PDF (se coloca la imagen después de pintar: ver colocarMinis). */
+  function miniHtml(url, dim, ancho, datos, titulo) {
+    return `<div class="mn-mini" style="width:${ancho}px; aspect-ratio:${dim[0].toFixed(1)} / ${dim[1].toFixed(1)}" ${datos}>${url ? `<img src="${esc(url)}" alt="${esc(titulo)}" draggable="false">` : '<span class="sis-tenue">Sin imagen</span>'}</div>`;
+  }
   async function imagenHtml(clave, titulo) {
-    const url = await urlImagen(st.ficha[clave]);
+    const url = await urlImagen(st.ficha[clave]), dim = dimsMonografia(st.ficha)[clave];
     return `<div class="mn-slot"><div class="mn-slot-tit">${esc(titulo)}</div>
-      <div class="mn-slot-img">${url ? `<img src="${esc(url)}" alt="${esc(titulo)}">` : '<span class="sis-tenue">Sin imagen</span>'}</div>
-      <div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="${clave}">Elegir de terreno</button><label class="sis-btn chico">Subir<input type="file" accept="image/*" data-mn-archivo="${clave}" hidden></label>${url ? `<button class="sis-btn chico" data-mn="quitar-img" data-slot="${clave}">Quitar</button>` : ''}</div></div>`;
+      ${miniHtml(url, dim, ANCHO_MINI[clave], `data-mini="${clave}"`, titulo)}
+      <div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="${clave}">Elegir de terreno</button><label class="sis-btn chico">Subir<input type="file" accept="image/*" data-mn-archivo="${clave}" hidden></label>${url ? `<button class="sis-btn chico" data-mn="ajustar" data-slot="${clave}">✂ Ajustar encuadre</button><button class="sis-btn chico" data-mn="quitar-img" data-slot="${clave}">Quitar</button>` : ''}</div></div>`;
+  }
+  /** Presentación de las imágenes (los mismos campos que en Terreno: disposicionImg, altoImagenes, altoFotosExtra). */
+  function presentacionHtml(mod) {
+    const f = st.ficha, ambas = mod.croquis && mod.panoramica;
+    if (!mod.croquis && !mod.panoramica && !mod.fotos) return '';
+    const alto = Number(f.altoImagenes) || 56, altoE = Number(f.altoFotosExtra) || 60;
+    return `<section class="sis-tarjeta"><h2>Presentación de las imágenes</h2>
+      ${ambas ? `<label class="sis-campo"><span>Disposición croquis / panorámica</span><select data-pres="disposicionImg"><option value="lado" ${(f.disposicionImg || 'lado') === 'lado' ? 'selected' : ''}>Lado a lado</option><option value="apiladas" ${f.disposicionImg === 'apiladas' ? 'selected' : ''}>Una bajo la otra (ancho completo)</option></select></label>` : ''}
+      ${mod.croquis || mod.panoramica ? `<label class="sis-campo"><span>Alto de cada imagen: <b data-pres-txt="altoImagenes">${alto}</b> mm</span><input type="range" min="35" max="120" step="1" data-pres="altoImagenes" value="${alto}"></label>` : ''}
+      ${mod.fotos ? `<label class="sis-campo"><span>Alto de las fotografías adicionales: <b data-pres-txt="altoFotosExtra">${altoE}</b> mm</span><input type="range" min="35" max="120" step="1" data-pres="altoFotosExtra" value="${altoE}"></label>` : ''}
+      <p class="sis-tenue">Cada imagen se encuadra con «✂ Ajustar encuadre»: llenar o entera, zoom, mover y girar, como en la app de Terreno.</p></section>`;
+  }
+  /** Coloca cada miniatura con su ajuste (como quedará en el PDF). */
+  function colocarMinis() {
+    for (const caja of cont.querySelectorAll('.mn-mini')) {
+      const img = caja.querySelector('img');
+      if (!img || !st.ficha) continue;
+      const clave = caja.dataset.mini, i = caja.dataset.miniExtra;
+      const aj = i != null ? { modo: 'llenar', zoom: 1, ox: 0, oy: 0, giro: 0, ...((st.ficha.fotosExtra[Number(i)] || {}).aj || {}) } : ajusteDe(st.ficha, clave, MODO_DEF[clave]);
+      cargarImagenEl(img.src).then(im => colocarImagen(img, { w: im.naturalWidth, h: im.naturalHeight }, caja.clientWidth, caja.clientHeight, aj)).catch(() => {});
+    }
   }
   async function vistaFicha() {
     if (!st.proyecto || st.proyecto.id !== st.proyectoId) st.proyecto = await obtenerProyecto(st.proyectoId);
@@ -96,7 +125,8 @@ export function montarPantallas(raiz, ctx) {
     st.fotos = await D.fotosDeProyecto(st.proyectoId);
     const f = st.ficha, mod = f.modulos || (f.modulos = { utm: true, geodesicas: true, croquis: true, panoramica: true, descripcion: true, firma: true, fotos: false });
     const hist = await D.historialDe(x.id);
-    const extras = await Promise.all((f.fotosExtra || []).map(async (e, i) => { const u = await urlImagen(e.img); return `<div class="mn-extra">${u ? `<img src="${esc(u)}" alt="">` : '<span class="sis-tenue">Sin imagen</span>'}<input data-extra="${i}" value="${esc(e.leyenda || '')}" placeholder="Leyenda" aria-label="Leyenda de la foto ${i + 1}"><button class="sis-btn chico" data-mn="quitar-extra" data-i="${i}">Quitar</button></div>`; }));
+    const dimE = dimsMonografia(f).extra;
+    const extras = await Promise.all((f.fotosExtra || []).map(async (e, i) => { const u = await urlImagen(e.img); return `<div class="mn-extra">${miniHtml(u, dimE, ANCHO_MINI.extra, `data-mini-extra="${i}"`, `Foto ${i + 1}`)}<div class="mn-extra-datos"><input data-extra="${i}" value="${esc(e.leyenda || '')}" placeholder="Leyenda" aria-label="Leyenda de la foto ${i + 1}"><div class="sis-acciones">${u ? `<button class="sis-btn chico" data-mn="ajustar" data-i="${i}">✂ Ajustar encuadre</button>` : ''}<button class="sis-btn chico" data-mn="quitar-extra" data-i="${i}">Quitar</button></div></div></div>`; }));
     return `<a class="sis-volver" href="#/monografias/${esc(st.proyectoId)}">← ${esc(st.proyecto ? st.proyecto.nombre : 'Proyecto')}</a>
       <div class="mn-cab mn-cab-ficha"><div><h1>Monografía · ${esc(f.puntoMedido || '(sin punto)')}</h1>
         <p class="sis-tenue">${x.terreno ? `Enviada desde Terreno${x.terreno.publicadoEn ? ' el ' + esc(fechaHoraLegible(x.terreno.publicadoEn)) : ''}` : 'Creada en gabinete'}${x.gabinete ? ' · revisada en gabinete' : ''} · <span id="mn-guardado">Guardado</span></p></div>
@@ -114,6 +144,7 @@ export function montarPantallas(raiz, ctx) {
         ${mod.descripcion ? `<section class="sis-tarjeta"><h2>Descripción</h2><textarea data-f="descripcion" rows="4">${esc(f.descripcion || '')}</textarea><p class="sis-tenue">Una línea por renglón, como en la plantilla.</p></section>` : ''}
       </div><aside>
         <section class="sis-tarjeta"><h2>Chequeo</h2>${chequeoHtml()}</section>
+        ${presentacionHtml(mod)}
         <section class="sis-tarjeta"><h2>Imágenes</h2>
           ${mod.croquis ? await imagenHtml('croquisImg', ranura.croquisImg) : ''}
           ${mod.panoramica ? await imagenHtml('panoramicaImg', ranura.panoramicaImg) : ''}
@@ -140,6 +171,7 @@ export function montarPantallas(raiz, ctx) {
       const html = st.monoId ? await vistaFicha() : st.proyectoId ? await vistaProyecto() : await vistaProyectos();
       cont.innerHTML = `${st.mensaje ? `<div class="vu-msg ${st.mensaje.tipo === 'error' ? 'error' : ''}" role="status">${esc(st.mensaje.texto)}</div>` : ''}${html}`;
       st.mensaje = null;
+      if (st.monoId) colocarMinis();
     } catch (e) { console.error(e); cont.innerHTML = `<section class="sis-tarjeta sis-error"><p>${esc(e.message || 'Error')}</p></section>`; }
   }
 
@@ -172,12 +204,14 @@ export function montarPantallas(raiz, ctx) {
     const t = ev.target;
     if (!st.ficha) return;
     if (t.dataset.f) { st.ficha[t.dataset.f] = t.value; cambio(); }
+    else if (t.dataset.pres && t.type === 'range') { const x = cont.querySelector(`[data-pres-txt="${t.dataset.pres}"]`); if (x) x.textContent = t.value; }
     else if (t.dataset.extra != null) { st.ficha.fotosExtra[Number(t.dataset.extra)].leyenda = t.value; cambio(); }
   });
   cont.addEventListener('change', async ev => {
     const t = ev.target;
     try {
       if (t.dataset.mod && st.ficha) { st.ficha.modulos[t.dataset.mod] = t.checked; cambio({ refrescar: true }); return; }
+      if (t.dataset.pres && st.ficha) { st.ficha[t.dataset.pres] = t.type === 'range' ? Number(t.value) : t.value; cambio({ refrescar: true }); return; }
       if (t.dataset.mnArchivo && t.files && t.files[0]) {
         const archivo = t.files[0], slot = t.dataset.mnArchivo; t.value = '';
         if (slot === 'logo') { const r = new FileReader(); r.onload = async () => { fijarLogoEmpresa(r.result); avisar('Logo guardado'); await render(); }; r.readAsDataURL(archivo); return; }
@@ -188,8 +222,8 @@ export function montarPantallas(raiz, ctx) {
     } catch (e) { console.error(e); avisar(e.message || 'No se pudo', 'error'); await render(); }
   });
   function ponerImagen(slot, valor) {
-    if (slot === 'extra') { st.ficha.fotosExtra = st.ficha.fotosExtra || []; st.ficha.fotosExtra.push({ id: uuid(), img: valor, leyenda: '' }); }
-    else st.ficha[slot] = valor;
+    if (slot === 'extra') { st.ficha.fotosExtra = st.ficha.fotosExtra || []; st.ficha.fotosExtra.push({ id: uuid(), img: valor, leyenda: '', aj: { modo: 'llenar', zoom: 1, ox: 0, oy: 0, giro: 0 } }); }
+    else { st.ficha[slot] = valor; if (st.ficha.ajustes) delete st.ficha.ajustes[slot]; } // imagen nueva: encuadre desde cero, como en Terreno
   }
   cont.addEventListener('click', async ev => {
     const b = ev.target.closest('[data-mn]');
@@ -235,7 +269,18 @@ export function montarPantallas(raiz, ctx) {
       else if (a === 'elegir') { st.elegir = b.dataset.slot; }
       else if (a === 'cerrar-elegir') { st.elegir = null; }
       else if (a === 'usar-foto') { ponerImagen(st.elegir, { archivo: b.dataset.id }); st.elegir = null; await guardarAhora(); }
-      else if (a === 'quitar-img') { st.ficha[b.dataset.slot] = null; await guardarAhora(); }
+      else if (a === 'ajustar') {
+        const f = st.ficha, d = dimsMonografia(f), i = b.dataset.i;
+        const extra = i != null ? f.fotosExtra[Number(i)] : null, clave = b.dataset.slot;
+        const url = await urlImagen(extra ? extra.img : f[clave]);
+        if (!url) return;
+        const dim = extra ? d.extra : d[clave];
+        const aj = await abrirAjuste({ titulo: extra ? (extra.leyenda || `Fotografía ${Number(i) + 1}`) : ranura[clave], url, bw: dim[0], bh: dim[1], ajuste: extra ? extra.aj : (f.ajustes || {})[clave], porDefecto: extra ? 'llenar' : MODO_DEF[clave] });
+        if (!aj) return;
+        if (extra) extra.aj = aj; else { f.ajustes = f.ajustes || {}; f.ajustes[clave] = aj; }
+        await guardarAhora(); avisar('Encuadre aplicado: así queda en el PDF.');
+      }
+      else if (a === 'quitar-img') { st.ficha[b.dataset.slot] = null; if (st.ficha.ajustes) delete st.ficha.ajustes[b.dataset.slot]; await guardarAhora(); }
       else if (a === 'quitar-extra') { st.ficha.fotosExtra.splice(Number(b.dataset.i), 1); await guardarAhora(); }
       else if (a === 'quitar-logo') { fijarLogoEmpresa(null); }
       else return;

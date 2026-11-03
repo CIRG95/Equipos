@@ -4,8 +4,9 @@ import { escapar as esc } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { deslizador } from './ui.js';
 import { proyectar, areaM2 } from './calculo.js';
-import { totales, kmADm } from './hoja.js';
-import { formaDe, metodoPropuesto, METODOS, vistaPrevia, rumboCortesPropuesto } from './cortes.js';
+import { totales, kmADm, kmEnEje, lineaEje, marcoDe } from './hoja.js';
+import { largo } from './geom.js';
+import { formaDe, metodoPropuesto, METODOS, METODOS_LINEALES, vistaPrevia, rumboCortesPropuesto, tramosVistaPrevia } from './cortes.js';
 import { revisarZonas, TIPOS_CAPA } from './capas.js';
 import { COLORES_SECTOR, UMBRAL_BATERIAS } from './ui.js';
 
@@ -38,13 +39,26 @@ export function crearPasoArea(v) {
     return `<div class="vu-subs" role="tablist" aria-label="Partes del área">${SUBS.map(([k, t]) => `<button type="button" role="tab" aria-selected="${act === k}" class="vu-sub${act === k ? ' activo' : ''}${k === 'zonas' && cerca ? ' aviso' : ''}" data-accion="sub-area" data-s="${k}" ${!a.tipo && k !== 'origen' ? 'disabled' : ''}>${t}${marca[k]}</button>`).join('')}</div>`;
   }
 
+  /** DM (km) del inicio y del fin del eje en el sentido de avance, o null si no hay eje. */
+  function extremosEje() {
+    const a = st.hoja.area, linea = lineaEje(a);
+    if (!linea || linea.length < 2) return null;
+    const m = marcoDe(linea), L = largo(linea.map(m.aXY));
+    return { L, ini: kmEnEje(a, a.dm && a.dm.inv ? L : 0, L), fin: kmEnEje(a, a.dm && a.dm.inv ? 0 : L, L) };
+  }
   function htmlDm() {
-    const dm = st.hoja.area.dm || {};
-    return `<div class="vu-fila-campos">
-        <label class="sis-campo"><span>DM del inicio del eje</span><input data-auto="dm" value="${esc(dm.texto || '')}" placeholder="ej. 0+000"></label>
-        <label class="sis-check"><input type="checkbox" data-auto="desc" ${dm.desc ? 'checked' : ''}> El DM baja hacia el final del eje</label>
+    const dm = st.hoja.area.dm || {}, x = extremosEje();
+    return `<div class="vu-sentido">
+        <div class="vu-sentido-fila"><span class="vu-marca-ini">Inicio</span><b class="vu-mono">${x ? kmADm(x.ini) : '—'}</b><span class="sis-tenue">${dm.inv ? 'último vértice del archivo' : 'primer vértice del archivo'}</span></div>
+        <div class="vu-sentido-fila"><span class="vu-marca-fin">Fin</span><b class="vu-mono">${x ? kmADm(x.fin) : '—'}</b><span class="sis-tenue">${dm.inv ? 'primer vértice del archivo' : 'último vértice del archivo'}</span></div>
+        <button type="button" class="sis-btn chico" data-accion="invertir-sentido">⇄ Invertir sentido</button>
+        <p class="sis-tenue">El inicio y el fin se marcan en el mapa, con flechas en el sentido de avance. Al invertir, el DM, el orden de los sectores (S1 en el inicio) y sus nombres se recalculan.</p>
       </div>
-      <p class="sis-tenue">Con el DM, los sectores se nombran por su tramo (10+000 – 15+000) y se puede cortar alineado al DM o por los tramos del Seguimiento.</p>`;
+      <div class="vu-fila-campos">
+        <label class="sis-campo"><span>DM del inicio del eje</span><input data-auto="dm" value="${esc(dm.texto || '')}" placeholder="0+000"></label>
+        <label class="sis-check"><input type="checkbox" data-auto="desc" ${dm.desc ? 'checked' : ''}> El DM decrece hacia el fin</label>
+      </div>
+      <p class="sis-tenue">Con el DM, los sectores se nombran por su tramo (10+000 – 15+000). Sin DM del inicio se cuenta desde 0+000.</p>`;
   }
 
   function htmlForma(g) {
@@ -57,7 +71,7 @@ export function crearPasoArea(v) {
         <p class="sis-tenue" id="vu-margen-info">${g ? textoCorredor(g) : ''}</p>
         ${a.original ? '<button class="sis-btn chico" data-accion="a-poligono">Volver a volarla como polígono</button>' : ''}
       </section>
-      <section class="sis-tarjeta"><h2>Cadenamiento</h2>${htmlDm()}</section>`;
+      <section class="sis-tarjeta"><h2>Sentido y cadenamiento del eje</h2>${htmlDm()}</section>`;
     const f = g ? formaDe(st.hoja) : null;
     return `<section class="sis-tarjeta"><h2>Forma del área</h2>
         ${f && f.lineal ? `<div class="vu-forma"><b>Área lineal detectada</b>
@@ -67,7 +81,7 @@ export function crearPasoArea(v) {
             <label class="sis-check"><input type="radio" name="comoVolar" checked> <span><b>Polígono por sectores</b><small>Líneas paralelas dentro de cada sector, con su rumbo y su despegue.</small></span></label>
             <label class="sis-check"><input type="radio" name="comoVolar" data-accion-cambio="a-corredor"> <span><b>Corredor sobre el eje</b><small>Pasadas a lo largo del eje con el ancho medido (${fmt(Math.round(f.anchoMax / 2), 0)} m a cada lado). Para el modo corredor de DJI Pilot 2.</small></span></label>
           </fieldset>
-          ${htmlDm()}`
+          <h3 class="vu-subtit">Sentido y cadenamiento del eje</h3>${htmlDm()}`
         : g ? `<p><b>Área extensa</b> · ${fmt(g.areaVuelo / 10000, 1)} ha. Para dividirla, usa «En N sectores» en la pestaña Sectores (cortes paralelos con la dirección que elijas).</p>` : ''}
       </section>
       <section class="sis-tarjeta"><h2>Margen</h2>
@@ -80,6 +94,13 @@ export function crearPasoArea(v) {
 
   /** Texto de la vista previa de los cortes (sin calcular vuelos). */
   function htmlVistaPrevia() {
+    const au = st.hoja.area.auto || {}, modo = au.modo || metodoPropuesto(formaDe(st.hoja));
+    if (modo === 'medida') {
+      const t = tramosVistaPrevia(st.hoja);
+      if (!t) return '';
+      const n = t.tramos.length, lista = n <= 6 ? t.tramos.join(' · ') : `${t.tramos.slice(0, 4).join(' · ')} · … · ${t.tramos[n - 1]}`;
+      return `Vista previa: <b>${n} sector${n === 1 ? '' : 'es'}</b><span class="vu-mono vu-tramos">${esc(lista)}</span>`;
+    }
     const v0 = vistaPrevia(st.hoja);
     return v0 ? `Vista previa: <b>${v0.sectores} sector${v0.sectores === 1 ? '' : 'es'}</b> · ~${fmt(v0.haPorSector, 1)} ha cada uno` : '';
   }
@@ -92,7 +113,15 @@ export function crearPasoArea(v) {
     const lineal = f && f.lineal;
     const num = (k, t, val, extra = '') => `<label class="sis-campo"><span>${t}</span><input type="number" data-auto="${k}" value="${esc(val)}" ${extra}></label>`;
     const sel = (k, t, val, ops) => `<label class="sis-campo"><span>${t}</span><select data-auto="${k}">${ops.map(([v, x]) => `<option value="${v}" ${val === v ? 'selected' : ''}>${x}</option>`).join('')}</select></label>`;
+    const marcando = st.dibujo && st.dibujo.modo === 'dmfijo';
+    const fijos = au.fijos || [];
+    const ultimo = fijos.length ? fijos[fijos.length - 1] : null;
     const campos = {
+      medida: () => `<div class="sis-campo vu-ancho"><span>Cortes fijos (DM)</span>
+          <div class="vu-chips">${fijos.length ? fijos.map((f, i) => `<span class="vu-chip-dm">${esc(f)}<button type="button" data-accion="quitar-fijo" data-i="${i}" aria-label="Quitar el corte ${esc(f)}">✕</button></span>`).join('') : '<span class="sis-tenue">Sin cortes fijos: se corta desde el inicio.</span>'}</div>
+          <div class="vu-fila-dm"><input id="vu-nuevo-fijo" placeholder="ej. 4+900" aria-label="DM del corte fijo"><button type="button" class="sis-btn chico" data-accion="agregar-fijo">+ Agregar</button>
+            <button type="button" class="sis-btn chico${marcando ? ' primario' : ''}" data-accion="dibujar" data-modo="dmfijo">◎ ${marcando ? 'Marcando en el mapa' : 'Marcar en el mapa'}</button></div></div>
+        ${num('cada', ultimo ? `Después de ${esc(ultimo)}, cortar cada` : 'Cortar cada', au.cada ?? '5', 'min="0" step="any"')}${sel('unidad', 'Unidad', au.unidad || 'km', [['km', 'km'], ['m', 'm']])}`,
       distancia: () => `${num('cada', 'Cortar cada', au.cada ?? '5', 'min="0" step="any"')}${sel('unidad', 'Unidad', au.unidad || 'km', [['km', 'km'], ['m', 'm']])}`,
       superficie: () => `${num('sup', 'Superficie de cada sector', au.sup ?? '50', 'min="0" step="any"')}${sel('unidadSup', 'Unidad', au.unidadSup || 'ha', [['ha', 'ha'], ['km2', 'km²']])}`,
       dm: () => `${num('cada', 'Cortar cada', au.cada ?? '1', 'min="0" step="any"')}${sel('unidad', 'Unidad', au.unidad || 'km', [['km', 'km'], ['m', 'm']])}<label class="sis-campo"><span>Primer corte en el DM</span><input data-auto="primer" value="${esc(au.primer || '')}" placeholder="vacío: DM redondos"></label>`,
@@ -110,7 +139,7 @@ export function crearPasoArea(v) {
     };
     return `<section class="sis-tarjeta"><h2>Cortes</h2>
       <label class="sis-campo"><span>Método de corte</span><select data-auto="modo">
-        <optgroup label="Área lineal (usa el eje)">${lineal ? ['distancia', 'superficie', 'dm', 'tramos'].map(opt).join('') : '<option disabled>Solo para áreas lineales</option>'}</optgroup>
+        <optgroup label="Área lineal (usa el eje)">${lineal ? METODOS_LINEALES.map(opt).join('') : '<option disabled>Solo para áreas lineales</option>'}</optgroup>
         <optgroup label="Cualquier área">${['n', 'baterias', 'dias'].map(opt).join('')}</optgroup>
         <optgroup label="A mano">${opt('manual')}</optgroup>
       </select></label>
@@ -142,7 +171,7 @@ export function crearPasoArea(v) {
               <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-original">Descargar ${a.tipo === 'corredor' ? 'eje' : 'área del mandante'} limpio (KML)</button>${g ? '<button class="sis-btn chico primario" data-accion="sub-area" data-s="forma">Siguiente: Forma →</button>' : ''}</div>` : ''}
           </section>`;
     else if (sub === 'forma') tarjetas = `${htmlForma(g)}${g ? '<div class="sis-acciones"><button class="sis-btn chico primario" data-accion="sub-area" data-s="sectores">Siguiente: Sectores →</button></div>' : ''}`;
-    else if (sub === 'sectores') tarjetas = g ? `${htmlCortes(g)}<section class="sis-tarjeta"><h2>Sectores</h2><div id="vu-sectores">${htmlSectores()}</div></section>` : '';
+    else if (sub === 'sectores') tarjetas = g ? htmlCortes(g) : '';
     else tarjetas = `<section class="sis-tarjeta"><h2>Zonas de referencia</h2><div id="vu-zonas">${htmlZonas()}</div></section>${htmlCaminos()}`;
     return `${grande ? `<div class="vu-banner"><div><b>El área es grande: ${fmt(g.areaVuelo / 10000, 0)} ha · ${t.baterias} baterías · unas ${fmtDuracion(t.minVuelo)} de vuelo</b>
         <span>${t.excede ? 'Parte del recorrido queda más lejos de lo que alcanza una batería desde el despegue. ' : ''}Dividirla en sectores te deja planificar por día o por punto de despegue, con un rumbo y un KML para cada uno.</span></div>
@@ -151,9 +180,10 @@ export function crearPasoArea(v) {
         <div class="vu-izquierda">${htmlSubs(g)}${tarjetas}</div>
         <div class="vu-derecha">
           <div class="vu-mapa-caja vu-mapa-alto"><div class="vu-mapa-lugar" data-mapa="area"></div><div class="vu-mapa-barra" id="vu-barra-area">${barraDibujo()}</div></div>
-          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante y eje · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos.</p>
+          <p class="sis-tenue vu-pie">Punteado blanco: área del mandante y eje · naranjo: área de vuelo · colores: sectores · puntos azules: aeródromos${lineaEje(a) ? ' · flechas: sentido de avance del DM' : ''}.</p>
         </div>
-      </div>`;
+      </div>
+      ${sub === 'sectores' && g ? `<section class="sis-tarjeta vu-sectores-ancho"><div id="vu-sectores">${htmlSectores()}</div></section>` : ''}`;
   }
   const textoCorredor = g => `${fmt(g.izq + g.der, 0)} m × ${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1000, 2)} km = <b>${fmt(g.areaVuelo / 10000, 2)} ha</b>. Las pasadas siguen el eje.`;
 
@@ -168,19 +198,45 @@ export function crearPasoArea(v) {
       <button class="vu-link" data-accion="cerrar-candidatos">Cancelar</button></div>`;
   }
 
+  /** Largo (m) de un sector sobre el eje, o null si el área no es lineal. */
+  const largoSector = s => (s.largo != null ? s.largo : s.rango ? s.rango[1] - s.rango[0] : null);
+
+  /** Cinta del cadenamiento: los sectores a escala de su largo (o de su superficie si no hay eje). */
+  function htmlCinta(g, sel) {
+    const pesos = g.sectores.map(s => largoSector(s) ?? s.area), total = pesos.reduce((x, y) => x + y, 0) || 1;
+    const x = extremosEje(), conDm = g.sectores.some(s => s.dm);
+    let acum = 0;
+    const marcas = [];
+    const paso = Math.max(1, Math.ceil(g.sectores.length / 8));
+    g.sectores.forEach((s, i) => { if (i % paso === 0 && s.dm) marcas.push(`<span class="vu-cinta-km" style="left:${(acum / total * 100).toFixed(2)}%">${kmADm(x && x.fin < x.ini ? s.dm[1] : s.dm[0])}</span>`); acum += pesos[i]; });
+    if (conDm && x) marcas.push(`<span class="vu-cinta-km fin">${kmADm(x.fin)}</span>`);
+    return `<div class="vu-cinta" role="group" aria-label="Sectores a escala del eje">${g.sectores.map((s, i) => `<button type="button" class="vu-cinta-seg${i === sel ? ' sel' : ''}" style="flex-grow:${(pesos[i] / total * 1000).toFixed(2)}; background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}" data-accion="sel-sector" data-i="${i}" title="S${i + 1}${s.dm ? ' · ' + kmADm(s.dm[0]) + ' – ' + kmADm(s.dm[1]) : ''}" aria-label="Sector ${i + 1}"></button>`).join('')}</div>
+      ${marcas.length ? `<div class="vu-cinta-marcas">${marcas.join('')}</div>` : ''}`;
+  }
+
   function htmlSectores() {
     const h = st.hoja, g = geo(), d = dron();
     if (!g) return '';
     const t = d ? totales(h, d, g) : null;
-    return `${g.fallidos.length ? '<div class="vu-aviso">Un corte no atraviesa el área de lado a lado y no se aplicó: arrastra sus puntos o deshazlo.</div>' : ''}
-      <div class="vu-sectores">${g.sectores.map((s, i) => { const r = t && t.sectores[i]; return `<div class="vu-sector">
-        <i style="background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}"></i>
-        ${g.sectores.length > 1 ? `<input class="vu-sector-nombre" data-sector-nombre="${i}" value="${esc((h.area.sectores[i] && h.area.sectores[i].nombre) || '')}" placeholder="${esc(g.sectores[i].dm ? `${kmADm(g.sectores[i].dm[0])} – ${kmADm(g.sectores[i].dm[1])}` : `S${i + 1}`)}" aria-label="Nombre del sector ${i + 1}">` : '<b>Área completa</b>'}
-        <span class="vu-sector-dato">${fmt(s.area / 10000, 1)} ha${r ? ` · ${r.vuelos} bat. · ${fmtDuracion(r.minTotal)}` : ''}</span>
-        <span class="vu-sector-acc">${g.sectores.length > 1 ? `<button class="vu-link" data-accion="kml-sector" data-i="${i}">KML</button>` : ''}<button class="vu-link" data-accion="ir-sector" data-i="${i}">volar →</button></span>
-      </div>`; }).join('')}</div>
-      ${g.sectores.length > 1 && t ? `<p class="vu-total">Total: ${g.sectores.length} sectores · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada</p>
-        <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-sectores">Descargar KML de cada sector</button></div>` : ''}`;
+    const n = g.sectores.length, sel = Math.max(0, Math.min(h.area.sel || 0, n - 1));
+    const lineal = g.sectores.some(s => largoSector(s) != null);
+    const kmTotal = lineal ? g.sectores.reduce((x, s) => x + (largoSector(s) || 0), 0) / 1000 : null;
+    const aviso = g.fallidos.length ? '<div class="vu-aviso">Un corte no atraviesa el área de lado a lado y no se aplicó: arrastra sus puntos o deshazlo.</div>' : '';
+    const cab = `<div class="vu-sec-cab"><div><h2>Sectores${n > 1 ? ' · ' + n : ''}</h2>
+        <span class="sis-tenue">Total: ${kmTotal != null ? fmt(kmTotal, 2) + ' km · ' : ''}${fmt(g.areaVuelo / 10000, 1)} ha${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ''}</span></div>
+        ${n > 1 ? '<button class="sis-btn chico" data-accion="kml-sectores">Descargar KML de cada sector</button>' : ''}</div>`;
+    const fila = (s, i) => {
+      const r = t && t.sectores[i], L = largoSector(s);
+      return `<tr class="${i === sel ? 'sel' : ''}">
+        <td><button type="button" class="vu-sec-id" data-accion="sel-sector" data-i="${i}" aria-label="Ver el sector ${i + 1} en el mapa"><i style="background:${COLORES_SECTOR[i % COLORES_SECTOR.length]}"></i>S${i + 1}</button></td>
+        <td>${n > 1 ? `<input class="vu-sector-nombre" data-sector-nombre="${i}" value="${esc((h.area.sectores[i] && h.area.sectores[i].nombre) || '')}" placeholder="${esc(s.dm ? `${kmADm(s.dm[0])} – ${kmADm(s.dm[1])}` : `S${i + 1}`)}" aria-label="Nombre del sector ${i + 1}">` : '<b>Área completa</b>'}</td>
+        <td class="num">${L != null ? fmt(L / 1000, 2) + ' km' : '—'}</td><td class="num">${fmt(s.area / 10000, 1)} ha</td>
+        <td class="num">${r ? r.vuelos + ' bat.' : '—'}</td><td class="num">${r ? fmtDuracion(r.minTotal) : '—'}</td>
+        <td class="acc">${n > 1 ? `<button class="vu-link" data-accion="kml-sector" data-i="${i}">KML</button>` : ''}<button class="vu-link" data-accion="ir-sector" data-i="${i}">volar →</button></td></tr>`;
+    };
+    return `${aviso}${cab}${n > 1 ? htmlCinta(g, sel) : ''}
+      <div class="vu-sec-tabla"><table><thead><tr><th>Sector</th><th>Nombre (tramo)</th><th class="num">Largo</th><th class="num">Superficie</th><th class="num">Baterías</th><th class="num">Vuelo</th><th></th></tr></thead>
+        <tbody>${g.sectores.map(fila).join('')}</tbody></table></div>`;
   }
 
   function htmlZonas() {
@@ -216,6 +272,7 @@ export function crearPasoArea(v) {
   function barraDibujo() {
     const dib = st.dibujo;
     if (!dib) return st.hoja && !geo() ? '<span class="vu-barra-txt">Carga un KML/KMZ o dibuja el área o el eje.</span>' : '';
+    if (dib.modo === 'dmfijo') return `<span class="vu-barra-txt">Toca el eje para agregar un corte fijo en ese DM</span><button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-cancelar">Terminar</button>`;
     const min = dib.modo === 'area' ? 3 : 2;
     const txt = { area: 'Toca el mapa para marcar los vértices del área', eje: 'Toca el mapa siguiendo el eje del corredor', corte: 'Toca afuera del área, sigue el camino y termina afuera', camino: 'Toca el mapa siguiendo el camino o la huella' }[dib.modo];
     return `<span class="vu-barra-txt">${txt} · ${dib.puntos.length} punto${dib.puntos.length === 1 ? '' : 's'}</span>

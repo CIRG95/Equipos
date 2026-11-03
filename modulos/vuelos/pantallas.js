@@ -11,8 +11,10 @@ import { CAMPOS_DRON } from './drones.js';
 import { alturaParaGsd, gsdCm, fmt, fmtDuracion, proyectar, areaM2 } from './calculo.js';
 import { leerArchivo, analizarKml, limpiarParaDji, kmlDePoligono, kmlDeLinea, limpiarEje, nombreArchivoSeguro, limpiarAnillo, autoInterseccion } from './kml.js';
 import { listarCapas, cargarCapaDesdeArchivo, quitarCapa } from './capas.js';
+import { HORARIO_INICIAL, jornadasNecesarias } from './hoja.js';
 import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, kmADm, totales } from './hoja.js';
 import * as Seguimiento from '../seguimiento/seguimiento.js';
+import { diasHabilesDesde } from '../../compartido/periodicidad.js';
 import { formaDe, metodoPropuesto, generarCortes, corredorDesdeEje, rumboCortesPropuesto } from './cortes.js';
 import { caminosEn, caminosDeHoja, recuadro, despegueSobreCamino } from './redvial.js';
 import { TIPO_KML } from './ui.js';
@@ -318,6 +320,10 @@ export function montarPantallas(contenedor, ctx) {
       if (t.name === 'rapDron') { st.rapDron = t.value; return; }
       if (!st.hoja || st.vista !== 'hoja') return;
       const h = st.hoja;
+      if (t.dataset.horario) {
+        h.params.horario = { ...HORARIO_INICIAL, ...(h.params.horario || {}), [t.dataset.horario]: t.type === 'number' ? (Number(t.value) || 0) : t.value };
+        cambio(); await render(); return;
+      }
       if (t.dataset.hoja && (t.tagName === 'SELECT' || t.type === 'date')) { h[t.dataset.hoja] = t.value || null; if (t.dataset.hoja === 'fecha') st.dia = null; cambio(); await render(); return; }
       if (t.name === 'familia') { const alt = alturaDe(h.params, dron()); const x = base.drones.find(d => (d.familia || d.id) === t.value); if (x) h.dronId = x.id; if (!h.params.porGsd) h.params.altura = String(Math.round(alt)); if (Number(h.params.velocidad) > dron().velocidadMaxMs) h.params.velocidad = ''; cambio(); await render(); return; }
       if (t.name === 'dronId') { h.dronId = t.value; cambio(); await render(); return; }
@@ -478,6 +484,16 @@ export function montarPantallas(contenedor, ctx) {
         if (ar.original) { Object.assign(ar, { tipo: 'poligono', eje: null, cortes: [], sectores: [], sel: 0 }); avisar('Se vuelve a volar como polígono.'); cambio(); }
       }
       else if (a === 'auto-cortar') await cortarAutomatico(h);
+      else if (a === 'programar') {
+        const g = geo(), jor = jornadasNecesarias(h, dron(), g);
+        if (!jor || !jor.dias.length || !h.fecha) { avisar('Falta el área o el primer día de vuelo.', 'error'); }
+        else {
+          const fechas = diasHabilesDesde(h.fecha, jor.dias.length), n = g.sectores.length;
+          h.programa = jor.dias.map((di, k) => ({ fecha: fechas[k], dia: k + 1, de: jor.dias.length, sectores: di.sectores.map(i => nombreSector(h, i, n)), min: Math.round(di.min), baterias: di.baterias }));
+          avisar(`Listo: ${h.programa.length} jornada${h.programa.length === 1 ? '' : 's'} en el calendario (Proyectos → Calendario).`); cambio();
+        }
+      }
+      else if (a === 'desprogramar') { h.programa = []; avisar('Se quitaron las jornadas del calendario.'); cambio(); }
       else if (a === 'deshacer-corte') { h.area.cortes.pop(); cambio(); }
       else if (a === 'quitar-cortes') { h.area.cortes = []; h.area.sel = 0; cambio(); }
       else if (a === 'margen') { h.area.margen = Number(b.dataset.m); cambio(); }

@@ -12,6 +12,8 @@ import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import * as Monografias from '../modulos/monografias/monografias.js';
+import { vistaCalendario, mover as moverCalendario } from './calendario.js';
+import { BASE_RECURRENTE, SEMANAS, DATOS, ciclosEntre, textoPeriodicidad, sumarDias } from '../compartido/periodicidad.js';
 import { ESTADOS as ESTADOS_MONO } from '../modulos/monografias/datos.js';
 import { ROLES, COLORES_MARCA, CATEGORIAS_TRABAJO, NOMBRE_CATEGORIA, tiposDeProyecto, textosTipos, ROLES_PERSONA, NOMBRE_ROL_PERSONA, REGIONES } from './catalogo.js';
 import { VERSION_SISTEMA } from './version.js';
@@ -122,7 +124,7 @@ async function inicio(ctx) {
   const otros = activos.filter(p => !misProyectos.includes(p));
   const tarjetaProy = p => `<a class="sis-proy" href="#/proyecto/${esc(p.id)}">
       <b>${esc(p.nombre)}</b><span class="sis-tenue">${esc(p.mandante || 'Sin mandante')}${p.comuna ? ` · ${esc(p.comuna)}` : ''}</span>
-      <span class="sis-chips">${tiposDeProyecto(p).categorias.map(t => `<span class="sis-chip gris">${esc(NOMBRE_CATEGORIA[t])}</span>`).join('')}</span></a>`;
+      <span class="sis-chips">${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? '<span class="sis-chip azul">Recurrente</span>' : ''}${tiposDeProyecto(p).categorias.map(t => `<span class="sis-chip gris">${esc(NOMBRE_CATEGORIA[t])}</span>`).join('')}</span></a>`;
 
   return `${saludo}${bienvenida}
     <div class="sis-dos"><div>
@@ -160,7 +162,13 @@ async function proyectos(ctx) {
   const nCerrados = lista.filter(p => p.estado === 'cerrado').length;
   const eliminados = (await enPapelera('compartido_proyectos')).map(x => x.registro);
 
-  return `<div class="sis-cab"><h1>Proyectos</h1><a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
+  const vista = leerVistaProyectos();
+  const selector = `<div class="sis-vistas" role="tablist" aria-label="Vista de proyectos"><button type="button" role="tab" aria-selected="${vista === 'lista'}" class="${vista === 'lista' ? 'activo' : ''}" data-accion="vista-proyectos" data-v="lista">☰ Lista</button><button type="button" role="tab" aria-selected="${vista === 'calendario'}" class="${vista === 'calendario' ? 'activo' : ''}" data-accion="vista-proyectos" data-v="calendario">▦ Calendario</button></div>`;
+  if (vista === 'calendario') {
+    ctx.estado.cal = ctx.estado.cal || { modo: leerLS('env_cal_modo') || 'mes', ref: hoyISO(), proyecto: '' };
+    return `<div class="sis-cab"><h1>Proyectos</h1>${selector}<a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>${await vistaCalendario(ctx.estado.cal)}`;
+  }
+  return `<div class="sis-cab"><h1>Proyectos</h1>${selector}<a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
     <p class="sis-tenue">El proyecto es el eje: de aquí cuelgan los equipos que salen, los certificados para el mandante y, en las próximas versiones, los gastos y las jornadas.</p>
     ${nCerrados ? `<label class="sis-check"><input type="checkbox" data-accion="ver-cerrados" ${verCerrados ? 'checked' : ''}> Mostrar cerrados (${nCerrados})</label>` : ''}
     <div class="sis-proys grande">${visibles.map(p => `<a class="sis-proy" href="#/proyecto/${esc(p.id)}">
@@ -198,7 +206,7 @@ async function proyecto(ctx, id) {
         <div class="sis-meta">
           <span>Mandante: <b>${esc(p.mandante || (esOficina ? 'Trabajo que no es de un contrato' : '—'))}</b></span>
           ${esOficina ? '' : `${meta('Encargado', esc(nomPers(p.encargadoId)))}${meta('Ubicación', esc([p.comuna, p.region].filter(Boolean).join(', ')))}
-          ${meta('Encargado por', esc(p.solicitadoPor || ''))}${meta('Encargo', p.fechaEncargo ? fechaLegible(p.fechaEncargo) : '')}${meta('Plazo', plazo)}`}
+          ${meta('Encargado por', esc(p.solicitadoPor || ''))}${meta('Encargo', p.fechaEncargo ? fechaLegible(p.fechaEncargo) : '')}${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? meta('Periodicidad', esc(textoPeriodicidad(p.periodicidad).replace('Recurrente · ', ''))) : meta('Plazo', plazo)}`}
         </div>
         ${textosTipos(p).length ? `<div class="sis-chips" style="margin-top:10px">${textosTipos(p).map(t => `<span class="sis-chip gris">${esc(t)}</span>`).join('')}</div>` : ''}
       </div>
@@ -207,6 +215,10 @@ async function proyecto(ctx, id) {
     </div>
     ${p.notas ? `<p class="sis-notas">${esc(p.notas)}</p>` : ''}
     <div class="sis-dos"><div>
+      ${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? (() => { const cs = ciclosEntre(p.periodicidad, hoyISO(), sumarDias(hoyISO(), 120)).slice(0, 3);
+        return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Próximos ciclos</h2><button class="sis-btn chico" data-accion="ver-calendario">▦ Calendario</button></div>
+          ${cs.length ? `<div class="sis-lista">${cs.map(c => `<div class="sis-fila"><span class="sis-fila-txt"><b><span class="mono">${esc(c.numero)}</span> ${esc(c.nombre)}</b><span class="sis-tenue">Terreno ${fechaLegible(c.terreno[0])}${c.terreno[1] !== c.terreno[0] ? ` – ${fechaLegible(c.terreno[1])}` : ''} · datos ${fechaLegible(c.datos)} · entrega ${fechaLegible(c.entrega)}</span></span></div>`).join('')}</div>`
+            : '<p class="sis-tenue">Sin ciclos en los próximos 4 meses: revisa la periodicidad (primer ciclo y término).</p>'}</section>`; })() : ''}
       <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Hojas de vuelo</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">+ Hoja de vuelo</a>` : ''}</div>
         ${planes.length ? `<div class="sis-lista">${planes.map(v => `<a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
@@ -275,6 +287,20 @@ async function proyectoEditar(ctx, id) {
           <label class="sis-campo"><span>Fecha del encargo</span><input type="date" name="fechaEncargo" value="${val('fechaEncargo')}"></label>
           <label class="sis-campo"><span>Plazo de entrega</span><input type="date" name="plazo" value="${val('plazo')}"></label>
         </div>
+        ${(() => { const per = { ...BASE_RECURRENTE, ...(p.periodicidad || {}), tipo: (p.periodicidad && p.periodicidad.tipo) || 'unico' }; const v = k => esc(per[k] ?? '');
+          return `<fieldset class="sis-periodicidad"><legend>Periodicidad</legend>
+          <div class="sis-opciones"><label class="sis-opcion"><input type="radio" name="perTipo" value="unico" ${per.tipo !== 'recurrente' ? 'checked' : ''}> Único (una entrega)</label><label class="sis-opcion"><input type="radio" name="perTipo" value="recurrente" ${per.tipo === 'recurrente' ? 'checked' : ''}> Recurrente (servicio que se repite)</label></div>
+          <div class="sis-per-rec">
+            <div class="sis-par"><label class="sis-campo"><span>Se repite cada</span><span class="sis-en-linea"><input type="number" name="perCada" min="1" max="12" value="${v('cada')}"><select name="perUnidad"><option value="mes" ${per.unidad !== 'semana' ? 'selected' : ''}>mes(es)</option><option value="semana" ${per.unidad === 'semana' ? 'selected' : ''}>semana(s)</option></select></span></label>
+              <label class="sis-campo"><span>Primer ciclo (mes o lunes de inicio)</span><input name="perDesde" value="${v('desde')}" placeholder="2025-10 o 2026-11-02"></label></div>
+            <div class="sis-par"><label class="sis-campo"><span>N° de mes del contrato del primer ciclo</span><input type="number" name="perMesInicial" min="1" value="${v('mesInicial')}"></label>
+              <label class="sis-campo"><span>Terreno (servicio mensual): parte en la</span><select name="perSemana">${SEMANAS.map(([k, t]) => `<option value="${k}" ${per.semana === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
+            <div class="sis-par"><label class="sis-campo"><span>Días de terreno (hábiles)</span><input type="number" name="perDias" min="1" max="20" value="${v('diasTerreno')}"></label>
+              <label class="sis-campo"><span>Los datos llegan</span><select name="perDatos">${DATOS.map(([k, t]) => `<option value="${k}" ${per.datos === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
+            <div class="sis-par"><label class="sis-campo"><span>Entrega: días hábiles después de los datos</span><input type="number" name="perEntrega" min="0" max="60" value="${v('diasEntrega')}"></label>
+              <label class="sis-campo"><span>Hasta (vacío: sin término)</span><input type="date" name="perHasta" value="${v('hasta')}"></label></div>
+            <p class="sis-tenue">Cada ciclo aparece en el Calendario (terreno, llegada de datos y entrega) y, al crear el mes en Seguimiento, toma su nombre, N° de mes y fecha de llegada de los datos. Días hábiles = lunes a viernes.</p>
+          </div></fieldset>`; })()}
         <label class="sis-campo"><span>Notas</span><textarea name="notas" rows="3" placeholder="Alcance, contacto en terreno, adjuntos recibidos…">${val('notas')}</textarea></label>
       </fieldset>
       <div class="sis-acciones"><button class="sis-btn primario">${nuevo ? 'Crear proyecto' : 'Guardar cambios'}</button>
@@ -457,6 +483,11 @@ export async function manejarEnvio(form, ctx) {
       solicitadoPor: (datos.get('solicitadoPor') || '').trim(),
       fechaEncargo: datos.get('fechaEncargo') || '',
       plazo: datos.get('plazo') || '',
+      periodicidad: datos.get('perTipo') === 'recurrente' ? {
+        tipo: 'recurrente', cada: Math.max(1, Number(datos.get('perCada')) || 1), unidad: datos.get('perUnidad') === 'semana' ? 'semana' : 'mes',
+        desde: (datos.get('perDesde') || '').trim(), mesInicial: Math.max(1, Number(datos.get('perMesInicial')) || 1), semana: datos.get('perSemana') || 'ultima',
+        diasTerreno: Math.max(1, Number(datos.get('perDias')) || 1), datos: datos.get('perDatos') || 'lunes', diasEntrega: Math.max(0, Number(datos.get('perEntrega')) || 0), hasta: datos.get('perHasta') || '',
+      } : { tipo: 'unico' },
       notas: (datos.get('notas') || '').trim(),
     }, { personaId: ctx.personaId });
     ctx.avisar(id ? 'Proyecto guardado' : 'Proyecto creado');
@@ -466,8 +497,17 @@ export async function manejarEnvio(form, ctx) {
   return false;
 }
 
+function leerVistaProyectos() { return leerLS('env_proyectos_vista') === 'calendario' ? 'calendario' : 'lista'; }
+const escribirLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
+
 export async function manejarClic(boton, ctx) {
+  const cal = () => (ctx.estado.cal = ctx.estado.cal || { modo: leerLS('env_cal_modo') || 'mes', ref: hoyISO(), proyecto: '' });
   switch (boton.dataset.accion) {
+    case 'vista-proyectos': escribirLS('env_proyectos_vista', boton.dataset.v); return true;
+    case 'ver-calendario': escribirLS('env_proyectos_vista', 'calendario'); cal().proyecto = location.hash.split('/')[2] || ''; ctx.ir('#/proyectos'); return false;
+    case 'cal-modo': cal().modo = boton.dataset.modo; escribirLS('env_cal_modo', boton.dataset.modo); return true;
+    case 'cal-mover': cal().ref = moverCalendario(cal(), Number(boton.dataset.d)); return true;
+    case 'cal-ir': cal().ref = boton.dataset.ref; if (boton.dataset.modo) cal().modo = boton.dataset.modo; return true;
     case 'abrir-pdf': await Equipos.abrirArchivo(boton.dataset.id); return false;
     case 'nueva-persona': ctx.estado.personaEditar = 'nueva'; return true;
     case 'editar-persona': ctx.estado.personaEditar = boton.dataset.id; return true;
@@ -510,6 +550,7 @@ export async function manejarClic(boton, ctx) {
 
 export async function manejarCambio(input, ctx) {
   if (input.dataset.accion === 'ver-cerrados') { ctx.estado.verCerrados = input.checked; return true; }
+  if (input.dataset.accion === 'cal-proyecto') { ctx.estado.cal = { ...(ctx.estado.cal || { modo: 'mes', ref: hoyISO() }), proyecto: input.value }; return true; }
   return false;
 }
 

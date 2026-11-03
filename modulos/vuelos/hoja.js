@@ -297,3 +297,39 @@ export function resumenHoja(hoja, d, geo) {
   if (!t) return null;
   return { area: geo.areaVuelo, gsd: hoja.params.modo === 'lidar' ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === 'corredor', modo: hoja.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null };
 }
+
+// ─────────── Jornadas necesarias (v0.10) ───────────
+export const HORARIO_INICIAL = { inicio: '08:30', fin: '17:30', pausa: 60, traslado: 0 };
+const aMin = hhmm => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+/** Minutos útiles de vuelo por día según el horario de la hoja. */
+export function minutosUtiles(horario) {
+  const h = { ...HORARIO_INICIAL, ...(horario || {}) };
+  const a = aMin(h.inicio), b = aMin(h.fin);
+  return a == null || b == null || b <= a ? 0 : Math.max(0, b - a - (Number(h.pausa) || 0));
+}
+
+/**
+ * Reparte los sectores (en su orden, que en un área lineal es el sentido del eje) en jornadas que caben en el horario.
+ * Cada jornada toma sectores completos; entre sectores del mismo día suma el traslado (min). Un sector que no cabe
+ * en un día queda solo y marcado «excede». Devuelve { util, dias: [{ sectores: [i], min, baterias, excede }] } o null.
+ */
+export function jornadasNecesarias(hoja, d, g, t = null) {
+  if (!g || !d) return null;
+  const tot = t || totales(hoja, d, g);
+  if (!tot) return null;
+  const h = { ...HORARIO_INICIAL, ...(hoja.params.horario || {}) };
+  const util = minutosUtiles(h), traslado = Number(h.traslado) || 0;
+  if (!util) return { util: 0, dias: [] };
+  const dias = [];
+  let dia = null;
+  tot.sectores.forEach((r, i) => {
+    if (!r) return;
+    const costo = r.minTotal + (dia && dia.sectores.length ? traslado : 0);
+    if (!dia || (dia.sectores.length && dia.min + costo > util)) { dia = { sectores: [], min: 0, baterias: 0, excede: false }; dias.push(dia); }
+    dia.min += dia.sectores.length ? costo : r.minTotal;
+    dia.baterias += r.vuelos;
+    dia.sectores.push(i);
+    if (dia.min > util) dia.excede = true;
+  });
+  return { util, dias };
+}

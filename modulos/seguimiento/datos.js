@@ -8,7 +8,7 @@ import { registrarAlmacenes, obtener, todos, porIndice, guardar, guardarVarios }
 import { sellar, uuid } from '../../compartido/util.js';
 import { enviarAPapelera } from '../../compartido/papelera.js';
 
-export const VERSION_MODULO = '0.1';
+export const VERSION_MODULO = '0.2';
 export const SCHEMA_VERSION = 1;
 export const ALM = { planes: 'seguimiento_planes', ciclos: 'seguimiento_ciclos', eventos: 'seguimiento_eventos', entregas: 'seguimiento_entregas' };
 

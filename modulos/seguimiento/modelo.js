@@ -125,6 +125,7 @@ export function habilesEntre(a, b) {
 /** Vencimiento de la entrega del ciclo: { vence, quedan (días hábiles, negativo = vencida) } o null. */
 export function plazoCiclo(plan, ciclo, hoy) {
   const p = plan.plazo || { tipo: 'ninguno' };
+  if (ciclo && ciclo.entrega) return { vence: ciclo.entrega, quedan: habilesEntre(hoy, ciclo.entrega) }; // calculada por la periodicidad del proyecto (v0.10)
   if (!ciclo || !ciclo.datos || p.tipo === 'ninguno') return null;
   let vence;
   if (p.tipo === 'habiles') vence = sumarHabiles(ciclo.datos, Math.max(1, Number(p.dias) || 1));

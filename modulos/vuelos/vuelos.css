@@ -361,3 +361,59 @@ body[data-modo] .vu-mapa-alto .vu-mapa-lugar, body[data-modo] .vu-mapa-alto .vu-
 .vu-tip-dm{font-family:'IBM Plex Mono', ui-monospace, monospace; font-weight:600;}
 body[data-modo="telefono"] .vu-sec-tabla{max-height:420px;}
 body[data-modo="telefono"] .vu-sec-tabla .vu-sector-nombre{width:150px;}
+
+/* v0.10 · Resumen de la hoja */
+.vu-res-avance { padding: 14px 18px; }
+.vu-res-pasos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 12px; align-items: center; }
+.vu-res-paso { display: flex; gap: 10px; align-items: center; border: 0; background: none; padding: 4px; text-align: left; font: inherit; cursor: pointer; border-radius: 10px; min-width: 0; }
+.vu-res-paso:hover { background: #F6F5F1; }
+.vu-res-paso b { display: block; font-size: 14px; }
+.vu-res-paso small { display: block; font-size: 12px; color: #5B6168; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vu-res-ic { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; border: 2px solid var(--marca, #1D5C63); color: var(--marca, #1D5C63); }
+.vu-res-paso.ok .vu-res-ic { background: #0F5F58; border-color: #0F5F58; color: #fff; }
+.vu-res-paso.aviso .vu-res-ic { background: #FCEDE6; border-color: #F1C9A8; color: #8A3410; }
+.vu-res-paso.aviso small { color: #8A3410; }
+.vu-res-progreso { height: 6px; border-radius: 3px; background: #EFEDE8; overflow: hidden; margin-top: 12px; }
+.vu-res-progreso i { display: block; height: 100%; background: var(--marca, #1D5C63); }
+.vu-res-dos { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 16px; }
+.vu-res-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.vu-res-tit { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.vu-res-tit h2 { margin: 0; font-size: 17px; }
+.vu-res-mapa { width: 100%; height: 200px; background: #EFEAE0; border-radius: 10px; }
+.vu-res-datos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.vu-res-datos > div { background: #F6F5F1; border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.vu-res-datos > div.aviso { background: #FCEDE6; color: #8A3410; }
+.vu-res-datos small { display: block; font-size: 12px; color: #5B6168; }
+.vu-res-datos > div.aviso small { color: #8A3410; }
+.vu-res-datos b { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.vu-cinta-ext { display: flex; justify-content: space-between; font-size: 12px; color: #5B6168; margin-bottom: 4px; font-family: 'IBM Plex Mono', monospace; }
+.vu-cinta-barra { display: flex; height: 18px; border-radius: 4px; overflow: hidden; }
+.vu-cinta-barra i { border-right: 1px solid #fff; min-width: 2px; }
+.vu-cinta-barra i:hover { filter: brightness(.85); }
+.vu-res-nota { margin: 0; font-size: 12px; }
+.vu-res-linea { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin: 0; font-size: 13px; color: #43484E; border-top: 1px solid #EFEDE8; padding-top: 8px; }
+.vu-jornadas { background: #EEF5F5; border: 1px solid #B9D3D5; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.vu-jornadas-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vu-jornadas-cab > b { color: #134046; font-size: 15px; }
+.vu-horario { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.vu-horario input { border: 1px solid #B9D3D5; background: #fff; border-radius: 6px; padding: 3px 6px; font: inherit; font-family: 'IBM Plex Mono', monospace; min-height: 30px; }
+.vu-horario input[type=number] { width: 56px; }
+.vu-dias { display: grid; grid-template-columns: 74px minmax(0, 1fr) 96px; gap: 4px 10px; align-items: center; font-size: 13px; }
+.vu-dias > b small { display: block; font-weight: 400; color: #5B6168; font-size: 11px; }
+.vu-dia-barra { height: 14px; border-radius: 4px; background: #E2E0DA; overflow: hidden; }
+.vu-dia-barra i { display: block; height: 100%; }
+.vu-dia-min { white-space: nowrap; font-family: 'IBM Plex Mono', monospace; text-align: right; }
+.vu-dia-det { color: #43484E; margin-top: -2px; }
+.vu-clima-dias { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.vu-clima-dia { border-radius: 8px; padding: 8px; background: #ECEDEF; font-size: 12px; text-align: center; }
+.vu-clima-dia b { display: block; font-size: 13px; }
+.vu-clima-dia small { display: block; color: #5B6168; }
+.vu-clima-dia.ok { background: #E3F2EF; color: #0F5F58; } .vu-clima-dia.aviso, .vu-clima-dia.mal { background: #FCEDE6; color: #8A3410; }
+.vu-res-obs { margin: 0; padding-left: 18px; font-size: 13px; color: #8A3410; }
+.vu-etapas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+.vu-etapa { background: #ECEDEF; padding: 7px 8px; font-size: 12px; text-align: center; color: #5B6168; }
+.vu-etapa:first-child { border-radius: 8px 0 0 8px; } .vu-etapa:last-child { border-radius: 0 8px 8px 0; }
+.vu-etapa b { display: block; font-size: 13px; color: #1C1F23; }
+.vu-etapa.ok { background: #E3F2EF; color: #0F5F58; } .vu-etapa.actual { background: #E4EEF6; color: #1D3F63; } .vu-etapa.mal { background: #FCEDE6; color: #8A3410; }
+.vu-res-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 1000px) { .vu-res-dos { grid-template-columns: 1fr; } .vu-res-pasos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vu-res-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vu-etapas { grid-template-columns: repeat(2, 1fr); } }

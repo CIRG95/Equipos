@@ -247,7 +247,7 @@ contenedor.addEventListener('click', async ev => {
 });
 contenedor.addEventListener('change', async ev => {
   if (contenedor.dataset.vista !== 'sistema') return;
-  const i = ev.target.closest('input[data-accion]');
+  const i = ev.target.closest('input[data-accion], select[data-accion]');
   if (i && await manejarCambio(i, ctx())) { rutaActual = ''; await mostrar(); }
 });
 

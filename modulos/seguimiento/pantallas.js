@@ -3,7 +3,8 @@
 // Usa las clases sis-… del Sistema, las sg-… de seguimiento.css y las piezas comunes tooltip, deshacer y columnas.
 
 import { escapar as esc, fechaLegible, hoyISO } from '../../compartido/util.js';
-import { listarProyectos, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
+import { listarProyectos, listarPersonas, obtenerProyecto, OFICINA_ID } from '../../compartido/catalogos.js';
+import { ciclosEntre, cicloDelMes, sumarHabiles } from '../../compartido/periodicidad.js';
 import { activarTooltips, ocultarTooltip } from '../../compartido/tooltip.js';
 import { avisarConDeshacer } from '../../compartido/deshacer.js';
 import { columnasArrastrables } from '../../compartido/columnas.js';
@@ -546,8 +547,15 @@ export function montarPantallas(contenedor, ctx) {
         case 'ciclo': { const c = st.ciclos[Number(v)]; if (c) { st.ciclo = c; st.sel.clear(); await cargarEventos(); render(); } break; }
         case 'nuevo-ciclo': {
           const ult = st.ciclos[0];
-          const sig = ult ? mesSiguiente(ult.nombre, ult.mesContrato) : { nombre: nombreMes(hoyISO()), mesContrato: 1 };
-          st.ciclo = await guardarCiclo({ planId: st.plan.id, proyectoId: st.proyectoId, nombre: sig.nombre || 'Mes nuevo', mesContrato: st.plan.tipo === 'mensual' ? sig.mesContrato : null, datos: '' });
+          let sig = ult ? mesSiguiente(ult.nombre, ult.mesContrato) : { nombre: nombreMes(hoyISO()), mesContrato: 1 };
+          // Proyecto recurrente (v0.10): el mes nuevo sale de su periodicidad, con la llegada de datos y la entrega calculadas.
+          const proy = await obtenerProyecto(st.proyectoId), per = proy && proy.periodicidad && proy.periodicidad.tipo === 'recurrente' ? proy.periodicidad : null;
+          let extra = { datos: '' };
+          if (per) {
+            const c = ult && ult.mesContrato ? ciclosEntre(per, '1900-01-01', '2100-12-31').find(x => x.n === Number(ult.mesContrato) + 1) : cicloDelMes(per, hoyISO());
+            if (c) { sig = { nombre: c.nombre, mesContrato: c.n }; extra = { datos: c.datos, entrega: c.entrega, terreno: c.terreno, diasEntrega: Number(per.diasEntrega) || 0 }; }
+          }
+          st.ciclo = await guardarCiclo({ planId: st.plan.id, proyectoId: st.proyectoId, nombre: sig.nombre || 'Mes nuevo', mesContrato: st.plan.tipo === 'mensual' ? sig.mesContrato : null, ...extra });
           await recargar(); avisarConDeshacer(`${st.ciclo.nombre} creado con los mismos tramos, sin avance`); break;
         }
         case 'col-subir': case 'col-bajar': { const i = Number(v); moverCol(i, acc === 'col-subir' ? i - 1 : i + 1); await guardarPlan(st.plan); render(); break; }
@@ -581,7 +589,7 @@ export function montarPantallas(contenedor, ctx) {
       if (t.dataset.plazo) { st.plan.plazo.tipo = t.dataset.plazo; await guardarPlan(st.plan); return; }
       if (t.dataset.tipo) { st.plan.tipo = t.dataset.tipo; await guardarPlan(st.plan); render(); return; }
       if (t.dataset.colVis != null) { st.plan.cols[Number(t.dataset.colVis)].visible = t.checked; await guardarPlan(st.plan); return; }
-      if (t.dataset.ciclo === 'datos') { st.ciclo.datos = t.value; await guardarCiclo(st.ciclo); return; }
+      if (t.dataset.ciclo === 'datos') { st.ciclo.datos = t.value; if (st.ciclo.entrega && t.value) st.ciclo.entrega = sumarHabiles(t.value, st.ciclo.diasEntrega || 0); await guardarCiclo(st.ciclo); render(); return; }
     } catch (e) { console.error(e); avisarConDeshacer(`No se pudo: ${e.message}`); }
   });
 

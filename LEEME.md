@@ -1,4 +1,22 @@
-# Topoland · Sistema de trabajo — v0.9 (sectores a medida y encuadre de fotos en monografías)
+# Topoland · Sistema de trabajo — v0.10 (Resumen de la hoja, jornadas, periodicidad y calendario)
+
+**Sistema v0.10 = v0.9 + Vuelos 0.8 + Seguimiento 0.2 + Calendario y periodicidad de proyectos.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
+
+## Qué cambia en v0.10
+- **Resumen de la hoja de vuelo, más visual:**
+  - Avance de los 4 pasos (Área · Vuelo · Clima · Permisos) con barra y botón «Siguiente».
+  - Área: esquema del área con los sectores pintados por jornada, datos clave (origen, corredor o superficie, **cantidad de sectores** y largo o superficie promedio, zona más cercana) y cinta de sectores con el detalle al pasar el mouse (ya no la lista de nombres).
+  - Vuelo: **jornadas necesarias** según el horario de vuelo (inicio, término, pausa y traslado entre sectores). Cada día toma sectores completos en orden (sentido del eje en áreas lineales) hasta llenar las horas útiles; muestra fecha, sectores, baterías y tiempo de cada día. «Agregar al calendario» guarda las jornadas (`hoja.programa`).
+  - Clima por jornada y Permisos con etapas y la fecha límite DGAC (7 días hábiles antes del primer día de vuelo).
+- **Periodicidad del proyecto** (ficha → Editar): único (una entrega) o recurrente (cada N meses o semanas, semana del mes en que parte el terreno, días de terreno, llegada de datos, días hábiles hasta la entrega, N° de mes del contrato, término). La ficha muestra los próximos ciclos.
+- **Seguimiento 0.2:** en un proyecto recurrente, «mes nuevo» toma el nombre, el N° de mes, la llegada de datos y la entrega de la periodicidad.
+- **Proyectos → ☰ Lista | ▦ Calendario:** mes, semana y por persona, con filtro por proyecto y «Próximos 14 días». Se llena solo con las jornadas de las hojas de vuelo, los ciclos de los proyectos recurrentes (terreno, datos, entrega), el plazo de los únicos, el límite DGAC y los vencimientos de calibración de Equipos.
+- **Pruebas:** 50 automáticas (nuevas: periodicidad y jornadas) y en navegador sin errores.
+- Días hábiles = lunes a viernes; los feriados todavía no se descuentan.
+
+---
+
+# v0.9 (sectores a medida y encuadre de fotos en monografías)
 
 **Sistema v0.9 = v0.8.2 + Vuelos 0.7 + Monografías 0.2.** Paquete de conexión sin cambios (1.3): la app de Terreno no necesita actualizarse.
 

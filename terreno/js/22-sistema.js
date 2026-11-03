@@ -1,7 +1,7 @@
 "use strict";
 
 /* =========================================================================
-   v0.5.6 — CONEXIÓN CON EL SISTEMA TOPOLAND (paquete TopolandConexion)
+   v0.5.6 — CONEXIÓN CON EL SISTEMA (paquete de conexión)
    Terreno sigue siendo su propia app: se vincula a una persona del Sistema y
    lee sus proyectos para elegirlos al iniciar la jornada. Nada de esto es
    obligatorio: sin vincular, la app funciona igual que antes.

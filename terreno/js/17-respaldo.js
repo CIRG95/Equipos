@@ -112,7 +112,7 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.8.1: cuando el teléfono ya está vinculado y con carpeta, Ajustes → Sistema muestra una vista corta («Conectado con el Sistema», persona, carpeta, última sincronización y un botón). Los 4 pasos solo aparecen mientras falte algo. La sesión de Google dura 1 hora: si venció, el botón dice «Renovar sesión de Google» en vez de mostrar todo como desconectado."
+    "Versión 0.5.8.1: cuando el teléfono ya está vinculado y con carpeta, Ajustes → Sistema muestra una vista corta («Conectado con el Sistema», persona, carpeta, última sincronización y un botón). Los 4 pasos solo aparecen mientras falte algo. El nombre de la empresa ya no viene de ejemplo: lo escribes tú en ⚙ → Marca. La sesión de Google dura 1 hora: si venció, el botón dice «Renovar sesión de Google» en vez de mostrar todo como desconectado."
   ],
   probar: [
     "Ajustes → Sistema: con el teléfono vinculado debe verse solo «Conectado con el Sistema» y un botón."
@@ -120,7 +120,7 @@ const APP_NOTAS = {
   conocidos: [
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",
     "Aún no: avisos de equipos y tramos volados.",
-    "Hay dos conexiones de Google distintas: la de Terreno (⚙ Nube, por jornada) y la del Sistema (⚙ Sistema Topoland). Se unificarán con la nube común.",
+    "Hay dos conexiones de Google distintas: la de Terreno (⚙ Nube, por jornada) y la del Sistema (⚙ Sistema). Se unificarán con la nube común.",
     "Consultar necesita internet (Open-Meteo, NOAA). Open-Meteo es gratis solo para uso no comercial: ver plan pagado antes de usarlo en la empresa.",
     "Sin ubicación en la jornada la tarjeta pide capturarla (GPS o mapa).",
     "Siguen: registro de puntos más rápido, estado siempre visible y navegación y mapa.",

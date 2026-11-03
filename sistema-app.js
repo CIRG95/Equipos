@@ -272,8 +272,8 @@
     if (f.getDate() !== d) f.setDate(0);
     return hoyISO(f);
   }
-  function diasEntre(aISO2, bISO) {
-    const a = /* @__PURE__ */ new Date(aISO2 + "T12:00:00");
+  function diasEntre(aISO3, bISO) {
+    const a = /* @__PURE__ */ new Date(aISO3 + "T12:00:00");
     const b = /* @__PURE__ */ new Date(bISO + "T12:00:00");
     return Math.round((b - a) / 864e5);
   }
@@ -4783,6 +4783,39 @@ Content-Type: ${mime}\r
     if (!t) return null;
     return { area: geo.areaVuelo, gsd: hoja2.params.modo === "lidar" ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === "corredor", modo: hoja2.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null };
   }
+  var HORARIO_INICIAL = { inicio: "08:30", fin: "17:30", pausa: 60, traslado: 0 };
+  var aMin = (hhmm) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  function minutosUtiles(horario) {
+    const h = { ...HORARIO_INICIAL, ...horario || {} };
+    const a = aMin(h.inicio), b = aMin(h.fin);
+    return a == null || b == null || b <= a ? 0 : Math.max(0, b - a - (Number(h.pausa) || 0));
+  }
+  function jornadasNecesarias(hoja2, d, g, t = null) {
+    if (!g || !d) return null;
+    const tot = t || totales(hoja2, d, g);
+    if (!tot) return null;
+    const h = { ...HORARIO_INICIAL, ...hoja2.params.horario || {} };
+    const util = minutosUtiles(h), traslado = Number(h.traslado) || 0;
+    if (!util) return { util: 0, dias: [] };
+    const dias = [];
+    let dia = null;
+    tot.sectores.forEach((r, i) => {
+      if (!r) return;
+      const costo = r.minTotal + (dia && dia.sectores.length ? traslado : 0);
+      if (!dia || dia.sectores.length && dia.min + costo > util) {
+        dia = { sectores: [], min: 0, baterias: 0, excede: false };
+        dias.push(dia);
+      }
+      dia.min += dia.sectores.length ? costo : r.minTotal;
+      dia.baterias += r.vuelos;
+      dia.sectores.push(i);
+      if (dia.min > util) dia.excede = true;
+    });
+    return { util, dias };
+  }
 
   // modulos/seguimiento/datos.js
   var SCHEMA_VERSION3 = 1;
@@ -4959,6 +4992,7 @@ Content-Type: ${mime}\r
   }
   function plazoCiclo(plan, ciclo, hoy) {
     const p = plan.plazo || { tipo: "ninguno" };
+    if (ciclo && ciclo.entrega) return { vence: ciclo.entrega, quedan: habilesEntre(hoy, ciclo.entrega) };
     if (!ciclo || !ciclo.datos || p.tipo === "ninguno") return null;
     let vence;
     if (p.tipo === "habiles") vence = sumarHabiles(ciclo.datos, Math.max(1, Number(p.dias) || 1));
@@ -5021,6 +5055,113 @@ Content-Type: ${mime}\r
         { id: nuevoId2(), nombre: "04 Reservorio", carpeta: "04 Reservorio", tramos: [{ id: nuevoId2(), n: "001", nombre: "Reservorio", carpeta: "04 Reservorio" }] }
       ]
     };
+  }
+
+  // compartido/periodicidad.js
+  var MESES2 = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  var SEMANAS = [["primera", "primera semana"], ["segunda", "segunda semana"], ["tercera", "tercera semana"], ["cuarta", "cuarta semana"], ["ultima", "última semana completa"]];
+  var DATOS = [["lunes", "el lunes siguiente"], ["siguiente", "el día hábil siguiente"], ["mismo", "el último día de terreno"]];
+  var BASE_RECURRENTE = { tipo: "recurrente", cada: 1, unidad: "mes", semana: "ultima", desde: "", mesInicial: 1, diasTerreno: 4, datos: "lunes", diasEntrega: 5, hasta: "" };
+  var aFecha2 = (iso) => {
+    const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 12);
+  };
+  var aISO2 = (f) => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
+  var habil = (f) => f.getDay() !== 0 && f.getDay() !== 6;
+  function sumarDias(iso, n) {
+    const f = aFecha2(iso);
+    f.setDate(f.getDate() + n);
+    return aISO2(f);
+  }
+  function sumarHabiles2(iso, n) {
+    const f = aFecha2(iso);
+    let k = 0;
+    while (k < n) {
+      f.setDate(f.getDate() + 1);
+      if (habil(f)) k++;
+    }
+    return aISO2(f);
+  }
+  function restarHabiles(iso, n) {
+    const f = aFecha2(iso);
+    let k = 0;
+    while (k < n) {
+      f.setDate(f.getDate() - 1);
+      if (habil(f)) k++;
+    }
+    return aISO2(f);
+  }
+  function diasHabilesDesde(iso, n) {
+    const out = [], f = aFecha2(iso);
+    while (!habil(f)) f.setDate(f.getDate() + 1);
+    while (out.length < n) {
+      if (habil(f)) out.push(aISO2(f));
+      f.setDate(f.getDate() + 1);
+    }
+    return out;
+  }
+  var nombreMes2 = (y, m) => `${MESES2[m]} ${y}`;
+  function lunesDelMes(y, m, semana, diasTerreno = 4) {
+    const lunes = [];
+    for (let d = 1; d <= 31; d++) {
+      const f = new Date(y, m, d, 12);
+      if (f.getMonth() !== m) break;
+      if (f.getDay() === 1) lunes.push(f);
+    }
+    const k = { primera: 0, segunda: 1, tercera: 2, cuarta: 3 }[semana];
+    if (k != null) return aISO2(lunes[Math.min(k, lunes.length - 1)]);
+    for (let i = lunes.length - 1; i >= 0; i--) {
+      const dias = diasHabilesDesde(aISO2(lunes[i]), Math.max(1, diasTerreno));
+      if (aFecha2(dias[dias.length - 1]).getMonth() === m) return aISO2(lunes[i]);
+    }
+    return aISO2(lunes[0]);
+  }
+  function fechasDelCiclo(p, inicio2) {
+    const terreno = diasHabilesDesde(inicio2, Math.max(1, Number(p.diasTerreno) || 1));
+    const fin = terreno[terreno.length - 1];
+    const datos = p.datos === "mismo" ? fin : p.datos === "siguiente" ? sumarHabiles2(fin, 1) : (() => {
+      const f = aFecha2(fin);
+      do {
+        f.setDate(f.getDate() + 1);
+      } while (f.getDay() !== 1);
+      return aISO2(f);
+    })();
+    return { terreno: [terreno[0], fin], diasTerreno: terreno, datos, entrega: sumarHabiles2(datos, Math.max(0, Number(p.diasEntrega) || 0)) };
+  }
+  function ciclosEntre(per, desde, hasta) {
+    const p = { ...BASE_RECURRENTE, ...per || {} };
+    if (p.tipo !== "recurrente" || !p.desde) return [];
+    const cada = Math.max(1, Number(p.cada) || 1), out = [];
+    for (let k = 0; k < 600; k++) {
+      let inicio2, nombre;
+      if (p.unidad === "semana") {
+        const f = aFecha2(p.desde);
+        while (f.getDay() !== 1) f.setDate(f.getDate() - 1);
+        f.setDate(f.getDate() + 7 * cada * k);
+        inicio2 = aISO2(f);
+        nombre = `Semana del ${f.getDate()} de ${MESES2[f.getMonth()].toLowerCase()}`;
+      } else {
+        const [y0, m0] = p.desde.split("-").map(Number), t = m0 - 1 + cada * k, y = y0 + Math.floor(t / 12), m = t % 12;
+        inicio2 = lunesDelMes(y, m, p.semana, p.diasTerreno);
+        nombre = nombreMes2(y, m);
+      }
+      if (p.hasta && inicio2 > p.hasta) break;
+      const c = fechasDelCiclo(p, inicio2);
+      if (c.terreno[0] > hasta) break;
+      const n = (Number(p.mesInicial) || 1) + k, numero = String(n).padStart(3, "0");
+      if (c.entrega >= desde) out.push({ n, numero, nombre, carpeta: `${numero} ${nombre.split(" ")[0]}`, ...c });
+    }
+    return out;
+  }
+  function cicloDelMes(per, iso) {
+    const d = aFecha2(iso), ini = aISO2(new Date(d.getFullYear(), d.getMonth(), 1, 12)), fin = aISO2(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12));
+    return ciclosEntre(per, ini, sumarDias(fin, 60)).find((c) => c.terreno[0] >= ini) || null;
+  }
+  function textoPeriodicidad(per) {
+    if (!per || per.tipo !== "recurrente") return "Único";
+    const p = { ...BASE_RECURRENTE, ...per };
+    const cada = Number(p.cada) > 1 ? `cada ${p.cada} ${p.unidad === "semana" ? "semanas" : "meses"}` : p.unidad === "semana" ? "semanal" : "mensual";
+    return `Recurrente · ${cada} · terreno ${p.diasTerreno} día${Number(p.diasTerreno) === 1 ? "" : "s"} · entrega ${p.diasEntrega} días hábiles después de los datos`;
   }
 
   // compartido/tooltip.js
@@ -5120,7 +5261,7 @@ Content-Type: ${mime}\r
       const th = e.target.closest(".sis-th[data-col]");
       if (th && raiz.contains(th) && e.button === 0) arr = { tipo: "mover", id: th.dataset.col, x0: e.clientX, activo: false, th, destino: -1 };
     };
-    const mover = (e) => {
+    const mover2 = (e) => {
       if (!arr) return;
       const dx = e.clientX - arr.x0;
       if (arr.tipo === "ancho") {
@@ -5179,12 +5320,12 @@ Content-Type: ${mime}\r
       arr = null;
     };
     raiz.addEventListener("pointerdown", abajo);
-    addEventListener("pointermove", mover);
+    addEventListener("pointermove", mover2);
     addEventListener("pointerup", arriba);
     addEventListener("pointercancel", cancelar);
     return () => {
       raiz.removeEventListener("pointerdown", abajo);
-      removeEventListener("pointermove", mover);
+      removeEventListener("pointermove", mover2);
       removeEventListener("pointerup", arriba);
       removeEventListener("pointercancel", cancelar);
     };
@@ -5871,8 +6012,17 @@ Nota: ${escapar(t.nota)}` : ""}`;
           }
           case "nuevo-ciclo": {
             const ult = st.ciclos[0];
-            const sig = ult ? mesSiguiente(ult.nombre, ult.mesContrato) : { nombre: nombreMes(hoyISO()), mesContrato: 1 };
-            st.ciclo = await guardarCiclo({ planId: st.plan.id, proyectoId: st.proyectoId, nombre: sig.nombre || "Mes nuevo", mesContrato: st.plan.tipo === "mensual" ? sig.mesContrato : null, datos: "" });
+            let sig = ult ? mesSiguiente(ult.nombre, ult.mesContrato) : { nombre: nombreMes(hoyISO()), mesContrato: 1 };
+            const proy = await obtenerProyecto(st.proyectoId), per = proy && proy.periodicidad && proy.periodicidad.tipo === "recurrente" ? proy.periodicidad : null;
+            let extra = { datos: "" };
+            if (per) {
+              const c = ult && ult.mesContrato ? ciclosEntre(per, "1900-01-01", "2100-12-31").find((x) => x.n === Number(ult.mesContrato) + 1) : cicloDelMes(per, hoyISO());
+              if (c) {
+                sig = { nombre: c.nombre, mesContrato: c.n };
+                extra = { datos: c.datos, entrega: c.entrega, terreno: c.terreno, diasEntrega: Number(per.diasEntrega) || 0 };
+              }
+            }
+            st.ciclo = await guardarCiclo({ planId: st.plan.id, proyectoId: st.proyectoId, nombre: sig.nombre || "Mes nuevo", mesContrato: st.plan.tipo === "mensual" ? sig.mesContrato : null, ...extra });
             await recargar();
             avisarConDeshacer(`${st.ciclo.nombre} creado con los mismos tramos, sin avance`);
             break;
@@ -5977,7 +6127,9 @@ Nota: ${escapar(t.nota)}` : ""}`;
         }
         if (t.dataset.ciclo === "datos") {
           st.ciclo.datos = t.value;
+          if (st.ciclo.entrega && t.value) st.ciclo.entrega = sumarHabiles2(t.value, st.ciclo.diasEntrega || 0);
           await guardarCiclo(st.ciclo);
+          render();
           return;
         }
       } catch (e) {
@@ -6769,54 +6921,141 @@ ${escapar(t.nota)}${t.notaPor ? `
       </div>
       <nav class="vu-pasos" aria-label="Pasos de la hoja">${PASOS.map(([k, t2]) => `<button class="vu-paso${st.paso === k ? " activo" : ""}" data-accion="paso" data-paso="${k}">${t2}${marcas[k] === "ok" ? ' <i class="vu-ok" aria-label="listo">✓</i>' : marcas[k] === "aviso" ? ' <i class="vu-alerta" aria-label="revisar">!</i>' : ""}</button>`).join("")}</nav>`;
     }
+    const COLORES_DIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#B39DDB", "#80CBC4", "#F48FB1", "#AED581"];
+    const colorDia = (k) => COLORES_DIA[k % COLORES_DIA.length];
+    function miniatura(g, diaDe) {
+      const todos2 = g.sectores.flatMap((s) => s.poligono);
+      if (!todos2.length) return "";
+      const xs = todos2.map((p) => p[0]), ys = todos2.map((p) => p[1]);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      const W = 700, H = 220, m = 12, k = Math.min((W - 2 * m) / (x1 - x0 || 1), (H - 2 * m) / (y1 - y0 || 1));
+      const ox = (W - (x1 - x0) * k) / 2, oy = (H - (y1 - y0) * k) / 2;
+      const pt = (p) => `${(ox + (p[0] - x0) * k).toFixed(1)},${(H - oy - (p[1] - y0) * k).toFixed(1)}`;
+      const poli = (s, i) => {
+        var _a, _b;
+        const paso = Math.max(1, Math.ceil(s.poligono.length / 400));
+        return `<polygon points="${s.poligono.filter((_, j) => j % paso === 0).map(pt).join(" ")}" fill="${colorDia((_a = diaDe[i]) != null ? _a : 0)}" fill-opacity=".8" stroke="${colorDia((_b = diaDe[i]) != null ? _b : 0)}" stroke-width="7" stroke-linejoin="round" paint-order="stroke"><title>${escapar(nombreSector(st.hoja, i, g.sectores.length))}</title></polygon>`;
+      };
+      return `<svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del área con sus sectores">${g.sectores.map(poli).join("")}</svg>`;
+    }
+    function cinta(g, t, diaDe) {
+      const h = st.hoja, n = g.sectores.length;
+      const medida = (s) => (s.rango ? s.rango[1] - s.rango[0] : s.largo) || s.area || 1;
+      const total = g.sectores.reduce((a, s) => a + medida(s), 0) || 1;
+      const lineal = g.sectores.some((s) => s.dm);
+      const ext = lineal ? [g.sectores[0].dm, g.sectores[n - 1].dm] : null;
+      return `<div class="vu-cinta-res">${lineal ? `<div class="vu-cinta-ext"><span>${escapar(kmADm(Math.min(...ext.flat())))}</span><span>${n} sectores</span><span>${escapar(kmADm(Math.max(...ext.flat())))}</span></div>` : ""}
+      <div class="vu-cinta-barra">${g.sectores.map((s, i) => {
+        var _a;
+        return `<i style="flex: 0 0 ${(100 * medida(s) / total).toFixed(3)}%; background: ${colorDia((_a = diaDe[i]) != null ? _a : 0)}" title="${escapar(nombreSector(h, i, n))} · ${fmt(s.area / 1e4, 1)} ha${t.sectores[i] ? ` · ${t.sectores[i].vuelos} bat. · ${fmtDuracion(t.sectores[i].minTotal)}` : ""}${diaDe[i] != null ? ` · día ${diaDe[i] + 1}` : ""}"></i>`;
+      }).join("")}</div></div>`;
+    }
     function vistaResumen() {
       const h = st.hoja, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null, c = h.clima, perm = estadoPermiso(h);
-      const cab = (n, titulo, estado3, clase, paso, accion) => `<div class="vu-res-cab"><span class="vu-num">${n}</span><h2>${titulo}</h2>${estado3 ? chip(estado3, clase) : ""}<button class="vu-link" data-accion="paso" data-paso="${paso}">${accion} →</button></div>`;
       const zonas = g ? zonasDeHoja() : [];
       const climaObs = c && c.checklist && c.checklist.some((x) => !x.cumple);
-      return `<section class="sis-tarjeta vu-datos-hoja"><h2>Datos de la hoja</h2>
-        <div class="vu-datos-grilla">
+      const jor = t ? jornadasNecesarias(h, d, g, t) : null;
+      const diaDe = {};
+      if (jor) jor.dias.forEach((di, k) => di.sectores.forEach((i) => {
+        diaDe[i] = k;
+      }));
+      const hor = { ...HORARIO_INICIAL, ...h.params.horario || {} };
+      const fechas = jor && h.fecha ? diasHabilesDesde(h.fecha, jor.dias.length) : [];
+      const programado = Array.isArray(h.programa) && h.programa.length;
+      const limiteDgac = h.fecha ? restarHabiles(h.programa && h.programa[0] && h.programa[0].fecha || h.fecha, 7) : null;
+      const hoy = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const pasos = [
+        ["area", "Área", g ? g.fallidos.length ? "aviso" : "ok" : "pend", g ? `${g.sectores.length} sector${g.sectores.length === 1 ? "" : "es"}` : "falta el área"],
+        ["vuelo", "Vuelo", t ? t.excede ? "aviso" : "ok" : "pend", t ? `${t.baterias} baterías${jor && jor.dias.length ? ` · ${jor.dias.length} jornada${jor.dias.length === 1 ? "" : "s"}` : ""}` : "—"],
+        ["clima", "Clima", c ? climaObs ? "aviso" : "ok" : "pend", c ? c.ventana ? `ventana ${c.ventana}` : "sin ventana" : "sin consultar"],
+        ["permisos", "Permisos", perm.nivel === "ok" ? "ok" : perm.nivel === "aviso" || limiteDgac && limiteDgac <= hoy && !h.permisos.dgac.enviado ? "aviso" : "pend", h.permisos.dgac.enviado || h.permisos.dgac.aprobado ? perm.texto.toLowerCase() : limiteDgac ? `enviar DGAC antes del ${fechaLegible(limiteDgac)}` : perm.detalle]
+      ];
+      const listos = pasos.filter((p) => p[2] === "ok").length;
+      const siguiente = pasos.find((p) => p[2] !== "ok");
+      const icono = (e, n) => e === "ok" ? "✓" : e === "aviso" ? "!" : n;
+      return `<section class="sis-tarjeta vu-res-avance">
+        <div class="vu-res-pasos">${pasos.map(([k, tt, e, det], n) => `<button type="button" class="vu-res-paso ${e}" data-accion="paso" data-paso="${k}"><span class="vu-res-ic">${icono(e, n + 1)}</span><span><b>${tt}</b><small>${escapar(det)}</small></span></button>`).join("")}
+          ${siguiente ? `<button class="sis-btn primario" data-accion="paso" data-paso="${siguiente[0]}">Siguiente: ${{ area: "cargar el área", vuelo: "ajustar el vuelo", clima: "consultar el clima", permisos: "permisos y consultas" }[siguiente[0]]} →</button>` : '<span class="sis-chip verde">Todo listo</span>'}</div>
+        <div class="vu-res-progreso"><i style="width: ${listos * 25}%"></i></div>
+      </section>
+      <section class="sis-tarjeta vu-datos-hoja"><div class="vu-datos-grilla">
           <label class="sis-campo"><span>Nombre</span><input data-hoja="nombre" value="${escapar(h.nombre)}" placeholder="El Pimiento — vuelo 1"></label>
           <label class="sis-campo"><span>Proyecto</span><select data-hoja="proyectoId">${opcionesProyectos(h.proyectoId)}</select></label>
-          <label class="sis-campo"><span>Fecha del vuelo</span><input type="date" data-hoja="fecha" value="${escapar(h.fecha || "")}"></label>
+          <label class="sis-campo"><span>Primer día de vuelo</span><input type="date" data-hoja="fecha" value="${escapar(h.fecha || "")}"></label>
           <label class="sis-campo"><span>Piloto</span><select data-hoja="pilotoId"><option value="">—</option>${base.personas.map((p) => `<option value="${escapar(p.id)}" ${p.id === h.pilotoId ? "selected" : ""}>${escapar(p.nombre)}</option>`).join("")}</select></label>
-        </div>
-      </section>
-      <div class="vu-res-grilla">
-        <section class="sis-tarjeta">${cab(1, "Área", g ? g.fallidos.length ? "Revisar cortes" : "Lista" : "Falta el área", g ? g.fallidos.length ? "ambar" : "verde" : "gris", "area", g ? "Editar área" : "Cargar área")}
-          ${g ? `<dl class="vu-tabla">
-            ${fila("Origen", escapar(h.area.archivo || "—"))}
-            ${g.tipo === "corredor" ? fila("Corredor", `${fmt(g.izq, 0)} m izq. · ${fmt(g.der, 0)} m der. · ${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1e3, 2)} km`) : fila("Margen", Number(h.area.margen) ? `+${h.area.margen} m · ${fmt(areaM2(g.original) / 1e4, 2)} → ${fmt(g.areaVuelo / 1e4, 2)} ha` : "sin margen")}
-            ${fila("Sectores", g.sectores.length > 1 ? g.sectores.map((_, i) => escapar(nombreSector(h, i, g.sectores.length))).join(" · ") : "uno (área completa)")}
-            ${fila("Zonas", zonas === null ? "sin capas cargadas" : zonas.length ? zonas.slice(0, 2).map((z) => `${z.toca ? '<b class="vu-rojo">toca</b> ' : ""}${escapar(z.nombre)}${z.toca ? "" : ` a ${fmt(z.distancia / 1e3, 1)} km`}`).join(" · ") : "no toca zonas cargadas")}
-          </dl>` : '<p class="sis-tenue">Carga el KMZ/KML del área (o la línea del corredor), o dibújala en el mapa.</p>'}
+        </div></section>
+      <div class="vu-res-dos">
+        <section class="sis-tarjeta vu-res-card">
+          <div class="vu-res-tit"><h2>1 · Área</h2><button class="vu-link" data-accion="paso" data-paso="area">${g ? "Editar área" : "Cargar área"} →</button></div>
+          ${g ? `${miniatura(g, diaDe)}
+            <div class="vu-res-datos">
+              <div><small>Origen</small><b>${escapar(h.area.archivo || "—")}</b></div>
+              <div><small>${g.tipo === "corredor" ? "Corredor" : "Superficie"}</small><b>${g.tipo === "corredor" ? `${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1e3, 2)} km · ${fmt(g.izq + g.der, 0)} m` : `${fmt(g.areaVuelo / 1e4, 1)} ha${Number(h.area.margen) ? ` · +${h.area.margen} m` : ""}`}</b></div>
+              <div><small>Sectores</small><b>${g.sectores.length}${g.sectores.length > 1 ? ` · ~${g.tipo === "corredor" || g.sectores.some((s) => s.rango) ? `${fmt(g.sectores.reduce((a, s) => a + ((s.rango ? s.rango[1] - s.rango[0] : s.largo) || 0), 0) / g.sectores.length / 1e3, 1)} km` : `${fmt(g.areaVuelo / g.sectores.length / 1e4, 1)} ha`} c/u` : ""}</b></div>
+              <div class="${zonas && zonas.some((z) => z.toca || z.distancia < 5e3) ? "aviso" : ""}"><small>Zonas</small><b>${zonas === null ? "sin capas cargadas" : zonas.length ? zonas.slice(0, 1).map((z) => `${z.toca ? "toca " : ""}${escapar(z.nombre)}${z.toca ? "" : ` a ${fmt(z.distancia / 1e3, 1)} km`}`).join("") : "no toca zonas cargadas"}</b></div>
+            </div>
+            ${g.sectores.length > 1 && t ? `${cinta(g, t, diaDe)}<p class="sis-tenue vu-res-nota">Pasa el mouse por la cinta para ver cada sector. Los colores son las jornadas de vuelo.</p>` : ""}` : '<p class="sis-tenue">Carga el KMZ/KML del área (o la línea del corredor), o dibújala en el mapa.</p>'}
         </section>
-        <section class="sis-tarjeta">${cab(2, "Vuelo", t ? t.excede ? "Revisar" : "Listo" : "", t ? t.excede ? "ambar" : "verde" : "gris", "vuelo", "Ajustar")}
-          ${t ? `<div class="vu-mini-kpis">${kpi("GSD", `${fmt(t.gsd, 2)} cm`)}${kpi("Altura", `${fmt(t.altura, 0)} m`)}${kpi("Baterías", t.baterias)}${kpi("Fotos", fmt(t.fotos))}</div>
-            <dl class="vu-tabla">${fila("Traslapes · velocidad", `${h.params.traslapeFrontal}/${h.params.traslapeLateral} % · ${t.sectores[0] ? fmt(t.sectores[0].velocidad, 1) : "—"} m/s${h.params.velocidad === "" ? " (sugerida)" : ""}`)}
-            ${fila("En el aire · jornada", `${fmtDuracion(t.minVuelo)} · ${fmtDuracion(t.minJornada)}`)}
-            ${g.sectores.length > 1 ? fila("Por sector", t.sectores.map((r, i) => `${escapar(nombreSector(h, i, g.sectores.length))} ${r ? fmtDuracion(r.minTotal) : "—"}`).join(" · ")) : ""}</dl>` : '<p class="sis-tenue">Cuando cargues el área, aquí aparece el plan de vuelo.</p>'}
+        <section class="sis-tarjeta vu-res-card">
+          <div class="vu-res-tit"><h2>2 · Vuelo</h2><button class="vu-link" data-accion="paso" data-paso="vuelo">Ajustar →</button></div>
+          ${t ? `<div class="vu-mini-kpis">${kpi("GSD", h.params.modo === "lidar" ? "—" : `${fmt(t.gsd, 2)} cm`)}${kpi("Altura", `${fmt(t.altura, 0)} m`)}${kpi("Baterías", t.baterias)}${kpi("Fotos", fmt(t.fotos))}</div>
+            <p class="vu-res-linea"><span>Traslapes ${h.params.traslapeFrontal}/${h.params.traslapeLateral} % · ${t.sectores[0] ? fmt(t.sectores[0].velocidad, 1) : "—"} m/s</span><span>En el aire ${fmtDuracion(t.minVuelo)} · jornada ${fmtDuracion(t.minJornada)}</span></p>
+            <div class="vu-jornadas">
+              <div class="vu-jornadas-cab"><b>Jornadas necesarias: ${jor ? jor.dias.length : "—"}</b>
+                <span class="vu-horario">Horario <input type="time" data-horario="inicio" value="${escapar(hor.inicio)}" aria-label="Hora de inicio">–<input type="time" data-horario="fin" value="${escapar(hor.fin)}" aria-label="Hora de término">
+                  · pausa <input type="number" min="0" max="240" step="5" data-horario="pausa" value="${escapar(hor.pausa)}" aria-label="Pausa en minutos"> min
+                  · traslado entre sectores <input type="number" min="0" max="240" step="5" data-horario="traslado" value="${escapar(hor.traslado)}" aria-label="Traslado entre sectores en minutos"> min</span></div>
+              ${jor && jor.util ? `<div class="vu-dias">${jor.dias.map((di, k) => {
+        const a = di.sectores[0], b = di.sectores[di.sectores.length - 1], n = g.sectores.length;
+        const rango = n > 1 ? a === b ? nombreSector(h, a, n) : g.sectores[a].dm && g.sectores[b].dm ? `${kmADm(Math.min(...g.sectores[a].dm, ...g.sectores[b].dm))} – ${kmADm(Math.max(...g.sectores[a].dm, ...g.sectores[b].dm))}` : `${nombreSector(h, a, n)} a ${nombreSector(h, b, n)}` : "Área completa";
+        return `<b>Día ${k + 1}${fechas[k] ? `<small>${escapar(diaCorto(fechas[k]))}</small>` : ""}</b><div class="vu-dia-barra"><i style="width: ${Math.min(100, 100 * di.min / jor.util).toFixed(1)}%; background: ${colorDia(k)}"></i></div><span class="vu-dia-min${di.excede ? " vu-rojo" : ""}">${fmtDuracion(di.min)}</span>
+                  <span></span><small class="vu-dia-det">${escapar(rango)} · ${di.sectores.length} sector${di.sectores.length === 1 ? "" : "es"} · ${di.baterias} batería${di.baterias === 1 ? "" : "s"}${di.excede ? " · <b>no cabe en el horario: divide el sector</b>" : ""}</small><span></span>`;
+      }).join("")}</div>
+                <p class="sis-tenue vu-res-nota">Cada día toma sectores completos, en orden${g.sectores.some((s) => s.dm) ? " (sentido del eje)" : ""}, hasta llenar ${fmtDuracion(jor.util)} útiles. ${h.fecha ? "Días hábiles desde el primer día de vuelo." : "Pon el primer día de vuelo para ver las fechas."}</p>
+                <div class="sis-acciones"><button class="sis-btn chico${programado ? "" : " primario"}" data-accion="programar" ${h.fecha ? "" : "disabled"}>${programado ? `Actualizar el calendario (${h.programa.length} días)` : `Agregar ${jor.dias.length === 1 ? "la jornada" : `las ${jor.dias.length} jornadas`} al calendario`}</button>${programado ? '<button class="sis-btn chico" data-accion="desprogramar">Quitar del calendario</button>' : ""}</div>` : '<p class="vu-rojo">Revisa el horario: el término debe ser después del inicio.</p>'}
+            </div>` : '<p class="sis-tenue">Cuando cargues el área, aquí aparece el plan de vuelo.</p>'}
         </section>
-        <section class="sis-tarjeta">${cab(3, "Clima", c ? climaObs ? "Con observaciones" : "Cumple" : "", c ? climaObs ? "ambar" : "verde" : "gris", "clima", c ? "Ver pronóstico" : "Consultar")}
-          ${c ? `<p class="sis-tenue">Consultado ${fechaHora(c.consultadoEn)} para el ${fechaLegible(c.fecha)}.</p>
-            <dl class="vu-tabla">${(c.checklist || []).map((x) => fila(escapar(x.texto), `<span class="${x.cumple ? "vu-verde" : "vu-rojo"}">${escapar(x.detalle)}</span>`)).join("")}
-            ${(() => {
+      </div>
+      <div class="vu-res-dos">
+        <section class="sis-tarjeta vu-res-card">
+          <div class="vu-res-tit"><h2>3 · Clima</h2><button class="vu-link" data-accion="paso" data-paso="clima">${c ? "Ver pronóstico" : "Consultar"} →</button></div>
+          ${fechas.length ? `<div class="vu-clima-dias">${fechas.map((f, k) => {
+        const esta = c && c.fecha === f;
+        const cl = esta ? c.ventana ? climaObs ? "aviso" : "ok" : "mal" : "gris";
+        return `<div class="vu-clima-dia ${cl}"><b>Día ${k + 1}</b><small>${escapar(diaCorto(f))}</small><span>${esta ? (c.ventana ? `Ventana ${escapar(c.ventana)}` : "Sin ventana") + (c.rafaga ? ` · ráfaga ${fmt(c.rafaga.v, 1)} m/s` : "") : "sin consultar"}</span></div>`;
+      }).join("")}</div>` : ""}
+          ${c ? `<p class="sis-tenue vu-res-nota">Consultado ${fechaHora(c.consultadoEn)} para el ${fechaLegible(c.fecha)}.${(() => {
         const m = resumenMetar(h.metar);
-        return m ? fila(`METAR ${escapar(m.icao)}`, `${escapar(m.categoria)}${m.viento ? ` · ${fmt(m.viento.ms, 1)} m/s` : ""}`) : "";
-      })()}</dl>` : '<p class="sis-tenue">Consulta el pronóstico del día del vuelo: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR.</p>'}
+        return m ? ` METAR ${escapar(m.icao)}: ${escapar(m.categoria)}${m.viento ? ` · ${fmt(m.viento.ms, 1)} m/s` : ""}.` : "";
+      })()}</p>
+            ${(c.checklist || []).filter((x) => !x.cumple).length ? `<ul class="vu-res-obs">${c.checklist.filter((x) => !x.cumple).map((x) => `<li>${escapar(x.texto)}: ${escapar(x.detalle)}</li>`).join("")}</ul>` : ""}` : '<p class="sis-tenue vu-res-nota">Consulta el pronóstico de cada día de vuelo: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR.</p>'}
         </section>
-        <section class="sis-tarjeta">${cab(4, "Permisos y consultas", perm.texto, perm.nivel === "ok" ? "verde" : perm.nivel === "aviso" ? "ambar" : "gris", "permisos", "Abrir")}
-          <dl class="vu-tabla">
-            ${fila("Solicitud DGAC", `${escapar(perm.texto)} · ${escapar(perm.detalle)}`)}
-            ${fila("Documentos", `${DOCUMENTOS_DGAC.filter(([k]) => h.permisos.docs[k]).length} de ${DOCUMENTOS_DGAC.length}`)}
-            ${CONSULTAS.map(([k, tt]) => {
+        <section class="sis-tarjeta vu-res-card">
+          <div class="vu-res-tit"><h2>4 · Permisos y consultas</h2><button class="vu-link" data-accion="paso" data-paso="permisos">Abrir →</button></div>
+          ${(() => {
+        const dg = h.permisos.dgac;
+        const et = [
+          ["Enviar", dg.enviado ? `enviada ${fechaLegible(dg.enviado)}` : limiteDgac ? `antes del ${fechaLegible(limiteDgac)}` : "mín. 7 días hábiles antes", dg.enviado ? "ok" : limiteDgac && limiteDgac <= hoy ? "mal" : "actual"],
+          ["En trámite", dg.enviado && !dg.aprobado ? "esperando respuesta" : "", dg.aprobado ? "ok" : dg.enviado ? "actual" : ""],
+          ["Aprobada", dg.aprobado ? dg.vence ? `hasta ${fechaLegible(dg.vence)}` : "sin término" : "", dg.aprobado ? "ok" : ""],
+          ["Vuelo", h.fecha ? fechaLegible(h.fecha) : "sin fecha", ""]
+        ];
+        return `<div class="vu-etapas">${et.map(([a, b, e]) => `<div class="vu-etapa ${e}"><b>${a}</b><small>${escapar(b)}</small></div>`).join("")}</div>`;
+      })()}
+          <div class="vu-res-chips">${CONSULTAS.map(([k, tt]) => {
         const x = ultimaConsulta(h, k);
-        return fila(tt, x ? `Revisado ${fechaHora(x.fecha)}` : '<span class="vu-rojo">Pendiente</span>');
+        return chip(`${tt.split(/[:(]/)[0].trim()} · ${x ? `revisado ${fechaLegible(x.fecha.slice(0, 10))}` : "pendiente"}`, x ? "verde" : "gris");
       }).join("")}
-          </dl>
+            ${chip(`Documentos ${DOCUMENTOS_DGAC.filter(([k]) => h.permisos.docs[k]).length}/${DOCUMENTOS_DGAC.length}`, DOCUMENTOS_DGAC.every(([k]) => h.permisos.docs[k]) ? "verde" : "gris")}</div>
+          <p class="sis-tenue vu-res-nota">La fecha límite sale de la regla de 7 días hábiles antes del primer día de vuelo.</p>
         </section>
       </div>`;
     }
+    const DIAS_SEM = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+    const diaCorto = (iso) => {
+      const [y, m, dd] = iso.split("-").map(Number);
+      return `${DIAS_SEM[new Date(y, m - 1, dd, 12).getDay()]} ${dd}-${String(m).padStart(2, "0")}`;
+    };
     return { vistaHojas, encabezadoHoja, vistaResumen, ultimaConsulta };
   }
 
@@ -8709,6 +8948,12 @@ ${escapar(t.nota)}${t.notaPor ? `
         }
         if (!st.hoja || st.vista !== "hoja") return;
         const h = st.hoja;
+        if (t.dataset.horario) {
+          h.params.horario = { ...HORARIO_INICIAL, ...h.params.horario || {}, [t.dataset.horario]: t.type === "number" ? Number(t.value) || 0 : t.value };
+          cambio();
+          await render();
+          return;
+        }
         if (t.dataset.hoja && (t.tagName === "SELECT" || t.type === "date")) {
           h[t.dataset.hoja] = t.value || null;
           if (t.dataset.hoja === "fecha") st.dia = null;
@@ -9021,7 +9266,21 @@ ${escapar(t.nota)}${t.notaPor ? `
             cambio();
           }
         } else if (a === "auto-cortar") await cortarAutomatico(h);
-        else if (a === "deshacer-corte") {
+        else if (a === "programar") {
+          const g = geo(), jor = jornadasNecesarias(h, dron(), g);
+          if (!jor || !jor.dias.length || !h.fecha) {
+            avisar2("Falta el área o el primer día de vuelo.", "error");
+          } else {
+            const fechas = diasHabilesDesde(h.fecha, jor.dias.length), n = g.sectores.length;
+            h.programa = jor.dias.map((di, k) => ({ fecha: fechas[k], dia: k + 1, de: jor.dias.length, sectores: di.sectores.map((i) => nombreSector(h, i, n)), min: Math.round(di.min), baterias: di.baterias }));
+            avisar2(`Listo: ${h.programa.length} jornada${h.programa.length === 1 ? "" : "s"} en el calendario (Proyectos → Calendario).`);
+            cambio();
+          }
+        } else if (a === "desprogramar") {
+          h.programa = [];
+          avisar2("Se quitaron las jornadas del calendario.");
+          cambio();
+        } else if (a === "deshacer-corte") {
           h.area.cortes.pop();
           cambio();
         } else if (a === "quitar-cortes") {
@@ -10577,6 +10836,123 @@ ${escapar(t.nota)}${t.notaPor ? `
     return new URL(RUTA_TERRENO, String(paginaSistema).split("#")[0]).toString();
   }
 
+  // app/calendario.js
+  var TIPOS = {
+    vuelo: { texto: "Vuelos y terreno", clase: "cal-vuelo" },
+    terreno: { texto: "Vuelos y terreno", clase: "cal-vuelo" },
+    datos: { texto: "Llegada de datos", clase: "cal-datos" },
+    entrega: { texto: "Entregas", clase: "cal-entrega" },
+    dgac: { texto: "Permisos DGAC", clase: "cal-dgac" },
+    calibracion: { texto: "Calibraciones", clase: "cal-calib" }
+  };
+  var LEYENDA = [["vuelo", "Vuelos y terreno"], ["datos", "Llegada de datos"], ["entrega", "Entregas"], ["dgac", "Permisos DGAC"], ["calibracion", "Calibraciones"]];
+  var DIAS2 = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  var aFecha3 = (iso) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d, 12);
+  };
+  var lunesDe = (iso) => {
+    const f = aFecha3(iso);
+    const w = (f.getDay() + 6) % 7;
+    f.setDate(f.getDate() - w);
+    return aISO2(f);
+  };
+  async function eventosEntre(desde, hasta) {
+    const [proyectos2, hojas, equipos] = await Promise.all([listarProyectos(), listarPlanes().catch(() => []), listarEquiposConEstado().catch(() => [])]);
+    const nomProy = new Map(proyectos2.map((p) => [p.id, p.nombre]));
+    const ev = [];
+    const poner = (fecha2, e) => {
+      if (fecha2 && fecha2 >= desde && fecha2 <= hasta) ev.push({ fecha: fecha2, ...e });
+    };
+    for (const p of proyectos2) {
+      if (p.id === OFICINA_ID || p.estado === "cerrado") continue;
+      const per = p.periodicidad;
+      if (per && per.tipo === "recurrente") {
+        for (const c of ciclosEntre(per, desde, sumarDias(hasta, 0))) {
+          c.diasTerreno.forEach((f, k) => poner(f, { tipo: "terreno", texto: `${p.nombre} · terreno ${c.numero}${c.diasTerreno.length > 1 ? ` (${k + 1}/${c.diasTerreno.length})` : ""}`, corto: `Terreno ${c.numero} · ${p.nombre}`, enlace: `#/proyecto/${p.id}`, personaId: p.encargadoId, proyectoId: p.id }));
+          poner(c.datos, { tipo: "datos", texto: `${p.nombre} · llegan los datos ${c.numero}`, corto: `Datos ${c.numero} · ${p.nombre}`, enlace: `#/seguimiento/${p.id}`, personaId: p.encargadoId, proyectoId: p.id });
+          poner(c.entrega, { tipo: "entrega", texto: `${p.nombre} · entrega ${c.nombre}`, corto: `Entrega ${c.numero} · ${p.nombre}`, enlace: `#/seguimiento/${p.id}`, personaId: p.encargadoId, proyectoId: p.id });
+        }
+      } else if (p.plazo) poner(p.plazo, { tipo: "entrega", texto: `${p.nombre} · entrega`, corto: `Entrega · ${p.nombre}`, enlace: `#/proyecto/${p.id}`, personaId: p.encargadoId, proyectoId: p.id });
+    }
+    for (const h of hojas) {
+      if (h.estado === "archivada") continue;
+      const nombre = h.nombre || "Hoja de vuelo";
+      const dias = Array.isArray(h.programa) && h.programa.length ? h.programa : h.fecha ? [{ fecha: h.fecha }] : [];
+      dias.forEach((d) => poner(d.fecha, { tipo: "vuelo", texto: `${nombre}${d.de > 1 ? ` · día ${d.dia}/${d.de}` : " · vuelo"}`, corto: `Vuelo${d.de > 1 ? ` ${d.dia}/${d.de}` : ""} · ${nombre}`, detalle: d.sectores ? `${d.sectores.length} sectores · ${d.baterias} baterías` : "", enlace: `#/vuelos/plan/${h.id}`, personaId: h.pilotoId, proyectoId: h.proyectoId }));
+      const dg = h.permisos && h.permisos.dgac || {};
+      if (dias.length && !dg.enviado && !dg.aprobado && h.estado !== "volada") poner(restarHabiles(dias[0].fecha, 7), { tipo: "dgac", texto: `${nombre} · enviar DGAC (límite)`, corto: `Límite DGAC · ${nombre}`, enlace: `#/vuelos/plan/${h.id}`, personaId: h.pilotoId, proyectoId: h.proyectoId });
+    }
+    for (const e of equipos) {
+      const c = e.calibracion || {};
+      if (c.proxima) poner(String(c.proxima).slice(0, 10), { tipo: "calibracion", texto: `${e.nombre || e.modelo || "Equipo"}${e.numeroSerie ? ` ···${String(e.numeroSerie).slice(-4)}` : ""} · calibración vence`, corto: `Calibración · ${e.nombre || e.modelo || "Equipo"}`, enlace: `#/equipos/${e.id}`, personaId: e.ubicacion && e.ubicacion.personaId, proyectoId: e.ubicacion && e.ubicacion.proyectoId });
+    }
+    ev.forEach((e) => {
+      e.proyecto = nomProy.get(e.proyectoId) || "";
+    });
+    return ev.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.tipo.localeCompare(b.tipo));
+  }
+  var chip2 = (e, corto = false) => `<a class="cal-ev ${TIPOS[e.tipo].clase}" href="${escapar(e.enlace || "#")}" title="${escapar(e.texto)}${e.detalle ? " · " + escapar(e.detalle) : ""}">${escapar(corto ? e.corto || e.texto : e.texto)}</a>`;
+  async function vistaCalendario(estado3) {
+    const hoy = hoyISO();
+    const ref = estado3.ref || hoy, modo = estado3.modo || "mes";
+    const f = aFecha3(ref);
+    let desde, hasta, titulo;
+    if (modo === "mes") {
+      desde = lunesDe(aISO2(new Date(f.getFullYear(), f.getMonth(), 1, 12)));
+      hasta = sumarDias(desde, 41);
+      titulo = `${MESES2[f.getMonth()]} ${f.getFullYear()}`;
+    } else {
+      desde = lunesDe(ref);
+      hasta = sumarDias(desde, 6);
+      titulo = `Semana del ${fechaLegible(desde)} al ${fechaLegible(hasta)}`;
+    }
+    const [todos2, proyectos2, personas2] = await Promise.all([eventosEntre(sumarDias(desde, 0), sumarDias(hasta, 14)), listarProyectos(), listarPersonas()]);
+    const ev = todos2.filter((e) => !estado3.proyecto || e.proyectoId === estado3.proyecto);
+    const delDia = (iso) => ev.filter((e) => e.fecha === iso);
+    const dias = (n) => Array.from({ length: n }, (_, k) => sumarDias(desde, k));
+    let cuerpo;
+    if (modo === "mes") {
+      cuerpo = `<div class="cal-grilla cal-mes"><div class="cal-cab">${DIAS2.map((d) => `<span>${d}</span>`).join("")}</div>
+      <div class="cal-celdas">${dias(42).map((d) => {
+        const fd = aFecha3(d), fuera = fd.getMonth() !== f.getMonth(), es = delDia(d);
+        return `<div class="cal-dia${fuera ? " fuera" : ""}${fd.getDay() % 6 === 0 ? " finde" : ""}${d === hoy ? " hoy" : ""}"><span class="cal-num">${fd.getDate()}</span>${es.slice(0, 4).map((e) => chip2(e, true)).join("")}${es.length > 4 ? `<button type="button" class="cal-mas" data-accion="cal-ir" data-ref="${d}" data-modo="semana">+${es.length - 4} más</button>` : ""}</div>`;
+      }).join("")}</div></div>`;
+    } else if (modo === "semana") {
+      cuerpo = `<div class="cal-semana">${dias(7).map((d, k) => {
+        const fd = aFecha3(d), es = delDia(d);
+        return `<div class="cal-col${d === hoy ? " hoy" : ""}"><div class="cal-col-cab"><span>${DIAS2[k]}</span><b>${fd.getDate()}</b></div>${es.map((e) => `${chip2(e)}${e.detalle ? `<small class="cal-det">${escapar(e.detalle)}</small>` : ""}`).join("") || '<span class="cal-vacio">—</span>'}</div>`;
+      }).join("")}</div>`;
+    } else {
+      const semana = dias(7), ids = [...new Set(ev.filter((e) => e.fecha <= hasta).map((e) => e.personaId || ""))];
+      const nom = (id) => id ? (personas2.find((p) => p.id === id) || {}).nombre || "Persona" : "Sin persona asignada";
+      cuerpo = `<div class="cal-personas" style="grid-template-columns: 180px repeat(7, minmax(0, 1fr))">
+      <span></span>${semana.map((d, k) => `<span class="cal-pcab${d === hoy ? " hoy" : ""}">${DIAS2[k]} ${aFecha3(d).getDate()}</span>`).join("")}
+      ${ids.length ? ids.sort((a, b) => nom(a).localeCompare(nom(b), "es")).map((id) => `<b class="cal-pnom">${escapar(nom(id))}</b>${semana.map((d) => `<div class="cal-pcel">${ev.filter((e) => e.fecha === d && (e.personaId || "") === id).map((e) => chip2(e, true)).join("")}</div>`).join("")}`).join("") : '<p class="sis-tenue" style="grid-column: 1 / -1">No hay nada programado esta semana.</p>'}
+    </div>`;
+    }
+    const proximos = ev.filter((e) => e.fecha >= hoy && e.fecha <= sumarDias(hoy, 14));
+    return `<div class="cal-barra">
+      <div class="cal-nav"><button class="sis-btn chico" data-accion="cal-mover" data-d="-1" aria-label="Anterior">‹</button><b>${escapar(titulo)}</b><button class="sis-btn chico" data-accion="cal-mover" data-d="1" aria-label="Siguiente">›</button><button class="sis-btn chico" data-accion="cal-ir" data-ref="${hoy}">Hoy</button></div>
+      <div class="cal-modos" role="tablist" aria-label="Vista del calendario">${[["mes", "Mes"], ["semana", "Semana"], ["persona", "Por persona"]].map(([k, t]) => `<button type="button" role="tab" aria-selected="${modo === k}" class="${modo === k ? "activo" : ""}" data-accion="cal-modo" data-modo="${k}">${t}</button>`).join("")}</div>
+    </div>
+    <div class="cal-filtros">${LEYENDA.map(([k, t]) => `<span class="cal-ley ${TIPOS[k].clase}">${t}</span>`).join("")}
+      <label class="cal-proy">Proyecto <select data-accion="cal-proyecto"><option value="">Todos</option>${proyectos2.filter((p) => p.id !== OFICINA_ID && p.estado !== "cerrado").map((p) => `<option value="${escapar(p.id)}" ${estado3.proyecto === p.id ? "selected" : ""}>${escapar(p.nombre)}</option>`).join("")}</select></label></div>
+    <div class="cal-dos"><div class="cal-principal">${cuerpo}</div>
+      <aside class="sis-tarjeta cal-proximos"><h2>Próximos 14 días</h2>${proximos.length ? `<div class="cal-lista">${proximos.map((e) => `<span class="cal-fecha">${e.fecha === hoy ? "hoy" : escapar(fechaCorta(e.fecha))}</span>${chip2(e)}`).join("")}</div>` : '<p class="sis-tenue">Nada en las próximas dos semanas.</p>'}
+        <p class="sis-tenue">Se llena solo con las jornadas de las hojas de vuelo («Agregar al calendario» en su Resumen), la periodicidad de cada proyecto, el límite DGAC y las calibraciones que vencen.</p></aside></div>`;
+  }
+  var DS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  var fechaCorta = (iso) => {
+    const f = aFecha3(iso);
+    return `${DS[f.getDay()]} ${f.getDate()}`;
+  };
+  function mover(estado3, d) {
+    const f = aFecha3(estado3.ref || hoyISO());
+    if ((estado3.modo || "mes") === "mes") return aISO2(new Date(f.getFullYear(), f.getMonth() + d, 1, 12));
+    return sumarDias(aISO2(f), 7 * d);
+  }
+
   // app/catalogo.js
   var ROLES = {
     terreno: "Encargado de terreno",
@@ -10665,8 +11041,8 @@ ${escapar(t.nota)}${t.notaPor ? `
   ];
 
   // app/version.js
-  var VERSION_SISTEMA = "0.9";
-  var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.6 + Seguimiento 0.1 + Monografías 0.1 (desde Terreno)";
+  var VERSION_SISTEMA = "0.10";
+  var MODULOS_INCLUIDOS = "Equipos 0.1f (+ avisos) + Vuelos 0.8 + Seguimiento 0.2 + Monografías 0.2 (desde Terreno)";
 
   // app/vistas.js
   var ICONO = {
@@ -10759,7 +11135,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     const otros = activos.filter((p) => !misProyectos.includes(p));
     const tarjetaProy = (p) => `<a class="sis-proy" href="#/proyecto/${escapar(p.id)}">
       <b>${escapar(p.nombre)}</b><span class="sis-tenue">${escapar(p.mandante || "Sin mandante")}${p.comuna ? ` · ${escapar(p.comuna)}` : ""}</span>
-      <span class="sis-chips">${tiposDeProyecto(p).categorias.map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_CATEGORIA[t])}</span>`).join("")}</span></a>`;
+      <span class="sis-chips">${p.periodicidad && p.periodicidad.tipo === "recurrente" ? '<span class="sis-chip azul">Recurrente</span>' : ""}${tiposDeProyecto(p).categorias.map((t) => `<span class="sis-chip gris">${escapar(NOMBRE_CATEGORIA[t])}</span>`).join("")}</span></a>`;
     return `${saludo}${bienvenida}
     <div class="sis-dos"><div>
     ${avisos2.length ? `<section class="sis-tarjeta sis-aviso"><h2>${ICONO.alerta} Ojo con estos equipos a tu cargo</h2>
@@ -10792,7 +11168,13 @@ ${escapar(t.nota)}${t.notaPor ? `
     const visibles = lista.filter((p) => p.id === OFICINA_ID || verCerrados || p.estado !== "cerrado");
     const nCerrados = lista.filter((p) => p.estado === "cerrado").length;
     const eliminados = (await enPapelera("compartido_proyectos")).map((x) => x.registro);
-    return `<div class="sis-cab"><h1>Proyectos</h1><a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
+    const vista = leerVistaProyectos();
+    const selector = `<div class="sis-vistas" role="tablist" aria-label="Vista de proyectos"><button type="button" role="tab" aria-selected="${vista === "lista"}" class="${vista === "lista" ? "activo" : ""}" data-accion="vista-proyectos" data-v="lista">☰ Lista</button><button type="button" role="tab" aria-selected="${vista === "calendario"}" class="${vista === "calendario" ? "activo" : ""}" data-accion="vista-proyectos" data-v="calendario">▦ Calendario</button></div>`;
+    if (vista === "calendario") {
+      ctx2.estado.cal = ctx2.estado.cal || { modo: leerLS3("env_cal_modo") || "mes", ref: hoyISO(), proyecto: "" };
+      return `<div class="sis-cab"><h1>Proyectos</h1>${selector}<a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>${await vistaCalendario(ctx2.estado.cal)}`;
+    }
+    return `<div class="sis-cab"><h1>Proyectos</h1>${selector}<a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
     <p class="sis-tenue">El proyecto es el eje: de aquí cuelgan los equipos que salen, los certificados para el mandante y, en las próximas versiones, los gastos y las jornadas.</p>
     ${nCerrados ? `<label class="sis-check"><input type="checkbox" data-accion="ver-cerrados" ${verCerrados ? "checked" : ""}> Mostrar cerrados (${nCerrados})</label>` : ""}
     <div class="sis-proys grande">${visibles.map((p) => `<a class="sis-proy" href="#/proyecto/${escapar(p.id)}">
@@ -10829,7 +11211,7 @@ ${escapar(t.nota)}${t.notaPor ? `
         <div class="sis-meta">
           <span>Mandante: <b>${escapar(p.mandante || (esOficina ? "Trabajo que no es de un contrato" : "—"))}</b></span>
           ${esOficina ? "" : `${meta("Encargado", escapar(nomPers(p.encargadoId)))}${meta("Ubicación", escapar([p.comuna, p.region].filter(Boolean).join(", ")))}
-          ${meta("Encargado por", escapar(p.solicitadoPor || ""))}${meta("Encargo", p.fechaEncargo ? fechaLegible(p.fechaEncargo) : "")}${meta("Plazo", plazo)}`}
+          ${meta("Encargado por", escapar(p.solicitadoPor || ""))}${meta("Encargo", p.fechaEncargo ? fechaLegible(p.fechaEncargo) : "")}${p.periodicidad && p.periodicidad.tipo === "recurrente" ? meta("Periodicidad", escapar(textoPeriodicidad(p.periodicidad).replace("Recurrente · ", ""))) : meta("Plazo", plazo)}`}
         </div>
         ${textosTipos(p).length ? `<div class="sis-chips" style="margin-top:10px">${textosTipos(p).map((t) => `<span class="sis-chip gris">${escapar(t)}</span>`).join("")}</div>` : ""}
       </div>
@@ -10838,6 +11220,11 @@ ${escapar(t.nota)}${t.notaPor ? `
     </div>
     ${p.notas ? `<p class="sis-notas">${escapar(p.notas)}</p>` : ""}
     <div class="sis-dos"><div>
+      ${p.periodicidad && p.periodicidad.tipo === "recurrente" ? (() => {
+      const cs = ciclosEntre(p.periodicidad, hoyISO(), sumarDias(hoyISO(), 120)).slice(0, 3);
+      return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Próximos ciclos</h2><button class="sis-btn chico" data-accion="ver-calendario">▦ Calendario</button></div>
+          ${cs.length ? `<div class="sis-lista">${cs.map((c) => `<div class="sis-fila"><span class="sis-fila-txt"><b><span class="mono">${escapar(c.numero)}</span> ${escapar(c.nombre)}</b><span class="sis-tenue">Terreno ${fechaLegible(c.terreno[0])}${c.terreno[1] !== c.terreno[0] ? ` – ${fechaLegible(c.terreno[1])}` : ""} · datos ${fechaLegible(c.datos)} · entrega ${fechaLegible(c.entrega)}</span></span></div>`).join("")}</div>` : '<p class="sis-tenue">Sin ciclos en los próximos 4 meses: revisa la periodicidad (primer ciclo y término).</p>'}</section>`;
+    })() : ""}
       <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Hojas de vuelo</h2>${ctx2.rol === "terreno" ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${escapar(id)}">+ Hoja de vuelo</a>` : ""}</div>
         ${planes.length ? `<div class="sis-lista">${planes.map((v) => `<a class="sis-fila" href="#/vuelos/plan/${escapar(v.id)}">
@@ -10907,6 +11294,26 @@ ${escapar(t.nota)}${t.notaPor ? `
           <label class="sis-campo"><span>Fecha del encargo</span><input type="date" name="fechaEncargo" value="${val("fechaEncargo")}"></label>
           <label class="sis-campo"><span>Plazo de entrega</span><input type="date" name="plazo" value="${val("plazo")}"></label>
         </div>
+        ${(() => {
+      const per = { ...BASE_RECURRENTE, ...p.periodicidad || {}, tipo: p.periodicidad && p.periodicidad.tipo || "unico" };
+      const v = (k) => {
+        var _a;
+        return escapar((_a = per[k]) != null ? _a : "");
+      };
+      return `<fieldset class="sis-periodicidad"><legend>Periodicidad</legend>
+          <div class="sis-opciones"><label class="sis-opcion"><input type="radio" name="perTipo" value="unico" ${per.tipo !== "recurrente" ? "checked" : ""}> Único (una entrega)</label><label class="sis-opcion"><input type="radio" name="perTipo" value="recurrente" ${per.tipo === "recurrente" ? "checked" : ""}> Recurrente (servicio que se repite)</label></div>
+          <div class="sis-per-rec">
+            <div class="sis-par"><label class="sis-campo"><span>Se repite cada</span><span class="sis-en-linea"><input type="number" name="perCada" min="1" max="12" value="${v("cada")}"><select name="perUnidad"><option value="mes" ${per.unidad !== "semana" ? "selected" : ""}>mes(es)</option><option value="semana" ${per.unidad === "semana" ? "selected" : ""}>semana(s)</option></select></span></label>
+              <label class="sis-campo"><span>Primer ciclo (mes o lunes de inicio)</span><input name="perDesde" value="${v("desde")}" placeholder="2025-10 o 2026-11-02"></label></div>
+            <div class="sis-par"><label class="sis-campo"><span>N° de mes del contrato del primer ciclo</span><input type="number" name="perMesInicial" min="1" value="${v("mesInicial")}"></label>
+              <label class="sis-campo"><span>Terreno (servicio mensual): parte en la</span><select name="perSemana">${SEMANAS.map(([k, t]) => `<option value="${k}" ${per.semana === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
+            <div class="sis-par"><label class="sis-campo"><span>Días de terreno (hábiles)</span><input type="number" name="perDias" min="1" max="20" value="${v("diasTerreno")}"></label>
+              <label class="sis-campo"><span>Los datos llegan</span><select name="perDatos">${DATOS.map(([k, t]) => `<option value="${k}" ${per.datos === k ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>
+            <div class="sis-par"><label class="sis-campo"><span>Entrega: días hábiles después de los datos</span><input type="number" name="perEntrega" min="0" max="60" value="${v("diasEntrega")}"></label>
+              <label class="sis-campo"><span>Hasta (vacío: sin término)</span><input type="date" name="perHasta" value="${v("hasta")}"></label></div>
+            <p class="sis-tenue">Cada ciclo aparece en el Calendario (terreno, llegada de datos y entrega) y, al crear el mes en Seguimiento, toma su nombre, N° de mes y fecha de llegada de los datos. Días hábiles = lunes a viernes.</p>
+          </div></fieldset>`;
+    })()}
         <label class="sis-campo"><span>Notas</span><textarea name="notas" rows="3" placeholder="Alcance, contacto en terreno, adjuntos recibidos…">${val("notas")}</textarea></label>
       </fieldset>
       <div class="sis-acciones"><button class="sis-btn primario">${nuevo ? "Crear proyecto" : "Guardar cambios"}</button>
@@ -11089,6 +11496,18 @@ ${escapar(t.nota)}${t.notaPor ? `
         solicitadoPor: (datos.get("solicitadoPor") || "").trim(),
         fechaEncargo: datos.get("fechaEncargo") || "",
         plazo: datos.get("plazo") || "",
+        periodicidad: datos.get("perTipo") === "recurrente" ? {
+          tipo: "recurrente",
+          cada: Math.max(1, Number(datos.get("perCada")) || 1),
+          unidad: datos.get("perUnidad") === "semana" ? "semana" : "mes",
+          desde: (datos.get("perDesde") || "").trim(),
+          mesInicial: Math.max(1, Number(datos.get("perMesInicial")) || 1),
+          semana: datos.get("perSemana") || "ultima",
+          diasTerreno: Math.max(1, Number(datos.get("perDias")) || 1),
+          datos: datos.get("perDatos") || "lunes",
+          diasEntrega: Math.max(0, Number(datos.get("perEntrega")) || 0),
+          hasta: datos.get("perHasta") || ""
+        } : { tipo: "unico" },
         notas: (datos.get("notas") || "").trim()
       }, { personaId: ctx2.personaId });
       ctx2.avisar(id ? "Proyecto guardado" : "Proyecto creado");
@@ -11097,8 +11516,37 @@ ${escapar(t.nota)}${t.notaPor ? `
     }
     return false;
   }
+  function leerVistaProyectos() {
+    return leerLS3("env_proyectos_vista") === "calendario" ? "calendario" : "lista";
+  }
+  var escribirLS3 = (k, v) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+    }
+  };
   async function manejarClic(boton, ctx2) {
+    const cal = () => ctx2.estado.cal = ctx2.estado.cal || { modo: leerLS3("env_cal_modo") || "mes", ref: hoyISO(), proyecto: "" };
     switch (boton.dataset.accion) {
+      case "vista-proyectos":
+        escribirLS3("env_proyectos_vista", boton.dataset.v);
+        return true;
+      case "ver-calendario":
+        escribirLS3("env_proyectos_vista", "calendario");
+        cal().proyecto = location.hash.split("/")[2] || "";
+        ctx2.ir("#/proyectos");
+        return false;
+      case "cal-modo":
+        cal().modo = boton.dataset.modo;
+        escribirLS3("env_cal_modo", boton.dataset.modo);
+        return true;
+      case "cal-mover":
+        cal().ref = mover(cal(), Number(boton.dataset.d));
+        return true;
+      case "cal-ir":
+        cal().ref = boton.dataset.ref;
+        if (boton.dataset.modo) cal().modo = boton.dataset.modo;
+        return true;
       case "abrir-pdf":
         await abrirArchivo(boton.dataset.id);
         return false;
@@ -11155,6 +11603,10 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
   async function manejarCambio(input, ctx2) {
     if (input.dataset.accion === "ver-cerrados") {
       ctx2.estado.verCerrados = input.checked;
+      return true;
+    }
+    if (input.dataset.accion === "cal-proyecto") {
+      ctx2.estado.cal = { ...ctx2.estado.cal || { modo: "mes", ref: hoyISO() }, proyecto: input.value };
       return true;
     }
     return false;
@@ -11462,7 +11914,7 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
   });
   contenedor.addEventListener("change", async (ev) => {
     if (contenedor.dataset.vista !== "sistema") return;
-    const i = ev.target.closest("input[data-accion]");
+    const i = ev.target.closest("input[data-accion], select[data-accion]");
     if (i && await manejarCambio(i, ctx())) {
       rutaActual = "";
       await mostrar();

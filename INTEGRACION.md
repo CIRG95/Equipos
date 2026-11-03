@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.9
+# INTEGRACION.md — Sistema v0.10
 
 ## Qué contiene
 
@@ -128,3 +128,10 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - **Monografías 0.2** (`modulos/monografias/`): `ajuste.js` (diálogo «Ajustar encuadre» y `colocarImagen`), tarjeta «Presentación de las imágenes». `herramientas/extraer-pieza-monografia.mjs` exporta además `ajusteDe`, `calcRectImagen`, `cargarImagenEl`; `pieza-terreno.js` regenerada desde Terreno 0.5.8.
 - **Terreno:** sin cambios. Lo que Terreno envía con sus ajustes de imagen se ve igual en el Sistema, y el ajuste hecho en gabinete queda en la versión revisada (`terreno_monografias_gabinete`).
 
+
+## Sistema v0.10
+- `compartido/periodicidad.js`: `proyecto.periodicidad` (`tipo` unico|recurrente, `cada`, `unidad` mes|semana, `semana`, `desde`, `mesInicial`, `diasTerreno`, `datos` lunes|siguiente|mismo, `diasEntrega`, `hasta`), `ciclosEntre`, `cicloDelMes`, `sumarHabiles`, `restarHabiles`, `diasHabilesDesde`, `textoPeriodicidad`. Días hábiles lun–vie.
+- `app/calendario.js`: `eventosEntre(desde, hasta)` (hojas de vuelo: `programa` o `fecha`, límite DGAC; proyectos: ciclos o `plazo`; Equipos: `calibracion.proxima`) y `vistaCalendario(estado)` (mes, semana, por persona). En Proyectos, botón Lista/Calendario (`env_proyectos_vista`, `env_cal_modo` en localStorage).
+- Vuelos 0.8: `hoja.params.horario` `{inicio, fin, pausa, traslado}`, `jornadasNecesarias`, `minutosUtiles`; `hoja.programa` `[{fecha, dia, de, sectores, min, baterias}]`. Resumen nuevo en `vista-hojas.js`.
+- Seguimiento 0.2: el ciclo guarda `entrega`, `terreno`, `diasEntrega` cuando sale de la periodicidad; `plazoCiclo` usa `ciclo.entrega` si existe.
+- Sin almacenes nuevos ni cambios en el paquete de conexión (Terreno no se actualiza).

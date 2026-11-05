@@ -5,7 +5,7 @@ import { sellar } from '../../compartido/util.js';
 import { enviarAPapelera } from '../../compartido/papelera.js';
 import { DRONES_BASE } from './drones.js';
 
-export const VERSION_MODULO = '0.8';
+export const VERSION_MODULO = '0.9';
 export const SCHEMA_VERSION = 2; // 2: hoja de vuelo (área, clima, permisos)
 export const ALM = { planes: 'vuelos_planes', drones: 'vuelos_drones' };
 // Las capas de zonas pueden pesar varios MB: quedan solo en este equipo (sin prefijo vuelos_, la nube no las sube).
@@ -23,7 +23,12 @@ const vivo = r => !r.eliminadoEn;
 /** Catálogo de drones con las correcciones guardadas por el usuario encima de los valores de fábrica. */
 export async function listarDrones() {
   const cambios = Object.fromEntries((await todos(ALM.drones)).filter(vivo).map(d => [d.id, d]));
-  return DRONES_BASE.map(d => ({ ...d, ...(cambios[d.id] ? limpiarCambios(cambios[d.id]) : {}), corregido: !!cambios[d.id] }));
+  return DRONES_BASE.map(d => {
+    const c = cambios[d.id] ? limpiarCambios(cambios[d.id]) : null;
+    // v0.11: una corrección guardada con la focal de ficha (antes valor de fábrica) no pisa la focal efectiva nueva.
+    if (c && d.focalFichaMm && Number(c.focalMm) === d.focalFichaMm) delete c.focalMm;
+    return { ...d, ...(c || {}), corregido: !!c };
+  });
 }
 function limpiarCambios(c) {
   const { creadoEn, creadoPor, actualizadoEn, dispositivoId, modificadoPor, schemaVersion, ...resto } = c;

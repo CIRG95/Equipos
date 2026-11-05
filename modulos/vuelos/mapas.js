@@ -1,7 +1,7 @@
 // modulos/vuelos/mapas.js — mapas Leaflet de Vuelos (área, vuelo, KML) con el mapa base elegido en mapa-base.js.
 
 import { cargarScript } from '../../compartido/util.js';
-import { calcularSector, metaSector, nombreSector, lineaEje, kmEnEje, kmADm, marcoDe } from './hoja.js';
+import { calcularSector, metaSector, nombreSector, lineaEje, kmEnEje, kmADm, marcoDe, geometria } from './hoja.js';
 import { largo, distanciaEnEje, puntoEnEje } from './geom.js';
 import { TIPOS_CAPA } from './capas.js';
 import { COLORES_BATERIA, COLORES_SECTOR } from './ui.js';
@@ -60,6 +60,16 @@ export function crearMapas(v) {
     if (!st.dibujo) return;
     const pts = st.dibujo.puntos.map(([lon, lat]) => [lat, lon]);
     const cerrar = st.dibujo.modo === 'area' && pts.length >= 3;
+    if (st.dibujo.modo === 'vertice') {
+      const g = geo();
+      if (!g) return;
+      const LL = aLL(g), vs = g.vuelo.map(LL);
+      m.capas.dibujo = L.layerGroup([
+        ...vs.map(p => L.circleMarker(p, { radius: 5, color: '#1C1F23', weight: 1.5, fillColor: '#FFFFFF', fillOpacity: 1, interactive: false })),
+        ...pts.map(p => L.circleMarker(p, { radius: 8, color: '#FFFFFF', weight: 3, fillColor: '#E8611C', fillOpacity: 1, interactive: false })),
+      ]).addTo(mapa);
+      return;
+    }
     m.capas.dibujo = L.layerGroup([
       ...(pts.length >= 2 ? [L.polyline(cerrar ? [...pts, pts[0]] : pts, { color: '#FFFFFF', weight: 2.5, dashArray: '7 5', interactive: false })] : []),
       ...pts.map(p => L.circleMarker(p, { radius: 5, color: '#FFFFFF', weight: 2, fillColor: '#E8611C', fillOpacity: 1, interactive: false })),
@@ -182,7 +192,7 @@ export function crearMapas(v) {
     const sug = st.sugDesp && st.sugDesp.lista && st.sugDesp.lista.find(x => x.i === i && x.res && !x.usado);
     if (sug) m.capas.sugerido = L.circleMarker([sug.res.lonLat[1], sug.res.lonLat[0]], { radius: 8, color: '#FFFFFF', weight: 2, fillColor: '#2E7D32', fillOpacity: 1 }).bindTooltip('Despegue sugerido sobre el camino', { direction: 'top' }).addTo(mapa);
     const r = calcularSector(h, dron(), g, i);
-    m.capas.sectores = L.layerGroup(g.sectores.map((s, k) => L.polygon(s.poligono.map(LL), { color: '#E8611C', weight: k === i ? 3 : 1.5, opacity: k === i ? 1 : 0.6, fillColor: '#E8611C', fillOpacity: k === i ? 0.1 : 0.03, interactive: k !== i })
+    m.capas.sectores = L.layerGroup(g.sectores.map((s, k) => L.polygon(s.poligono.map(LL), { color: k === i ? '#E8611C' : '#FFFFFF', weight: k === i ? 3 : 1, opacity: k === i ? 1 : 0.55, dashArray: k === i ? null : '4 6', fillColor: '#E8611C', fillOpacity: k === i ? 0.1 : 0, interactive: k !== i })
       .on('click', () => { if (k !== i) { h.area.sel = k; cambio(); render(); } }))).addTo(mapa);
     if (!r) return;
     m.capas.lineas = L.layerGroup(r.baterias.flatMap((b, k) => b.piezas.map(pz => L.polyline(pz.slice(0, 5000).map(LL), { color: COLORES_BATERIA[k % COLORES_BATERIA.length], weight: 2, opacity: 0.95, interactive: false })))).addTo(mapa);
@@ -263,6 +273,32 @@ export function crearMapas(v) {
     if (st.dibujo.modo === 'dmfijo') {
       const r = puntoEjeCercano(ev.latlng);
       if (r && v.agregarFijo(kmADm(r.km))) render();
+      return;
+    }
+    if (st.dibujo.modo === 'vertice') {
+      // Se toma el vértice del área de vuelo más cercano al toque (hasta 28 px).
+      const g = geo(), m = mapas.area;
+      if (!g || !m) return;
+      const LL = aLL(g), cp = m.mapa.latLngToContainerPoint(ev.latlng);
+      let mejor = null, dmin = 28;
+      g.vuelo.forEach(p => { const q = m.mapa.latLngToContainerPoint(LL(p)), d = Math.hypot(q.x - cp.x, q.y - cp.y); if (d < dmin) { dmin = d; mejor = p; } });
+      if (!mejor) { v.avisar('Toca más cerca de un vértice del área (los puntos blancos).', 'error'); render(); return; }
+      const ll = g.marco.aLonLat(mejor);
+      const pts = st.dibujo.puntos;
+      if (pts.length && Math.abs(pts[0][0] - ll[0]) < 1e-9 && Math.abs(pts[0][1] - ll[1]) < 1e-9) return;
+      pts.push(ll);
+      if (pts.length === 2) {
+        const h = st.hoja;
+        h.area.auto = { ...(h.area.auto || {}), modo: 'vertices' };
+        h.area.cortes.push(pts.slice());
+        st.dibujo.puntos = [];
+        const g2 = geometria(h);
+        if (g2 && g2.fallidos.length) { h.area.cortes.pop(); v.avisar('Ese corte no queda dentro del área: elige dos vértices que se vean por dentro.', 'error'); }
+        else v.avisar(`Corte agregado: ${g2 ? g2.sectores.length : '—'} sectores. Toca otros dos vértices para seguir, o «Terminar».`);
+        cambio(); render(); return;
+      }
+      const b = raiz.querySelector('#vu-barra-area'); if (b) b.innerHTML = barraDibujo();
+      if (mapas.area) pintarDibujo(mapas.area);
       return;
     }
     st.dibujo.puntos.push([ev.latlng.lng, ev.latlng.lat]);

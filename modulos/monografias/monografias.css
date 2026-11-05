@@ -61,3 +61,30 @@
 .mn-aj-fila{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
 .mn-aj input[type=range]{width:100%; accent-color:var(--marca);}
 .mn-aj-pie{justify-content:flex-end; margin-top:12px;}
+
+/* ---------- v0.11 ---------- */
+.mn-config-fila{display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-end; justify-content:space-between;}
+.mn-config-fila .sis-en-linea{display:flex; gap:8px; align-items:center;}
+.mn-config-fila input[type=number]{width:80px;}
+.mn-config-logo{display:flex; gap:10px; align-items:center;}
+.mn-config-logo > span:last-child{display:flex; flex-direction:column; gap:3px;}
+.mn-logo-mini{width:96px; height:48px; border:1px dashed var(--line); border-radius:8px; display:grid; place-items:center; background:#fff; overflow:hidden; font-size:11px;}
+.mn-logo-mini img{max-width:100%; max-height:100%; object-fit:contain;}
+.mn-mods-txt{display:flex; gap:14px; margin-top:4px;}
+.mn-fichas{display:flex; gap:4px; overflow-x:auto; border-bottom:1px solid var(--borde); margin:6px 0 12px; scrollbar-width:thin;}
+.mn-fichas a{flex:none; display:flex; flex-direction:column; padding:8px 14px; border:1px solid transparent; border-bottom:0; border-radius:8px 8px 0 0; text-decoration:none; color:var(--muted); font-size:13.5px; min-height:44px;}
+.mn-fichas a small{font-size:11.5px;}
+.mn-fichas a.activa{background:var(--surface); border-color:var(--borde); color:var(--ink); font-weight:600; margin-bottom:-1px;}
+.mn-ficha-mas{flex:none; border:1px dashed var(--line); background:none; border-radius:8px; width:44px; font-size:18px; cursor:pointer; margin:4px 0 6px;}
+.mn-imgs-dos{display:grid; gap:12px;}
+body[data-modo="pc"] .mn-imgs-dos{grid-template-columns:1fr 1fr;}
+.mn-gen-croquis{margin-top:6px;}
+.mn-comun{margin-top:8px;}
+.mn-formato{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-top:10px; font-size:13.5px;}
+.mn-formato input{width:60px;}
+.mn-croquis{max-width:1180px;}
+.mn-croquis-cuerpo{display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start;}
+.mn-croquis-mapa{border-radius:8px; overflow:hidden; max-width:100%; background:#C9B48F;}
+.mn-croquis-op{flex:1 1 260px; min-width:240px; display:flex; flex-direction:column; gap:4px;}
+.mn-croquis-marca{display:flex; align-items:center; gap:6px; white-space:nowrap; background:none; border:0;}
+.mn-croquis-marca span{text-shadow:0 0 3px #000, 0 0 3px #000;}

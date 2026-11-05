@@ -4,18 +4,20 @@ import { escapar as esc } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { deslizador } from './ui.js';
 import { proyectar, areaM2 } from './calculo.js';
-import { totales, kmADm, kmEnEje, lineaEje, marcoDe } from './hoja.js';
+import { totales, kmADm, kmEnEje, lineaEje, marcoDe, geometria, nombreSector } from './hoja.js';
 import { largo } from './geom.js';
-import { formaDe, metodoPropuesto, METODOS, METODOS_LINEALES, vistaPrevia, rumboCortesPropuesto, tramosVistaPrevia } from './cortes.js';
+import { formaDe, metodoPropuesto, METODOS, METODOS_LINEALES, vistaPrevia, rumboCortesPropuesto, tramosVistaPrevia, generarCortes } from './cortes.js';
+import { textoUbicacion } from './ubicacion.js';
 import { revisarZonas, TIPOS_CAPA } from './capas.js';
 import { COLORES_SECTOR, UMBRAL_BATERIAS } from './ui.js';
 
 export function crearPasoArea(v) {
   const ref = n => (...a) => v[n](...a);
-  const { st } = v;
+  const { st, base } = v;
   const geo = ref('geo');
   const dron = ref('dron');
   const capasActivas = ref('capasActivas');
+  const familias = ref('familias');
 
   // ─────────── Paso 1 · Área ───────────
   function zonasDeHoja() {
@@ -25,18 +27,20 @@ export function crearPasoArea(v) {
   }
 
   // ─────────── Sub-pestañas del paso Área (v0.8): Origen · Forma · Sectores · Zonas y caminos ───────────
-  const SUBS = [['origen', 'Origen'], ['forma', 'Forma'], ['sectores', 'Sectores'], ['zonas', 'Zonas y caminos']];
+  // v0.11: «Zonas y caminos» pasa a ser una leyenda desplegable dentro de Sectores.
+  const SUBS = [['origen', 'Origen'], ['forma', 'Forma'], ['sectores', 'Sectores']];
   function subActual() {
     const a = st.hoja.area;
     if (!a.tipo) return 'origen';
+    if (st.subArea === 'zonas') { st.subArea = 'sectores'; st.zonasAbiertas = true; }
     return SUBS.some(([k]) => k === st.subArea) ? st.subArea : 'forma';
   }
   function htmlSubs(g) {
     const a = st.hoja.area, act = subActual();
     const zonas = g ? (zonasDeHoja() || []) : [];
     const cerca = zonas.filter(z => z.toca || z.distancia < 5000).length;
-    const marca = { origen: a.tipo ? ' ✓' : '', forma: g ? ' ✓' : '', sectores: g && g.sectores.length > 1 ? ` · ${g.sectores.length}` : '', zonas: cerca ? ` · ${cerca}` : '' };
-    return `<div class="vu-subs" role="tablist" aria-label="Partes del área">${SUBS.map(([k, t]) => `<button type="button" role="tab" aria-selected="${act === k}" class="vu-sub${act === k ? ' activo' : ''}${k === 'zonas' && cerca ? ' aviso' : ''}" data-accion="sub-area" data-s="${k}" ${!a.tipo && k !== 'origen' ? 'disabled' : ''}>${t}${marca[k]}</button>`).join('')}</div>`;
+    const marca = { origen: a.tipo ? ' ✓' : '', forma: g ? ' ✓' : '', sectores: `${g && g.sectores.length > 1 ? ` · ${g.sectores.length}` : ''}${cerca ? ' · !' : ''}` };
+    return `<div class="vu-subs" role="tablist" aria-label="Partes del área">${SUBS.map(([k, t]) => `<button type="button" role="tab" aria-selected="${act === k}" class="vu-sub${act === k ? ' activo' : ''}${k === 'sectores' && cerca ? ' aviso' : ''}" data-accion="sub-area" data-s="${k}" ${!a.tipo && k !== 'origen' ? 'disabled' : ''}>${t}${marca[k]}</button>`).join('')}</div>`;
   }
 
   /** DM (km) del inicio y del fin del eje en el sentido de avance, o null si no hay eje. */
@@ -138,20 +142,79 @@ export function crearPasoArea(v) {
       manual: () => '',
     };
     return `<section class="sis-tarjeta"><h2>Cortes</h2>
+      ${htmlMiniaturas(g, modo)}
       <label class="sis-campo"><span>Método de corte</span><select data-auto="modo">
         <optgroup label="Área lineal (usa el eje)">${lineal ? METODOS_LINEALES.map(opt).join('') : '<option disabled>Solo para áreas lineales</option>'}</optgroup>
-        <optgroup label="Cualquier área">${['n', 'baterias', 'dias'].map(opt).join('')}</optgroup>
-        <optgroup label="A mano">${opt('manual')}</optgroup>
+        <optgroup label="Cualquier área">${['n', ...(a.tipo === 'corredor' ? [] : ['cerrados']), 'baterias', 'dias'].map(opt).join('')}</optgroup>
+        <optgroup label="A mano">${(a.tipo === 'corredor' ? ['manual'] : ['vertices', 'manual']).map(opt).join('')}</optgroup>
       </select></label>
       <div class="vu-fila-campos">${(campos[modo] || (() => ''))()}</div>
       <p class="sis-tenue">${esc(METODOS[modo] ? METODOS[modo].ayuda : '')}</p>
       <p class="vu-vista-previa" id="vu-vista-previa">${htmlVistaPrevia()}</p>
       <div class="sis-acciones">${modo === 'manual'
         ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === 'corte' ? ' primario' : ''}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>`
-        : '<button class="sis-btn chico primario" data-accion="auto-cortar">Generar cortes</button>'}
+        : modo === 'vertices'
+          ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === 'vertice' ? ' primario' : ''}" data-accion="dibujar" data-modo="vertice">◎ ${st.dibujo && st.dibujo.modo === 'vertice' ? 'Tocando vértices en el mapa' : 'Tocar vértices'}</button>`
+          : '<button class="sis-btn chico primario" data-accion="auto-cortar">Generar cortes</button>'}
         ${a.cortes.length ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ''}</div>
       <p class="sis-tenue">Los cortes generados quedan como los manuales: sus vértices blancos se arrastran en el mapa.</p>
     </section>`;
+  }
+
+  // ─────────── Vista previa de cada método de corte (v0.11) ───────────
+  function svgSectores(polis, sel) {
+    const todos = polis.flat();
+    if (!todos.length) return '';
+    const xs = todos.map(p => p[0]), ys = todos.map(p => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const W = 160, H = 96, m = 5, k = Math.min((W - 2 * m) / ((x1 - x0) || 1), (H - 2 * m) / ((y1 - y0) || 1));
+    const ox = (W - (x1 - x0) * k) / 2, oy = (H - (y1 - y0) * k) / 2;
+    const pt = p => `${(ox + (p[0] - x0) * k).toFixed(1)},${(H - oy - (p[1] - y0) * k).toFixed(1)}`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" aria-hidden="true">${polis.map((pl, i) => { const paso = Math.max(1, Math.ceil(pl.length / 150));
+      return `<polygon points="${pl.filter((_, j) => j % paso === 0).map(pt).join(' ')}" fill="${COLORES_SECTOR[i % COLORES_SECTOR.length]}" fill-opacity="${sel ? 0.75 : 0.55}" stroke="#1C1F23" stroke-width="1.2" stroke-linejoin="round"></polygon>`; }).join('')}</svg>`;
+  }
+  function htmlMiniaturas(g, modo) {
+    const h = st.hoja, a = h.area, au = a.auto || {}, f = formaDe(h);
+    const lista = [...(f && f.lineal ? ['medida'] : []), 'n', ...(a.tipo === 'corredor' ? [] : ['cerrados', 'vertices'])];
+    const clave = JSON.stringify([g.vuelo.length, g.vuelo[0], a.margen, a.rectas, a.corredor, au, a.ejeCalc ? a.ejeCalc.largo : 0, modo === 'vertices' ? a.cortes : null]);
+    if (!st.previas || st.previas.clave !== clave) {
+      const datos = lista.map(k => {
+        try {
+          let cortes;
+          if (k === 'vertices') cortes = modo === 'vertices' ? a.cortes : [];
+          else cortes = generarCortes({ ...h, area: { ...a, auto: { ...au, modo: k }, cortes: [], sectores: [] } }, { dron: dron(), primerDM: au.primerKm ?? null }).cortes;
+          const gp = geometria({ ...h, area: { ...a, cortes, sectores: [] } });
+          return { k, polis: gp ? gp.sectores.map(x => x.poligono) : [], n: gp ? gp.sectores.length : 0 };
+        } catch (e) { return { k, error: e.message, polis: [g.vuelo], n: 1 }; }
+      });
+      geometria(h); // deja la geometría de la hoja en el caché
+      st.previas = { clave, datos };
+    }
+    return `<div class="vu-metodos" role="group" aria-label="Vista previa de cada método de corte">${st.previas.datos.map(d => `<button type="button" class="vu-metodo${d.k === modo ? ' activo' : ''}" data-accion="elegir-metodo" data-m="${d.k}" title="${esc(METODOS[d.k].ayuda)}">
+        ${svgSectores(d.polis, d.k === modo)}<span>${esc(METODOS[d.k].texto)}</span><small>${d.error ? 'revisa los datos' : d.k === 'vertices' && d.n < 2 ? 'toca dos vértices' : `${d.n} sector${d.n === 1 ? '' : 'es'}`}</small></button>`).join('')}</div>
+      <p class="sis-tenue">Toca una vista previa para usar ese método. Los ajustes (cantidad, dirección, distancias) están más abajo.</p>`;
+  }
+
+  // ─────────── Ubicación y dron (v0.11, en Origen) ───────────
+  function htmlUbicacionDron() {
+    const h = st.hoja, u = h.ubicacion || {}, d = dron(), fam = d.familia || d.id;
+    const sensores = base.drones.filter(x => (x.familia || x.id) === fam);
+    const extranjero = u.codigoPais && u.codigoPais !== 'CL';
+    return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Ubicación</h2>${h.area.tipo ? `<button class="sis-btn chico" data-accion="detectar-ubicacion">${st.ubicando ? 'Buscando…' : 'Detectar de nuevo'}</button>` : ''}</div>
+        <div class="sis-par">
+          <label class="sis-campo"><span>Comuna${u.auto ? ' (automática)' : ''}</span><input data-ubic="comuna" value="${esc(u.comuna || '')}" placeholder="${h.area.tipo ? 'Se detecta al cargar el área' : 'Carga el área'}"></label>
+          <label class="sis-campo"><span>Región${u.auto ? ' (automática)' : ''}</span><input data-ubic="region" value="${esc(u.region || '')}"></label>
+        </div>
+        ${extranjero ? `<label class="sis-campo"><span>País</span><input data-ubic="pais" value="${esc(u.pais || '')}"></label>` : ''}
+        ${st.ubicError ? `<p class="vu-rojo">${esc(st.ubicError)}</p>` : '<p class="sis-tenue">Se obtiene del centro del área (OpenStreetMap). En Chile solo se usan comuna y región. Puedes corregirla.</p>'}
+      </section>
+      <section class="sis-tarjeta"><h2>Dron y módulos</h2>
+        <div class="${sensores.length > 1 ? 'sis-par' : ''}">
+          <label class="sis-campo"><span>Dron</span><select name="familia">${familias().map(([k, tt]) => `<option value="${esc(k)}" ${k === fam ? 'selected' : ''}>${esc(tt)}</option>`).join('')}</select></label>
+          ${sensores.length > 1 ? `<label class="sis-campo"><span>Módulo / sensor</span><select name="dronId">${sensores.map(x => `<option value="${x.id}" ${x.id === h.dronId ? 'selected' : ''}>${esc(x.sensor || x.nombre)}</option>`).join('')}</select></label>` : `<p class="sis-tenue">Sensor: ${esc(d.sensor || '—')}</p>`}
+        </div>
+        <p class="sis-tenue">Sensor ${fmt(d.sensorAnchoMm, 1)} × ${fmt(d.sensorAltoMm, 1)} mm · ${d.pixelesAncho} px · focal ${fmt(d.focalMm, 2)} mm${d.lidar ? ` · LiDAR ${fmt(d.lidar.fovGrados, 0)}°` : ''}. Los datos se corrigen en Equipos → Catálogo de sensores.</p>
+      </section>`;
   }
 
   function vistaArea() {
@@ -169,10 +232,14 @@ export function crearPasoArea(v) {
             ${a.tipo ? `<p class="sis-tenue vu-area-info">${esc(a.archivo || '')} · ${a.tipo === 'corredor' ? `eje de ${fmt((a.eje.largo || 0) / 1000, 2)} km · ${a.eje.linea.length} vértices` : `${fmt(areaM2(proyectar(a.original.anillo).puntos) / 10000, 2)} ha · ${a.original.anillo.length} vértices`}</p>
               ${(a.problemas || []).length ? `<div class="vu-aviso"><b>Detalles que se corrigen al descargar:</b><ul>${a.problemas.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : ''}
               <div class="sis-acciones"><button class="sis-btn chico" data-accion="kml-original">Descargar ${a.tipo === 'corredor' ? 'eje' : 'área del mandante'} limpio (KML)</button>${g ? '<button class="sis-btn chico primario" data-accion="sub-area" data-s="forma">Siguiente: Forma →</button>' : ''}</div>` : ''}
-          </section>`;
+          </section>${htmlUbicacionDron()}`;
     else if (sub === 'forma') tarjetas = `${htmlForma(g)}${g ? '<div class="sis-acciones"><button class="sis-btn chico primario" data-accion="sub-area" data-s="sectores">Siguiente: Sectores →</button></div>' : ''}`;
-    else if (sub === 'sectores') tarjetas = g ? htmlCortes(g) : '';
-    else tarjetas = `<section class="sis-tarjeta"><h2>Zonas de referencia</h2><div id="vu-zonas">${htmlZonas()}</div></section>${htmlCaminos()}`;
+    else if (sub === 'sectores') {
+      const zonas = g ? (zonasDeHoja() || []) : [], cerca = zonas.filter(z => z.toca || z.distancia < 5000).length;
+      tarjetas = `${g ? htmlCortes(g) : ''}
+        <details class="sis-tarjeta vu-zonas-det"${st.zonasAbiertas || (st.dibujo && st.dibujo.modo === 'camino') ? ' open' : ''}><summary><b>Zonas y caminos</b>${cerca ? ` <span class="sis-chip ambar">${cerca} cerca</span>` : ''}<span class="sis-tenue"> · aeródromos, zonas DGAC y caminos para el despegue</span></summary>
+          <h3 class="vu-subtit">Zonas de referencia</h3><div id="vu-zonas">${htmlZonas()}</div>${htmlCaminos()}</details>`;
+    }
     return `${grande ? `<div class="vu-banner"><div><b>El área es grande: ${fmt(g.areaVuelo / 10000, 0)} ha · ${t.baterias} baterías · unas ${fmtDuracion(t.minVuelo)} de vuelo</b>
         <span>${t.excede ? 'Parte del recorrido queda más lejos de lo que alcanza una batería desde el despegue. ' : ''}Dividirla en sectores te deja planificar por día o por punto de despegue, con un rumbo y un KML para cada uno.</span></div>
         <button class="sis-btn primario" data-accion="sub-area" data-s="sectores">Dividir en sectores</button></div>` : ''}
@@ -257,7 +324,7 @@ export function crearPasoArea(v) {
   function htmlCaminos() {
     const cam = st.hoja.area.caminos || [];
     const dib = st.dibujo && st.dibujo.modo === 'camino';
-    return `<section class="sis-tarjeta"><h2>Caminos</h2>
+    return `<div class="vu-caminos-caja"><h3 class="vu-subtit">Caminos</h3>
       <label class="sis-check"><input type="checkbox" data-redvial ${st.redVial ? 'checked' : ''}> Mostrar la red vial del MOP en los mapas</label>
       ${st.redVial ? `<p class="sis-tenue vu-caminos-info">${esc(st.redVialInfo || 'Cargando la red vial de la región…')}</p>` : ''}
       ${cam.length ? `<ul class="vu-caminos">${cam.map((c, k) => `<li><i></i>${esc(c.nombre || 'Camino')} <button class="vu-link" data-accion="quitar-camino" data-i="${k}">quitar</button></li>`).join('')}</ul>` : ''}
@@ -266,7 +333,7 @@ export function crearPasoArea(v) {
         <label class="sis-btn chico vu-archivo">Cargar camino (KML o KMZ)<input type="file" accept=".kml,.kmz" data-archivo="camino" hidden></label>
       </div>
       <p class="sis-tenue">Agrega huellas o accesos que no estén en la red del MOP. En el paso 2 (Vuelo) se sugiere el despegue de cada sector sobre estos caminos. Es solo una referencia: acceso, rejas, permisos y línea de vista se confirman en terreno.</p>
-    </section>`;
+    </div>`;
   }
 
   function barraDibujo() {
@@ -274,6 +341,8 @@ export function crearPasoArea(v) {
     if (!dib) return st.hoja && !geo() ? '<span class="vu-barra-txt">Carga un KML/KMZ o dibuja el área o el eje.</span>' : '';
     if (dib.modo === 'dmfijo') return `<span class="vu-barra-txt">Toca el eje para agregar un corte fijo en ese DM</span><button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-cancelar">Terminar</button>`;
     const min = dib.modo === 'area' ? 3 : 2;
+    if (dib.modo === 'vertice') return `<span class="vu-barra-txt">${dib.puntos.length ? 'Ahora toca el otro vértice del corte' : 'Toca un vértice del área (punto blanco) para empezar el corte'}</span>
+      ${dib.puntos.length ? '<button type="button" class="vu-barra-btn" data-accion="dibujo-deshacer">Deshacer</button>' : ''}<button type="button" class="vu-barra-btn fuerte" data-accion="dibujo-cancelar">Terminar</button>`;
     const txt = { area: 'Toca el mapa para marcar los vértices del área', eje: 'Toca el mapa siguiendo el eje del corredor', corte: 'Toca afuera del área, sigue el camino y termina afuera', camino: 'Toca el mapa siguiendo el camino o la huella' }[dib.modo];
     return `<span class="vu-barra-txt">${txt} · ${dib.puntos.length} punto${dib.puntos.length === 1 ? '' : 's'}</span>
       <button type="button" class="vu-barra-btn" data-accion="dibujo-deshacer" ${dib.puntos.length ? '' : 'disabled'}>Deshacer</button>

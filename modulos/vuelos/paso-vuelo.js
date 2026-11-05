@@ -25,7 +25,11 @@ export function crearPasoVuelo(v) {
     const sensores = base.drones.filter(x => (x.familia || x.id) === fam);
     const altura = alturaDe(P, d), gsd = gsdCm(d, altura);
     const vMax = d.velocidadMaxMs;
-    return `${g.sectores.length > 1 ? `<div class="vu-sector-chips">${g.sectores.map((_, k) => `<button class="vu-pildora${k === i ? ' activo' : ''}" data-accion="ir-sector" data-i="${k}"><i style="background:${COLORES_SECTOR[k % COLORES_SECTOR.length]}"></i>${esc(nombreSector(h, k, g.sectores.length))}</button>`).join('')}<span class="sis-tenue" id="vu-total-hoja">${htmlTotalHoja()}</span></div>` : ''}
+    const n = g.sectores.length;
+    return `${n > 1 ? `<div class="vu-sector-sel"><label class="vu-sector-elegir"><span>Sector</span><select data-sector-sel aria-label="Sector que se muestra">${g.sectores.map((s, k) => `<option value="${k}" ${k === i ? 'selected' : ''}>${esc(nombreSector(h, k, n))} · ${fmt(s.area / 10000, 1)} ha</option>`).join('')}</select></label>
+        <span class="vu-sector-de">Sector ${i + 1} de ${n} · los demás se ven solo como contorno</span>
+        <button type="button" class="sis-btn chico" data-accion="ir-sector" data-i="${(i + n - 1) % n}" aria-label="Sector anterior">‹</button><button type="button" class="sis-btn chico" data-accion="ir-sector" data-i="${(i + 1) % n}" aria-label="Sector siguiente">›</button>
+        <span class="sis-tenue" id="vu-total-hoja">${htmlTotalHoja()}</span></div>` : ''}
       <div class="vu-dos">
         <div class="vu-izquierda">
           <form class="sis-form vu-form" data-form="plan" autocomplete="off">
@@ -74,6 +78,10 @@ export function crearPasoVuelo(v) {
             <div class="vu-mapa-barra" id="vu-barra">${htmlBarraRumbo(r)}</div>
             <div class="vu-leyenda-mapa" id="vu-leyenda">${htmlLeyenda(r)}</div>
           </div>
+          ${r && !r.corredor ? `<div class="vu-rumbo-desl"><label for="vu-rumbo-rango"><b>Rumbo de las líneas</b> <span id="vu-rumbo-num" class="mono">${fmt(r.rumbo, 0)}°</span></label>
+            <input id="vu-rumbo-rango" type="range" min="0" max="179" step="1" value="${Math.round(((r.rumbo % 180) + 180) % 180)}" data-rumbo-rango aria-label="Rumbo de las líneas de vuelo">
+            <div class="vu-rumbo-esc" aria-hidden="true"><span>0° N</span><span>45°</span><span>90° E</span><span>135°</span><span>179°</span></div>
+            <p class="sis-tenue">Mueve la barra: las líneas giran en el mapa y se recalculan líneas, distancia, baterías y tiempo.</p></div>` : ''}
           <p class="sis-tenue vu-pie">Arrastra el punto para cambiar el despegue: el tiempo incluye ir y volver desde él en cada batería.</p>
           <div id="vu-detalle">${htmlDetalle(r)}</div>
         </div>
@@ -117,6 +125,7 @@ export function crearPasoVuelo(v) {
       ${r.modo === 'foto' ? kpi('Fotos', fmt(r.fotos)) : kpi('Velocidad', `${fmt(r.velocidad, 1)} m/s`)}
       ${kpi('En el aire', fmtDuracion(r.minMision))}
       ${kpi('Baterías', fmt(r.vuelos), '', r.baterias.some(b => b.excede) ? 'alerta' : '')}
+      ${kpi('Ruta (DJI)', fmtDuracion(r.minRutaDji))}
       ${kpi('Jornada', fmtDuracion(r.minTotal))}
     </div>`;
   }
@@ -149,8 +158,9 @@ export function crearPasoVuelo(v) {
   function htmlDetalle(r) {
     if (!r) return '';
     return `${r.avisos.length ? `<div class="vu-aviso"><ul>${r.avisos.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
+      ${htmlDetalleLineas(r)}
       ${r.modo === 'foto' ? htmlTablaGsd(r) : ''}
-      <details class="vu-detalles"><summary>Detalle del cálculo</summary>
+      <details class="vu-detalles"><summary>Más detalle del cálculo</summary>
       <dl class="vu-tabla">
         ${fila('Área del sector', `${fmt(r.area / 10000, 2)} ha`)}
         ${fila('Huella de la foto', `${fmt(r.huellaAncho, 0)} × ${fmt(r.huellaLargo, 0)} m`)}
@@ -164,6 +174,24 @@ export function crearPasoVuelo(v) {
       </dl>
       <p class="sis-tenue">Estimación para planificar y cotizar. El GSD es sobre el punto de despegue: con desnivel cambia. El vuelo se programa en DJI Pilot 2.</p>
       </details>`;
+  }
+
+  /** Detalle del cálculo de líneas (v0.11): franja, separación y, en el corredor, cociente y pasadas por lado (regla de DJI). */
+  function htmlDetalleLineas(r) {
+    const dt = r.detalle;
+    if (!dt) return '';
+    const lado = (t, x) => `<tr><th>${t}</th><td class="mono">${fmt(x.semi, 1)} / ${fmt(dt.sepLineas, 2)} = ${fmt(x.cociente, 2)}</td><td>${x.residuo > 0.5 + 1e-9 ? `residuo ${fmt(x.residuo, 2)} &gt; 0,50 → sube` : x.cociente < 1 ? 'mínimo 1 por lado' : `residuo ${fmt(x.residuo, 2)} ≤ 0,50 → trunca`}</td><td><b>${x.pasadas}</b></td></tr>`;
+    return `<section class="sis-tarjeta vu-calc-lineas"><h2>Detalle del cálculo</h2>
+      <dl class="vu-tabla">
+        ${fila(r.barrido ? 'Ancho de barrido LiDAR' : 'Franja = altura × ancho del sensor / focal', `${fmt(dt.franja, 1)} m`)}
+        ${fila(`Separación = franja × (1 − ${fmt(st.hoja.params.traslapeLateral, 0)} %)`, `${fmt(dt.sepLineas, 2)} m`)}
+        ${fila(r.corredor ? 'Líneas (el eje no se vuela)' : 'Líneas', fmt(r.nLineas))}
+      </dl>
+      ${dt.lados ? `<div class="vu-tabla-scroll"><table class="vu-lados"><thead><tr><th>Lado</th><th>Semiancho / separación</th><th>Regla</th><th>Pasadas</th></tr></thead>
+        <tbody>${lado('Izquierda', dt.lados.izq)}${lado('Derecha', dt.lados.der)}</tbody></table></div>
+        <p class="sis-tenue">Cada pasada va a (k − ½) × separación del eje. Regla validada con DJI Pilot 2.</p>` : ''}
+      <dl class="vu-tabla">${fila('Duración de la ruta (como DJI)', fmtDuracion(r.minRutaDji))}${fila('Jornada (despegues, cambios de batería y traslados)', fmtDuracion(r.minTotal))}</dl>
+    </section>`;
   }
 
   function opcionesGsd(r) {

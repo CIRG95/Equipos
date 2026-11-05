@@ -24,6 +24,13 @@ export async function materializar(m) {
   for (const k of IMAGENES) c[k] = await urlImagen(m[k]);
   c.fotosExtra = [];
   for (const f of (m.fotosExtra || [])) c.fotosExtra.push({ ...f, img: await urlImagen(f.img) });
+  // v0.11: la Observación va en el recuadro de texto, después de la descripción («Observación: …»).
+  const obs = String(m.observacionPdf || '').split('\n').map(l => l.trim()).filter(Boolean);
+  if (c.modulos.observacion && obs.length) {
+    const desc = c.modulos.descripcion ? String(c.descripcion || '') : '';
+    c.descripcion = [desc, `Observación: ${obs[0]}`, ...obs.slice(1)].filter(Boolean).join('\n');
+    c.modulos.descripcion = true;
+  }
   return c;
 }
 

@@ -11,8 +11,10 @@ import { descargarRespaldo, importarRespaldo } from '../../compartido/respaldo.j
 import { enPapelera, restaurar } from '../../compartido/papelera.js';
 import {
   COLUMNAS_PLANILLA, CATEGORIAS, ESTADOS_ALERTA, PASOS_ALERTA, LUGARES, TIPOS_EVENTO, ESTADOS_ACCESORIO,
-  VERSION_MODULO, nombreCorto, alertaActiva, nuevoEquipo, PERIODO_CALIBRACION_MESES,
+  VERSION_MODULO, nombreCorto, alertaActiva, nuevoEquipo, PERIODO_CALIBRACION_MESES, MARCAS_CONOCIDAS, camposEspecificacion,
 } from './modelo.js';
+import { DRONES_BASE } from '../vuelos/drones.js';
+import { sensoresDe, textoSensor } from './sensores.js';
 import {
   fijarPersona, listarConEstado, estadoDeEquipo, guardarEquipo, papeleraEquipo, cambiarBaja,
   registrarSalida, registrarRegreso, reportarAnomalia, cambiarEstadoAlerta,
@@ -34,13 +36,16 @@ const ICONOS = {
 };
 
 const PESTANAS = [
-  { id: 'lista', texto: 'Equipos', vistas: ['lista', 'ficha', 'editar', 'especificaciones', 'accesorios', 'certificado', 'etiqueta'] },
+  { id: 'lista', texto: 'Equipos', vistas: ['lista', 'alta', 'ficha', 'editar', 'especificaciones', 'accesorios', 'certificado', 'etiqueta'] },
   { id: 'salida', texto: 'Salida', vistas: ['salida', 'resultado'] },
   { id: 'regreso', texto: 'Regreso', vistas: ['regreso'] },
   { id: 'alertas', texto: 'Alertas', vistas: ['alertas', 'reportar'] },
   { id: 'admin', texto: 'Administrar', vistas: ['admin', 'importar', 'catalogos', 'respaldo', 'papelera', 'cert-proyecto'], soloRRHH: true },
 ];
 
+// v0.11: vista de la lista (tarjetas o lista) recordada en este equipo.
+function leerVista() { try { return localStorage.getItem('eq_vista_lista') === 'lista' ? 'lista' : 'tarjetas'; } catch { return 'tarjetas'; } }
+function guardarVista(v) { try { localStorage.setItem('eq_vista_lista', v); } catch { /* sin almacenamiento */ } }
 export function montarPantallas(contenedor, contexto) {
   const esRRHH = contexto.rol === 'rrhh';
   const persona = contexto.personaId || null;
@@ -57,6 +62,7 @@ export function montarPantallas(contenedor, contexto) {
     vista: contexto.equipoInicial ? 'ficha' : 'lista', equipoId: contexto.equipoInicial || null,
     filtro: 'todos', busqueda: '', verCerradas: false, importacion: null, resultado: null, alertaEquipoId: null,
     fichaTab: 'accesorios', verPlaca: false, certProyectoId: null, reporteDesdeFicha: false,
+    categoria: '', vistaLista: leerVista(), alta: null,
   };
   let nombres = { proyecto: {}, persona: {} };
   let cacheLista = [];
@@ -186,13 +192,59 @@ export function montarPantallas(contenedor, contexto) {
         if (!n && id !== 'todos' && id !== st.filtro) return '';
         return `<button class="eq-filtro${st.filtro === id ? ' activo' : ''}" data-accion="filtro" data-filtro="${id}">${texto} <span>${n}</span></button>`;
       }).join('');
+      // v0.11: filtro por tipo de equipo (categoría) en vez de escribirlo en el buscador.
+      const vivos = cacheLista.filter(e => e.ubicacion.lugar !== 'baja');
+      const cats = CATEGORIAS.filter(c => vivos.some(e => e.equipo.categoria === c));
+      const catChips = `<button class="eq-tipo-chip${!st.categoria ? ' activo' : ''}" data-accion="categoria" data-c="">Todos <span>${vivos.length}</span></button>` +
+        cats.map(c => `<button class="eq-tipo-chip${st.categoria === c ? ' activo' : ''}" data-accion="categoria" data-c="${esc(c)}">${esc(c)} <span>${vivos.filter(e => e.equipo.categoria === c).length}</span></button>`).join('');
       return `
         <div class="eq-barra">
-          <input type="search" class="eq-buscar" placeholder="Buscar por equipo, modelo, N° serie…" value="${esc(st.busqueda)}" data-campo="busqueda">
+          <input type="search" class="eq-buscar" placeholder="Buscar por modelo, N° serie, código…" value="${esc(st.busqueda)}" data-campo="busqueda">
+          <span class="eq-vistas" role="tablist" aria-label="Vista"><button type="button" role="tab" aria-selected="${st.vistaLista === 'tarjetas'}" class="${st.vistaLista === 'tarjetas' ? 'activo' : ''}" data-accion="vista-lista" data-v="tarjetas">Tarjetas</button><button type="button" role="tab" aria-selected="${st.vistaLista === 'lista'}" class="${st.vistaLista === 'lista' ? 'activo' : ''}" data-accion="vista-lista" data-v="lista">Lista</button></span>
           ${esRRHH ? '<button class="eq-btn primario" data-accion="nuevo-equipo">+ Equipo</button>' : ''}
         </div>
-        <div class="eq-filtros">${chips}</div>
+        <div class="eq-cats" role="group" aria-label="Tipo de equipo">${catChips}</div>
+        <div class="eq-filtros"><span class="eq-tenue">Estado:</span>${chips}</div>
         <div id="eq-resultados"></div>`;
+    },
+
+    async alta() {
+      // v0.11: alta paso a paso: 1 Tipo · 2 Marca y modelo · 3 Serie y registro · 4 Calibración y documentos · 5 Resumen.
+      const a = st.alta || (st.alta = { paso: 1, d: {} });
+      const d = a.d, cat = d.categoria || '';
+      const PASOS_ALTA = ['Tipo', 'Marca y modelo', 'Serie y registro', 'Calibración y documentos', 'Resumen'];
+      const val = k => esc(d[k] ?? '');
+      const campo = (k, t, tipo = 'text', extra = '') => `<label class="eq-campo"><span>${t}</span><input type="${tipo}" name="${k}" value="${val(k)}" ${extra}></label>`;
+      const esDron = cat === 'Dron (RPAS)';
+      const marcas = [...new Set([...MARCAS_CONOCIDAS, ...cacheLista.map(x => x.equipo.marca).filter(Boolean)])];
+      let cuerpo = '';
+      if (a.paso === 1) cuerpo = `<p class="eq-tenue">¿Qué tipo de equipo es?</p><div class="eq-tipos">${CATEGORIAS.map(c => `<button type="button" class="eq-tipo${c === cat ? ' activo' : ''}" data-accion="alta-tipo" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>`;
+      else if (a.paso === 2) {
+        const sugeridos = esDron ? [...new Map(DRONES_BASE.map(x => [x.familia, x])).values()] : [];
+        cuerpo = `${sugeridos.length ? `<p class="eq-tenue">Elige un modelo del catálogo para cargar los datos de su cámara, o escríbelo.</p><div class="eq-tipos">${sugeridos.map(x => `<button type="button" class="eq-tipo${d.modelo && x.familiaNombre.includes(d.modelo) ? ' activo' : ''}" data-accion="alta-modelo" data-m="${esc(x.familiaNombre.replace('DJI ', ''))}">${esc(x.familiaNombre)}</button>`).join('')}</div>` : ''}
+          ${campo('equipo', 'Nombre del equipo (como en la planilla)', 'text', `required placeholder="${esc(cat === 'Otro' ? 'Equipo' : cat)}"`)}
+          <label class="eq-campo"><span>Marca</span><input name="marca" value="${val('marca')}" list="eq-marcas-alta"></label><datalist id="eq-marcas-alta">${marcas.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+          ${campo('modelo', 'Modelo')}
+          ${campo('descripcion', 'Descripción', 'text', 'placeholder="Precisión, aumento o rol (Base, Rover…)"')}
+          ${(() => { const sens = sensoresDe(d); return sens.length ? `<div class="eq-sensores"><b>Datos de la cámara (catálogo)</b>${sens.map(x => `<div>${esc(textoSensor(x))}</div>`).join('')}<small>Vuelos usa estos datos. Se corrigen en Equipos → Catálogo de sensores.</small></div>` : ''; })()}`;
+      } else if (a.paso === 3) cuerpo = `${campo('numeroSerie', 'N° de serie', 'text', 'required')}${campo('codigoInterno', 'Código interno (etiqueta)')}
+          ${esDron ? `${campo('dgacRegistro', 'Registro DGAC del RPA')}` : ''}${campo('fechaAlta', 'Fecha de alta', 'date')}`;
+      else if (a.paso === 4) cuerpo = `<label class="eq-comp"><input type="checkbox" name="calibracionNoAplica" ${d.calibracionNoAplica ? 'checked' : ''}> No requiere calibración</label>
+          ${campo('fechaUltimaCalibracion', 'Última calibración', 'date')}${campo('periodoCalibracionMeses', 'Calibrar cada (meses)', 'number', 'min="1" max="60"')}
+          ${campo('seguroVence', 'Seguro: vence', 'date')}${esDron ? campo('dgacVence', 'Registro DGAC: vence', 'date') : ''}
+          <p class="eq-tenue">Los vencimientos aparecen como alertas en Inicio. Los certificados y fotos se agregan después en la ficha.</p>`;
+      else cuerpo = `<dl class="eq-resumen-alta">${[['Tipo', cat], ['Equipo', d.equipo], ['Marca y modelo', [d.marca, d.modelo].filter(Boolean).join(' ')], ['Descripción', d.descripcion], ['N° de serie', d.numeroSerie], ['Código interno', d.codigoInterno], ['Registro DGAC', d.dgacRegistro], ['Calibración', d.calibracionNoAplica ? 'No requiere' : (d.fechaUltimaCalibracion || 'sin fecha')], ['Seguro vence', d.seguroVence]].filter(([, v]) => v).map(([t, v]) => `<div><dt>${t}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+          <label class="eq-campo"><span>Observaciones</span><textarea name="observaciones" rows="2">${val('observaciones')}</textarea></label>`;
+      const faltan = a.paso === 2 && !d.equipo ? 'Falta el nombre del equipo.' : a.paso === 3 && !d.numeroSerie ? 'Falta el N° de serie: sin él no se puede rastrear el equipo.' : '';
+      return `<button class="eq-volver" data-accion="alta-cancelar">← Cancelar</button>
+        <h2>Nuevo equipo</h2>
+        <div class="eq-pasos-alta">${PASOS_ALTA.map((t, i) => `<span class="${i + 1 < a.paso ? 'hecho' : i + 1 === a.paso ? 'actual' : ''}"><i>${i + 1 < a.paso ? '✓' : i + 1}</i>${t}</span>`).join('')}</div>
+        <form class="eq-form eq-form-alta" data-form="alta">
+          <fieldset><legend>${a.paso}. ${PASOS_ALTA[a.paso - 1]}</legend>${cuerpo}</fieldset>
+          ${faltan ? `<div class="eq-aviso-alta">${esc(faltan)}</div>` : ''}
+          <div class="eq-acciones">${a.paso > 1 ? '<button type="submit" class="eq-btn" name="mover" value="-1">← Anterior</button>' : ''}
+            ${a.paso < 5 ? (a.paso > 1 ? '<button type="submit" class="eq-btn primario" name="mover" value="1">Siguiente →</button>' : '') : '<button type="submit" class="eq-btn primario" name="mover" value="guardar">Guardar equipo</button>'}</div>
+        </form>`;
     },
 
     async editar() {
@@ -457,20 +509,26 @@ export function montarPantallas(contenedor, contexto) {
     if (!cont) return;
     const fn = (FILTROS.find(f => f[0] === st.filtro) || FILTROS[0])[2];
     const q = st.busqueda.trim().toLowerCase();
-    const lista = cacheLista.filter(fn).filter(e => !q || [e.equipo.equipo, e.equipo.modelo, e.equipo.numeroSerie, e.equipo.marca, e.equipo.descripcion, e.equipo.codigoInterno, e.equipo.categoria]
+    const lista = cacheLista.filter(fn).filter(e => !st.categoria || e.equipo.categoria === st.categoria).filter(e => !q || [e.equipo.equipo, e.equipo.modelo, e.equipo.numeroSerie, e.equipo.marca, e.equipo.descripcion, e.equipo.codigoInterno, e.equipo.categoria]
       .some(v => String(v || '').toLowerCase().includes(q)));
     if (!lista.length) { cont.innerHTML = '<p class="eq-tenue">Ningún equipo coincide.</p>'; return; }
-    const tarjetas = lista.map(e => `<button class="eq-tarjeta" data-accion="ver" data-id="${e.equipo.id}">
+    const tarjetas = lista.map(e => {
+      const sens = sensoresDe(e.equipo), esp = e.equipo.especificaciones || {};
+      const datos = sens.length ? sens.map(textoSensor) : camposEspecificacion(e.equipo.categoria).filter(c => esp[c.clave]).slice(0, 3).map(c => `${c.etiqueta}: ${esp[c.clave]}${c.sufijo ? ' ' + c.sufijo : ''}`);
+      return `<button class="eq-tarjeta eq-tarjeta-v11" data-accion="ver" data-id="${e.equipo.id}">
+        <div class="eq-tarjeta-cab"><span class="eq-tarjeta-cat">${esc(e.equipo.categoria || 'Otro')}</span>${chipUbicacion(e.ubicacion)}</div>
         <div class="eq-tarjeta-nombre">${esc(e.nombre)}</div>
         ${e.equipo.descripcion ? `<div class="eq-tenue">${esc(e.equipo.descripcion)}</div>` : ''}
-        <div class="eq-tenue">N° serie <span class="eq-mono">${esc(e.equipo.numeroSerie || '—')}</span></div>
-        <div class="eq-chips">${chipUbicacion(e.ubicacion)} ${chipCalibracion(e.calibracion)} ${chipAlertas(e.alertasActivas.length)}</div>
-      </button>`).join('');
+        <div class="eq-tenue">N° serie <span class="eq-mono">${esc(e.equipo.numeroSerie || '—')}</span>${e.equipo.codigoInterno ? ` · ${esc(e.equipo.codigoInterno)}` : ''}</div>
+        ${datos.length ? `<ul class="eq-tarjeta-datos">${datos.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+        <div class="eq-chips">${chipCalibracion(e.calibracion)} ${chipAlertas(e.alertasActivas.length)}</div>
+      </button>`;
+    }).join('');
     const filas = lista.map(e => `<tr data-accion="ver" data-id="${e.equipo.id}">
         ${celdasPlanilla(e.equipo)}
         <td>${chipUbicacion(e.ubicacion)}</td><td>${chipCalibracion(e.calibracion)}</td><td>${chipAlertas(e.alertasActivas.length)}</td></tr>`).join('');
-    cont.innerHTML = `<div class="eq-tarjetas">${tarjetas}</div>
-      <div class="eq-tabla-scroll eq-solo-ancho"><table class="eq-tabla">
+    if (st.vistaLista === 'tarjetas') { cont.innerHTML = `<div class="eq-tarjetas eq-siempre">${tarjetas}</div>`; return; }
+    cont.innerHTML = `<div class="eq-tabla-scroll eq-siempre"><table class="eq-tabla">
         <thead><tr>${COLUMNAS_PLANILLA.map(c => `<th>${c.etiqueta}</th>`).join('')}<th>Ubicación</th><th>Calibración</th><th>Alertas</th></tr></thead>
         <tbody>${filas}</tbody></table></div>`;
   }
@@ -496,7 +554,12 @@ export function montarPantallas(contenedor, contexto) {
         case 'filtro': st.filtro = el.dataset.filtro; zona.querySelectorAll('.eq-filtro').forEach(b => b.classList.toggle('activo', b === el)); pintarResultados(); break;
         case 'ver': await ir('ficha', { equipoId: id, verPlaca: false }); break;
         case 'cert-de-proyecto': await ir('cert-proyecto', { certProyectoId: id }); break;
-        case 'nuevo-equipo': await ir('editar', { equipoId: null }); break;
+        case 'nuevo-equipo': await ir('alta', { equipoId: null, alta: { paso: 1, d: { fechaAlta: new Date().toISOString().slice(0, 10), periodoCalibracionMeses: PERIODO_CALIBRACION_MESES } } }); break;
+        case 'alta-tipo': { const c = el.dataset.c; st.alta.d.categoria = c; if (['Dron (RPAS)', 'Escáner láser'].includes(c)) st.alta.d.calibracionNoAplica = true; if (!st.alta.d.equipo) st.alta.d.equipo = c === 'Dron (RPAS)' ? 'Dron' : c; st.alta.paso = 2; await render(); break; }
+        case 'alta-modelo': { st.alta.d.modelo = el.dataset.m; st.alta.d.marca = st.alta.d.marca || 'DJI'; await render(); break; }
+        case 'alta-cancelar': st.alta = null; await ir('lista'); break;
+        case 'categoria': st.categoria = el.dataset.c; await render(); break;
+        case 'vista-lista': st.vistaLista = el.dataset.v; guardarVista(el.dataset.v); await render(); break;
         case 'editar': await ir('editar', { equipoId: id }); break;
         case 'reportar': await ir('reportar', { alertaEquipoId: id || null, reporteDesdeFicha: st.vista === 'ficha' }); break;
         case 'marcar-todo': el.closest('.eq-componentes').querySelectorAll('input[type=checkbox]').forEach(c => { c.checked = true; }); break;
@@ -590,6 +653,23 @@ export function montarPantallas(contenedor, contexto) {
     try {
       if (await ficha.enviar(form, fd)) return;
       switch (form.dataset.form) {
+        case 'alta': {
+          const a = st.alta, mover = ev.submitter ? ev.submitter.value : '1';
+          for (const [k, v] of Object.entries(fd)) if (k !== 'mover') a.d[k] = v;
+          if (a.paso === 4) a.d.calibracionNoAplica = fd.calibracionNoAplica === 'on';
+          if (mover === 'guardar') {
+            const { dgacRegistro, seguroVence, dgacVence, ...d } = a.d;
+            const eq = await guardarEquipo({ ...d, fechaUltimaCalibracion: d.fechaUltimaCalibracion || null, periodoCalibracionMeses: Number(d.periodoCalibracionMeses) || PERIODO_CALIBRACION_MESES,
+              admin: { ...(dgacRegistro ? { dgacRegistro } : {}), ...(seguroVence ? { seguroVence } : {}), ...(dgacVence ? { dgacVence } : {}) }, origen: 'manual' });
+            st.alta = null;
+            avisar('Equipo guardado');
+            await ir('ficha', { equipoId: eq.id });
+            break;
+          }
+          a.paso = Math.max(1, Math.min(5, a.paso + Number(mover)));
+          await render();
+          break;
+        }
         case 'equipo': {
           const datos = {
             ...fd,

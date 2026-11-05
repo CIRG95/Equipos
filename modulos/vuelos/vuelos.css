@@ -417,3 +417,105 @@ body[data-modo="telefono"] .vu-sec-tabla .vu-sector-nombre{width:150px;}
 .vu-etapa.ok { background: #E3F2EF; color: #0F5F58; } .vu-etapa.actual { background: #E4EEF6; color: #1D3F63; } .vu-etapa.mal { background: #FCEDE6; color: #8A3410; }
 .vu-res-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (max-width: 1000px) { .vu-res-dos { grid-template-columns: 1fr; } .vu-res-pasos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vu-res-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vu-etapas { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- v0.11: Resumen de vuelos ---------- */
+.vu-filtros{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-end; margin-bottom:12px;}
+.vu-chips-filtro{display:flex; flex-wrap:wrap; gap:6px;}
+.vu-chip-f{border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; min-height:36px; color:var(--ink);}
+.vu-chip-f.activo{background:var(--ink); color:#fff; border-color:var(--ink);}
+.vu-resumen-vuelos{display:grid; gap:16px; align-items:start;}
+body[data-modo="pc"] .vu-resumen-vuelos{grid-template-columns:minmax(0,1fr) 340px;}
+.vu-lista-vuelos{display:flex; flex-direction:column; gap:10px;}
+.vu-vuelo{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; align-items:center; background:var(--surface); border:1px solid var(--borde); border-radius:12px; padding:12px 16px; font:inherit; color:var(--ink); text-align:left; cursor:pointer; width:100%; min-height:56px;}
+.vu-vuelo:hover{border-color:var(--marca);}
+.vu-vuelo-txt{display:flex; flex-direction:column; min-width:0;}
+.vu-vuelo-txt b{font-size:15px;} .vu-vuelo-txt small{color:var(--muted); font-size:12.5px;}
+.vu-vuelo-fecha{color:var(--muted); font-size:12px; white-space:nowrap;}
+.vu-vuelo.abierto{display:flex; flex-direction:column; gap:12px; border:2px solid var(--marca); cursor:default; align-items:stretch;}
+.vu-vuelo-cab{display:flex; justify-content:space-between; gap:10px; align-items:flex-start;}
+.vu-etapas-vuelo{display:grid; grid-template-columns:repeat(6, 1fr); gap:2px; font-size:11px; text-align:center;}
+.vu-etapas-vuelo span{padding:6px 2px; background:#ECEDEF; color:var(--muted);}
+.vu-etapas-vuelo span:first-child{border-radius:6px 0 0 6px;} .vu-etapas-vuelo span:last-child{border-radius:0 6px 6px 0;}
+.vu-etapas-vuelo span.hecho{background:var(--marca); color:#fff;} .vu-etapas-vuelo span.actual{background:var(--marca); color:#fff; font-weight:700; box-shadow:inset 0 -3px 0 rgba(0,0,0,.25);}
+.vu-vuelo-datos{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px;}
+body[data-modo="pc"] .vu-vuelo-datos{grid-template-columns:repeat(4, minmax(0,1fr));}
+.vu-vuelo-datos div{background:#F6F5F1; border-radius:8px; padding:8px 10px;}
+.vu-vuelo-datos small{display:block; color:var(--muted); font-size:12px;}
+.vu-vuelo-acc{display:flex; gap:8px; align-items:center;}
+.vu-abrir{flex:1; min-height:48px; font-size:15px;}
+.vu-pron-lateral h2{margin:2px 0 8px !important;}
+.vu-pl-temp{display:flex; align-items:baseline; gap:10px;} .vu-pl-temp b{font-size:38px; line-height:1;} .vu-pl-temp span{color:var(--muted); font-size:13px;}
+.vu-pl-grilla{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;}
+.vu-pl-grilla div{background:#F6F5F1; border-radius:8px; padding:8px;} .vu-pl-grilla small{display:block; color:var(--muted); font-size:12px;}
+.vu-pl-grilla div.alerta{background:#FCEDE6;} .vu-pl-grilla div.alerta b{color:#8A3410;}
+.vu-pl-horas{display:grid; grid-template-columns:repeat(24, 1fr); gap:1px;} .vu-pl-horas i{height:18px; border-radius:2px;}
+.vu-pl-eje{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:2px;}
+.vu-pl-ventana{margin:8px 0 !important;}
+
+/* ---------- v0.11: pasos de la planificación ---------- */
+.vu-stepper{gap:4px; border-bottom:0; padding-bottom:4px;}
+.vu-stepper .vu-paso{display:flex; align-items:center; gap:8px; border:1px solid var(--borde); border-radius:10px; margin:0; background:var(--surface); padding:8px 12px;}
+.vu-stepper .vu-paso.activo{border-color:var(--marca); background:var(--marca-suave); color:var(--ink);}
+.vu-paso-n{width:24px; height:24px; border-radius:50%; display:grid; place-items:center; border:2px solid #C9CCD0; font-size:12px; font-weight:700; flex:none;}
+.vu-paso.ok .vu-paso-n{background:var(--ok); border-color:var(--ok); color:#fff;}
+.vu-paso.aviso .vu-paso-n{background:#FCEDE6; border-color:#F1C9B6; color:#8A3410;}
+.vu-paso.activo .vu-paso-n{border-color:var(--marca);}
+.vu-paso-res{font-weight:600;}
+.vu-pie-paso{display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px 16px; align-items:center; background:var(--surface); border:1px solid var(--borde); border-radius:12px; padding:12px 16px; margin-top:16px; position:sticky; bottom:84px; z-index:5;}
+body[data-modo="pc"] .vu-pie-paso{bottom:12px;}
+.vu-pie-paso.con-aviso{border-color:#F1D79A; background:#FFFBEF;}
+.vu-pie-aviso{font-size:13.5px; color:#6B5200; flex:1 1 280px;}
+.vu-identif .vu-datos-grilla .vu-ancho{grid-column:1 / -1;}
+
+/* ---------- v0.11: Área ---------- */
+.vu-metodos{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:6px;}
+body[data-modo="pc"] .vu-metodos{grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));}
+.vu-metodo{display:flex; flex-direction:column; gap:2px; border:1px solid var(--borde); background:var(--surface); border-radius:10px; padding:6px; font:inherit; cursor:pointer; text-align:center; color:var(--ink);}
+.vu-metodo span{font-size:12.5px; font-weight:600;} .vu-metodo small{font-size:11.5px; color:var(--muted);}
+.vu-metodo.activo{border:2px solid var(--marca); background:var(--marca-suave); padding:5px;}
+.vu-zonas-det > summary{cursor:pointer; list-style:revert; min-height:32px;}
+.vu-zonas-det[open] > summary{margin-bottom:8px;}
+.vu-caminos-caja{border-top:1px solid var(--borde-suave); margin-top:10px; padding-top:6px;}
+
+/* ---------- v0.11: Vuelo ---------- */
+.vu-sector-sel{display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin-bottom:12px;}
+.vu-sector-elegir{display:flex; gap:8px; align-items:center; font-weight:600;}
+.vu-sector-elegir select{font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface); min-width:220px; min-height:40px;}
+.vu-sector-de{color:var(--muted); font-size:13px;}
+.vu-rumbo-desl{background:var(--surface); border:1px solid var(--borde); border-radius:10px; padding:10px 14px; margin-top:10px;}
+.vu-rumbo-desl label{display:flex; justify-content:space-between; font-size:14px;}
+.vu-rumbo-desl input[type=range]{width:100%; accent-color:var(--marca); min-height:32px;}
+.vu-rumbo-esc{display:flex; justify-content:space-between; font-size:11px; color:var(--muted);}
+.vu-calc-lineas table.vu-lados{width:100%; border-collapse:collapse; font-size:13px; margin:6px 0;}
+.vu-lados th{text-align:left; font-size:12px; color:var(--muted); padding:4px 6px; border-bottom:1px solid var(--borde);}
+.vu-lados td{padding:6px; border-bottom:1px solid var(--borde-suave);}
+
+/* ---------- v0.11: Clima ---------- */
+.vu-clima-cal{display:flex; flex-wrap:wrap; gap:8px 16px; align-items:flex-end; margin:8px 0;}
+.vu-dias-tira{display:grid; grid-auto-flow:column; grid-auto-columns:minmax(78px, 1fr); gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:10px;}
+.vu-dia-btn{display:flex; flex-direction:column; gap:1px; align-items:center; border:1px solid transparent; border-radius:8px; padding:7px 4px; font:inherit; font-size:12px; cursor:pointer; color:var(--ink); position:relative;}
+.vu-dia-btn b{font-size:13px;} .vu-dia-btn small{font-size:11px;}
+.vu-dia-btn i{font-style:normal; font-size:10px; background:var(--ink); color:#fff; border-radius:4px; padding:0 4px;}
+.vu-dia-btn.go{background:#E3F2EF;} .vu-dia-btn.marg{background:#FFF6D9;} .vu-dia-btn.no{background:#FCEDE6;}
+.vu-dia-btn.activo{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink);}
+.vu-tramos-clima{display:grid; gap:10px;}
+body[data-modo="pc"] .vu-tramos-clima{grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));}
+.vu-tramo-clima{display:flex; flex-direction:column; gap:4px; border:1px solid var(--borde); border-radius:10px; padding:12px; font-size:13px;}
+.vu-tramo-clima small{color:var(--muted);}
+.vu-tramo-clima.no{background:#FFF8F5;}
+
+/* ---------- v0.11: Permisos ---------- */
+.vu-zonas-tipo{display:flex; flex-wrap:wrap; gap:6px;}
+.vu-zona-op{display:flex; gap:6px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px 12px; cursor:pointer; min-height:44px; font-size:14px;}
+.vu-zona-op.activo{border-color:var(--marca); background:var(--marca-suave); font-weight:600;}
+.vu-guia-zona{background:#F6F5F1; border-radius:8px; padding:10px 12px; font-size:13.5px; margin:8px 0 !important;}
+.vu-docs{display:flex; flex-direction:column;}
+.vu-doc-fila{display:grid; grid-template-columns:minmax(0,1fr) 130px; gap:6px 8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--borde-suave); font-size:13.5px;}
+body[data-modo="pc"] .vu-doc-fila{grid-template-columns:minmax(0,1fr) 140px 140px 110px;}
+.vu-doc-fila select, .vu-doc-fila input[type=date]{font:inherit; font-size:13px; padding:6px; border:1px solid var(--line); border-radius:6px; background:var(--surface); min-height:36px;}
+.vu-doc-fila.falta .vu-doc-nombre::before{content:"○ "; color:#8A3410;}
+.vu-doc-fila.tramite .vu-doc-nombre::before{content:"◐ "; color:#6B5200;}
+.vu-doc-fila.adjunto .vu-doc-nombre::before{content:"● "; color:var(--ok);}
+.vu-doc-fila.no_aplica{opacity:.6;}
+.vu-doc-acc{display:flex; gap:10px; justify-content:flex-end;}
+.vu-log.alerta{border-color:#F1C9B6; background:#FFF8F5;}

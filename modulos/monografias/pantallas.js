@@ -3,7 +3,9 @@
 
 import { escapar as esc, descargar, fechaLegible, fechaHoraLegible, uuid } from '../../compartido/util.js';
 import { listarProyectos, obtenerProyecto, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
-import { urlArchivo, guardarArchivo } from '../../compartido/archivos.js';
+import { urlArchivo, guardarArchivo, guardarArchivoDatos, archivosDe } from '../../compartido/archivos.js';
+import { DATUMS_CHILE, GEOIDES, ZONAS_POR_PAIS, leerGrados, escribirGrados } from './coordenadas.js';
+import { abrirCroquis } from './croquis.js';
 import * as D from './datos.js';
 import { configurarPieza, chequeoMonografia, valoresPorDefecto, dimsMonografia, ajusteDe, cargarImagenEl } from './pieza-terreno.js';
 import { abrirAjuste, colocarImagen } from './ajuste.js';
@@ -16,7 +18,14 @@ const CAMPOS = [
   ['geodesicas', [['datumGeodesico', 'Datum geodésico'], ['geoide', 'Geoide'], ['latitud', 'Latitud'], ['longitud', 'Longitud'], ['alturaElipsoidal', 'Altura elipsoidal (m)']]],
   ['firma', [['equipoGNSS', 'Equipo GNSS'], ['tipoMedicion', 'Tipo de medición'], ['operadorNombre', 'Operador'], ['operadorCargo', 'Cargo'], ['fechaMedicion', 'Fecha de medición', 'date'], ['revisoNombre', 'Revisó'], ['fechaRevision', 'Fecha de revisión', 'date']]],
 ];
-const MODULOS = [['utm', 'Coordenadas UTM'], ['geodesicas', 'Coordenadas geodésicas'], ['croquis', 'Croquis de ubicación'], ['panoramica', 'Vista panorámica'], ['descripcion', 'Descripción'], ['fotos', 'Fotografías adicionales'], ['firma', 'Datos operador / Revisó']];
+const MODULOS = [['utm', 'Coordenadas UTM'], ['geodesicas', 'Coordenadas geodésicas'], ['croquis', 'Croquis de ubicación'], ['panoramica', 'Vista panorámica'], ['descripcion', 'Descripción'], ['observacion', 'Observación'], ['fotos', 'Fotografías adicionales'], ['firma', 'Datos operador / Revisó']];
+// v0.11: grupos que se pueden aplicar a todas las fichas del proyecto.
+const GRUPO_UBICACION = ['ubicacion', 'localidad', 'comuna', 'region'];
+const GRUPO_FIRMA = ['equipoGNSS', 'tipoMedicion', 'operadorNombre', 'operadorCargo', 'fechaMedicion', 'revisoNombre', 'fechaRevision'];
+const PROPIOS_FICHA = ['equipoGNSS', 'fechaMedicion']; // con «fecha y equipos propios», la ficha no los recibe de las demás
+const claveCliente = t => String(t || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const leerComun = id => { try { return JSON.parse(localStorage.getItem(`mono_comun_${id}`) || '{}'); } catch { return {}; } };
+const guardarComun = (id, v) => { try { localStorage.setItem(`mono_comun_${id}`, JSON.stringify(v)); } catch { /* */ } };
 const TIPO_FOTO = { panoramica: 'Panorámica', croquis: 'Croquis', placa: 'Placa', detalle: 'Detalle', punto: 'Punto', logo: 'Logo', otra: 'Foto' };
 const ranura = { croquisImg: 'Croquis de ubicación', panoramicaImg: 'Vista panorámica', clienteLogo: 'Logo del cliente' };
 const MODO_DEF = { clienteLogo: 'ajustar', croquisImg: 'llenar', panoramicaImg: 'llenar' };
@@ -54,6 +63,14 @@ export function montarPantallas(raiz, ctx) {
     const faltan = f => chequeoMonografia(f).filter(c => !c.ok).length;
     return `<a class="sis-volver" href="#/monografias">← Monografías</a>
       <div class="mn-cab"><h1>${esc(p.nombre)}</h1><p class="sis-tenue">${esc(p.mandante || '')} · ${st.lista.length} monografía${st.lista.length === 1 ? '' : 's'} · ${jornadas.length} jornada${jornadas.length === 1 ? '' : 's'} y ${fotos.length} foto${fotos.length === 1 ? '' : 's'} desde Terreno</p></div>
+      <section class="sis-tarjeta mn-config"><h2>Configurar</h2>
+        <div class="mn-config-fila">
+          <label class="sis-campo"><span>Cantidad de fichas a crear</span><span class="sis-en-linea"><input type="number" min="1" max="60" value="1" id="mn-n-fichas" aria-label="Cantidad de fichas"><button type="button" class="sis-btn" data-mn="crear-n">Crear fichas</button></span></label>
+          <div class="mn-config-logo"><span class="mn-logo-mini">${logoEmpresa() ? `<img src="${logoEmpresa()}" alt="Logo de la empresa">` : '<span class="sis-tenue">Sin logo</span>'}</span>
+            <span><b>Logo de la empresa</b><small class="sis-tenue">Va en el recuadro superior derecho del PDF.</small><span class="sis-acciones"><label class="sis-btn chico">${logoEmpresa() ? 'Cambiar' : 'Cargar logo'}<input type="file" accept="image/*" data-mn-archivo="logo" hidden></label>${logoEmpresa() ? '<button class="sis-btn chico" data-mn="quitar-logo">Quitar</button>' : ''}</span></span></div>
+        </div>
+        <p class="sis-tenue">Cada ficha se abre en su propia pestaña. En la ficha eliges si el PDF lleva Descripción, Observación o ambas, y si la ubicación y los datos del operador se aplican a todas las fichas.</p>
+      </section>
       <div class="mn-barra">
         <div class="mn-filtros">${[['', `Todas · ${st.lista.length}`], ...Object.keys(D.ESTADOS).filter(cuenta).map(e => [e, `${D.ESTADOS[e].texto} · ${cuenta(e)}`])].map(([e, t]) => `<button type="button" class="vu-pildora${st.filtro === e ? ' activo' : ''}" data-mn="filtro" data-e="${e}">${esc(t)}</button>`).join('')}</div>
         <div class="sis-acciones"><button class="sis-btn" data-mn="nueva">+ Monografía en gabinete</button><button class="sis-btn primario" data-mn="pdf-todas" ${lista.length ? '' : 'disabled'}>PDF de ${st.filtro ? 'estas' : 'todas'} (${lista.length})</button></div>
@@ -68,15 +85,20 @@ export function montarPantallas(raiz, ctx) {
         </tbody></table>` : `<div class="sis-vacio"><p>${st.lista.length ? 'Ninguna con ese estado.' : 'Aún no llegan monografías de este proyecto. En la app de Terreno: elige el proyecto del Sistema en la monografía y toca «Enviar al Sistema». También puedes crear una aquí.'}</p></div>`}</section>
       ${jornadas.length ? `<section class="sis-tarjeta"><h2>Jornadas de terreno</h2><div class="sis-lista">${jornadas.slice(0, 12).map(j => `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(j.fechaInicio ? fechaHoraLegible(j.fechaInicio) : 'Jornada')}</b><span class="sis-tenue">${esc(j.operador || '')}${j.horas != null ? ` · ${Number(j.horas).toLocaleString('es-CL', { maximumFractionDigits: 1 })} h` : ''}</span></span>
           <span class="sis-chips"><span class="sis-chip gris">${(j.levantamientos || []).length} levantamiento${(j.levantamientos || []).length === 1 ? '' : 's'}</span><span class="sis-chip gris">${(j.levantamientos || []).reduce((s, l) => s + (l.puntos || []).length, 0)} puntos</span></span></div>`).join('')}</div></section>` : ''}
-      <section class="sis-tarjeta"><h2>Logo de la empresa en el PDF</h2>
-        <div class="mn-logo">${logoEmpresa() ? `<img src="${logoEmpresa()}" alt="Logo de la empresa">` : '<span class="sis-tenue">Sin logo</span>'}
-          <label class="sis-btn chico">Cargar logo (PNG)<input type="file" accept="image/*" data-mn-archivo="logo" hidden></label>${logoEmpresa() ? '<button class="sis-btn chico" data-mn="quitar-logo">Quitar</button>' : ''}</div>
-        <p class="sis-tenue">Se guarda en este computador, igual que en Terreno (⚙ Marca).</p></section>`;
+`;
   }
 
-  function campo(k, t, tipo = 'text') {
+  function campo(k, t, tipo = 'text', lista = null) {
     const f = st.ficha;
-    return `<label class="sis-campo"><span>${esc(t)}</span><input type="${tipo}" data-f="${k}" value="${esc(f[k] ?? '')}"${/norte|este|cota|latitud|longitud|altura/i.test(k) ? ' inputmode="decimal"' : ''}></label>`;
+    return `<label class="sis-campo"><span>${esc(t)}</span><input type="${tipo}" data-f="${k}" value="${esc(f[k] ?? '')}"${/norte|este|cota|altura/i.test(k) ? ' inputmode="decimal"' : ''}${lista ? ` list="mn-l-${k}"` : ''}>${lista ? `<datalist id="mn-l-${k}">${lista.map(v => `<option value="${esc(v)}">`).join('')}</datalist>` : ''}</label>`;
+  }
+  /** Clientes conocidos (mandantes de los proyectos y los que tienen logo guardado) con su logo. */
+  async function clientes() {
+    const nombres = new Map();
+    for (const p of await listarProyectos()) if (p.mandante && p.mandante.trim()) nombres.set(claveCliente(p.mandante), p.mandante.trim());
+    if (st.ficha && st.ficha.clienteNombre) nombres.set(claveCliente(st.ficha.clienteNombre), st.ficha.clienteNombre);
+    try { for (const n of JSON.parse(localStorage.getItem('mono_clientes') || '[]')) nombres.set(claveCliente(n), n); } catch { /* */ }
+    return Promise.all([...nombres.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es')).map(async ([k, nombre]) => ({ k, nombre, logo: ((await archivosDe('cliente_logo', k))[0] || {}).id || null })));
   }
   function chequeoHtml() {
     const filas = chequeoMonografia(st.ficha);
@@ -126,13 +148,43 @@ export function montarPantallas(raiz, ctx) {
     const f = st.ficha, mod = f.modulos || (f.modulos = { utm: true, geodesicas: true, croquis: true, panoramica: true, descripcion: true, firma: true, fotos: false });
     const hist = await D.historialDe(x.id);
     const dimE = dimsMonografia(f).extra;
+    const comun = leerComun(st.proyectoId);
+    const cls = await clientes();
+    const pais = f.paisUTM || 'Chile';
     const extras = await Promise.all((f.fotosExtra || []).map(async (e, i) => { const u = await urlImagen(e.img); return `<div class="mn-extra">${miniHtml(u, dimE, ANCHO_MINI.extra, `data-mini-extra="${i}"`, `Foto ${i + 1}`)}<div class="mn-extra-datos"><input data-extra="${i}" value="${esc(e.leyenda || '')}" placeholder="Leyenda" aria-label="Leyenda de la foto ${i + 1}"><div class="sis-acciones">${u ? `<button class="sis-btn chico" data-mn="ajustar" data-i="${i}">✂ Ajustar encuadre</button>` : ''}<button class="sis-btn chico" data-mn="quitar-extra" data-i="${i}">Quitar</button></div></div></div>`; }));
+    const fichas = st.lista.slice().sort((a, b) => ordenNatural(a.ficha, b.ficha));
+    const tarjeta = (titulo, cuerpo, extra = '') => `<section class="sis-tarjeta"><div class="sis-cab"><h2>${titulo}</h2>${extra}</div>${cuerpo}</section>`;
+    const checkComun = (k, t) => `<label class="sis-check mn-comun"><input type="checkbox" data-comun="${k}" ${comun[k] ? 'checked' : ''}> ${t}</label>`;
     return `<a class="sis-volver" href="#/monografias/${esc(st.proyectoId)}">← ${esc(st.proyecto ? st.proyecto.nombre : 'Proyecto')}</a>
+      <nav class="mn-fichas" aria-label="Fichas del proyecto">${fichas.map((y, i) => `<a href="#/monografias/${esc(st.proyectoId)}/${esc(y.id)}" class="${y.id === x.id ? 'activa' : ''}"${y.id === x.id ? ' aria-current="page"' : ''}>Ficha ${i + 1}<small>${esc(y.ficha.puntoMedido || 'sin punto')}</small></a>`).join('')}<button type="button" class="mn-ficha-mas" data-mn="nueva" aria-label="Agregar ficha">+</button></nav>
       <div class="mn-cab mn-cab-ficha"><div><h1>Monografía · ${esc(f.puntoMedido || '(sin punto)')}</h1>
         <p class="sis-tenue">${x.terreno ? `Enviada desde Terreno${x.terreno.publicadoEn ? ' el ' + esc(fechaHoraLegible(x.terreno.publicadoEn)) : ''}` : 'Creada en gabinete'}${x.gabinete ? ' · revisada en gabinete' : ''} · <span id="mn-guardado">Guardado</span></p></div>
         <div class="sis-acciones"><button class="sis-btn" data-mn="ver-pdf">Vista previa PDF</button><button class="sis-btn primario" data-mn="pdf" data-id="${esc(x.id)}">Descargar PDF</button></div></div>
       ${x.nuevaDeTerreno ? `<div class="sis-tarjeta sis-aviso mn-aviso"><b>Terreno envió una versión más nueva de esta monografía.</b> <span>La que ves es la revisada en gabinete.</span> <button class="sis-btn chico" data-mn="usar-terreno">Usar la de Terreno</button></div>` : ''}
+      <section class="sis-tarjeta mn-config-ficha"><div class="mn-config-fila">
+        <div><b>El PDF lleva</b><div class="mn-mods-txt"><label class="sis-check"><input type="checkbox" data-mod="descripcion" ${mod.descripcion ? 'checked' : ''}> Descripción</label><label class="sis-check"><input type="checkbox" data-mod="observacion" ${mod.observacion ? 'checked' : ''}> Observación</label></div></div>
+        <div class="mn-config-logo"><span class="mn-logo-mini">${logoEmpresa() ? `<img src="${logoEmpresa()}" alt="Logo de la empresa">` : '<span class="sis-tenue">Sin logo</span>'}</span><span><b>Logo de la empresa</b><small class="sis-tenue">Recuadro superior derecho</small><label class="sis-btn chico">${logoEmpresa() ? 'Cambiar' : 'Cargar logo'}<input type="file" accept="image/*" data-mn-archivo="logo" hidden></label></span></div>
+      </div></section>
       <div class="mn-dos"><div>
+        ${tarjeta('General', `<div class="mn-campos">
+            <label class="sis-campo"><span>Cliente</span><select data-cliente>${cls.map(c => `<option value="${esc(c.k)}" ${claveCliente(f.clienteNombre) === c.k ? 'selected' : ''}>${esc(c.nombre)}${c.logo ? ' · con logo' : ''}</option>`).join('')}${!f.clienteNombre ? '<option value="" selected>— Elegir —</option>' : ''}<option value="__nuevo">+ Nuevo cliente…</option></select></label>
+            ${campo('tituloDocumento', 'Título del documento')}${campo('nombreProyecto', 'Nombre del proyecto')}</div>
+          ${await imagenHtml('clienteLogo', 'Logo del cliente')}
+          <p class="sis-tenue">El logo que subas queda guardado para ese cliente y se pone solo en sus próximas fichas.</p>`, '<button class="sis-btn chico" data-mn="traer-proyecto">Traer del proyecto</button>')}
+        ${tarjeta('Punto', `<div class="mn-campos">${campo('puntoMedido', 'Nombre del punto (esta ficha)')}${CAMPOS[1][1].slice(1).map(c => campo(...c)).join('')}</div>${checkComun('ubicacion', 'Ubicación, localidad, comuna y región iguales en todas las fichas')}`)}
+        ${mod.utm ? tarjeta('Coordenadas UTM (finales del postproceso)', `<div class="mn-campos">
+            <label class="sis-campo"><span>País de trabajo</span><select data-pais>${Object.keys(ZONAS_POR_PAIS).map(k => `<option ${k === pais ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
+            ${campo('datumUTM', 'Datum', 'text', DATUMS_CHILE)}${campo('zonaUTM', 'Zona', 'text', ZONAS_POR_PAIS[pais] || [])}${campo('norte', 'Norte (m)')}${campo('este', 'Este (m)')}${campo('cotaOrtometrica', 'Cota ortométrica (m)')}</div>`) : ''}
+        ${mod.geodesicas ? tarjeta('Coordenadas geodésicas', `<div class="mn-campos">${campo('datumGeodesico', 'Datum geodésico', 'text', DATUMS_CHILE)}${campo('geoide', 'Geoide', 'text', GEOIDES)}${campo('latitud', 'Latitud')}${campo('longitud', 'Longitud')}${campo('alturaElipsoidal', 'Altura elipsoidal (m)')}</div>
+            <div class="mn-formato"><span>Mostrar como</span><span class="sis-vistas"><button type="button" class="${(f.formatoGeo || 'dms') === 'dd' ? 'activo' : ''}" data-mn="formato" data-v="dd">DD.dddd°</button><button type="button" class="${(f.formatoGeo || 'dms') === 'dms' ? 'activo' : ''}" data-mn="formato" data-v="dms">D°M'S"</button></span>
+              <label>Decimales <input type="number" min="0" max="8" data-decimales value="${esc(f.decimalesGeo ?? 4)}" aria-label="Decimales"></label><button type="button" class="sis-btn chico" data-mn="formato" data-v="${f.formatoGeo || 'dms'}">Aplicar formato</button></div>`) : ''}
+        ${mod.croquis || mod.panoramica ? tarjeta('Imágenes', `<div class="mn-imgs-dos">${mod.croquis ? `<div>${await imagenHtml('croquisImg', ranura.croquisImg)}<button class="sis-btn chico primario mn-gen-croquis" data-mn="croquis-mapa">🗺 Generar desde el mapa</button></div>` : ''}${mod.panoramica ? `<div>${await imagenHtml('panoramicaImg', ranura.panoramicaImg)}</div>` : ''}</div>`) : ''}
+        ${mod.firma ? tarjeta('Equipo, operador y revisión', `<div class="mn-campos">${CAMPOS[4][1].map(c => campo(...c)).join('')}</div>${checkComun('firma', 'Aplicar a todas las fichas del proyecto')}
+            ${comun.firma ? `<label class="sis-check mn-comun"><input type="checkbox" data-propios ${f.firmaPropia ? 'checked' : ''}> Esta ficha tiene su propia fecha de medición y equipo</label>` : ''}`) : ''}
+        ${mod.descripcion ? tarjeta('Descripción', `<textarea data-f="descripcion" rows="4">${esc(f.descripcion || '')}</textarea><p class="sis-tenue">Una línea por renglón, como en la plantilla.</p>`) : ''}
+        ${mod.observacion ? tarjeta('Observación', `<textarea data-f="observacionPdf" rows="3" placeholder="Ej.: monolito con daño en la placa">${esc(f.observacionPdf || '')}</textarea><p class="sis-tenue">Va en el PDF después de la descripción, como «Observación: …».</p>`) : ''}
+      </div><aside>
+        <section class="sis-tarjeta"><h2>Chequeo</h2>${chequeoHtml()}</section>
         <section class="sis-tarjeta"><h2>Estado de revisión</h2>
           <p><span class="sis-chip ${D.ESTADOS[x.estado].color}">${esc(D.ESTADOS[x.estado].texto)}</span>${x.observacion ? ` <span class="mn-obs">${esc(x.observacion)}</span>` : ''}</p>
           <label class="sis-campo"><span>Observación para terreno (si hay que corregir algo)</span><textarea id="mn-obs" rows="2" placeholder="Ej.: retomar la foto de la placa">${x.estado === 'con-observacion' ? esc(x.observacion) : ''}</textarea></label>
@@ -140,17 +192,8 @@ export function montarPantallas(raiz, ctx) {
           ${hist.length ? `<details class="mn-hist"><summary>Historial (${hist.length})</summary><ul>${hist.slice().reverse().map(r => `<li>${esc(fechaHoraLegible(r.creadoEn))} · ${esc(D.ESTADOS[r.estado].texto)}${r.por ? ' · ' + esc(st.nombres[r.por] || '') : ''}${r.observacion ? ' — ' + esc(r.observacion) : ''}</li>`).join('')}</ul></details>` : ''}
         </section>
         <section class="sis-tarjeta"><h2>Qué incluye el PDF</h2><div class="mn-mods">${MODULOS.map(([k, t]) => `<label class="sis-check"><input type="checkbox" data-mod="${k}" ${mod[k] ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div></section>
-        ${CAMPOS.filter(([g]) => !['utm', 'geodesicas', 'firma'].includes(g) || mod[g]).map(([g, cs]) => `<section class="sis-tarjeta"><h2>${{ utm: 'Coordenadas UTM (finales del postproceso)', geodesicas: 'Coordenadas geodésicas', firma: 'Equipo, operador y revisión' }[g] || g}</h2><div class="mn-campos">${cs.map(c => campo(...c)).join('')}</div></section>`).join('')}
-        ${mod.descripcion ? `<section class="sis-tarjeta"><h2>Descripción</h2><textarea data-f="descripcion" rows="4">${esc(f.descripcion || '')}</textarea><p class="sis-tenue">Una línea por renglón, como en la plantilla.</p></section>` : ''}
-      </div><aside>
-        <section class="sis-tarjeta"><h2>Chequeo</h2>${chequeoHtml()}</section>
         ${presentacionHtml(mod)}
-        <section class="sis-tarjeta"><h2>Imágenes</h2>
-          ${mod.croquis ? await imagenHtml('croquisImg', ranura.croquisImg) : ''}
-          ${mod.panoramica ? await imagenHtml('panoramicaImg', ranura.panoramicaImg) : ''}
-          ${await imagenHtml('clienteLogo', ranura.clienteLogo)}
-          ${mod.fotos ? `<div class="mn-slot-tit">Fotografías adicionales</div>${extras.join('')}<div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="extra">+ Elegir de terreno</button><label class="sis-btn chico">+ Subir<input type="file" accept="image/*" data-mn-archivo="extra" hidden></label></div>` : ''}
-        </section>
+        ${mod.fotos ? `<section class="sis-tarjeta"><h2>Fotografías adicionales</h2>${extras.join('')}<div class="sis-acciones"><button class="sis-btn chico" data-mn="elegir" data-slot="extra">+ Elegir de terreno</button><label class="sis-btn chico">+ Subir<input type="file" accept="image/*" data-mn-archivo="extra" hidden></label></div></section>` : ''}
       </aside></div>
       ${st.elegir ? await selectorFotos() : ''}`;
   }
@@ -185,10 +228,37 @@ export function montarPantallas(raiz, ctx) {
     x.gabinete = x.gabinete || { basadoEn: x.terreno ? x.terreno.actualizadoEn : null };
     marcarGuardado('Guardado');
   }
-  function cambio({ refrescar = false } = {}) {
+  /** v0.11: copia los grupos marcados «para todas las fichas» a las demás monografías del proyecto. */
+  async function propagar(campos) {
+    const comun = leerComun(st.proyectoId), f = st.ficha;
+    const grupos = [...(comun.ubicacion ? GRUPO_UBICACION : []), ...(comun.firma ? GRUPO_FIRMA : [])].filter(k => campos.includes(k));
+    if (!grupos.length) return 0;
+    let n = 0;
+    for (const y of await D.monografiasDeProyecto(st.proyectoId)) {
+      if (y.id === f.id) continue;
+      const otra = JSON.parse(JSON.stringify(y.ficha));
+      let cambia = false;
+      for (const k of grupos) {
+        if (otra.firmaPropia && PROPIOS_FICHA.includes(k)) continue;
+        if (f.firmaPropia && PROPIOS_FICHA.includes(k)) continue;
+        if ((otra[k] ?? '') !== (f[k] ?? '')) { otra[k] = f[k]; cambia = true; }
+      }
+      if (cambia) { await D.guardarGabinete({ ...otra, proyectoId: st.proyectoId, basadoEn: y.gabinete ? y.gabinete.basadoEn : (y.terreno ? y.terreno.actualizadoEn : null) }); n++; }
+    }
+    return n;
+  }
+  let camposCambiados = new Set();
+  function cambio({ refrescar = false, campo = null } = {}) {
     marcarGuardado('Guardando…');
+    if (campo) camposCambiados.add(campo);
     clearTimeout(st.guardando);
-    st.guardando = setTimeout(async () => { await guardarAhora(); if (refrescar) await render(); else refrescarChequeo(); }, 500);
+    st.guardando = setTimeout(async () => {
+      await guardarAhora();
+      const lista = [...camposCambiados]; camposCambiados = new Set();
+      const n = await propagar(lista);
+      if (n) marcarGuardado(`Guardado · aplicado a ${n} ficha${n === 1 ? '' : 's'} más`);
+      if (refrescar) await render(); else refrescarChequeo();
+    }, 500);
   }
   function refrescarChequeo() { const s = cont.querySelector('.mn-chequeo'); if (s) s.parentElement.innerHTML = '<h2>Chequeo</h2>' + chequeoHtml(); }
 
@@ -203,7 +273,7 @@ export function montarPantallas(raiz, ctx) {
   cont.addEventListener('input', ev => {
     const t = ev.target;
     if (!st.ficha) return;
-    if (t.dataset.f) { st.ficha[t.dataset.f] = t.value; cambio(); }
+    if (t.dataset.f) { st.ficha[t.dataset.f] = t.value; cambio({ campo: t.dataset.f }); }
     else if (t.dataset.pres && t.type === 'range') { const x = cont.querySelector(`[data-pres-txt="${t.dataset.pres}"]`); if (x) x.textContent = t.value; }
     else if (t.dataset.extra != null) { st.ficha.fotosExtra[Number(t.dataset.extra)].leyenda = t.value; cambio(); }
   });
@@ -211,11 +281,33 @@ export function montarPantallas(raiz, ctx) {
     const t = ev.target;
     try {
       if (t.dataset.mod && st.ficha) { st.ficha.modulos[t.dataset.mod] = t.checked; cambio({ refrescar: true }); return; }
+      if (t.dataset.comun && st.ficha) {
+        const c = leerComun(st.proyectoId); c[t.dataset.comun] = t.checked; guardarComun(st.proyectoId, c);
+        if (t.checked) { const n = await propagar(t.dataset.comun === 'ubicacion' ? GRUPO_UBICACION : GRUPO_FIRMA); avisar(n ? `Aplicado a ${n} ficha${n === 1 ? '' : 's'} más del proyecto.` : 'Las demás fichas ya tienen esos datos.'); }
+        await render(); return;
+      }
+      if (t.hasAttribute('data-propios') && st.ficha) { st.ficha.firmaPropia = t.checked; cambio(); return; }
+      if (t.hasAttribute('data-pais') && st.ficha) { st.ficha.paisUTM = t.value; cambio({ refrescar: true }); return; }
+      if (t.hasAttribute('data-decimales') && st.ficha) { st.ficha.decimalesGeo = Math.max(0, Math.min(8, Number(t.value) || 0)); cambio(); return; }
+      if (t.hasAttribute('data-cliente') && st.ficha) {
+        let k = t.value, nombre;
+        if (k === '__nuevo') {
+          nombre = (prompt('Nombre del cliente:') || '').trim();
+          if (!nombre) { await render(); return; }
+          try { const l = JSON.parse(localStorage.getItem('mono_clientes') || '[]'); if (!l.includes(nombre)) l.push(nombre); localStorage.setItem('mono_clientes', JSON.stringify(l)); } catch { /* */ }
+          k = claveCliente(nombre);
+        } else nombre = ((await clientes()).find(c => c.k === k) || {}).nombre || '';
+        st.ficha.clienteNombre = nombre;
+        const logo = (await archivosDe('cliente_logo', k))[0];
+        if (logo) { st.ficha.clienteLogo = { archivo: logo.id }; if (st.ficha.ajustes) delete st.ficha.ajustes.clienteLogo; }
+        await guardarAhora(); await render(); return;
+      }
       if (t.dataset.pres && st.ficha) { st.ficha[t.dataset.pres] = t.type === 'range' ? Number(t.value) : t.value; cambio({ refrescar: true }); return; }
       if (t.dataset.mnArchivo && t.files && t.files[0]) {
         const archivo = t.files[0], slot = t.dataset.mnArchivo; t.value = '';
         if (slot === 'logo') { const r = new FileReader(); r.onload = async () => { fijarLogoEmpresa(r.result); avisar('Logo guardado'); await render(); }; r.readAsDataURL(archivo); return; }
-        const reg = await guardarArchivo(archivo, { modulo: 'terreno', duenoTipo: 'terreno_monografia', duenoId: st.ficha.id, rol: 'foto', proyectoId: st.proyectoId, carpeta: `Proyectos/${st.proyecto ? st.proyecto.nombre : st.proyectoId}/Monografías`, detalle: { tipo: slot === 'croquisImg' ? 'croquis' : slot === 'panoramicaImg' ? 'panoramica' : slot === 'clienteLogo' ? 'logo' : 'detalle', punto: st.ficha.puntoMedido || '', origen: 'gabinete' } });
+        const deCliente = slot === 'clienteLogo' && st.ficha.clienteNombre;
+        const reg = await guardarArchivo(archivo, { modulo: 'terreno', duenoTipo: deCliente ? 'cliente_logo' : 'terreno_monografia', duenoId: deCliente ? claveCliente(st.ficha.clienteNombre) : st.ficha.id, rol: 'foto', proyectoId: st.proyectoId, carpeta: `Proyectos/${st.proyecto ? st.proyecto.nombre : st.proyectoId}/Monografías`, detalle: { tipo: slot === 'croquisImg' ? 'croquis' : slot === 'panoramicaImg' ? 'panoramica' : slot === 'clienteLogo' ? 'logo' : 'detalle', punto: st.ficha.puntoMedido || '', origen: 'gabinete' } });
         ponerImagen(slot, { archivo: reg.id });
         await guardarAhora(); await render();
       }
@@ -236,6 +328,39 @@ export function montarPantallas(raiz, ctx) {
         const m = { ...d, id: uuid(), proyectoId: st.proyectoId, nombreProyecto: d.nombreProyecto || (p ? p.nombre : ''), clienteNombre: d.clienteNombre || (p ? p.mandante || '' : ''), puntoMedido: '', ubicacion: '', localidad: '', comuna: p ? p.comuna || '' : '', region: p ? p.region || '' : '', norte: '', este: '', cotaOrtometrica: '', latitud: '', longitud: '', alturaElipsoidal: '', croquisImg: null, panoramicaImg: null, descripcion: '', operadorNombre: '', operadorCargo: 'Geomensor', fechaMedicion: '', revisoNombre: '', fechaRevision: '', fotosExtra: [], creado: new Date().toISOString() };
         await D.guardarGabinete(m);
         st.ficha = null; ir(st.proyectoId, m.id); return;
+      }
+      else if (a === 'crear-n') {
+        const n = Math.max(1, Math.min(60, Number((cont.querySelector('#mn-n-fichas') || {}).value) || 1));
+        const p = st.proyecto || await obtenerProyecto(st.proyectoId), d = valoresPorDefecto();
+        const ya = (await D.monografiasDeProyecto(st.proyectoId)).length;
+        let primera = null;
+        for (let i = 0; i < n; i++) {
+          const m = { ...d, id: uuid(), proyectoId: st.proyectoId, nombreProyecto: d.nombreProyecto || (p ? p.nombre : ''), clienteNombre: d.clienteNombre || (p ? p.mandante || '' : ''), puntoMedido: `PR-${ya + i + 1}`, ubicacion: '', localidad: '', comuna: p ? p.comuna || '' : '', region: p ? p.region || '' : '', norte: '', este: '', cotaOrtometrica: '', latitud: '', longitud: '', alturaElipsoidal: '', croquisImg: null, panoramicaImg: null, descripcion: '', operadorNombre: '', operadorCargo: 'Geomensor', fechaMedicion: '', revisoNombre: '', fechaRevision: '', fotosExtra: [], creado: new Date().toISOString() };
+          await D.guardarGabinete(m);
+          primera = primera || m.id;
+        }
+        st.ficha = null; ir(st.proyectoId, primera); return;
+      }
+      else if (a === 'traer-proyecto') {
+        const p = st.proyecto || await obtenerProyecto(st.proyectoId);
+        if (p) { Object.assign(st.ficha, { nombreProyecto: p.nombre, clienteNombre: st.ficha.clienteNombre || p.mandante || '', comuna: p.comuna || st.ficha.comuna, region: p.region || st.ficha.region }); await guardarAhora(); avisar('Datos tomados del proyecto.'); }
+      }
+      else if (a === 'formato') {
+        const f = st.ficha, dec = f.decimalesGeo ?? 4;
+        f.formatoGeo = b.dataset.v;
+        const la = leerGrados(f.latitud), lo = leerGrados(f.longitud);
+        if (la != null) f.latitud = escribirGrados(la, 'lat', f.formatoGeo, dec);
+        if (lo != null) f.longitud = escribirGrados(lo, 'lon', f.formatoGeo, dec);
+        await guardarAhora();
+        avisar(la != null || lo != null ? 'Coordenadas geodésicas con el formato elegido.' : 'Escribe la latitud y la longitud para darles formato.');
+      }
+      else if (a === 'croquis-mapa') {
+        const f = st.ficha, d = dimsMonografia(f).croquisImg;
+        const url = await abrirCroquis({ lat: leerGrados(f.latitud), lon: leerGrados(f.longitud), nombre: f.puntoMedido || '', aspecto: d[0] / d[1] });
+        if (!url) return;
+        const reg = await guardarArchivoDatos(url, `croquis_${nombreArchivo(f.puntoMedido)}.jpg`, { modulo: 'terreno', duenoTipo: 'terreno_monografia', duenoId: f.id, rol: 'foto', proyectoId: st.proyectoId, carpeta: `Proyectos/${st.proyecto ? st.proyecto.nombre : st.proyectoId}/Monografías`, detalle: { tipo: 'croquis', punto: f.puntoMedido || '', origen: 'gabinete' } }, { personaId: ctx.personaId });
+        ponerImagen('croquisImg', { archivo: reg.id });
+        await guardarAhora(); avisar('Croquis generado desde el mapa. Puedes ajustar su encuadre.');
       }
       else if (a === 'pdf') {
         const x = (st.lista || []).find(y => y.id === b.dataset.id) || st.x;

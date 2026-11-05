@@ -336,3 +336,75 @@ body[data-modo="telefono"] .sis-vincular-cuerpo{grid-template-columns:1fr;}
 .cal-lista .cal-ev{white-space:normal;}
 @media (max-width:1100px){ .cal-dos{grid-template-columns:1fr;} .cal-semana{grid-template-columns:repeat(2,minmax(0,1fr));} }
 @media (max-width:700px){ .cal-dia{min-height:70px;} .cal-ev{font-size:10px; padding:1px 3px;} .cal-personas{overflow-x:auto;} }
+
+/* ---------- v0.11: sub-pestañas de sección ---------- */
+.sis-subnav{display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; margin:-4px 0 16px; border-bottom:1px solid var(--borde);}
+.sis-subnav::-webkit-scrollbar{display:none;}
+.sis-subnav a{flex:none; padding:10px 14px; min-height:44px; display:flex; align-items:center; text-decoration:none; color:var(--muted); font-weight:500; font-size:14px; border-bottom:3px solid transparent; margin-bottom:-1px;}
+.sis-subnav a.activo{color:var(--enlace); font-weight:600; border-bottom-color:var(--marca);}
+#sis-contenido[data-vista="modulo"] > .sis-subnav{margin-bottom:12px;}
+
+/* ---------- v0.11: Inicio ---------- */
+.sis-kpi small{font-size:12px; line-height:1.3;}
+.ini-cal{display:grid; grid-template-columns:minmax(110px, 170px) minmax(0, 1fr); gap:6px 8px; align-items:center; font-size:12px; overflow-x:auto;}
+.ini-cal-dias, .ini-cal-pista{display:grid; grid-template-columns:repeat(14, minmax(26px, 1fr)); gap:2px; min-width:420px;}
+.ini-cal-dias span{text-align:center; color:var(--muted); padding:2px 0; border-radius:4px; white-space:nowrap;}
+.ini-cal-dias span.finde{color:#9DA3A9;}
+.ini-cal-dias span.hoy{background:var(--marca); color:#fff; font-weight:600;}
+.ini-cal-nombre{font-weight:600; color:var(--ink); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ini-cal-pista{min-height:26px; background:repeating-linear-gradient(90deg, transparent 0 calc(100%/14 - 1px), var(--borde-suave) calc(100%/14 - 1px) calc(100%/14));}
+.ini-cal-seg{border-radius:5px; padding:4px 6px; font-weight:600; color:#1C1F23; text-decoration:none; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:11.5px;}
+.ini-cal-seg.vu, .ini-cal-ley i.vu{background:#9ED4EE;} .ini-cal-seg.da, .ini-cal-ley i.da{background:#CFE8EA;}
+.ini-cal-seg.en, .ini-cal-ley i.en{background:#FFD978;} .ini-cal-seg.dg, .ini-cal-ley i.dg{background:#F6C2A8;}
+.ini-cal-ley{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px; font-size:12px; color:var(--muted);}
+.ini-cal-ley i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px;}
+.ini-etapas{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;}
+body[data-modo="pc"] .ini-etapas{grid-template-columns:repeat(4, minmax(0,1fr));}
+.ini-etapa{display:flex; flex-direction:column; gap:2px; padding:12px; border-radius:10px; text-decoration:none; color:var(--ink);}
+.ini-etapa small{font-size:12px; font-weight:600;} .ini-etapa b{font-size:24px; line-height:1.1;} .ini-etapa span{font-size:12px; line-height:1.3;}
+.ini-etapa.terreno{background:#E6F4FB; color:#24566E;} .ini-etapa.gabinete{background:#EEF5F5; color:#134046;}
+.ini-etapa.entregables{background:#FFF6D9; color:#6B5200;} .ini-etapa.completado{background:#ECEDEF; color:#43484E;}
+.ini-avisos{display:flex; flex-direction:column; gap:8px; margin-bottom:8px;}
+.ini-aviso{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:8px; text-decoration:none; color:var(--ink); background:#F6F5F1;}
+.ini-aviso small{color:#43484E; font-size:12.5px; line-height:1.35;}
+.ini-aviso.ambar{background:#FFF6D9;} .ini-aviso.rojo{background:#FCEDE6;} .ini-aviso.rojo b{color:#8A3410;}
+
+/* ---------- v0.11: Proyectos ---------- */
+.sis-proy-cards{display:grid; gap:14px;}
+body[data-modo="pc"] .sis-proy-cards{grid-template-columns:repeat(3, minmax(0,1fr));}
+.sis-proy-card{background:var(--surface); border:1px solid var(--borde); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px;}
+.sis-proy-card-cab{display:flex; justify-content:space-between; gap:8px; align-items:center; color:var(--muted); font-size:12.5px;}
+.sis-proy-card-nombre{font-size:17px; font-weight:700; color:var(--ink); text-decoration:none; line-height:1.25;}
+.sis-proy-card-nombre:hover{color:var(--enlace);}
+.sis-etapas-barra{display:grid; grid-template-columns:repeat(4, 1fr); gap:3px;}
+.sis-etapas-barra i{height:6px; border-radius:3px; background:#E2E0DA;} .sis-etapas-barra i.hecho{background:var(--marca);}
+.sis-etapas-txt{display:grid; grid-template-columns:repeat(4, 1fr); font-size:11px; color:var(--muted);}
+.sis-etapas-txt span.actual{color:var(--enlace); font-weight:600;}
+.sis-proy-card-pie{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--muted); border-top:1px solid var(--borde-suave); padding-top:8px;}
+.sis-proy-card .sis-btn{align-self:flex-start;}
+.sis-chip.etapa-terreno{background:#E6F4FB; color:#24566E;} .sis-chip.etapa-gabinete{background:#EEF5F5; color:#134046;}
+.sis-chip.etapa-entregables{background:#FFF6D9; color:#6B5200;} .sis-chip.etapa-completado{background:#ECEDEF; color:#43484E;}
+.sis-columnas-etapa{display:grid; gap:14px;}
+body[data-modo="pc"] .sis-columnas-etapa{grid-template-columns:repeat(3, minmax(0,1fr));}
+.sis-col-etapa{background:#EFEDE8; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px;}
+.sis-col-etapa h2{font-size:15px; margin:0;}
+.sis-etapa-ficha{padding:10px;}
+.sis-etapas-pasos{display:grid; grid-template-columns:repeat(2, 1fr); gap:6px;}
+body[data-modo="pc"] .sis-etapas-pasos{grid-template-columns:repeat(4, 1fr);}
+.sis-etapa-paso{display:flex; align-items:center; gap:8px; flex-wrap:wrap; border:1px solid var(--borde); background:var(--surface); border-radius:8px; padding:8px 10px; font:inherit; font-size:13.5px; color:var(--muted); cursor:pointer; text-align:left; min-height:44px;}
+.sis-etapa-paso span{width:24px; height:24px; border-radius:50%; display:grid; place-items:center; background:#ECEDEF; font-weight:700; font-size:12px; flex:none;}
+.sis-etapa-paso small{width:100%; font-size:11px; color:var(--muted); padding-left:32px;}
+.sis-etapa-paso.hecho span{background:var(--ok); color:#fff;}
+.sis-etapa-paso.actual{border-color:var(--marca); color:var(--ink); font-weight:600; background:var(--marca-suave);}
+.sis-etapa-paso.actual span{background:var(--marca); color:#fff;}
+.sis-registro{display:grid; gap:14px;}
+body[data-modo="pc"] .sis-registro{grid-template-columns:260px minmax(0,1fr); align-items:start;}
+.sis-mandantes{display:flex; gap:6px; overflow-x:auto;}
+body[data-modo="pc"] .sis-mandantes{flex-direction:column;}
+.sis-mandante{flex:none; display:flex; justify-content:space-between; gap:10px; align-items:center; padding:10px 12px; border:1px solid var(--borde); border-radius:8px; background:var(--surface); font:inherit; font-size:14px; cursor:pointer; text-align:left; min-height:44px; color:var(--ink);}
+.sis-mandante.activo{border-color:var(--marca); background:var(--marca-suave); font-weight:600;}
+.sis-tabla-scroll{overflow-x:auto;}
+.sis-tabla{width:100%; border-collapse:collapse; font-size:13.5px;}
+.sis-tabla th{text-align:left; font-size:12px; color:var(--muted); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--borde);}
+.sis-tabla td{padding:8px; border-bottom:1px solid var(--borde-suave); vertical-align:top;}
+.sis-tabla td small{display:block; color:var(--muted); font-size:12px;}

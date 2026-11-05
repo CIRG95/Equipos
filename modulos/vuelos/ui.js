@@ -4,8 +4,9 @@ import { escapar as esc } from '../../compartido/util.js';
 
 export const COLORES_BATERIA = ['#4FC3F7', '#C6F15A', '#FFD54F', '#FF8A80', '#CE93D8', '#80CBC4', '#FFAB40', '#B0BEC5'];
 export const COLORES_SECTOR = ['#4FC3F7', '#C6F15A', '#FFD54F', '#FF8A80', '#CE93D8', '#80CBC4'];
-export const ESTADOS_HOJA = { borrador: ['Borrador', 'gris'], lista: ['Lista para volar', 'verde'], volada: ['Volada', 'azul'] };
-export const PASOS = [['resumen', 'Resumen'], ['area', '1 · Área'], ['vuelo', '2 · Vuelo'], ['clima', '3 · Clima'], ['permisos', '4 · Permisos']];
+export const ESTADOS_HOJA = { borrador: ['Borrador', 'gris'], lista: ['Programado', 'verde'], volada: ['Volado', 'azul'] };
+// v0.11: planificación paso a paso (el Resumen queda aparte, como portada de la hoja).
+export const PASOS = [['identificacion', '1 · Identificación'], ['area', '2 · Área'], ['vuelo', '3 · Vuelo'], ['clima', '4 · Clima'], ['permisos', '5 · Permisos']];
 export const GSD_TABLA = [3, 2.5, 2, 1.5];
 export const UMBRAL_BATERIAS = 6;
 export const TIPO_KML = 'application/vnd.google-earth.kml+xml';

@@ -6,6 +6,7 @@
 
 import { fechaLegible, fechaHoraLegible, hoyISO, cargarScript } from '../../compartido/util.js';
 import { listarProyectos, OFICINA_ID } from '../../compartido/catalogos.js';
+import { sensoresDe, textoSensor } from './sensores.js';
 import { archivosDe, urlArchivo, abrirArchivo, archivoAPapelera, tamanoLegible } from '../../compartido/archivos.js';
 import {
   ESTADOS_ALERTA, PASOS_ALERTA, COMPONENTES_SUGERIDOS, ESTADOS_ACCESORIO, TIPOS_MANTENCION, CAMPOS_ADMIN,
@@ -124,6 +125,7 @@ export function crearFicha(ctx) {
         <div class="eq-chips">${ctx.chipUbicacion(u)} ${ctx.chipCalibracion(est.calibracion)} ${venc}</div>
         ${u.lugar === 'terreno' ? `<p class="eq-tenue" style="margin:6px 0 0">En ${esc(proy(u.proyectoId))} desde ${fechaLegible(u.desde)} · responsable ${esc(pers(u.personaId))}</p>` : ''}
         <dl class="eq-specs">${datos}</dl>
+        ${sensoresDe(eq).length ? `<div class="eq-sensores"><b>Cámara y módulos (catálogo de sensores)</b>${sensoresDe(eq).map(x => `<div>${esc(textoSensor(x))}</div>`).join('')}<small>Estos datos usa Vuelos para calcular altura, franja y líneas. Se corrigen en Equipos → Catálogo de sensores.</small></div>` : ''}
         <div class="eq-specs-cab"><span>Especificaciones técnicas${modelo ? '' : ''}</span>
           ${esRRHH && claveModelo(eq) ? '<button class="eq-enlace" data-accion="ir" data-vista="especificaciones">Editar</button>' : ''}</div>
         ${specs || (modelo && modelo.otras) ? `<dl class="eq-specs">${specs}</dl>${modelo && modelo.otras ? `<p class="eq-tenue eq-pre">${esc(modelo.otras)}</p>` : ''}`

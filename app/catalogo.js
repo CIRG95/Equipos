@@ -66,3 +66,8 @@ export const REGIONES = [
 export const COLORES_MARCA = [
   ['#1D5C63', 'Azul petróleo'], ['#1D4ED8', 'Azul'], ['#0F766E', 'Verde'], ['#C2410C', 'Naranjo'], ['#1C1F23', 'Grafito'],
 ];
+
+// Etapas del proyecto (v0.11). «Completado» cierra el proyecto y lo pasa al registro por mandante.
+export const ETAPAS_PROYECTO = [['terreno', 'Terreno'], ['gabinete', 'Proceso en gabinete'], ['entregables', 'Entregables'], ['completado', 'Completado']];
+export const NOMBRE_ETAPA_PROYECTO = Object.fromEntries(ETAPAS_PROYECTO);
+export const etapaProyecto = p => (p.estado === 'cerrado' ? 'completado' : (NOMBRE_ETAPA_PROYECTO[p.etapa] && p.etapa !== 'completado' ? p.etapa : 'terreno'));

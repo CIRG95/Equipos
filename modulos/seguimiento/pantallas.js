@@ -113,7 +113,7 @@ export function montarPantallas(contenedor, ctx) {
         <span>${pz ? pastillaPlazo(pz, c) : '<span class="sis-tenue">sin plazo</span>'}</span></a>`;
     }).join('');
     const sinPlan = base.proyectos.filter(p => p.id !== OFICINA_ID && !st.planes.some(pl => pl.proyectoId === p.id));
-    return `<div class="sis-cab"><h1>Seguimiento de entregas</h1></div>
+    return `<div class="sis-cab"><h1>Entregas</h1></div>
       <p class="sis-tenue">Qué hay y qué falta en cada trabajo abierto: tramos volados, productos en gabinete y entregas.</p>
       <section class="sis-tarjeta">${filas ? `<div class="sg-lista-proy">${filas}</div>` : '<div class="sis-vacio"><p>Todavía no hay seguimientos. Crea uno para un proyecto.</p></div>'}</section>
       ${sinPlan.length ? `<section class="sis-tarjeta"><h2>Nuevo seguimiento</h2>

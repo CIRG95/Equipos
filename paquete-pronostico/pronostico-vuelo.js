@@ -477,9 +477,11 @@ var PronosticoVuelo = (() => {
       familiaNombre: "DJI Matrice 4E",
       sensor: "Cámara gran angular",
       nombre: "DJI Matrice 4E (cámara gran angular)",
+      // Focal efectiva 12,20 mm (ficha: 12,29 mm): con ella la altura para un GSD calza con DJI Pilot 2 (3,5 cm/px → 130,3 m).
       sensorAnchoMm: 17.3,
       sensorAltoMm: 13,
-      focalMm: 12.29,
+      focalMm: 12.2,
+      focalFichaMm: 12.29,
       pixelesAncho: 5280,
       pixelesAlto: 3956,
       obturador: "mecanico",

@@ -65,19 +65,44 @@ const ICONOS_MENU = {
   monografias: ic('<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><circle cx="12" cy="13" r="2.5"/><path d="M12 10.5V9M12 17v-1.5"/>'),
   gastos: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
   terreno: ic('<path d="M4 20l5-14 5 9 3-5 3 10z"/>'),
+  herramientas: ic('<path d="M14.7 6.3a4 4 0 00-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 005.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>'),
   personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
   mas: ic('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'),
 };
+// v0.11: Inicio · Proyectos (Activos, Calendario, Entregas, Registro) · Vuelos · Equipos (Equipos, Catálogo de sensores) ·
+// Herramientas (Monografías, Limpieza de KMZ, Pronóstico rápido). Seguimiento pasa a «Proyectos › Entregas».
 const MENU = [
   { ruta: 'inicio', texto: 'Inicio', roles: ['terreno', 'rrhh'], tambien: ['avisos'] },
-  { ruta: 'proyectos', texto: 'Proyectos', roles: ['terreno', 'rrhh'], tambien: ['proyecto', 'proyecto-editar'] },
-  { ruta: 'equipos', texto: 'Equipos', roles: ['terreno', 'rrhh'] },
+  { ruta: 'proyectos', texto: 'Proyectos', roles: ['terreno', 'rrhh'], tambien: ['proyecto', 'proyecto-editar', 'seguimiento'] },
   { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
-  { ruta: 'seguimiento', texto: 'Seguimiento', roles: ['terreno'] },
-  { ruta: 'monografias', texto: 'Monografías', roles: ['terreno'] },
-  { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'], pronto: true },
+  { ruta: 'equipos', texto: 'Equipos', roles: ['terreno', 'rrhh'], tambien: ['sensores'] },
+  { ruta: 'herramientas', texto: 'Herramientas', roles: ['terreno'], tambien: ['monografias'] },
   { ruta: 'personas', texto: 'Personas', roles: ['rrhh', 'terreno'] },
+  { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'], pronto: true },
 ];
+// Sub-pestañas de cada sección: [enlace, texto, ¿activa?(ruta)]
+const SUBNAV = {
+  proyectos: [
+    ['#/proyectos', 'Activos', r => ['proyectos', 'proyecto', 'proyecto-editar'].includes(r.base) && !['calendario', 'registro'].includes(r.arg)],
+    ['#/proyectos/calendario', 'Calendario', r => r.base === 'proyectos' && r.arg === 'calendario'],
+    ['#/seguimiento', 'Entregas', r => r.base === 'seguimiento'],
+    ['#/proyectos/registro', 'Registro por mandante', r => r.base === 'proyectos' && r.arg === 'registro'],
+  ],
+  equipos: [
+    ['#/equipos', 'Equipos', r => r.base === 'equipos'],
+    ['#/sensores', 'Catálogo de sensores', r => r.base === 'sensores'],
+  ],
+  herramientas: [
+    ['#/monografias', 'Monografías', r => r.base === 'monografias'],
+    ['#/herramientas/kml', 'Limpieza de KMZ', r => r.base === 'herramientas' && r.arg === 'kml'],
+    ['#/herramientas/pronostico', 'Pronóstico rápido', r => r.base === 'herramientas' && r.arg === 'pronostico'],
+  ],
+};
+function htmlSubnav(item, ruta) {
+  const subs = SUBNAV[item.ruta];
+  if (!subs) return '';
+  return `<nav class="sis-subnav" aria-label="${item.texto}">${subs.map(([href, t, act]) => `<a href="${href}" class="${act(ruta) ? 'activo' : ''}"${act(ruta) ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+}
 const CABEN_ABAJO = 5; // en el teléfono, si hay más secciones, las últimas van en «Más»
 
 function pintarMenu(base) {
@@ -152,17 +177,32 @@ async function mostrar() {
   const { base, arg } = leerRuta();
   const item = MENU.find(m => m.ruta === base || (m.tambien || []).includes(base));
   if (!item || !item.roles.includes(selRol.value)) { location.hash = '#/inicio'; return; }
+  if (base === 'herramientas' && !arg) { location.hash = '#/monografias'; return; }
   pintarMenu(base);
   pintarAvisos();
   const clave = `${base}/${arg || ''}/${selRol.value}/${selPersona.value}`;
+  const subnav = htmlSubnav(item, { base, arg });
+  // Módulos: la sub-barra de la sección va arriba y el módulo se monta debajo.
+  const lugarModulo = () => {
+    desmontar();
+    contenedor.innerHTML = `${subnav}<div class="sis-modulo"></div>`;
+    contenedor.dataset.vista = 'modulo';
+    return contenedor.querySelector('.sis-modulo');
+  };
+
+  if (base === 'herramientas' || base === 'sensores') {
+    // Herramientas que viven en el módulo Vuelos: Limpieza de KMZ, Pronóstico rápido y Catálogo de sensores (Drones).
+    const tab = base === 'sensores' ? 'drones' : arg === 'kml' ? 'kml' : 'rapido';
+    montado = Vuelos.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, tab });
+    rutaActual = clave;
+    window.scrollTo(0, 0);
+    return;
+  }
 
   if (base === 'vuelos') {
     // #/vuelos · #/vuelos/plan/<id> · #/vuelos/proyecto/<proyectoId>
     const partes = location.hash.replace(/^#\/?/, '').split('/');
-    desmontar();
-    contenedor.innerHTML = '';
-    contenedor.dataset.vista = 'modulo';
-    montado = Vuelos.montar(contenedor, {
+    montado = Vuelos.montar(lugarModulo(), {
       rol: selRol.value, personaId: selPersona.value || null,
       planId: partes[1] === 'plan' ? partes[2] : null, proyectoId: partes[1] === 'proyecto' ? partes[2] : null,
     });
@@ -174,10 +214,7 @@ async function mostrar() {
   if (base === 'seguimiento') {
     // #/seguimiento · #/seguimiento/<proyectoId>[/marcar|/config]
     const partes = location.hash.replace(/^#\/?/, '').split('/');
-    desmontar();
-    contenedor.innerHTML = '';
-    contenedor.dataset.vista = 'modulo';
-    montado = Seguimiento.montar(contenedor, { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, tab: partes[2] || null });
+    montado = Seguimiento.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, tab: partes[2] || null });
     rutaActual = clave;
     window.scrollTo(0, 0);
     return;
@@ -186,10 +223,7 @@ async function mostrar() {
   if (base === 'monografias') {
     // #/monografias · #/monografias/<proyectoId> · #/monografias/<proyectoId>/<monografiaId>
     const partes = location.hash.replace(/^#\/?/, '').split('/');
-    desmontar();
-    contenedor.innerHTML = '';
-    contenedor.dataset.vista = 'modulo';
-    montado = Monografias.montar(contenedor, { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, monografiaId: partes[2] || null });
+    montado = Monografias.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, monografiaId: partes[2] || null });
     rutaActual = clave;
     window.scrollTo(0, 0);
     return;
@@ -197,10 +231,7 @@ async function mostrar() {
 
   if (base === 'equipos') {
     // El módulo trae su propia sub-barra de pestañas. Se vuelve a montar al cambiar de equipo, rol o persona.
-    desmontar();
-    contenedor.innerHTML = '';
-    contenedor.dataset.vista = 'modulo';
-    montado = Equipos.montar(contenedor, { rol: selRol.value, personaId: selPersona.value || null, equipoInicial: arg });
+    montado = Equipos.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, equipoInicial: arg });
     rutaActual = clave;
     window.scrollTo(0, 0);
     return;
@@ -216,9 +247,10 @@ async function mostrar() {
     if (base === 'gastos' || base === 'terreno') html = VISTAS.pronto(ctx(), base);
     else if (base === 'proyecto') html = await VISTAS.proyecto(ctx(), arg);
     else if (base === 'proyecto-editar') html = await VISTAS.proyectoEditar(ctx(), arg || 'nuevo');
+    else if (base === 'proyectos') html = await VISTAS.proyectos(ctx(), arg);
     else html = await VISTAS[base](ctx());
     if (rutaActual !== clave) return; // el usuario ya se fue a otra pantalla
-    contenedor.innerHTML = `<div class="sis-vista">${html}</div>`;
+    contenedor.innerHTML = `${subnav}<div class="sis-vista">${html}</div>`;
   } catch (err) {
     console.error(err);
     contenedor.innerHTML = `<div class="sis-error"><b>Algo falló al cargar.</b><br>${String(err.message || err).replace(/</g, '&lt;')}</div>`;

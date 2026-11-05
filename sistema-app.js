@@ -4604,6 +4604,27 @@ Content-Type: ${mime}\r
     cacheGeo = { clave: clave2, valor };
     return valor;
   }
+  function ladosSector(geo, i, max = 8) {
+    const sec = geo && geo.sectores[i];
+    if (!sec || geo.tipo === "corredor") return [];
+    const pl = sec.poligono, xs = pl.map((p) => p[0]), ys = pl.map((p) => p[1]);
+    const tam = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    const simple = simplificar([...pl, pl[0]], Math.max(1, tam * 0.015)).slice(0, -1);
+    const lados = [];
+    for (let k = 0; k < simple.length; k++) {
+      const a = simple[k], b = simple[(k + 1) % simple.length], largo2 = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (largo2 < tam * 0.08) continue;
+      const ang = Math.atan2(b[0] - a[0], b[1] - a[1]) * 180 / Math.PI;
+      const medio = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const comun = geo.sectores.map((o, j) => j).filter((j) => j !== i && (() => {
+        const q = geo.sectores[j].poligono;
+        for (let e = 0; e < q.length; e++) if (distPuntoSegmento(medio, q[e], q[(e + 1) % q.length]) < 1) return true;
+        return false;
+      })());
+      lados.push({ a, b, medio, largo: largo2, rumbo: Math.round((ang % 180 + 180) % 180), comun });
+    }
+    return lados.sort((x, y) => y.largo - x.largo).slice(0, max).map((l, k) => ({ ...l, n: k + 1 }));
+  }
   function metaSector(hoja2, i) {
     const s = hoja2.area.sectores;
     while (s.length <= i) s.push({ despegue: null, rumbo: "", nombre: "" });
@@ -8265,8 +8286,9 @@ ${escapar(t.nota)}${t.notaPor ? `
       const vMax = d.velocidadMaxMs;
       const n = g.sectores.length;
       return `${n > 1 ? `<div class="vu-sector-sel"><label class="vu-sector-elegir"><span>Sector</span><select data-sector-sel aria-label="Sector que se muestra">${g.sectores.map((s, k) => `<option value="${k}" ${k === i ? "selected" : ""}>${escapar(nombreSector(h, k, n))} · ${fmt(s.area / 1e4, 1)} ha</option>`).join("")}</select></label>
-        <span class="vu-sector-de">Sector ${i + 1} de ${n} · los demás se ven solo como contorno</span>
-        <button type="button" class="sis-btn chico" data-accion="ir-sector" data-i="${(i + n - 1) % n}" aria-label="Sector anterior">‹</button><button type="button" class="sis-btn chico" data-accion="ir-sector" data-i="${(i + 1) % n}" aria-label="Sector siguiente">›</button>
+        <span class="vu-sector-nav"><button type="button" class="sis-btn vu-sec-btn" data-accion="ir-sector" data-i="${(i + n - 1) % n}">‹ Sector anterior</button>
+          <b class="vu-sector-de">Sector ${i + 1} de ${n}</b>
+          <button type="button" class="sis-btn primario vu-sec-btn" data-accion="ir-sector" data-i="${(i + 1) % n}">Sector siguiente ›</button></span>
         <span class="sis-tenue" id="vu-total-hoja">${htmlTotalHoja()}</span></div>` : ""}
       <div class="vu-dos">
         <div class="vu-izquierda">
@@ -8319,7 +8341,8 @@ ${escapar(t.nota)}${t.notaPor ? `
           ${r && !r.corredor ? `<div class="vu-rumbo-desl"><label for="vu-rumbo-rango"><b>Rumbo de las líneas</b> <span id="vu-rumbo-num" class="mono">${fmt(r.rumbo, 0)}°</span></label>
             <input id="vu-rumbo-rango" type="range" min="0" max="179" step="1" value="${Math.round((r.rumbo % 180 + 180) % 180)}" data-rumbo-rango aria-label="Rumbo de las líneas de vuelo">
             <div class="vu-rumbo-esc" aria-hidden="true"><span>0° N</span><span>45°</span><span>90° E</span><span>135°</span><span>179°</span></div>
-            <p class="sis-tenue">Mueve la barra: las líneas giran en el mapa y se recalculan líneas, distancia, baterías y tiempo.</p></div>` : ""}
+            <p class="sis-tenue">Mueve la barra: las líneas giran en el mapa y se recalculan líneas, distancia, baterías y tiempo.</p>
+            <div id="vu-lados">${htmlLados(r)}</div></div>` : ""}
           <p class="sis-tenue vu-pie">Arrastra el punto para cambiar el despegue: el tiempo incluye ir y volver desde él en cada batería.</p>
           <div id="vu-detalle">${htmlDetalle(r)}</div>
         </div>
@@ -8341,6 +8364,15 @@ ${escapar(t.nota)}${t.notaPor ? `
         return `<li><b>${nom}</b>: ${cam}${lugar} · ${fmtDuracion(res.minTotal)} de jornada (${ahorro})
         ${usado ? '<span class="vu-verde">✓ en uso</span>' : `<button class="sis-btn chico" data-accion="despegue-usar" data-i="${i}">Usar</button>`}</li>`;
       }).join("")}</ul>`;
+    }
+    function htmlLados(r) {
+      const g = geo(), i = secSel(), h = st.hoja, n = g.sectores.length;
+      const lados = ladosSector(g, i);
+      if (!lados.length) return "";
+      const actual = Math.round((r.rumbo % 180 + 180) % 180);
+      return `<div class="vu-lados-cab"><b>Orientar paralelo a un lado</b><span class="sis-tenue">Los números están en el mapa.</span></div>
+      <div class="vu-lados-lista">${lados.map((l) => `<button type="button" class="vu-lado${Math.abs(l.rumbo - actual) < 1 ? " activo" : ""}" data-accion="rumbo-lado" data-r="${l.rumbo}"><b>${l.n}</b><span>${fmt(l.largo, 0)} m · ${l.rumbo}°${l.comun.length ? `<small>común con ${l.comun.map((j) => escapar(nombreSector(h, j, n))).join(", ")}</small>` : ""}</span></button>`).join("")}</div>
+      ${n > 1 ? `<div class="sis-acciones"><button type="button" class="sis-btn chico" data-accion="rumbo-todos" data-r="${actual}">Usar ${actual}° en todos los sectores</button></div>` : ""}`;
     }
     function htmlTotalHoja() {
       const g = geo(), t = totales(st.hoja, dron(), g);
@@ -8454,7 +8486,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       <p class="sis-tenue">Tiempo en el aire${geo().sectores.length > 1 ? " del sector" : ""} con el dron y traslapes del plan. ⚠ sobre 120 m: requiere autorización DGAC. * sobre la velocidad sugerida.</p>
     </section>`;
     }
-    return { vistaVuelo, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd };
+    return { vistaVuelo, htmlLados, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd };
   }
 
   // modulos/vuelos/paso-clima.js
@@ -9163,7 +9195,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     function pintarVuelo(m) {
       const { L, mapa } = m;
       const g = geo(), h = st.hoja;
-      quitar(m, "sectores", "lineas", "traslados", "sugerido");
+      quitar(m, "sectores", "lineas", "traslados", "sugerido", "lados");
       if (!g) return;
       pintarCaminos(m);
       const LL = aLL(g), i = secSel();
@@ -9178,6 +9210,8 @@ ${escapar(t.nota)}${t.notaPor ? `
         }
       }))).addTo(mapa);
       if (!r) return;
+      const lados = ladosSector(g, i);
+      if (lados.length) m.capas.lados = L.layerGroup(lados.map((l) => L.marker(LL(l.medio), { interactive: false, keyboard: false, icon: L.divIcon({ className: "vu-lado-num", html: `<span>${l.n}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }) }))).addTo(mapa);
       m.capas.lineas = L.layerGroup(r.baterias.flatMap((b, k) => b.piezas.map((pz) => L.polyline(pz.slice(0, 5e3).map(LL), { color: COLORES_BATERIA[k % COLORES_BATERIA.length], weight: 2, opacity: 0.95, interactive: false })))).addTo(mapa);
       const desp = LL(r.despegueXY);
       m.capas.traslados = L.layerGroup(r.baterias.slice(0, 40).map((b) => L.polyline([desp, LL(b.inicio)], { color: "#FFFFFF", weight: 1.5, dashArray: "5 5", opacity: 0.9, interactive: false }))).addTo(mapa);
@@ -9455,6 +9489,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       barraDibujo,
       htmlVistaPrevia,
       vistaVuelo,
+      htmlLados,
       htmlTotalHoja,
       pieVelocidad,
       htmlKpis,
@@ -9498,6 +9533,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       poner("vu-detalle", htmlDetalle(r));
       poner("vu-vel-pie", pieVelocidad(r));
       poner("vu-total-hoja", htmlTotalHoja());
+      if (r && !r.corredor) poner("vu-lados", htmlLados(r));
       if (r && st.hoja.params.velocidad === "") ponerValor("velocidad", Math.round(r.velocidad * 10) / 10);
       const rr = raiz.querySelector("#vu-rumbo-rango");
       if (r && rr && document.activeElement !== rr) {
@@ -10355,6 +10391,16 @@ ${escapar(t.nota)}${t.notaPor ? `
           cambio();
           refrescarVuelo();
           return;
+        } else if (a === "rumbo-lado") {
+          metaSector(h, secSel()).rumbo = String(Number(b.dataset.r));
+          cambio();
+          refrescarVuelo();
+          return;
+        } else if (a === "rumbo-todos") {
+          const g = geo();
+          for (let k = 0; k < g.sectores.length; k++) metaSector(h, k).rumbo = String(Number(b.dataset.r));
+          avisar2(`Rumbo ${b.dataset.r}° en los ${g.sectores.length} sectores.`);
+          cambio();
         } else if (a === "vel-auto") {
           h.params.velocidad = "";
           cambio();

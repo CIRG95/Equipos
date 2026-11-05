@@ -1,7 +1,7 @@
 // modulos/vuelos/mapas.js — mapas Leaflet de Vuelos (área, vuelo, KML) con el mapa base elegido en mapa-base.js.
 
 import { cargarScript } from '../../compartido/util.js';
-import { calcularSector, metaSector, nombreSector, lineaEje, kmEnEje, kmADm, marcoDe, geometria } from './hoja.js';
+import { calcularSector, metaSector, nombreSector, lineaEje, kmEnEje, kmADm, marcoDe, geometria, ladosSector } from './hoja.js';
 import { largo, distanciaEnEje, puntoEnEje } from './geom.js';
 import { TIPOS_CAPA } from './capas.js';
 import { COLORES_BATERIA, COLORES_SECTOR } from './ui.js';
@@ -185,7 +185,7 @@ export function crearMapas(v) {
   function pintarVuelo(m) {
     const { L, mapa } = m;
     const g = geo(), h = st.hoja;
-    quitar(m, 'sectores', 'lineas', 'traslados', 'sugerido');
+    quitar(m, 'sectores', 'lineas', 'traslados', 'sugerido', 'lados');
     if (!g) return;
     pintarCaminos(m);
     const LL = aLL(g), i = secSel();
@@ -195,6 +195,9 @@ export function crearMapas(v) {
     m.capas.sectores = L.layerGroup(g.sectores.map((s, k) => L.polygon(s.poligono.map(LL), { color: k === i ? '#E8611C' : '#FFFFFF', weight: k === i ? 3 : 1, opacity: k === i ? 1 : 0.55, dashArray: k === i ? null : '4 6', fillColor: '#E8611C', fillOpacity: k === i ? 0.1 : 0, interactive: k !== i })
       .on('click', () => { if (k !== i) { h.area.sel = k; cambio(); render(); } }))).addTo(mapa);
     if (!r) return;
+    // Números de los lados del sector (orientar paralelo a un lado).
+    const lados = ladosSector(g, i);
+    if (lados.length) m.capas.lados = L.layerGroup(lados.map(l => L.marker(LL(l.medio), { interactive: false, keyboard: false, icon: L.divIcon({ className: 'vu-lado-num', html: `<span>${l.n}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }) }))).addTo(mapa);
     m.capas.lineas = L.layerGroup(r.baterias.flatMap((b, k) => b.piezas.map(pz => L.polyline(pz.slice(0, 5000).map(LL), { color: COLORES_BATERIA[k % COLORES_BATERIA.length], weight: 2, opacity: 0.95, interactive: false })))).addTo(mapa);
     const desp = LL(r.despegueXY);
     m.capas.traslados = L.layerGroup(r.baterias.slice(0, 40).map(b => L.polyline([desp, LL(b.inicio)], { color: '#FFFFFF', weight: 1.5, dashArray: '5 5', opacity: 0.9, interactive: false }))).addTo(mapa);

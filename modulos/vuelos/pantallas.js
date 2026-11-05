@@ -103,7 +103,7 @@ export function montarPantallas(contenedor, ctx) {
   Object.assign(v, crearVistaHojas(v), crearPasoArea(v), crearPasoVuelo(v), crearPasoClima(v), crearPasoPermisos(v), crearHerramientas(v), crearMapas(v));
   const {
     vistaHojas, encabezadoHoja, vistaResumen, vistaIdentificacion, pieDePaso, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo, htmlVistaPrevia,
-    vistaVuelo, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd,
+    vistaVuelo, htmlLados, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd,
     vistaClima, vistaRapido, consultarClima, consultarTramos, guardarResumenClima, vistaPermisos, imprimir, vistaKml, vistaDrones,
     mapaArea, mapaVuelo, mapaKml, pintarArea, pintarVuelo, pintarDibujo,
   } = v;
@@ -120,6 +120,7 @@ export function montarPantallas(contenedor, ctx) {
     const r = calcularSector(st.hoja, dron(), g, secSel());
     poner('vu-kpis', htmlKpis(r)); poner('vu-barra', htmlBarraRumbo(r)); poner('vu-leyenda', htmlLeyenda(r));
     poner('vu-detalle', htmlDetalle(r)); poner('vu-vel-pie', pieVelocidad(r)); poner('vu-total-hoja', htmlTotalHoja());
+    if (r && !r.corredor) poner('vu-lados', htmlLados(r));
     if (r && st.hoja.params.velocidad === '') ponerValor('velocidad', Math.round(r.velocidad * 10) / 10);
     const rr = raiz.querySelector('#vu-rumbo-rango');
     if (r && rr && document.activeElement !== rr) { rr.value = Math.round(((r.rumbo % 180) + 180) % 180); const num = raiz.querySelector('#vu-rumbo-num'); if (num) num.textContent = `${fmt(r.rumbo, 0)}°`; }
@@ -622,6 +623,11 @@ export function montarPantallas(contenedor, ctx) {
           cambio(); await render(); return;
         }
         cambio(); refrescarVuelo(); return;
+      }
+      else if (a === 'rumbo-lado') { metaSector(h, secSel()).rumbo = String(Number(b.dataset.r)); cambio(); refrescarVuelo(); return; }
+      else if (a === 'rumbo-todos') {
+        const g = geo(); for (let k = 0; k < g.sectores.length; k++) metaSector(h, k).rumbo = String(Number(b.dataset.r));
+        avisar(`Rumbo ${b.dataset.r}° en los ${g.sectores.length} sectores.`); cambio();
       }
       else if (a === 'vel-auto') { h.params.velocidad = ''; cambio(); refrescarVuelo(); return; }
       else if (a === 'leyenda') { st.leyendaAbierta = !st.leyendaAbierta; poner('vu-leyenda', htmlLeyenda(calcularSector(h, dron(), geo(), secSel()))); return; }

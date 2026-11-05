@@ -5,6 +5,7 @@ import { hoyISO } from '../../compartido/util.js';
 import { proyectar, calcularPlan, alturaParaGsd, gsdCm, areaM2 } from './calculo.js';
 import { margenPoligono, aplicarCortes, cortarEje, poligonoCorredor, largo, cortesTransversales, distanciaEnEje, puntoEnEje } from './geom.js';
 import { prolongarCorte } from './cerrados.js';
+import { simplificar, distPuntoSegmento } from './geom.js';
 
 const R_LAT = 110540, R_LON = 111320;
 
@@ -156,6 +157,28 @@ export function geometria(hoja) {
   valor.areaVuelo = areaM2(valor.vuelo);
   cacheGeo = { clave, valor };
   return valor;
+}
+
+/**
+ * Lados principales de un sector (v0.11), para orientar las líneas paralelas a uno de ellos:
+ * [{ n, a, b, largo, rumbo (0–179°), comun: [índices de los sectores con los que comparte ese lado] }], del más largo al más corto.
+ */
+export function ladosSector(geo, i, max = 8) {
+  const sec = geo && geo.sectores[i];
+  if (!sec || geo.tipo === 'corredor') return [];
+  const pl = sec.poligono, xs = pl.map(p => p[0]), ys = pl.map(p => p[1]);
+  const tam = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const simple = simplificar([...pl, pl[0]], Math.max(1, tam * 0.015)).slice(0, -1);
+  const lados = [];
+  for (let k = 0; k < simple.length; k++) {
+    const a = simple[k], b = simple[(k + 1) % simple.length], largo = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (largo < tam * 0.08) continue;
+    const ang = Math.atan2(b[0] - a[0], b[1] - a[1]) * 180 / Math.PI;
+    const medio = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const comun = geo.sectores.map((o, j) => j).filter(j => j !== i && (() => { const q = geo.sectores[j].poligono; for (let e = 0; e < q.length; e++) if (distPuntoSegmento(medio, q[e], q[(e + 1) % q.length]) < 1) return true; return false; })());
+    lados.push({ a, b, medio, largo, rumbo: Math.round(((ang % 180) + 180) % 180), comun });
+  }
+  return lados.sort((x, y) => y.largo - x.largo).slice(0, max).map((l, k) => ({ ...l, n: k + 1 }));
 }
 
 /** Datos guardados de un sector (despegue, rumbo, nombre), creando los que falten. */

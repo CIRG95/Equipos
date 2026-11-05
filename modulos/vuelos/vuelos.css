@@ -519,3 +519,15 @@ body[data-modo="pc"] .vu-doc-fila{grid-template-columns:minmax(0,1fr) 140px 140p
 .vu-doc-fila.no_aplica{opacity:.6;}
 .vu-doc-acc{display:flex; gap:10px; justify-content:flex-end;}
 .vu-log.alerta{border-color:#F1C9B6; background:#FFF8F5;}
+
+/* v0.11.1: navegación entre sectores y orientación por lado */
+.vu-sector-nav{display:flex; gap:8px; align-items:center;}
+.vu-sec-btn{min-height:44px; padding:10px 16px; font-size:14.5px; font-weight:600;}
+.vu-sector-nav .vu-sector-de{font-size:14px; color:var(--ink); padding:0 4px; white-space:nowrap;}
+.vu-lados-cab{display:flex; justify-content:space-between; gap:8px; align-items:baseline; margin-top:12px; border-top:1px solid var(--borde-suave); padding-top:10px;}
+.vu-lados-lista{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; margin:8px 0;}
+.vu-lado{display:flex; gap:8px; align-items:center; border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; cursor:pointer; text-align:left; color:var(--ink); min-height:44px;}
+.vu-lado > b{width:24px; height:24px; border-radius:50%; background:#1C1F23; color:#fff; display:grid; place-items:center; font-size:12px; flex:none;}
+.vu-lado span{display:flex; flex-direction:column;} .vu-lado small{color:var(--enlace); font-size:11.5px;}
+.vu-lado.activo{border:2px solid var(--marca); background:var(--marca-suave); padding:7px 9px;}
+.vu-lado-num span{display:grid; place-items:center; width:22px; height:22px; border-radius:50%; background:#1C1F23; color:#fff; font:600 12px/1 var(--sans); border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.4);}

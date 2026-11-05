@@ -9,7 +9,7 @@
 - **Vuelos — resumen:** filtros por estado (Planificación, Permisos, Programado, Volado, Log cargado, Procesado), tarjeta desplegada con botón «Abrir vuelo» y pronóstico de hoy al costado. El botón «Nueva hoja de vuelo» pasa a ser **Planificación**.
 - **Planificación paso a paso:** 1 Identificación (nombre, proyecto, mandante y jefe que encargó) · 2 Área · 3 Vuelo · 4 Clima · 5 Permisos, con «Anterior / Siguiente» y aviso de la información importante que falta (no bloquea).
   - Área: comuna y región automáticas (OpenStreetMap), dron y módulos, vista previa de cada método de corte, **cortes por polígonos cerrados** (desde los vértices cóncavos) y **manual por vértices**; «Zonas y caminos» queda como leyenda desplegable en Sectores.
-  - Vuelo: selector de sector, rumbo con barra deslizante, detalle del cálculo y duración de la ruta como DJI.
+  - Vuelo: selector de sector con botones grandes «Sector anterior / siguiente», rumbo con barra deslizante, **orientar paralelo a un lado del sector** (lados numerados en el mapa, indica el lado común con otro sector) y «usar este rumbo en todos los sectores», detalle del cálculo y duración de la ruta como DJI.
   - Clima: consulta sola al entrar, 10 días con calendario y pronóstico por tramo en áreas largas.
   - Permisos: tipo de zona (DAN 91, DAN 151, zona especial) con su lista de documentos, estado, vencimiento y adjunto; fecha sugerida para presentar; carga del log del vuelo.
 - **Cálculo del corredor (regla de DJI Pilot 2):** pasadas por lado con el residuo ≤ 0,50 truncado y > 0,50 sumando una, mínimo 1 por lado, a (k − ½) × separación; el eje no se vuela. **Matrice 4E con focal efectiva de 12,20 mm** (3,5 cm/px → 130,3 m). Prueba `pruebas/lineas-corredor.test.mjs` con los 6 casos de control.

@@ -15,7 +15,7 @@ const hojaCon = anillo => { const h = nuevaHoja(); h.area.tipo = 'poligono'; h.a
 
 test('GSD y altura son inversos', () => {
   for (const g of [1, 2.5, 4]) cerca(gsdCm(m4e, alturaParaGsd(m4e, g)), g, 1e-9, 'gsd');
-  cerca(gsdCm(m4e, 100), 2.666, 0.01, 'M4E a 100 m');
+  cerca(gsdCm(m4e, 100), 2.686, 0.01, 'M4E a 100 m (focal efectiva 12,20 mm, como DJI)');
 });
 
 test('fmtDuracion redondea bien', () => {

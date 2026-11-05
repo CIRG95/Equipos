@@ -4,6 +4,7 @@
 
 import { geometria, marcoDe, distanciasCorte, distanciasPorBaterias, calcularSector, dmAKm, kmADm, kmEnEje, sDeKm } from './hoja.js';
 import { ejeDePoligono, esAreaLineal, cortesTransversales, cortesParalelos, rumboLadoLargo, distanciasPorSuperficie, largo, anchoEn } from './geom.js';
+import { cortesCerrados } from './cerrados.js';
 
 export const METODOS = {
   medida: { texto: 'Cortes a medida', grupo: 'lineal', ayuda: 'Cortes fijos en los DM que elijas (escritos o marcados en el eje) y, después del último, cortes cada X m o km hasta el fin del eje. El último sector termina en el fin del eje.' },
@@ -14,7 +15,9 @@ export const METODOS = {
   n: { texto: 'En N sectores', grupo: 'todas', ayuda: 'Cortes rectos y paralelos, con la dirección que elijas, que dividen el área en N sectores de igual superficie (o igual distancia).' },
   baterias: { texto: 'Por baterías', grupo: 'todas', ayuda: 'Corta para que cada sector se vuele con esa cantidad de baterías o menos, con el despegue al centro del sector.' },
   dias: { texto: 'Por días de vuelo', grupo: 'todas', ayuda: 'Arma un sector por día según las horas de vuelo que tienes por día (incluye traslados y cambios de batería).' },
-  manual: { texto: 'Manual', grupo: 'manual', ayuda: 'Traza el corte por un camino, quebrada o cerco: toca afuera del área, sigue el borde tocando puntos y termina afuera.' },
+  cerrados: { texto: 'Por polígonos cerrados', grupo: 'todas', ayuda: 'Para áreas irregulares: corta desde los vértices cóncavos (las esquinas hacia adentro) siguiendo la prolongación de sus lados, para dejar sectores lo más rectangulares posible. Cada sector propone su dirección de vuelo.' },
+  vertices: { texto: 'Manual por vértices', grupo: 'manual', ayuda: 'Toca un vértice del área y luego otro: el corte une ambos vértices. Repite para cada corte.' },
+  manual: { texto: 'Manual (trazado libre)', grupo: 'manual', ayuda: 'Traza el corte por un camino, quebrada o cerco: toca afuera del área, sigue el borde tocando puntos y termina afuera.' },
 };
 
 /** Forma del área: para un polígono calcula (y guarda en la hoja) su eje si es lineal. Devuelve { lineal, corredor, largo, anchoMin, anchoProm, anchoMax } o null. */
@@ -187,6 +190,13 @@ export function generarCortes(hoja, extra = {}) {
     if (!(horas > 0)) throw new Error('Escribe las horas de vuelo por día.');
     return buscarN(hoja, sinCortes, g, (r) => r.minTotal <= horas * 60, 'Toda el área cabe en un día de vuelo: no hace falta cortar.', d);
   }
+  if (modo === 'cerrados') {
+    if (g.tipo === 'corredor') throw new Error('El corredor ya se corta a lo largo del eje: usa «En N sectores» o un método lineal.');
+    const c = cortesCerrados(g.vuelo);
+    if (!c.length) return { cortes: [], nota: 'El área ya es casi rectangular (o sus esquinas hacia adentro son muy chicas): no hace falta cortarla. Usa «Manual por vértices» si quieres otro corte.' };
+    return { cortes: c.map(x => x.map(g.marco.aLonLat)) };
+  }
+  if (modo === 'vertices') throw new Error('Con «Manual por vértices» se tocan dos vértices del área en el mapa («Tocar vértices»).');
   throw new Error('Con el método manual se traza cada corte en el mapa («Trazar corte»).');
 }
 

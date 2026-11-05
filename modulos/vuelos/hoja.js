@@ -4,6 +4,7 @@
 import { hoyISO } from '../../compartido/util.js';
 import { proyectar, calcularPlan, alturaParaGsd, gsdCm, areaM2 } from './calculo.js';
 import { margenPoligono, aplicarCortes, cortarEje, poligonoCorredor, largo, cortesTransversales, distanciaEnEje, puntoEnEje } from './geom.js';
+import { prolongarCorte } from './cerrados.js';
 
 const R_LAT = 110540, R_LON = 111320;
 
@@ -16,6 +17,43 @@ export const DOCUMENTOS_DGAC = [
   ['kmz', 'KMZ de la zona'], ['carta', 'Carta o autorización del mandante'], ['seguro', 'Seguro aprobado por la JAC'],
   ['credencial', 'Credencial del piloto vigente'], ['inscripcion', 'Inscripción del dron'],
 ];
+// ─────────── Documentos de la solicitud según el tipo de zona (v0.11) ───────────
+export const ZONAS_VUELO = [
+  ['no_poblada', 'Área no poblada · DAN 91'], ['poblada', 'Área poblada · DAN 151'], ['especial', 'Zona especial'],
+];
+export const DOCS_PERMISO = {
+  comunes: [
+    ['aoc', 'Certificado AOC', true], ['registro', 'Registro del RPA', false], ['licencia', 'Licencia / credencial de operador', true],
+    ['formulario', 'Formulario de solicitud', false], ['kmz', 'KMZ del polígono', false], ['lugar', 'Permiso del lugar a volar', false],
+    ['seguro', 'Seguro de responsabilidad civil vigente', true], ['espacio', 'Verificación del espacio aéreo (aeródromos y zonas)', false],
+    ['faena', 'Acreditación en faena del mandante (si aplica)', false], ['resolucion', 'Respuesta o resolución de la DGAC', true],
+  ],
+  no_poblada: [['dan91', 'Solicitud al Subdepartamento de Operaciones (SDO) · Formulario DAN 91 Anexo D', false]],
+  poblada: [
+    ['apendiceA', 'Autorización Apéndice A DAN 151 vigente', true], ['carta151', 'Carta tipo de solicitud (DAN 151 · interés público)', false],
+    ['carpeta', 'Carpeta operativa: credencial de operador, tarjeta de registro del RPA y resolución del seguro aprobado por la JAC', false],
+  ],
+  especial: [
+    ['permisoInst', 'Permiso escrito de la institución o administración del lugar', false],
+    ['aprobDgac', 'Aprobación formal de la DGAC', true],
+  ],
+};
+export const ESTADOS_DOC = [['falta', 'Falta'], ['tramite', 'En trámite'], ['adjunto', 'Listo / adjunto'], ['no_aplica', 'No aplica']];
+// Documentos de la v0.10 (casillas) → documentos nuevos.
+const DOC_ANTIGUO = { kmz: 'kmz', carta: 'lugar', seguro: 'seguro', credencial: 'licencia', inscripcion: 'registro' };
+
+/** Lista de documentos que pide la hoja según su zona: [{ k, t, vence (pide fecha), estado, fechaVence, archivoId, listo }]. */
+export function documentosPermiso(h) {
+  const p = h.permisos || {}, zona = p.zona || 'no_poblada', est = p.docsEstado || {};
+  const tieneArea = !!(h.area && (h.area.original || h.area.eje));
+  return [...DOCS_PERMISO.comunes, ...(DOCS_PERMISO[zona] || [])].map(([k, t, vence]) => {
+    const e = est[k] || {};
+    let estado = e.estado;
+    if (!estado) estado = (k === 'kmz' && tieneArea) || Object.entries(DOC_ANTIGUO).some(([a, n]) => n === k && (p.docs || {})[a]) ? 'adjunto' : 'falta';
+    return { k, t, vence, estado, fechaVence: e.vence || '', archivoId: e.archivoId || null, listo: estado === 'adjunto' || estado === 'no_aplica' };
+  });
+}
+
 export const CONSULTAS = [
   ['notam', 'NOTAM en AIP Chile', 'https://aipchile.dgac.gob.cl/notam'],
   ['aip', 'Mapa interactivo AIP Chile', 'https://aipchile.dgac.gob.cl/'],
@@ -32,7 +70,8 @@ export function nuevaHoja({ proyectoId = '', personaId = null, dronId = 'm4e' } 
       cortes: [], sectores: [], sel: 0,
     },
     clima: null,
-    permisos: { dgac: { preparado: '', enviado: '', aprobado: '', vence: '', numero: '' }, docs: {}, consultas: [] },
+    permisos: { dgac: { preparado: '', enviado: '', aprobado: '', vence: '', numero: '' }, docs: {}, consultas: [], zona: 'no_poblada', docsEstado: {}, logs: [] },
+    mandante: '', jefe: '', ubicacion: null, procesado: false,
     viento: [],
   };
 }
@@ -97,7 +136,7 @@ export function geometria(hoja) {
   } else {
     const original = fuente.map(marco.aXY);
     const vuelo = Number(a.margen) > 0 ? margenPoligono(original, Number(a.margen), { rectas: a.rectas !== false }) : original;
-    const { sectores, fallidos } = aplicarCortes(vuelo, cortes);
+    const { sectores, fallidos } = aplicarCortes(vuelo, cortes.map(c => prolongarCorte(c, vuelo)));
     let secs = sectores.map(p => ({ poligono: p, area: areaM2(p) }));
     // Área lineal con eje calculado: sectores en el orden del eje y, con DM, nombrados por su tramo (v0.8).
     if (a.ejeCalc && a.ejeCalc.linea && secs.length > 1) {
@@ -291,11 +330,28 @@ export function estadoPermiso(hoja) {
   return { texto: 'Sin iniciar', nivel: 'gris', detalle: 'mín. 7 días hábiles antes' };
 }
 
+// ─────────── Etapa del vuelo (v0.11): Planificación → Permisos → Programado → Volado → Log cargado → Procesado ───────────
+export const ETAPAS_VUELO = [
+  ['planificacion', 'Planificación', 'gris'], ['permisos', 'Permisos', 'ambar'], ['programado', 'Programado', 'azul'],
+  ['volado', 'Volado', 'verde'], ['log', 'Log cargado', 'verde'], ['procesado', 'Procesado', 'gris'],
+];
+export const NOMBRE_ETAPA_VUELO = Object.fromEntries(ETAPAS_VUELO.map(([k, t]) => [k, t]));
+export function etapaVuelo(h) {
+  const logs = (h.permisos && h.permisos.logs) || [];
+  if (h.procesado) return 'procesado';
+  if (h.estado === 'volada') return logs.length ? 'log' : 'volado';
+  if (h.estado === 'lista') return 'programado';
+  const conArea = !!(h.resumen || (h.area && (h.area.original || h.area.eje)));
+  return conArea ? 'permisos' : 'planificacion';
+}
+
 /** Resumen corto que se guarda con la hoja (para listas y la ficha del proyecto). */
 export function resumenHoja(hoja, d, geo) {
   const t = totales(hoja, d, geo);
   if (!t) return null;
-  return { area: geo.areaVuelo, gsd: hoja.params.modo === 'lidar' ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === 'corredor', modo: hoja.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null };
+  const largoLineal = geo.tipo === 'corredor' ? geo.sectores.reduce((s, x) => s + (x.largo || 0), 0) : (hoja.area.ejeCalc && hoja.area.ejeCalc.linea ? hoja.area.ejeCalc.largo : 0);
+  const [lon, lat] = geo.marco.aLonLat([0, 0]);
+  return { area: geo.areaVuelo, gsd: hoja.params.modo === 'lidar' ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === 'corredor', modo: hoja.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null, largo: largoLineal || 0, centro: [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5] };
 }
 
 // ─────────── Jornadas necesarias (v0.10) ───────────

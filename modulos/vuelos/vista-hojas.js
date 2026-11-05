@@ -4,7 +4,10 @@ import { escapar as esc, fechaLegible } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { chip, kpi, fechaHora, dosD } from './ui.js';
 import { OFICINA_ID } from '../../compartido/catalogos.js';
-import { totales, estadoPermiso, nombreSector, DOCUMENTOS_DGAC, CONSULTAS, jornadasNecesarias, HORARIO_INICIAL, kmADm } from './hoja.js';
+import { totales, estadoPermiso, nombreSector, CONSULTAS, jornadasNecesarias, HORARIO_INICIAL, kmADm, etapaVuelo, ETAPAS_VUELO, NOMBRE_ETAPA_VUELO, documentosPermiso } from './hoja.js';
+import { pedirPronostico, pedirKp } from './pronostico.js';
+import { analizarDia as analizarDiaPron } from './pronostico-widget.js';
+import { textoUbicacion } from './ubicacion.js';
 import { diasHabilesDesde, restarHabiles } from '../../compartido/periodicidad.js';
 import { ESTADOS_HOJA, PASOS } from './ui.js';
 import { resumenMetar } from './metar-ui.js';
@@ -17,23 +20,105 @@ export function crearVistaHojas(v) {
   const nomProy = ref('nomProy');
   const nomPers = ref('nomPers');
   const zonasDeHoja = ref('zonasDeHoja');
+  const render = ref('render');
 
   const opcionesProyectos = sel => `<option value="">Sin proyecto</option>` + base.proyectos.map(p => `<option value="${esc(p.id)}" ${p.id === sel ? 'selected' : ''}>${esc(p.id === OFICINA_ID ? 'Oficina' : p.nombre)}</option>`).join('');
 
-  // ─────────── Lista de hojas ───────────
+  // ─────────── Resumen de vuelos (v0.11): estados, tarjeta desplegada con «Abrir vuelo» y pronóstico al costado ───────────
+  const centroHoja = h => {
+    if (h.resumen && h.resumen.centro) return h.resumen.centro;
+    const pts = (h.area && ((h.area.original && h.area.original.anillo) || (h.area.eje && h.area.eje.linea))) || [];
+    if (!pts.length) return null;
+    return [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
+  };
+  const proximaFecha = h => { const hoy = new Date().toISOString().slice(0, 10); const dias = (h.programa && h.programa.length ? h.programa.map(x => x.fecha) : [h.fecha]).filter(Boolean).sort(); return dias.find(f => f >= hoy) || dias[dias.length - 1] || null; };
+
+  async function pronosticoLateral(h) {
+    const c = centroHoja(h);
+    if (!c) { st.pronLista = { id: h.id, sinArea: true }; return; }
+    st.pronLista = { id: h.id, cargando: true };
+    try {
+      const [p, kps] = await Promise.all([pedirPronostico(c[1], c[0], 1), st.kps ? Promise.resolve(st.kps) : pedirKp()]);
+      st.kps = kps;
+      const d = base.drones.find(x => x.id === h.dronId) || base.drones[0];
+      const dia = p.horas[0] ? p.horas[0].fecha : null;
+      st.pronLista = { id: h.id, p, a: dia ? analizarDiaPron(p, d, kps, dia) : null, d };
+    } catch (e) { st.pronLista = { id: h.id, error: 'Sin conexión para el pronóstico.' }; }
+    if (st.vista === 'hojas') render();
+  }
+
+  function htmlPronLateral(h) {
+    const x = st.pronLista;
+    const lugar = (h.ubicacion && textoUbicacion(h.ubicacion)) || nomProy(h.proyectoId);
+    let cuerpo;
+    if (!x || x.id !== h.id) { pronosticoLateral(h); cuerpo = '<p class="sis-tenue">Consultando el pronóstico…</p>'; }
+    else if (x.sinArea) cuerpo = '<p class="sis-tenue">Este vuelo aún no tiene área: el pronóstico aparece al cargarla.</p>';
+    else if (x.cargando) cuerpo = '<p class="sis-tenue">Consultando el pronóstico…</p>';
+    else if (x.error) cuerpo = `<p class="sis-tenue">${esc(x.error)}</p>`;
+    else {
+      const f = x.a.filas, ahora = new Date().getHours();
+      const fNow = f.find(r => r.h.hora === ahora) || f[0];
+      const conLuz = f.filter(r => r.ev.estado !== 'noche');
+      const vMax = Math.max(...conLuz.map(r => r.h.v || 0)), gMax = Math.max(...conLuz.map(r => r.h.g || 0));
+      const temps = f.map(r => r.h.temp).filter(t => t != null);
+      const col = { go: '#A7D7C5', marg: '#F3C9A0', no: '#E8A08A', noche: '#D9DCE0' };
+      cuerpo = `<div class="vu-pl-temp"><b>${fNow && fNow.h.temp != null ? fmt(fNow.h.temp, 0) + '°' : '—'}</b><span>${temps.length ? `mín ${fmt(Math.min(...temps), 0)}° · máx ${fmt(Math.max(...temps), 0)}°` : ''}</span></div>
+        <div class="vu-pl-grilla">
+          <div class="${vMax > x.d.vientoMaxMs * 0.8 ? 'alerta' : ''}"><small>Viento 120 m (máx.)</small><b>${fmt(vMax, 1)} m/s</b></div>
+          <div class="${gMax > x.d.rafagaMaxMs * 0.8 ? 'alerta' : ''}"><small>Ráfaga (máx.)</small><b>${fmt(gMax, 1)} m/s</b></div>
+          <div><small>Índice Kp</small><b>${x.a.kpMax != null ? fmt(x.a.kpMax, 0) : '—'}</b></div>
+          <div><small>Luz útil</small><b>${x.a.sol && x.a.sol.salida ? `${x.a.sol.salida.slice(11, 16)}–${(x.a.sol.puesta || '').slice(11, 16)}` : '—'}</b></div>
+        </div>
+        <div class="vu-pl-horas" role="img" aria-label="Estado por hora: verde se puede volar, naranjo marginal, rojo no">${f.map(r => `<i style="background:${col[r.ev.estado]}" title="${dosD(r.h.hora)}:00 · ${esc(r.ev.estado === 'go' ? 'GO' : r.ev.estado === 'marg' ? 'marginal' : r.ev.estado === 'no' ? 'NO' : 'noche')}${r.ev.motivos.length ? ' · ' + esc(r.ev.motivos.join(', ')) : ''}"></i>`).join('')}</div>
+        <div class="vu-pl-eje"><span>00 h</span><span>12 h</span><span>23 h</span></div>
+        <p class="vu-pl-ventana">${x.a.ventana ? `Ventana GO <b>${dosD(x.a.ventana[0])}:00 – ${dosD(x.a.ventana[1] + 1)}:00</b>` : '<b class="vu-rojo">Sin ventana GO hoy</b>'}</p>`;
+    }
+    return `<aside class="sis-tarjeta vu-pron-lateral"><small class="sis-tenue">Pronóstico de hoy · vuelo seleccionado</small><h2>${esc(lugar)}</h2>${cuerpo}
+      <p class="sis-tenue">Límites del ${esc((base.drones.find(y => y.id === h.dronId) || {}).familiaNombre || 'dron')}. Al elegir otro vuelo, cambia el lugar.</p></aside>`;
+  }
+
   function vistaHojas() {
-    const lista = base.hojas.filter(h => !st.filtroProyecto || h.proyectoId === st.filtroProyecto);
-    return `<div class="sis-cab"><h1>Hojas de vuelo</h1><button class="sis-btn primario" data-accion="nueva-hoja">+ Nueva hoja de vuelo</button></div>
-      <p class="sis-tenue">Una hoja por trabajo de vuelo: área, plan de vuelo, clima y permisos en un solo lugar, con la hoja para terreno.</p>
-      <label class="sis-campo vu-filtro"><span>Proyecto</span><select data-campo="filtroProyecto"><option value="">Todos</option>${base.proyectos.map(p => `<option value="${esc(p.id)}" ${p.id === st.filtroProyecto ? 'selected' : ''}>${esc(p.id === OFICINA_ID ? 'Oficina' : p.nombre)}</option>`).join('')}</select></label>
-      <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map(h => {
-        const r = h.resumen || {}; const [et, cl] = ESTADOS_HOJA[h.estado] || ESTADOS_HOJA.borrador;
-        return `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(h.nombre || 'Hoja sin nombre')}</b>
-          <span class="sis-tenue">${esc(nomProy(h.proyectoId))} · ${h.fecha ? fechaLegible(h.fecha) : 'sin fecha'}${h.pilotoId ? ` · ${esc(nomPers(h.pilotoId))}` : ''}</span>
-          <span class="sis-chips">${chip(et, cl)}${r.area ? chip(`${fmt(r.area / 10000, 1)} ha`) : ''}${r.sectores > 1 ? chip(`${r.sectores} sectores`) : ''}${r.corredor ? chip('Corredor') : ''}${r.vuelos ? chip(`${r.vuelos} batería${r.vuelos > 1 ? 's' : ''} · ${fmtDuracion(r.minTotal)}`, 'azul') : ''}</span></span>
-          <span class="sis-acciones"><button class="sis-btn chico" data-accion="abrir-hoja" data-id="${h.id}">Abrir</button>
-          <button class="sis-btn chico peligro" data-accion="eliminar-hoja" data-id="${h.id}">Eliminar</button></span></div>`;
-      }).join('')}</div>` : '<div class="sis-vacio"><p>Todavía no hay hojas de vuelo. Crea una y carga el KMZ del área (o la línea del corredor).</p></div>'}</section>`;
+    const filtroProy = h => !st.filtroProyecto || h.proyectoId === st.filtroProyecto;
+    const todas = base.hojas.filter(filtroProy).filter(h => st.verProcesados || etapaVuelo(h) !== 'procesado');
+    const cuenta = Object.fromEntries(ETAPAS_VUELO.map(([k]) => [k, base.hojas.filter(filtroProy).filter(h => etapaVuelo(h) === k).length]));
+    const lista = todas.filter(h => !st.filtroEtapa || etapaVuelo(h) === st.filtroEtapa)
+      .sort((a, b) => (proximaFecha(a) || '9999').localeCompare(proximaFecha(b) || '9999'));
+    const sel = lista.find(h => h.id === st.selHoja) || lista[0];
+    const claseEt = Object.fromEntries(ETAPAS_VUELO.map(([k, , c]) => [k, c]));
+    const tarjeta = h => {
+      const r = h.resumen || {}, et = etapaVuelo(h), abierta = sel && h.id === sel.id, f = proximaFecha(h);
+      const etapas = ETAPAS_VUELO.map(([k, t], i) => { const iAct = ETAPAS_VUELO.findIndex(e => e[0] === et); return `<span class="${i < iAct ? 'hecho' : i === iAct ? 'actual' : ''}">${t}</span>`; }).join('');
+      if (!abierta) return `<button type="button" class="vu-vuelo" data-accion="sel-vuelo" data-id="${esc(h.id)}">
+          <span class="vu-vuelo-txt"><b>${esc(h.nombre || 'Vuelo sin nombre')}</b><small>${esc([nomProy(h.proyectoId), (base.drones.find(d => d.id === h.dronId) || {}).familiaNombre, r.area ? `${fmt(r.area / 10000, 1)} ha` : '', textoUbicacion(h.ubicacion)].filter(Boolean).join(' · '))}</small></span>
+          ${chip(NOMBRE_ETAPA_VUELO[et], claseEt[et])}<small class="vu-vuelo-fecha">${f ? esc(diaCorto(f)) : 'sin fecha'}</small></button>`;
+      const perm = estadoPermiso(h);
+      return `<article class="vu-vuelo abierto">
+          <div class="vu-vuelo-cab"><span class="vu-vuelo-txt"><b>${esc(h.nombre || 'Vuelo sin nombre')}</b><small>${esc([nomProy(h.proyectoId), h.mandante, (base.drones.find(d => d.id === h.dronId) || {}).familiaNombre, r.modo === 'lidar' ? 'LiDAR' : 'Fotogrametría', r.gsd ? `GSD ${fmt(r.gsd, 2)} cm` : ''].filter(Boolean).join(' · '))}</small></span>${chip(NOMBRE_ETAPA_VUELO[et], claseEt[et])}</div>
+          <div class="vu-etapas-vuelo">${etapas}</div>
+          <div class="vu-vuelo-datos">
+            <div><small>Ubicación</small><b>${esc(textoUbicacion(h.ubicacion) || '—')}</b></div>
+            <div><small>${r.corredor ? 'Corredor' : 'Superficie'}</small><b>${r.area ? `${fmt(r.area / 10000, 1)} ha${r.largo ? ` · ${fmt(r.largo / 1000, 1)} km` : ''}` : '—'}${r.sectores > 1 ? ` · ${r.sectores} sectores` : ''}</b></div>
+            <div><small>Próxima jornada</small><b>${f ? esc(diaCorto(f)) : 'sin fecha'}${h.programa && h.programa.length > 1 ? ` · ${h.programa.length} días` : ''}</b></div>
+            <div><small>Permiso DGAC</small><b>${esc(perm.texto)}</b></div>
+          </div>
+          <div class="vu-vuelo-acc"><button type="button" class="sis-btn primario vu-abrir" data-accion="abrir-hoja" data-id="${esc(h.id)}">Abrir vuelo</button>
+            <button type="button" class="sis-btn chico peligro" data-accion="eliminar-hoja" data-id="${esc(h.id)}">Eliminar</button></div>
+        </article>`;
+    };
+    return `<div class="sis-cab"><h1>Vuelos</h1><button class="sis-btn primario" data-accion="nueva-hoja">Planificación</button></div>
+      <p class="sis-tenue">Los vuelos que se están realizando o que hay que hacer, con su estado. «Planificación» arma un vuelo nuevo paso a paso.</p>
+      <div class="vu-filtros">
+        <div class="vu-chips-filtro" role="group" aria-label="Filtrar por estado">
+          <button type="button" class="vu-chip-f${!st.filtroEtapa ? ' activo' : ''}" data-accion="filtro-etapa" data-e="">Todos ${todas.length}</button>
+          ${ETAPAS_VUELO.filter(([k]) => k !== 'procesado' || st.verProcesados).map(([k, t]) => `<button type="button" class="vu-chip-f${st.filtroEtapa === k ? ' activo' : ''}" data-accion="filtro-etapa" data-e="${k}">${t} ${cuenta[k]}</button>`).join('')}
+        </div>
+        <label class="sis-campo vu-filtro"><span>Proyecto</span><select data-campo="filtroProyecto"><option value="">Todos</option>${base.proyectos.map(p => `<option value="${esc(p.id)}" ${p.id === st.filtroProyecto ? 'selected' : ''}>${esc(p.id === OFICINA_ID ? 'Oficina' : p.nombre)}</option>`).join('')}</select></label>
+        <label class="sis-check"><input type="checkbox" data-campo="verProcesados" ${st.verProcesados ? 'checked' : ''}> Mostrar procesados (${cuenta.procesado})</label>
+      </div>
+      <div class="vu-resumen-vuelos">
+        <div class="vu-lista-vuelos">${lista.length ? lista.map(tarjeta).join('') : `<div class="sis-vacio"><p>${base.hojas.length ? 'No hay vuelos con este filtro.' : 'Todavía no hay vuelos. Toca «Planificación» y carga el KMZ del área.'}</p></div>`}</div>
+        ${sel ? htmlPronLateral(sel) : ''}
+      </div>`;
   }
 
   // ─────────── Encabezado de la hoja ───────────
@@ -47,10 +132,11 @@ export function crearVistaHojas(v) {
     const c = h.clima;
     const climaObs = c && c.checklist && c.checklist.some(x => !x.cumple);
     const marcas = {
+      identificacion: faltantes('identificacion').length ? (h.nombre ? 'aviso' : '') : 'ok',
       area: g ? (g.fallidos.length ? 'aviso' : 'ok') : '',
       vuelo: t ? (t.excede ? 'aviso' : 'ok') : '',
       clima: c ? (climaObs ? 'aviso' : 'ok') : '',
-      permisos: perm.nivel === 'ok' && consultasHechas(h) ? 'ok' : (h.permisos.dgac.preparado || h.permisos.consultas.length ? 'aviso' : ''),
+      permisos: perm.nivel === 'ok' && consultasHechas(h) && !faltantes('permisos').length ? 'ok' : (h.permisos.dgac.preparado || h.permisos.consultas.length || Object.keys(h.permisos.docsEstado || {}).length ? 'aviso' : ''),
     };
     return `<div class="sis-encabezado vu-hoja-cab">
         <div>
@@ -64,9 +150,12 @@ export function crearVistaHojas(v) {
             <span class="sis-tenue" id="vu-guardado">${h.id ? 'Guardado' : 'Se guarda sola al cargar el área o ponerle nombre'}</span>
           </div>
         </div>
-        <div class="sis-acciones">${chip(et, cl)}
+        <div class="sis-acciones">${chip(NOMBRE_ETAPA_VUELO[etapaVuelo(h)], (ETAPAS_VUELO.find(e => e[0] === etapaVuelo(h)) || [])[2] || 'gris')}
           <button class="sis-btn chico" data-accion="imprimir" ${g ? '' : 'disabled'}>Hoja para terreno (PDF)</button>
-          ${h.estado === 'borrador' ? '<button class="sis-btn chico primario" data-accion="estado" data-e="lista">Marcar lista</button>' : h.estado === 'lista' ? '<button class="sis-btn chico primario" data-accion="estado" data-e="volada">Marcar volada</button>' : '<button class="sis-btn chico" data-accion="estado" data-e="borrador">Volver a borrador</button>'}
+          ${h.estado === 'borrador' ? '<button class="sis-btn chico primario" data-accion="estado" data-e="lista">Programar</button>'
+            : h.estado === 'lista' ? '<button class="sis-btn chico primario" data-accion="estado" data-e="volada">Marcar volado</button><button class="sis-btn chico" data-accion="estado" data-e="borrador">Volver a planificación</button>'
+            : h.procesado ? '<button class="sis-btn chico" data-accion="procesado" data-v="0">Quitar «procesado»</button>'
+            : `${(h.permisos.logs || []).length ? '' : '<button class="sis-btn chico primario" data-accion="paso" data-paso="permisos">Cargar log</button>'}<button class="sis-btn chico${(h.permisos.logs || []).length ? ' primario' : ''}" data-accion="procesado" data-v="1">Marcar procesado</button><button class="sis-btn chico" data-accion="estado" data-e="lista">Volver a programado</button>`}
         </div>
       </div>
       <div class="vu-tira">
@@ -77,7 +166,9 @@ export function crearVistaHojas(v) {
         ${kpi('Kp · luz', c ? `${c.kpMax != null ? fmt(c.kpMax, 0) : '—'} · ${c.sol ? c.sol.join('–') : '—'}` : '—', c ? 'Kp ≤ 4 para GNSS' : '')}
         ${kpi('Permiso DGAC', perm.texto, perm.detalle, perm.nivel === 'ok' ? 'bien' : perm.nivel === 'aviso' ? 'alerta' : '')}
       </div>
-      <nav class="vu-pasos" aria-label="Pasos de la hoja">${PASOS.map(([k, t]) => `<button class="vu-paso${st.paso === k ? ' activo' : ''}" data-accion="paso" data-paso="${k}">${t}${marcas[k] === 'ok' ? ' <i class="vu-ok" aria-label="listo">✓</i>' : marcas[k] === 'aviso' ? ' <i class="vu-alerta" aria-label="revisar">!</i>' : ''}</button>`).join('')}</nav>`;
+      <nav class="vu-pasos vu-stepper" aria-label="Pasos de la planificación">
+        <button class="vu-paso vu-paso-res${st.paso === 'resumen' ? ' activo' : ''}" data-accion="paso" data-paso="resumen">Resumen</button>
+        ${PASOS.map(([k, t], n) => { const mk = marcas[k]; return `<button class="vu-paso${st.paso === k ? ' activo' : ''} ${mk || 'pend'}" data-accion="paso" data-paso="${k}" ${st.paso === k ? 'aria-current="step"' : ''}><span class="vu-paso-n">${mk === 'ok' ? '✓' : mk === 'aviso' ? '!' : n + 1}</span>${t.replace(/^\d · /, '')}</button>`; }).join('')}</nav>`;
   }
 
   // ─────────── Resumen (v0.10): avance, área con cinta, jornadas necesarias, clima por jornada y plazo DGAC ───────────
@@ -191,13 +282,74 @@ export function crearVistaHojas(v) {
               ['Vuelo', h.fecha ? fechaLegible(h.fecha) : 'sin fecha', ''],
             ]; return `<div class="vu-etapas">${et.map(([a, b, e]) => `<div class="vu-etapa ${e}"><b>${a}</b><small>${esc(b)}</small></div>`).join('')}</div>`; })()}
           <div class="vu-res-chips">${CONSULTAS.map(([k, tt]) => { const x = ultimaConsulta(h, k); return chip(`${tt.split(/[:(]/)[0].trim()} · ${x ? `revisado ${fechaLegible(x.fecha.slice(0, 10))}` : 'pendiente'}`, x ? 'verde' : 'gris'); }).join('')}
-            ${chip(`Documentos ${DOCUMENTOS_DGAC.filter(([k]) => h.permisos.docs[k]).length}/${DOCUMENTOS_DGAC.length}`, DOCUMENTOS_DGAC.every(([k]) => h.permisos.docs[k]) ? 'verde' : 'gris')}</div>
+            ${(() => { const ds = documentosPermiso(h), listos = ds.filter(x => x.listo).length; return chip(`Documentos ${listos}/${ds.length}`, listos === ds.length ? 'verde' : 'gris'); })()}</div>
           <p class="sis-tenue vu-res-nota">La fecha límite sale de la regla de 7 días hábiles antes del primer día de vuelo.</p>
         </section>
       </div>`;
   }
+  // ─────────── Paso 1 · Identificación (v0.11) ───────────
+  const proyectoDe = h => base.proyectos.find(p => p.id === h.proyectoId) || null;
+  function vistaIdentificacion() {
+    const h = st.hoja, p = proyectoDe(h);
+    return `<section class="sis-tarjeta vu-identif"><h2>¿Qué se vuela y quién lo encargó?</h2>
+        <div class="vu-datos-grilla">
+          <label class="sis-campo vu-ancho"><span>Nombre del proyecto o vuelo *</span><input data-hoja="nombre" value="${esc(h.nombre)}" placeholder="Planta Norte — vuelo 1"></label>
+          <label class="sis-campo"><span>Proyecto</span><select data-hoja="proyectoId">${opcionesProyectos(h.proyectoId)}</select></label>
+          <label class="sis-campo"><span>Mandante *</span><input data-identif="mandante" value="${esc(h.mandante || '')}" placeholder="${esc((p && p.mandante) || 'Empresa que encarga el trabajo')}"></label>
+          <label class="sis-campo"><span>Jefe que encargó el trabajo *</span><input data-identif="jefe" value="${esc(h.jefe || '')}" placeholder="${esc((p && p.solicitadoPor) || 'Nombre y cargo')}"></label>
+          <label class="sis-campo"><span>Primer día de vuelo</span><input type="date" data-hoja="fecha" value="${esc(h.fecha || '')}"></label>
+          <label class="sis-campo"><span>Piloto</span><select data-hoja="pilotoId"><option value="">—</option>${base.personas.map(x => `<option value="${esc(x.id)}" ${x.id === h.pilotoId ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+        </div>
+        <p class="sis-tenue">Al elegir el proyecto se completan el mandante y quien lo encargó desde su ficha. Se pueden cambiar para este vuelo.</p>
+      </section>`;
+  }
+
+  /** Datos importantes que faltan en un paso (no bloquean: solo se avisan). */
+  function faltantes(paso) {
+    const h = st.hoja, g = geo(), d = dron(), out = [];
+    if (paso === 'identificacion') {
+      if (!h.nombre) out.push('el nombre del proyecto o vuelo');
+      if (!h.mandante && !(proyectoDe(h) || {}).mandante) out.push('el mandante');
+      if (!h.jefe && !(proyectoDe(h) || {}).solicitadoPor) out.push('quién encargó el trabajo');
+      if (!h.fecha) out.push('el primer día de vuelo');
+      if (!h.pilotoId) out.push('el piloto');
+    } else if (paso === 'area') {
+      if (!g) out.push('el área (KMZ, KML o dibujada)');
+      else {
+        if (!(h.ubicacion && (h.ubicacion.comuna || h.ubicacion.region))) out.push('la comuna y la región');
+        if (g.fallidos.length) out.push('revisar los cortes que no cruzan el área');
+        const t = d ? totales(h, d, g) : null;
+        if (t && g.sectores.length === 1 && (t.baterias > 6 || t.excede)) out.push('dividir el área en sectores (es grande)');
+      }
+    } else if (paso === 'vuelo') {
+      const t = g && d ? totales(h, d, g) : null;
+      if (!t) out.push('el área');
+      else if (t.excede) out.push('acercar el despegue o dividir: hay tramos que no alcanzan con una batería');
+    } else if (paso === 'clima') {
+      if (!h.clima) out.push('consultar el pronóstico del día de vuelo');
+      else if (h.clima.checklist && h.clima.checklist.some(x => !x.cumple)) out.push('revisar el checklist del clima');
+    } else if (paso === 'permisos') {
+      const pend = documentosPermiso(h).filter(x => !x.listo).length;
+      if (pend) out.push(`${pend} documento${pend === 1 ? '' : 's'} de la solicitud`);
+      if (!h.permisos.dgac.enviado && !h.permisos.dgac.aprobado) out.push('enviar la solicitud a la DGAC');
+      if (h.estado === 'volada' && !(h.permisos.logs || []).length) out.push('cargar el log del vuelo');
+    }
+    return out;
+  }
+
+  function pieDePaso() {
+    const k = PASOS.findIndex(([p]) => p === st.paso);
+    if (k < 0) return '';
+    const falta = faltantes(st.paso), ant = PASOS[k - 1], sig = PASOS[k + 1];
+    return `<div class="vu-pie-paso${falta.length ? ' con-aviso' : ''}">
+      <div class="vu-pie-aviso">${falta.length ? `<b>Falta información importante:</b> ${esc(falta.join(' · '))}. Puedes seguir y completarla después.` : '<span class="vu-verde">✓ Paso completo</span>'}</div>
+      <div class="sis-acciones">${ant ? `<button class="sis-btn" data-accion="paso" data-paso="${ant[0]}">← Anterior</button>` : '<button class="sis-btn" data-accion="paso" data-paso="resumen">← Resumen</button>'}
+        ${sig ? `<button class="sis-btn primario" data-accion="paso" data-paso="${sig[0]}">Siguiente: ${esc(sig[1].replace(/^\d · /, ''))} →</button>` : '<button class="sis-btn primario" data-accion="paso" data-paso="resumen">Terminar: ver resumen</button>'}</div>
+    </div>`;
+  }
+
   const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   const diaCorto = iso => { const [y, m, dd] = iso.split('-').map(Number); return `${DIAS_SEM[new Date(y, m - 1, dd, 12).getDay()]} ${dd}-${String(m).padStart(2, '0')}`; };
 
-  return { vistaHojas, encabezadoHoja, vistaResumen, ultimaConsulta };
+  return { vistaHojas, encabezadoHoja, vistaResumen, ultimaConsulta, vistaIdentificacion, pieDePaso, faltantes };
 }

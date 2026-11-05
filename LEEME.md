@@ -1,8 +1,22 @@
-# Topoland · Sistema de trabajo — v0.10 (Resumen de la hoja, jornadas, periodicidad y calendario)
+# Topoland · Sistema de trabajo — v0.11 (reorganización: Inicio, Proyectos, Vuelos paso a paso, Equipos y Herramientas)
 
-**Sistema v0.10 = v0.9 + Vuelos 0.8 + Seguimiento 0.2 + Calendario y periodicidad de proyectos.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
+**Sistema v0.11 = v0.10 + navegación nueva + Vuelos 0.9 + Equipos 0.2 + Monografías 0.3.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
 
-## Qué cambia en v0.10
+## Qué cambia en v0.11
+- **Navegación:** Inicio · Proyectos (Activos, Calendario, Entregas, Registro por mandante) · Vuelos · Equipos (Equipos, Catálogo de sensores) · Herramientas (Monografías, Limpieza de KMZ, Pronóstico rápido). «Seguimiento» pasa a **Proyectos › Entregas**.
+- **Inicio:** indicadores (proyectos activos por etapa, vuelos de la semana, alertas, entregas de 7 días), franja de 2 semanas por proyecto, estado de los proyectos, alertas de equipos y avisos de permisos (solicitud DGAC sin registrar y log de vuelo pendiente desde que el proyecto pasa a gabinete).
+- **Proyectos:** etapas Terreno → Proceso en gabinete → Entregables → Completado (`proyecto.etapa`, `proyecto.etapas` con la fecha de cada una). Tarjetas o columnas por etapa. Al completar, el proyecto se cierra y queda en el **Registro por mandante** (superficie, longitud, plazo medio, exportar CSV).
+- **Vuelos — resumen:** filtros por estado (Planificación, Permisos, Programado, Volado, Log cargado, Procesado), tarjeta desplegada con botón «Abrir vuelo» y pronóstico de hoy al costado. El botón «Nueva hoja de vuelo» pasa a ser **Planificación**.
+- **Planificación paso a paso:** 1 Identificación (nombre, proyecto, mandante y jefe que encargó) · 2 Área · 3 Vuelo · 4 Clima · 5 Permisos, con «Anterior / Siguiente» y aviso de la información importante que falta (no bloquea).
+  - Área: comuna y región automáticas (OpenStreetMap), dron y módulos, vista previa de cada método de corte, **cortes por polígonos cerrados** (desde los vértices cóncavos) y **manual por vértices**; «Zonas y caminos» queda como leyenda desplegable en Sectores.
+  - Vuelo: selector de sector, rumbo con barra deslizante, detalle del cálculo y duración de la ruta como DJI.
+  - Clima: consulta sola al entrar, 10 días con calendario y pronóstico por tramo en áreas largas.
+  - Permisos: tipo de zona (DAN 91, DAN 151, zona especial) con su lista de documentos, estado, vencimiento y adjunto; fecha sugerida para presentar; carga del log del vuelo.
+- **Cálculo del corredor (regla de DJI Pilot 2):** pasadas por lado con el residuo ≤ 0,50 truncado y > 0,50 sumando una, mínimo 1 por lado, a (k − ½) × separación; el eje no se vuela. **Matrice 4E con focal efectiva de 12,20 mm** (3,5 cm/px → 130,3 m). Prueba `pruebas/lineas-corredor.test.mjs` con los 6 casos de control.
+- **Equipos:** vista tarjetas o lista, filtro por tipo de equipo, datos de la cámara del catálogo en tarjetas y ficha, **alta paso a paso** (Tipo → Marca y modelo → Serie y registro → Calibración y documentos → Resumen).
+- **Monografías:** configuración (crear N fichas, logo de la empresa), una pestaña por ficha, Descripción y/u Observación, clientes con su logo, ubicación y datos del operador aplicables a todas las fichas, datums/zonas/geoides, formato DD o D°M'S" con decimales, croquis generado desde un mapa híbrido con símbolo y letra configurables, estado de revisión bajo el chequeo.
+
+## Qué cambió en v0.10
 - **Resumen de la hoja de vuelo, más visual:**
   - Avance de los 4 pasos (Área · Vuelo · Clima · Permisos) con barra y botón «Siguiente».
   - Área: esquema del área con los sectores pintados por jornada, datos clave (origen, corredor o superficie, **cantidad de sectores** y largo o superficie promedio, zona más cercana) y cinta de sectores con el detalle al pasar el mouse (ya no la lista de nombres).

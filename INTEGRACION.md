@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.10
+# INTEGRACION.md — Sistema v0.11
 
 ## Qué contiene
 
@@ -135,3 +135,17 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Vuelos 0.8: `hoja.params.horario` `{inicio, fin, pausa, traslado}`, `jornadasNecesarias`, `minutosUtiles`; `hoja.programa` `[{fecha, dia, de, sectores, min, baterias}]`. Resumen nuevo en `vista-hojas.js`.
 - Seguimiento 0.2: el ciclo guarda `entrega`, `terreno`, `diasEntrega` cuando sale de la periodicidad; `plazoCiclo` usa `ciclo.entrega` si existe.
 - Sin almacenes nuevos ni cambios en el paquete de conexión (Terreno no se actualiza).
+
+
+## Sistema v0.11
+- **Envoltorio (`app/sistema.js`):** menú Inicio · Proyectos · Vuelos · Equipos · Herramientas · Personas · Gastos y sub-pestañas por sección (`SUBNAV`). Rutas nuevas: `#/proyectos/calendario`, `#/proyectos/registro`, `#/sensores` (Vuelos con `tab: 'drones'`), `#/herramientas/kml` y `#/herramientas/pronostico` (Vuelos con `tab`). `#/seguimiento` y `#/monografias` siguen igual y se ven dentro de Proyectos y Herramientas. Los módulos se montan en `.sis-modulo`, debajo de la sub-barra. Vuelos ya no muestra su barra de herramientas (`ctx.conNav` la vuelve a mostrar).
+- **Proyecto:** campos `etapa` (`terreno` | `gabinete` | `entregables` | `completado`) y `etapas` (`{ etapa: fecha }`). «Completado» pone `estado: 'cerrado'`. `app/catalogo.js`: `ETAPAS_PROYECTO`, `etapaProyecto(p)`.
+- **Vuelos 0.9 (puerta):** `listarVuelos()` → vuelos con `etapa` (`hoja.js › etapaVuelo`: planificacion, permisos, programado, volado, log, procesado), fechas, logs y documentos pendientes.
+  - Hoja (campos opcionales, sin cambio de `schemaVersion`): `mandante`, `jefe`, `ubicacion` `{ comuna, region, pais, codigoPais, auto }`, `procesado`, `permisos.zona`, `permisos.docsEstado` `{ k: { estado, vence, archivoId } }`, `permisos.logs` `[{ id, nombre, fecha, personaId, archivoId }]`. `resumen` agrega `largo` y `centro`.
+  - `cerrados.js`: `cortesCerrados(poli)` y `prolongarCorte(corte, poli)`; `geometria()` prolonga los cortes cuyos extremos están sobre el borde (cortes de vértice a vértice). Métodos nuevos en `cortes.js`: `cerrados` y `vertices`.
+  - `geom.js`: `pasadasPorLado`, `pasadasCorredor` con la regla de DJI; `calculo.js` devuelve `detalle` y `minRutaDji`. `drones.js`: Matrice 4E `focalMm: 12.2` (`focalFichaMm: 12.29`); una corrección guardada con 12,29 ya no pisa la nueva.
+  - `ubicacion.js`: comuna y región por Nominatim (OpenStreetMap). Clima: `pedirPronostico(lat, lon, 10)` y pronóstico por tramo.
+  - Archivos de permisos y logs en `compartido_archivos` (`duenoTipo: 'vuelos_hoja'`, `rol: 'documento' | 'log'`).
+- **Equipos 0.2:** `sensores.js` (datos de cámara desde el catálogo de Vuelos), vista tarjetas/lista (`localStorage['eq_vista_lista']`), filtro por categoría y vista `alta` paso a paso. Sin cambios en `datos.js` ni en la puerta.
+- **Monografías 0.3:** `coordenadas.js` (datums, zonas, geoides, formato DD/DMS), `croquis.js` (mapa Esri → imagen), pestañas por ficha, campos `observacionPdf`, `modulos.observacion`, `paisUTM`, `formatoGeo`, `decimalesGeo`, `firmaPropia`. Logos de clientes en `compartido_archivos` con `duenoTipo: 'cliente_logo'` y `duenoId` = nombre normalizado. Grupos «para todas las fichas» en `localStorage['mono_comun_<proyectoId>']`. `pieza-terreno.js` no cambia: la Observación se agrega al texto de la descripción al armar el PDF.
+- **Sin almacenes ni índices nuevos:** `compartido/esquema.js` y el paquete de conexión 1.3 no cambian (se verificó que `paquete-conexion/topoland-conexion.js` queda idéntico). El paquete de pronóstico solo cambia en el dato de focal de la Matrice 4E; la copia de Terreno no necesita actualizarse.

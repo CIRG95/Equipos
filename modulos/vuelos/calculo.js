@@ -1,7 +1,7 @@
 // modulos/vuelos/calculo.js — cálculos de planificación (funciones puras, sin pantalla ni base de datos).
 // Aproximaciones para cotizar y planificar; el vuelo real se programa en DJI Pilot 2.
 
-import { recorrerPorBaterias, pasadasCorredor, largo as largoLinea } from './geom.js';
+import { recorrerPorBaterias, pasadasCorredor, pasadasPorLado, largo as largoLinea } from './geom.js';
 
 const R_LAT = 110540;   // m por grado de latitud
 const R_LON = 111320;   // m por grado de longitud en el ecuador
@@ -146,6 +146,13 @@ export function calcularPlan(p) {
   }
   const minTotal = segMision / 60 + vuelos * p.minDespegue + (vuelos - 1) * p.minCambio;
 
+  // Detalle del cálculo de líneas (para mostrarlo y compararlo con DJI Pilot 2) y duración de la ruta como la muestra DJI:
+  // recorrido de las líneas y traslados laterales a la velocidad de misión + un giro por cambio de línea + ~20 s fijos.
+  const franja = barrido || huellaAncho;
+  const lado = semi => { const q = semi / sepLineas; return { semi, cociente: q, residuo: q - Math.floor(q + 1e-9), pasadas: pasadasPorLado(semi, sepLineas) }; };
+  const detalle = { franja, sepLineas, lados: p.eje && p.eje.length >= 2 ? { izq: lado(p.izq), der: lado(p.der) } : null };
+  const segRutaDji = distancia / v + Math.max(0, nLineas - 1) * p.segGiro + 20;
+
   const intervalo = sepFotos / v;
   const densidad = barrido ? d.lidar.puntosPorSegundo / (v * sepLineas) : null;
   const densidadPasada = barrido ? d.lidar.puntosPorSegundo / (v * barrido) : null;
@@ -163,6 +170,7 @@ export function calcularPlan(p) {
     nLineas, distancia, fotos, intervalo, velBarrido, velIntervalo, velSugerida, limites,
     minMision: segMision / 60, minUtiles, vuelos, minTotal, densidad, densidadPasada, avisos,
     baterias, trasladoM, corredor: !!pasadas && !girado, pasadasLocal: pasadas && !girado ? pasadas : null,
+    detalle, minRutaDji: segRutaDji / 60,
   };
 }
 

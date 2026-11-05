@@ -8,7 +8,8 @@ export const DRONES_BASE = [
   {
     id: 'm4e', familia: 'm4e', familiaNombre: 'DJI Matrice 4E', sensor: 'Cámara gran angular',
     nombre: 'DJI Matrice 4E (cámara gran angular)',
-    sensorAnchoMm: 17.3, sensorAltoMm: 13.0, focalMm: 12.29, pixelesAncho: 5280, pixelesAlto: 3956,
+    // Focal efectiva 12,20 mm (ficha: 12,29 mm): con ella la altura para un GSD calza con DJI Pilot 2 (3,5 cm/px → 130,3 m).
+    sensorAnchoMm: 17.3, sensorAltoMm: 13.0, focalMm: 12.2, focalFichaMm: 12.29, pixelesAncho: 5280, pixelesAlto: 3956,
     obturador: 'mecanico', velocidadMaxMs: 21, autonomiaMin: 49, intervaloMinS: 0.5,
     vientoMaxMs: 12, rafagaMaxMs: 12, lidar: null,
   },

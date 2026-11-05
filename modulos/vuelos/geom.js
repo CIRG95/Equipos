@@ -91,13 +91,25 @@ export function poligonoCorredor(eje, izq, der) {
   return antihorario([...l, ...r.slice().reverse()]);
 }
 
-/** Pasadas del corredor: polilíneas paralelas al eje, centradas en el ancho, separadas `sep` metros. */
+/**
+ * Pasadas de un lado del corredor (regla de DJI Pilot 2, validada con 6 casos el 5-nov-2026):
+ * cociente = semiancho / separación; si el residuo decimal es ≤ 0,50 se trunca, si es > 0,50 se suma una; mínimo 1.
+ */
+export function pasadasPorLado(semi, sep) {
+  const q = semi / Math.max(1e-9, sep);
+  const ent = Math.floor(q + 1e-9);
+  return Math.max(1, q - ent > 0.5 + 1e-9 ? ent + 1 : ent);
+}
+
+/**
+ * Pasadas del corredor: el eje es la línea 0 (referencia, no se vuela). Cada lado se calcula por separado y la pasada k
+ * de cada lado va a (k − ½) × sep del eje. Orden: de la derecha (desplazamiento negativo) a la izquierda.
+ */
 export function pasadasCorredor(eje, izq, der, sep) {
-  const ancho = izq + der;
-  const n = Math.max(1, Math.ceil(ancho / Math.max(1, sep)));
-  const ini = -der + (ancho - (n - 1) * sep) / 2;
+  const s = Math.max(1, sep), nI = pasadasPorLado(izq, s), nD = pasadasPorLado(der, s);
   const pasadas = [];
-  for (let k = 0; k < n; k++) pasadas.push(desplazarLinea(eje, ini + k * sep));
+  for (let k = nD; k >= 1; k--) pasadas.push(desplazarLinea(eje, -(k - 0.5) * s));
+  for (let k = 1; k <= nI; k++) pasadas.push(desplazarLinea(eje, (k - 0.5) * s));
   return pasadas;
 }
 

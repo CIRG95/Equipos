@@ -25,6 +25,7 @@ import { crearPasoClima } from './paso-clima.js';
 import { crearPasoPermisos } from './paso-permisos.js';
 import { crearHerramientas } from './herramientas.js';
 import { crearMapas } from './mapas.js';
+import { ubicacionDe } from './ubicacion.js';
 
 const HERRAMIENTAS = [['hojas', 'Hojas de vuelo'], ['rapido', 'Pronóstico rápido'], ['kml', 'Limpiar KML'], ['drones', 'Drones']];
 
@@ -90,8 +91,9 @@ export function montarPantallas(contenedor, ctx) {
   async function abrirHoja(id) {
     const p = id ? await obtenerPlan(id) : null;
     st.hoja = p ? migrarHoja(p) : nuevaHoja({ proyectoId: ctx.proyectoId || st.filtroProyecto, personaId: ctx.personaId });
-    st.paso = p ? 'resumen' : 'area';
+    st.paso = p ? 'resumen' : 'identificacion';
     st.pron = null; st.metar = null; st.metarError = ''; st.dia = null; st.candidatos = null; st.dibujo = null; st.gsdExtra = [];
+    st.tramos = null; st.ubicError = ''; st.previas = null; st.pronError = '';
     st.vista = 'hoja';
     for (const m of Object.values(mapas)) m.encuadre = null;
   }
@@ -100,9 +102,9 @@ export function montarPantallas(contenedor, ctx) {
   const v = { st, base, ctx, raiz, mapas, geo, dron, familias, nomProy, nomPers, secSel, capasActivas, avisar, cambio, render, guardarAhora, refrescarArea, refrescarVuelo };
   Object.assign(v, crearVistaHojas(v), crearPasoArea(v), crearPasoVuelo(v), crearPasoClima(v), crearPasoPermisos(v), crearHerramientas(v), crearMapas(v));
   const {
-    vistaHojas, encabezadoHoja, vistaResumen, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo, htmlVistaPrevia,
+    vistaHojas, encabezadoHoja, vistaResumen, vistaIdentificacion, pieDePaso, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo, htmlVistaPrevia,
     vistaVuelo, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd,
-    vistaClima, vistaRapido, consultarClima, guardarResumenClima, vistaPermisos, imprimir, vistaKml, vistaDrones,
+    vistaClima, vistaRapido, consultarClima, consultarTramos, guardarResumenClima, vistaPermisos, imprimir, vistaKml, vistaDrones,
     mapaArea, mapaVuelo, mapaKml, pintarArea, pintarVuelo, pintarDibujo,
   } = v;
 
@@ -119,6 +121,8 @@ export function montarPantallas(contenedor, ctx) {
     poner('vu-kpis', htmlKpis(r)); poner('vu-barra', htmlBarraRumbo(r)); poner('vu-leyenda', htmlLeyenda(r));
     poner('vu-detalle', htmlDetalle(r)); poner('vu-vel-pie', pieVelocidad(r)); poner('vu-total-hoja', htmlTotalHoja());
     if (r && st.hoja.params.velocidad === '') ponerValor('velocidad', Math.round(r.velocidad * 10) / 10);
+    const rr = raiz.querySelector('#vu-rumbo-rango');
+    if (r && rr && document.activeElement !== rr) { rr.value = Math.round(((r.rumbo % 180) + 180) % 180); const num = raiz.querySelector('#vu-rumbo-num'); if (num) num.textContent = `${fmt(r.rumbo, 0)}°`; }
     if (mapas.vuelo && mapas.vuelo.el.isConnected) pintarVuelo(mapas.vuelo);
   }
   async function buscarDespegue(h, todos) {
@@ -135,6 +139,37 @@ export function montarPantallas(contenedor, ctx) {
     if (!n) avisar('No hay caminos a menos de 1,5 km. Dibuja uno en Área → Caminos.', 'error');
     else if (!st.mensaje || st.mensaje.tipo !== 'error') avisar(`Despegue sugerido para ${n} sector${n === 1 ? '' : 'es'}: revisa y toca «Usar».`);
   }
+
+  /** Clima de la hoja: al entrar al paso ya consulta hoy y los próximos 10 días (y los tramos si el área es larga). */
+  let consultandoClima = false;
+  async function consultarHojaAuto(forzar = false) {
+    const g = geo();
+    if (!g || consultandoClima || (!forzar && (st.pron || st.pronError))) return;
+    consultandoClima = true;
+    try {
+      const [lon, lat] = g.marco.aLonLat([0, 0]);
+      await consultarClima(lat, lon);
+      if (st.pron) { guardarResumenClima(); consultarTramos(); }
+    } finally { consultandoClima = false; }
+    if (activo) render();
+  }
+  v.consultarHojaAuto = consultarHojaAuto;
+
+  /** Comuna y región del centro del área (v0.11). forzar: vuelve a consultar aunque ya haya una. */
+  async function detectarUbicacion(forzar = false) {
+    const h = st.hoja, g = geo();
+    if (!h || !g || st.ubicando) return;
+    if (!forzar && h.ubicacion && (h.ubicacion.comuna || h.ubicacion.region)) return;
+    const [lon, lat] = g.marco.aLonLat([0, 0]);
+    st.ubicando = true; st.ubicError = '';
+    try {
+      const u = await ubicacionDe(lat, lon);
+      if (st.hoja === h) { h.ubicacion = { ...u, auto: true }; cambio(); }
+    } catch { st.ubicError = 'No se pudo detectar la ubicación (sin conexión). Escríbela a mano.'; }
+    st.ubicando = false;
+    if (activo && st.vista === 'hoja' && st.hoja === h) render();
+  }
+  v.detectarUbicacion = detectarUbicacion;
 
   /** Agrega un corte fijo (texto DM o km) a «Cortes a medida». Devuelve false si no se entendió. */
   function agregarFijo(texto) {
@@ -192,18 +227,20 @@ export function montarPantallas(contenedor, ctx) {
     if (!st.capas) { try { st.capas = await listarCapas(); } catch { st.capas = []; } }
     let html;
     if (st.vista === 'hoja' && st.hoja) {
-      const vistas = { resumen: vistaResumen, area: vistaArea, vuelo: vistaVuelo, clima: vistaClima, permisos: vistaPermisos };
-      html = encabezadoHoja() + `<div class="vu-paso-cuerpo">${vistas[st.paso]()}</div>`;
+      const vistas = { resumen: vistaResumen, identificacion: vistaIdentificacion, area: vistaArea, vuelo: vistaVuelo, clima: vistaClima, permisos: vistaPermisos };
+      html = encabezadoHoja() + `<div class="vu-paso-cuerpo">${(vistas[st.paso] || vistaResumen)()}</div>${pieDePaso()}`;
     } else {
       if (st.vista === 'hoja') st.vista = 'hojas';
       html = ({ hojas: vistaHojas, rapido: vistaRapido, kml: vistaKml, drones: vistaDrones })[st.vista]();
     }
     if (!activo) return;
     const herr = st.vista === 'hoja' ? 'hojas' : st.vista;
-    raiz.innerHTML = `<nav class="vu-nav" aria-label="Vuelos">${HERRAMIENTAS.map(([id, t]) => `<button class="vu-pestana${id === herr ? ' activa' : ''}" data-accion="vista" data-vista="${id}">${t}</button>`).join('')}</nav>
+    // v0.11: las herramientas (Pronóstico rápido, Limpieza de KMZ, Catálogo de sensores) las monta el Sistema en su propia pestaña.
+    raiz.innerHTML = `${ctx.conNav ? `<nav class="vu-nav" aria-label="Vuelos">${HERRAMIENTAS.map(([id, t]) => `<button class="vu-pestana${id === herr ? ' activa' : ''}" data-accion="vista" data-vista="${id}">${t}</button>`).join('')}</nav>` : ''}
       ${st.mensaje ? `<div class="vu-msg ${st.mensaje.tipo}">${esc(st.mensaje.texto)}</div>` : ''}
       <div class="sis-vista">${html}</div>`;
     st.mensaje = null;
+    if (st.vista === 'hoja' && st.hoja && st.hoja.area.tipo && !st.hoja.ubicacion && !st.ubicError && !st.ubicando) detectarUbicacion();
     if (st.vista === 'hoja' && st.paso === 'area') mapaArea();
     if (st.vista === 'hoja' && st.paso === 'vuelo') mapaVuelo();
     if (st.vista === 'kml') mapaKml();
@@ -237,6 +274,23 @@ export function montarPantallas(contenedor, ctx) {
       const reg = await guardarArchivo(archivo, { modulo: 'vuelos', duenoTipo: 'vuelos_hoja', duenoId: h.id, rol: 'documento', proyectoId: h.proyectoId, carpeta: `Vuelos/${nombreArchivoSeguro(h.nombre)}/Consultas` }, { personaId: ctx.personaId });
       h.permisos.consultas.push({ id: reg.id, tipo: t.dataset.tipo, fecha: new Date().toISOString(), personaId: ctx.personaId, archivoId: reg.id });
       avisar('Captura guardada'); cambio(); return;
+    }
+    if (tipo === 'docpermiso' || tipo === 'log') {
+      const h = st.hoja;
+      if (!h.id) await guardarAhora();
+      const carpeta = `Vuelos/${nombreArchivoSeguro(h.nombre)}/${tipo === 'log' ? 'Logs' : 'Permisos'}`;
+      if (tipo === 'log') {
+        h.permisos.logs = h.permisos.logs || [];
+        for (const f of t.files) {
+          const reg = await guardarArchivo(f, { modulo: 'vuelos', duenoTipo: 'vuelos_hoja', duenoId: h.id, rol: 'log', proyectoId: h.proyectoId, carpeta }, { personaId: ctx.personaId });
+          h.permisos.logs.push({ id: reg.id, nombre: f.name, fecha: new Date().toISOString(), personaId: ctx.personaId, archivoId: reg.id });
+        }
+        avisar(t.files.length > 1 ? `${t.files.length} logs cargados` : 'Log cargado'); cambio(); return;
+      }
+      const reg = await guardarArchivo(archivo, { modulo: 'vuelos', duenoTipo: 'vuelos_hoja', duenoId: h.id, rol: 'documento', proyectoId: h.proyectoId, carpeta }, { personaId: ctx.personaId });
+      const est = h.permisos.docsEstado = h.permisos.docsEstado || {};
+      est[t.dataset.k] = { ...(est[t.dataset.k] || {}), archivoId: reg.id, estado: 'adjunto' };
+      avisar('Documento adjunto'); cambio(); return;
     }
     if (tipo === 'capa') {
       const sel = raiz.querySelector('select[data-campo="tipoCapa"]');
@@ -299,6 +353,13 @@ export function montarPantallas(contenedor, ctx) {
       if (t.dataset.hoja && t.tagName === 'INPUT' && t.type !== 'date') { st.hoja[t.dataset.hoja] = t.value; cambio(); return; }
       if (t.dataset.sectorNombre != null) { metaSector(st.hoja, Number(t.dataset.sectorNombre)).nombre = t.value.trim(); cambio(); if (mapas.area) pintarArea(mapas.area); return; }
       if (t.dataset.dgac === 'numero') { st.hoja.permisos.dgac.numero = t.value; cambio(); return; }
+      if (t.dataset.ubic) { st.hoja.ubicacion = { ...(st.hoja.ubicacion || {}), [t.dataset.ubic]: t.value, auto: false }; cambio(); return; }
+      if (t.dataset.identif) { st.hoja[t.dataset.identif] = t.value; cambio(); return; }
+      if (t.dataset.rumboRango != null) {
+        metaSector(st.hoja, secSel()).rumbo = String(Number(t.value));
+        const num = raiz.querySelector('#vu-rumbo-num'); if (num) num.textContent = `${t.value}°`;
+        cambio(); refrescarVuelo(); return;
+      }
     }
     if (t.dataset.vel) {
       const v = Number(num(t.value));
@@ -315,18 +376,25 @@ export function montarPantallas(contenedor, ctx) {
   raiz.addEventListener('change', async ev => {
     const t = ev.target;
     try {
-      if (t.dataset.archivo && t.files && t.files[0]) { await alCargarArchivo(t); t.value = ''; await render(); return; }
+      if (t.dataset.archivo && t.files && t.files[0]) { await alCargarArchivo(t); t.value = ''; await render(); if (st.hoja && t.dataset.archivo === 'area') detectarUbicacion(); return; }
       if (t.dataset.campo === 'filtroProyecto') { st.filtroProyecto = t.value; await render(); return; }
+      if (t.dataset.campo === 'verProcesados') { st.verProcesados = t.checked; await render(); return; }
       if (t.name === 'rapDron') { st.rapDron = t.value; return; }
       if (!st.hoja || st.vista !== 'hoja') return;
       const h = st.hoja;
+      if (t.hasAttribute('data-clima-dia')) { if (t.value) { st.dia = t.value; guardarResumenClima(); } await render(); return; }
       if (t.dataset.horario) {
         h.params.horario = { ...HORARIO_INICIAL, ...(h.params.horario || {}), [t.dataset.horario]: t.type === 'number' ? (Number(t.value) || 0) : t.value };
         cambio(); await render(); return;
       }
-      if (t.dataset.hoja && (t.tagName === 'SELECT' || t.type === 'date')) { h[t.dataset.hoja] = t.value || null; if (t.dataset.hoja === 'fecha') st.dia = null; cambio(); await render(); return; }
+      if (t.dataset.hoja && (t.tagName === 'SELECT' || t.type === 'date')) {
+        h[t.dataset.hoja] = t.value || null; if (t.dataset.hoja === 'fecha') st.dia = null;
+        if (t.dataset.hoja === 'proyectoId') { const p = base.proyectos.find(x => x.id === t.value); if (p) { if (!h.mandante) h.mandante = p.mandante || ''; if (!h.jefe) h.jefe = p.solicitadoPor || ''; } }
+        cambio(); await render(); return;
+      }
       if (t.name === 'familia') { const alt = alturaDe(h.params, dron()); const x = base.drones.find(d => (d.familia || d.id) === t.value); if (x) h.dronId = x.id; if (!h.params.porGsd) h.params.altura = String(Math.round(alt)); if (Number(h.params.velocidad) > dron().velocidadMaxMs) h.params.velocidad = ''; cambio(); await render(); return; }
       if (t.name === 'dronId') { h.dronId = t.value; cambio(); await render(); return; }
+      if (t.hasAttribute('data-sector-sel')) { h.area.sel = Number(t.value); st.dibujo = null; cambio(); await render(); return; }
       if (t.name === 'modo') { h.params.modo = t.value; if (t.value === 'lidar' && Number(h.params.traslapeLateral) > 60) h.params.traslapeLateral = '50'; if (t.value === 'foto' && Number(h.params.traslapeLateral) < 60) h.params.traslapeLateral = '70'; cambio(); await render(); return; }
       if (t.dataset.auto) {
         const a = h.area, k = t.dataset.auto;
@@ -351,6 +419,12 @@ export function montarPantallas(contenedor, ctx) {
       if (t.dataset.capa) { const todas = capasActivas(); st.capasActivas = t.checked ? [...new Set([...todas, t.dataset.capa])] : todas.filter(x => x !== t.dataset.capa); escribirLS('vu_capas_activas', st.capasActivas); refrescarArea(); return; }
       if (t.dataset.dgac && t.dataset.dgac !== 'numero') { h.permisos.dgac[t.dataset.dgac] = t.value; cambio(); await render(); return; }
       if (t.dataset.doc) { h.permisos.docs[t.dataset.doc] = t.checked; cambio(); return; }
+      if (t.dataset.zona) { h.permisos.zona = t.dataset.zona; cambio(); await render(); return; }
+      if (t.dataset.docest || t.dataset.docvence) {
+        const k = t.dataset.docest || t.dataset.docvence, est = h.permisos.docsEstado = h.permisos.docsEstado || {};
+        est[k] = { ...(est[k] || {}), [t.dataset.docest ? 'estado' : 'vence']: t.value };
+        cambio(); await render(); return;
+      }
     } catch (e) { console.error(e); avisar(e.message || 'No se pudo completar', 'error'); await render(); }
   });
 
@@ -412,10 +486,14 @@ export function montarPantallas(contenedor, ctx) {
       else if (a === 'abrir-hoja') { await abrirHoja(b.dataset.id); try { history.replaceState(null, '', `#/vuelos/plan/${b.dataset.id}`); } catch { /* */ } }
       else if (a === 'eliminar-hoja') { if (!confirm('¿Eliminar esta hoja de vuelo? Queda en la papelera.')) return; await eliminarPlan(b.dataset.id); avisar('Hoja eliminada'); }
       else if (a === 'paso') { st.paso = b.dataset.paso; st.dibujo = null; await guardarAhora(); }
-      else if (a === 'estado') { h.estado = b.dataset.e; cambio(); await guardarAhora(); }
+      else if (a === 'estado') { h.estado = b.dataset.e; if (b.dataset.e !== 'volada') h.procesado = false; cambio(); await guardarAhora(); }
+      else if (a === 'procesado') { h.procesado = b.dataset.v === '1'; if (h.procesado && !(h.permisos.logs || []).length) avisar('Marcado procesado, pero falta cargar el log del vuelo (paso Permisos).', 'error'); cambio(); await guardarAhora(); }
+      else if (a === 'sel-vuelo') { st.selHoja = b.dataset.id; }
+      else if (a === 'filtro-etapa') { st.filtroEtapa = b.dataset.e || ''; }
+      else if (a === 'quitar-log') { if (!confirm('¿Quitar este log de la hoja? El archivo queda en el respaldo.')) return; h.permisos.logs.splice(Number(b.dataset.i), 1); cambio(); }
       else if (a === 'imprimir') { await guardarAhora(); imprimir(); return; }
       else if (a === 'dia') { st.dia = b.dataset.dia; if (st.vista === 'hoja') guardarResumenClima(); }
-      else if (a === 'consultar-hoja') { const g = geo(); const [lon, lat] = g.marco.aLonLat([0, 0]); await consultarClima(lat, lon); guardarResumenClima(); }
+      else if (a === 'consultar-hoja') { await consultarHojaAuto(true); return; }
       else if (a === 'gps') {
         if (!navigator.geolocation) throw new Error('Este navegador no entrega la ubicación.');
         const pos = await new Promise((ok, mal) => navigator.geolocation.getCurrentPosition(ok, mal, { enableHighAccuracy: false, timeout: 15000 }));
@@ -427,7 +505,8 @@ export function montarPantallas(contenedor, ctx) {
         const modo = b.dataset.modo;
         st.dibujo = st.dibujo && st.dibujo.modo === modo ? null : { modo, puntos: [] };
         st.paso = 'area';
-        if (modo === 'corte' || modo === 'dmfijo') st.subArea = 'sectores';
+        if (modo === 'corte' || modo === 'dmfijo' || modo === 'vertice') st.subArea = 'sectores';
+        if (modo === 'vertice' && st.dibujo) { h.area.auto = { ...(h.area.auto || {}), modo: 'vertices' }; cambio(); }
         if (modo === 'area' || modo === 'eje') st.subArea = 'origen';
         if (modo === 'camino') st.subArea = 'zonas';
         if (st.dibujo && modo === 'corte') avisar('Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».');
@@ -439,6 +518,7 @@ export function montarPantallas(contenedor, ctx) {
         if (modo === 'area') {
           const coords = limpiarAnillo(puntos); const { puntos: xy } = proyectar(coords);
           usarPoligono({ nombre: 'Área dibujada', coords, area: areaM2(xy), problemas: [] }, 'dibujada en el mapa');
+          setTimeout(() => detectarUbicacion(true), 0);
           if (autoInterseccion(xy)) avisar('El contorno dibujado se cruza consigo mismo: dibújalo de nuevo siguiendo el borde.', 'error');
         } else if (modo === 'camino') {
           if (puntos.length < 2) { avisar('Marca al menos dos puntos del camino.', 'error'); return; }
@@ -484,6 +564,18 @@ export function montarPantallas(contenedor, ctx) {
         if (ar.original) { Object.assign(ar, { tipo: 'poligono', eje: null, cortes: [], sectores: [], sel: 0 }); avisar('Se vuelve a volar como polígono.'); cambio(); }
       }
       else if (a === 'auto-cortar') await cortarAutomatico(h);
+      else if (a === 'elegir-metodo') {
+        const m = b.dataset.m, antes = (h.area.auto || {}).modo;
+        h.area.auto = { ...(h.area.auto || {}), modo: m };
+        st.dibujo = null;
+        if (m === 'vertices') {
+          if (antes !== 'vertices') { h.area.cortes = []; h.area.sectores = []; h.area.sel = 0; }
+          st.dibujo = { modo: 'vertice', puntos: [] };
+          avisar('Toca un vértice del área y luego otro: el corte une ambos vértices.');
+          cambio();
+        } else await cortarAutomatico(h);
+      }
+      else if (a === 'detectar-ubicacion') { await detectarUbicacion(true); return; }
       else if (a === 'programar') {
         const g = geo(), jor = jornadasNecesarias(h, dron(), g);
         if (!jor || !jor.dias.length || !h.fecha) { avisar('Falta el área o el primer día de vuelo.', 'error'); }
@@ -574,6 +666,7 @@ export function montarPantallas(contenedor, ctx) {
       else return;
     } catch (e) { console.error(e); avisar(e.message || 'No se pudo completar', 'error'); }
     await render();
+    if (['usar-pol', 'usar-eje', 'kml-a-hoja', 'eje-a-hoja'].includes(a)) detectarUbicacion(true);
   });
 
   (async () => {

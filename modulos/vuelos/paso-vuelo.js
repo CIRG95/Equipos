@@ -4,7 +4,7 @@ import { escapar as esc } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { campo, deslizador, kpi, fila } from './ui.js';
 import { alturaParaGsd, gsdCm } from './calculo.js';
-import { calcularSector, totales, alturaDe, metaSector, nombreSector, ladosSector } from './hoja.js';
+import { calcularSector, totales, alturaDe, metaSector, nombreSector, ladosSector, opcionesDespegue, rumboMasCorto } from './hoja.js';
 import { COLORES_BATERIA, COLORES_SECTOR, GSD_TABLA } from './ui.js';
 
 export function crearPasoVuelo(v) {
@@ -57,7 +57,8 @@ export function crearPasoVuelo(v) {
             </details>
           </section>
           </form>
-          <section class="sis-tarjeta"><h2>Despegue sugerido</h2>
+          ${r && !r.corredor ? `<section class="sis-tarjeta"><h2>Punto de despegue</h2><div id="vu-desp-ops">${htmlDespegue(r)}</div></section>` : ''}
+          <section class="sis-tarjeta"><h2>Despegue sobre un camino</h2>
             <div id="vu-desp-sug">${htmlDespegueSugerido()}</div>
             <div class="sis-acciones">
               <button class="sis-btn chico primario" data-accion="despegue-buscar" data-todos="0">Buscar sobre un camino</button>
@@ -111,11 +112,37 @@ export function crearPasoVuelo(v) {
   function htmlLados(r) {
     const g = geo(), i = secSel(), h = st.hoja, n = g.sectores.length;
     const lados = ladosSector(g, i);
-    if (!lados.length) return '';
     const actual = Math.round(((r.rumbo % 180) + 180) % 180);
-    return `<div class="vu-lados-cab"><b>Orientar paralelo a un lado</b><span class="sis-tenue">Los números están en el mapa.</span></div>
+    const sug = rumboSugerido(r);
+    const sugHtml = sug ? `<div class="vu-rumbo-sug${sug.rumbo === actual ? ' en-uso' : ''}"><span><b>Rumbo sugerido: ${sug.rumbo}°</b><small>${fmtDuracion(sug.minTotal)} de jornada con este despegue${sug.ahorro >= 0.5 ? ` · ahorra ${fmtDuracion(sug.ahorro)}` : ''}</small></span>
+        ${sug.rumbo === actual ? '<span class="vu-verde">✓ en uso</span>' : `<button type="button" class="sis-btn primario chico" data-accion="rumbo-lado" data-r="${sug.rumbo}">Usar ${sug.rumbo}°</button>`}</div>` : '';
+    if (!lados.length) return sugHtml;
+    return `${sugHtml}<div class="vu-lados-cab"><b>Orientar paralelo a un lado</b><span class="sis-tenue">Los números están en el mapa.</span></div>
       <div class="vu-lados-lista">${lados.map(l => `<button type="button" class="vu-lado${Math.abs(l.rumbo - actual) < 1 ? ' activo' : ''}" data-accion="rumbo-lado" data-r="${l.rumbo}"><b>${l.n}</b><span>${fmt(l.largo, 0)} m · ${l.rumbo}°${l.comun.length ? `<small>común con ${l.comun.map(j => esc(nombreSector(h, j, n))).join(', ')}</small>` : ''}</span></button>`).join('')}</div>
       ${n > 1 ? `<div class="sis-acciones"><button type="button" class="sis-btn chico" data-accion="rumbo-todos" data-r="${actual}">Usar ${actual}° en todos los sectores</button></div>` : ''}`;
+  }
+
+  // Rumbo que da menos tiempo (prueba cada 5° y afina de a 1°). Se guarda mientras no cambien sector, despegue ni parámetros.
+  let cacheRumbo = null;
+  function rumboSugerido(r) {
+    const h = st.hoja, g = geo(), i = secSel(), meta = metaSector(h, i);
+    const clave = JSON.stringify([h.id, i, h.dronId, h.params, meta.despegue, g.sectores.length, g.sectores[i].area]);
+    if (!cacheRumbo || cacheRumbo.clave !== clave) {
+      const m = rumboMasCorto(h, dron(), g, i, r.velocidad);
+      cacheRumbo = { clave, rumbo: m.rumbo, minTotal: m.minTotal };
+    }
+    return { ...cacheRumbo, ahorro: r.minTotal - cacheRumbo.minTotal };
+  }
+
+  /** Punto de partida del sector (v0.11.1): inicio, cambios de batería, final o centro, con su jornada. */
+  function htmlDespegue(r) {
+    const h = st.hoja, g = geo(), i = secSel(), d = dron();
+    const ops = opcionesDespegue(h, d, g, i);
+    if (!ops.length) return '';
+    const actual = r.despegueXY, cerca = o => Math.hypot(o.xy[0] - actual[0], o.xy[1] - actual[1]) < 5;
+    return `<div class="vu-desp-ops">${ops.map((o, k) => `<button type="button" class="vu-desp-op${cerca(o) ? ' activo' : ''}" data-accion="despegue-op" data-lon="${o.lonLat[0]}" data-lat="${o.lonLat[1]}">
+        <b class="vu-desp-letra">${String.fromCharCode(65 + k)}</b><span>${esc(o.texto)}<small>${fmtDuracion(o.minTotal)}${o.mejor ? ' · <b>el más rápido</b>' : ''}</small></span>${cerca(o) ? '<i class="vu-verde">en uso</i>' : ''}</button>`).join('')}</div>
+      <p class="sis-tenue">Las letras están en el mapa. La ruta parte por la esquina de las líneas más cercana al despegue. También puedes arrastrar el punto.</p>`;
   }
 
   function htmlTotalHoja() {
@@ -241,5 +268,5 @@ export function crearPasoVuelo(v) {
     </section>`;
   }
 
-  return { vistaVuelo, htmlLados, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd };
+  return { vistaVuelo, htmlLados, htmlDespegue, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd };
 }

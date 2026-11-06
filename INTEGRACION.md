@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.11
+# INTEGRACION.md — Sistema v0.11.1
 
 ## Qué contiene
 
@@ -136,6 +136,18 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Seguimiento 0.2: el ciclo guarda `entrega`, `terreno`, `diasEntrega` cuando sale de la periodicidad; `plazoCiclo` usa `ciclo.entrega` si existe.
 - Sin almacenes nuevos ni cambios en el paquete de conexión (Terreno no se actualiza).
 
+
+## Sistema v0.11.1
+- **Vuelos 0.9.1:**
+  - `drones.js`: entrada `m400-l3` (familia `m400`). `equipos/sensores.js` reconoce «Matrice 400» / «M400».
+  - `geom.js › recorrerPorBaterias`: con despegue, la ruta parte por la esquina más cercana (primera o última pasada, en cualquier sentido). `calculo.js` devuelve `baterias[k].fin` también en el marco local.
+  - `hoja.js › opcionesDespegue(hoja, dron, geo, i)` → `[{ k, texto, xy, lonLat, minTotal, mejor }]` (inicio, cambios de batería, final, centro; calculadas con una ruta de referencia desde el centro para que no cambien al elegir). Se guarda igual que antes en `metaSector(h, i).despegue` (lon/lat).
+  - `paso-vuelo.js`: tarjeta «Punto de despegue» (`#vu-desp-ops`, acción `despegue-op`) y rumbo sugerido en `#vu-lados` (`rumboMasCorto`, guardado en memoria por sector, despegue y parámetros). `mapas.js`: capa `opsDesp` con las letras.
+  - `paso-area.js`: interruptor Automático/Manual (`tipo-corte`) y tarjetas para todos los métodos; se quitó el `<select>` de método. `pantallas.js › elegirMetodo(h, m)` (los manuales dejan el mapa listo para marcar).
+  - `formatos.js` (nuevo): `lineasDeArchivos(files)`, `lineasDeShapefile`, `leerShp`, `nombresDbf`, `proyeccionDePrj`, `tmInversa`, `lineasDeGeoJSON`, `lineasDeGpx`. `kml.js › leerZip(buf)` reemplaza el lector de zip interno (el KMZ lo sigue usando).
+- **Equipos:** `pantallas.js` tarjetas `eq-tarjeta-foto` (foto con `urlArchivo(fotoId)` cargada después de pintar), panel `.eq-lado` (solo PC) con resumen o con la vista `alta(true)`. `ficha.js` exporta `dibujo`. Sin cambios en datos ni en la puerta.
+- **Pruebas:** `pruebas/caminos-formatos.test.mjs` (UTM 19S comparado con PROJ, shapefile con .dbf y .prj, GeoJSON). 69 pruebas pasan.
+- **Sin almacenes ni índices nuevos;** paquete de conexión 1.3 idéntico. El paquete de pronóstico cambia (catálogo con la M400): copiado a `terreno/js/pronostico-vuelo.js` y caché de Terreno `terreno-topo-v44-0.5.8.2`.
 
 ## Sistema v0.11
 - **Envoltorio (`app/sistema.js`):** menú Inicio · Proyectos · Vuelos · Equipos · Herramientas · Personas · Gastos y sub-pestañas por sección (`SUBNAV`). Rutas nuevas: `#/proyectos/calendario`, `#/proyectos/registro`, `#/sensores` (Vuelos con `tab: 'drones'`), `#/herramientas/kml` y `#/herramientas/pronostico` (Vuelos con `tab`). `#/seguimiento` y `#/monografias` siguen igual y se ven dentro de Proyectos y Herramientas. Los módulos se montan en `.sis-modulo`, debajo de la sub-barra. Vuelos ya no muestra su barra de herramientas (`ctx.conNav` la vuelve a mostrar).

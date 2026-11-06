@@ -1,6 +1,15 @@
-# Topoland · Sistema de trabajo — v0.11 (reorganización: Inicio, Proyectos, Vuelos paso a paso, Equipos y Herramientas)
+# Topoland · Sistema de trabajo — v0.11.1 (Matrice 400 + L3, despegue y rumbo sugeridos, cortes con vista previa, caminos en SHP/GeoJSON/GPX, Equipos como el boceto)
 
 **Sistema v0.11 = v0.10 + navegación nueva + Vuelos 0.9 + Equipos 0.2 + Monografías 0.3.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
+
+## Qué cambia en v0.11.1
+- **Dron nuevo: DJI Matrice 400 · Zenmuse L3** en el catálogo de Vuelos (sensor 4/3" de 100 MP, 12288 × 8192 px, focal 14,4 mm calculada del FOV de 62°, LiDAR 80° y 350 mil pts/s, 20 m/s, autonomía estimada 45 min). La ficha administrativa del equipo se completa en Equipos.
+- **Vuelo › Punto de despegue:** opciones A, B, C… en la tarjeta y en el mapa: inicio de las líneas (primera pasada), cada cambio de batería, final de las líneas (última pasada) y centro del sector, cada una con su jornada; marca la más rápida. La ruta parte por la esquina de las líneas más cercana al despegue.
+- **Vuelo › Rumbo sugerido:** sobre los lados del sector se muestra el rumbo que da menos tiempo de jornada con el despegue elegido, cuánto ahorra y el botón «Usar».
+- **Área › Cortes:** se elige **Automático** o **Manual**; todos los métodos se muestran como tarjetas con vista previa (Tramos del Seguimiento y DM muestran qué dato falta). Los ajustes del método van debajo.
+- **Caminos:** además de KML/KMZ se cargan **Shapefile** (.zip, o .shp con .dbf y .prj seleccionados juntos; UTM u otra Transversal de Mercator se pasa sola a geográficas; sin .prj se asume UTM 19 Sur y se avisa), **GeoJSON** y **GPX**.
+- **Equipos (modo tarjetas):** tarjetas con foto (o dibujo del tipo), estado, serie abreviada y tres datos clave; en PC, **panel lateral** con resumen y lo «por atender», y el alta paso a paso se hace en ese panel sin salir del listado.
+- Terreno: se actualizó su copia del paquete de pronóstico (aparece la Matrice 400) y el caché (`terreno-topo-v44-0.5.8.2`). Paquete de conexión sin cambios (1.3).
 
 ## Qué cambia en v0.11
 - **Navegación:** Inicio · Proyectos (Activos, Calendario, Entregas, Registro por mandante) · Vuelos · Equipos (Equipos, Catálogo de sensores) · Herramientas (Monografías, Limpieza de KMZ, Pronóstico rápido). «Seguimiento» pasa a **Proyectos › Entregas**.

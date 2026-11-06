@@ -13,11 +13,19 @@ export async function leerArchivo(archivo) {
 }
 
 async function extraerKmlDeZip(buf) {
+  const entradas = leerZip(buf);
+  const kml = entradas.find(e => /(^|\/)doc\.kml$/i.test(e.nombre)) || entradas.find(e => /\.kml$/i.test(e.nombre));
+  if (!kml) throw new Error('El KMZ no trae ningún archivo .kml adentro.');
+  return new TextDecoder('utf-8').decode(await kml.datos());
+}
+
+/** Índice de un zip (KMZ, shapefile comprimido): [{ nombre, datos() → Promise<Uint8Array> }]. */
+export function leerZip(buf) {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   // Fin del directorio central: firma 0x06054b50 cerca del final.
   let fin = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { fin = i; break; }
-  if (fin < 0) throw new Error('El KMZ está dañado: no se encontró el índice del zip.');
+  if (fin < 0) throw new Error('El archivo comprimido está dañado: no se encontró el índice del zip.');
   const total = dv.getUint16(fin + 10, true);
   let p = dv.getUint32(fin + 16, true);
   const entradas = [];
@@ -30,18 +38,18 @@ async function extraerKmlDeZip(buf) {
     const largoComent = dv.getUint16(p + 32, true);
     const local = dv.getUint32(p + 42, true);
     const nombre = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + largoNombre));
-    entradas.push({ nombre, metodo, comprimido, local });
+    entradas.push({ nombre, datos: async () => {
+      const ini = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+      const datos = buf.subarray(ini, ini + comprimido);
+      if (metodo === 0) return datos;
+      if (metodo !== 8) throw new Error('El zip usa una compresión que no reconozco.');
+      if (typeof DecompressionStream === 'undefined') throw new Error('Este navegador no puede abrir archivos comprimidos. Actualiza Chrome o descomprime el archivo.');
+      const flujo = new Blob([datos]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(flujo).arrayBuffer());
+    } });
     p += 46 + largoNombre + largoExtra + largoComent;
   }
-  const kml = entradas.find(e => /(^|\/)doc\.kml$/i.test(e.nombre)) || entradas.find(e => /\.kml$/i.test(e.nombre));
-  if (!kml) throw new Error('El KMZ no trae ningún archivo .kml adentro.');
-  const ini = kml.local + 30 + dv.getUint16(kml.local + 26, true) + dv.getUint16(kml.local + 28, true);
-  const datos = buf.subarray(ini, ini + kml.comprimido);
-  if (kml.metodo === 0) return new TextDecoder('utf-8').decode(datos);
-  if (kml.metodo !== 8) throw new Error('El KMZ usa una compresión que no reconozco.');
-  if (typeof DecompressionStream === 'undefined') throw new Error('Este navegador no puede abrir KMZ. Actualiza Chrome o descomprime el KMZ y carga el .kml.');
-  const flujo = new Blob([datos]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Response(flujo).text();
+  return entradas;
 }
 
 // ─────────── Leer geometrías ───────────

@@ -1,7 +1,7 @@
 // modulos/vuelos/mapas.js — mapas Leaflet de Vuelos (área, vuelo, KML) con el mapa base elegido en mapa-base.js.
 
 import { cargarScript } from '../../compartido/util.js';
-import { calcularSector, metaSector, nombreSector, lineaEje, kmEnEje, kmADm, marcoDe, geometria, ladosSector } from './hoja.js';
+import { calcularSector, metaSector, nombreSector, lineaEje, kmEnEje, kmADm, marcoDe, geometria, ladosSector, opcionesDespegue } from './hoja.js';
 import { largo, distanciaEnEje, puntoEnEje } from './geom.js';
 import { TIPOS_CAPA } from './capas.js';
 import { COLORES_BATERIA, COLORES_SECTOR } from './ui.js';
@@ -185,7 +185,7 @@ export function crearMapas(v) {
   function pintarVuelo(m) {
     const { L, mapa } = m;
     const g = geo(), h = st.hoja;
-    quitar(m, 'sectores', 'lineas', 'traslados', 'sugerido', 'lados');
+    quitar(m, 'sectores', 'lineas', 'traslados', 'sugerido', 'lados', 'opsDesp');
     if (!g) return;
     pintarCaminos(m);
     const LL = aLL(g), i = secSel();
@@ -199,6 +199,12 @@ export function crearMapas(v) {
     const lados = ladosSector(g, i);
     if (lados.length) m.capas.lados = L.layerGroup(lados.map(l => L.marker(LL(l.medio), { interactive: false, keyboard: false, icon: L.divIcon({ className: 'vu-lado-num', html: `<span>${l.n}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }) }))).addTo(mapa);
     m.capas.lineas = L.layerGroup(r.baterias.flatMap((b, k) => b.piezas.map(pz => L.polyline(pz.slice(0, 5000).map(LL), { color: COLORES_BATERIA[k % COLORES_BATERIA.length], weight: 2, opacity: 0.95, interactive: false })))).addTo(mapa);
+    if (!r.corredor) {
+      const ops = opcionesDespegue(st.hoja, dron(), g, i);
+      m.capas.opsDesp = L.layerGroup(ops.map((o, k) => L.marker(LL(o.xy), { keyboard: false, icon: L.divIcon({ className: `vu-desp-mapa${o.mejor ? ' mejor' : ''}`, html: `<span>${String.fromCharCode(65 + k)}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }) })
+        .bindTooltip(`${o.texto} · ${Math.round(o.minTotal)} min`, { direction: 'top' })
+        .on('click', () => { metaSector(st.hoja, i).despegue = o.lonLat; cambio(); refrescarVuelo(); }))).addTo(mapa);
+    }
     const desp = LL(r.despegueXY);
     m.capas.traslados = L.layerGroup(r.baterias.slice(0, 40).map(b => L.polyline([desp, LL(b.inicio)], { color: '#FFFFFF', weight: 1.5, dashArray: '5 5', opacity: 0.9, interactive: false }))).addTo(mapa);
     if (!m.capas.despegue) {

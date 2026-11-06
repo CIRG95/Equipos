@@ -136,7 +136,7 @@ export function calcularPlan(p) {
     despegueGirado = p.despegue ? (g ? g.ida(p.despegue) : p.despegue) : null;
     const rep = recorrerPorBaterias(pasadas, { v, segGiro: p.segGiro, segUtiles: Math.max(60, minUtiles * 60), despegue: despegueGirado });
     // Las piezas vuelven al marco local (sin giro) para dibujarlas.
-    baterias = rep.baterias.map(b => ({ ...b, min: b.seg / 60, piezas: g ? b.piezas.map(pz => pz.map(g.vuelta)) : b.piezas, inicio: g ? g.vuelta(b.inicio) : b.inicio }));
+    baterias = rep.baterias.map(b => ({ ...b, min: b.seg / 60, piezas: g ? b.piezas.map(pz => pz.map(g.vuelta)) : b.piezas, inicio: g ? g.vuelta(b.inicio) : b.inicio, fin: g ? g.vuelta(b.fin) : b.fin }));
     segMision = rep.segVuelo;
     trasladoM = baterias.reduce((t, b) => t + b.traslado, 0) * v;
     vuelos = Math.max(1, baterias.length);

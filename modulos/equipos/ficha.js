@@ -33,7 +33,7 @@ const DIBUJOS = {
   'Escáner láser': dib(`${TRIPODE}<rect x="44" y="22" width="32" height="64" rx="10"/><circle cx="60" cy="50" r="8"/><path d="M48 40h24"/>`),
   'Otro': dib('<rect x="24" y="50" width="72" height="60" rx="6"/><path d="M48 50V38h24v12"/><path d="M24 74h72"/>'),
 };
-const dibujo = cat => DIBUJOS[cat] || DIBUJOS.Otro;
+export const dibujo = cat => DIBUJOS[cat] || DIBUJOS.Otro;
 
 const SUBTABS = [
   { id: 'accesorios', texto: 'Accesorios' },

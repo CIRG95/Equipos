@@ -18,7 +18,7 @@ var PronosticoVuelo = (() => {
   };
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // ../sistema/modulos/vuelos/pronostico-widget.js
+  // modulos/vuelos/pronostico-widget.js
   var pronostico_widget_exports = {};
   __export(pronostico_widget_exports, {
     DRONES: () => DRONES,
@@ -28,7 +28,7 @@ var PronosticoVuelo = (() => {
     piezas: () => piezas
   });
 
-  // ../sistema/modulos/vuelos/pronostico.js
+  // modulos/vuelos/pronostico.js
   var MODELOS = [["ecmwf_ifs025", "ECMWF"], ["gfs_seamless", "GFS"], ["icon_seamless", "ICON"]];
   var VARIABLES = [
     "wind_speed_10m",
@@ -173,46 +173,239 @@ var PronosticoVuelo = (() => {
     ["Windy", "https://www.windy.com/"]
   ];
 
-  // ../sistema/modulos/vuelos/metar.js
-  var AWC = "https://aviationweather.gov/api/data/metar";
-  async function metarCercano(lat, lon) {
-    const d = 1.1;
-    const url = `${AWC}?${new URLSearchParams({ bbox: `${(lat - d).toFixed(2)},${(lon - d).toFixed(2)},${(lat + d).toFixed(2)},${(lon + d).toFixed(2)}`, format: "json", taf: "true", hours: "3" })}`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`AWC respondió ${r.status}`);
-    const lista = await r.json();
-    if (!Array.isArray(lista) || !lista.length) return null;
-    const km = (a, b, c, e) => Math.hypot((c - a) * 110.54, (e - b) * 111.32 * Math.cos(a * Math.PI / 180));
-    const porEstacion = /* @__PURE__ */ new Map();
-    for (const m2 of lista) {
-      if (!m2 || !m2.icaoId) continue;
-      const prev = porEstacion.get(m2.icaoId);
-      if (!prev || String(m2.reportTime || m2.obsTime) > String(prev.reportTime || prev.obsTime)) porEstacion.set(m2.icaoId, m2);
-    }
-    const estaciones = [...porEstacion.values()].map((m2) => ({ ...m2, km: km(lat, lon, m2.lat, m2.lon) })).sort((a, b) => a.km - b.km);
-    const m = estaciones[0];
-    return { icao: m.icaoId, nombre: m.name || m.icaoId, km: m.km, metar: m.rawOb || "", taf: m.rawTaf || "", hora: m.reportTime || "", viento: vientoDeMetar(m.rawOb || "") };
-  }
-  function vientoDeMetar(raw) {
-    const x = /\b(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(KT|MPS)\b/.exec(raw);
-    if (!x) return null;
-    const f = x[4] === "KT" ? 0.5144 : 1;
-    return { dir: x[1] === "VRB" ? null : Number(x[1]), v: Number(x[2]) * f, g: x[3] ? Number(x[3]) * f : null };
-  }
-  var enlaceMetar = (icao) => icao ? `https://aviationweather.gov/data/metar/?id=${icao}&taf=1` : "https://aipchile.dgac.gob.cl/";
+  // vendor/capas/metar-estaciones.json
+  var metar_estaciones_default = { fuente: "NOAA AviationWeather.gov · stationinfo", fecha: "2026-11-02", campos: ["icao", "nombre", "lat", "lon", "elev", "emite (M=METAR, T=TAF)"], estaciones: [["SACP", "Chepes", -31.333, -66.6, 663, "M"], ["SACT", "Gobernador Gordillo", -30.349, -66.295, 454, "M"], ["SAME", "Mendoza/Plumerillo Arpt", -32.832, -68.793, 709, "MT"], ["SAMI", "San Martin", -33.083, -68.417, 653, "M"], ["SAMJ", "Jachal", -30.25, -68.74, 1168, "M"], ["SAMM", "Malargue Arpt", -35.481, -69.583, 1428, "M"], ["SAMR", "San Rafael Arpt", -34.585, -68.414, 756, "MT"], ["SAMS", "San Carlos", -33.771, -69.034, 951, "M"], ["SAMU", "Uspallata", -32.601, -69.335, 1918, "M"], ["SANI", "Tinogasta", -28.041, -67.577, 1225, "M"], ["SANL", "La Rioja/Capt Vincen", -29.383, -66.795, 438, "MT"], ["SANO", "Chilecito", -29.224, -67.439, 918, "M"], ["SANU", "San Juan Arpt", -31.572, -68.418, 596, "MT"], ["SAOU", "San Luis Arpt", -33.273, -66.356, 704, "MT"], ["SAVB", "El Bolson Arpt", -41.948, -71.533, 332, "M"], ["SAVC", "Comodoro Rivadavia Arpt", -45.79, -67.471, 58, "MT"], ["SAVE", "Esquel Arpt", -42.906, -71.147, 799, "MT"], ["SAVP", "Paso De Indios", -43.856, -69.044, 514, "M"], ["SAWA", "Lago Argentino Arpt", -50.327, -72.276, 182, "M"], ["SAWC", "El Calafate Arpt", -50.284, -72.052, 204, "MT"], ["SAWE", "Rio Grande/Quijada Intl", -53.781, -67.754, 22, "MT"], ["SAWG", "Rio Gallegos Intl", -51.609, -69.306, 18, "MT"], ["SAWH", "Ushuaia/Malvinas Arpt", -54.844, -68.308, 22, "MT"], ["SAWJ", "San Julian Aero", -49.307, -67.803, 48, "M"], ["SAWP", "Perito Moreno Arpt", -46.537, -70.983, 429, "M"], ["SAWR", "Gobernador Gregores", -48.783, -70.167, 357, "M"], ["SAWU", "Santa Cruz Arpt", -50.017, -68.579, 113, "M"], ["SAZN", "Neuquen Arpt", -38.95, -68.141, 273, "MT"], ["SAZS", "San Carlos de Bariloche Arpt", -41.151, -71.157, 843, "MT"], ["SAZY", "Chapelco", -40.075, -71.137, 783, "MT"], ["SCAP", "Alto Palena Arpt", -43.612, -71.802, 252, "M"], ["SCAR", "Arica/Chacalluta Arpt", -18.351, -70.336, 57, "MT"], ["SCAS", "Puerto Aysen Arpt", -45.399, -72.67, 8, "M"], ["SCAT", "Desierto Atacama Arpt", -27.262, -70.774, 209, "MT"], ["SCBA", "Balmaceda/Vidal Arpt", -45.913, -71.694, 516, "MT"], ["SCCC", "Chile Chico Arpt", -46.581, -71.693, 305, "M"], ["SCCF", "Calama/El Loa Intl", -22.496, -68.905, 2290, "MT"], ["SCCH", "Chillan/OHiggins Arpt", -36.583, -72.031, 148, "MT"], ["SCCI", "Punta Arenas Arpt", -53.003, -70.855, 37, "MT"], ["SCCY", "Coyhaique/Vidal Arpt", -45.595, -72.11, 301, "MT"], ["SCDA", "Iquique/Diego Aracena Arpt", -20.535, -70.181, 41, "MT"], ["SCEL", "Santiago/Benítez Intl", -33.393, -70.786, 478, "MT"], ["SCER", "Quintero Santia", -32.79, -71.522, 15, "M"], ["SCFA", "Antofagasta/Sabella Arpt", -23.45, -70.441, 113, "MT"], ["SCFM", "Porvenir/Martinez Arpt", -53.254, -70.319, 28, "MT"], ["SCFT", "Futaleufú Arpt", -43.189, -71.853, 345, "M"], ["SCGE", "Los Angeles/Dolores", -37.403, -72.422, 122, "MT"], ["SCGZ", "Guardiamarina/Zahart", -54.932, -67.631, 21, "MT"], ["SCHA", "Copiapo Arpt", -27.296, -70.414, 301, "MT"], ["SCHR", "Cochrane Arpt", -47.244, -72.586, 203, "MT"], ["SCIC", "Curico/Freire Arpt", -34.966, -71.217, 230, "MT"], ["SCIE", "Concepcion/Sur Intl", -36.773, -73.063, 8, "MT"], ["SCJO", "Osorno/Siebert Arpt", -40.605, -73.061, 61, "MT"], ["SCLL", "Vallenar Arpt", -28.596, -70.756, 538, "M"], ["SCLR", "Los Alerces Arpt", -42.7809, -72.6452, 105, "M"], ["SCMK", "Melinka Arpt", -43.897, -73.741, 22, "MT"], ["SCNT", "Puerta Natales/Galla", -51.672, -72.528, 68, "MT"], ["SCON", "Puerto Quellon Arpt", -43.134, -73.633, 11, "M"], ["SCPQ", "Monopulli Arpt", -42.347, -73.718, 166, "MT"], ["SCQP", "Temuco Arpt", -38.925, -72.648, 97, "MT"], ["SCRA", "Chanaral Arpt", -26.332, -70.607, 27, "M"], ["SCRD", "Valparaiso/Rodelillo Arpt", -33.068, -71.557, 342, "MT"], ["SCRG", "Rancagua/Indepencia Arpt", -34.174, -70.776, 488, "MT"], ["SCSE", "La Serena/La Florida Arpt", -29.918, -71.201, 141, "MT"], ["SCSN", "Santo Domingo Arpt", -33.656, -71.615, 73, "MT"], ["SCTB", "Santiago/Sanchez Arpt", -33.456, -70.547, 655, "MT"], ["SCTC", "Temuco/Maquehue", -38.77, -72.637, 93, "MT"], ["SCTE", "Puerto Montt/Tepua Arpt", -41.439, -73.094, 85, "MT"], ["SCTN", "Chaitén Arpt", -42.933, -72.699, 8, "MT"], ["SCVD", "Valdivia/Pichoy Arpt", -39.65, -73.086, 19, "MT"], ["SCVM", "Concon/Vina Del Mar Arpt", -32.947, -71.479, 136, "MT"], ["SLCB", "Cochabamba/Wilstermann Intl", -17.421, -66.179, 2560, "MT"], ["SLCN", "Charaña", -17.592, -69.442, 4070, "M"], ["SLOR", "Oruro/Mendoza Arpt", -17.962, -67.077, 3720, "MT"], ["SLUY", "Andina Intl", -20.4413, -66.8576, 3394, "M"], ["SPLO", "Ilo Arpt", -17.692, -71.343, 25, "MT"], ["SPTN", "Tacna Arpt", -18.049, -70.277, 459, "MT"]] };
 
-  // ../sistema/compartido/util.js
+  // modulos/vuelos/metar.js
+  var NUDO = 0.514444;
+  var PIE = 0.3048;
+  var MILLA = 1609.34;
+  var RUMBOS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+  var estaciones = null;
+  function fijarEstaciones(lista) {
+    estaciones = lista.map(([icao, nombre, lat, lon, elev, emite]) => ({ icao, nombre, lat, lon, elev, taf: emite.includes("T") }));
+  }
+  fijarEstaciones(metar_estaciones_default.estaciones);
+  var kmEntre = (a, b, c, d) => Math.hypot((c - a) * 110.54, (d - b) * 111.32 * Math.cos(a * Math.PI / 180));
+  var rumbo = (a, b, c, d) => (Math.atan2((d - b) * Math.cos(a * Math.PI / 180), c - a) * 180 / Math.PI + 360) % 360;
+  function cercanas(lat, lon, n = 3) {
+    if (!estaciones) return [];
+    return estaciones.map((e) => ({ ...e, km: kmEntre(lat, lon, e.lat, e.lon), rumbo: rumbo(lat, lon, e.lat, e.lon) })).sort((a, b) => a.km - b.km).slice(0, n).map((e) => ({ ...e, hacia: `al ${RUMBOS[Math.round(e.rumbo / 45) % 8]}` }));
+  }
+  function representatividad(est, elevArea = null) {
+    const motivos = [];
+    if (est.km > 50) motivos.push(`está a ${Math.round(est.km)} km`);
+    if (elevArea != null && Math.abs(elevArea - est.elev) > 500) motivos.push(`${Math.round(Math.abs(elevArea - est.elev))} m de diferencia de altura`);
+    return { buena: !motivos.length, motivos };
+  }
+  var enlaces = (icao) => [
+    ["AIP Chile", "https://aipchile.dgac.gob.cl/metar"],
+    ["MeteoChile", "https://www.meteochile.gob.cl/PortalDMC-web/metaer/home.xhtml"],
+    ["NOAA (texto)", `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(icao)}&format=raw&taf=true&hours=3`]
+  ];
+  var FENOMENOS = {
+    RA: "lluvia",
+    DZ: "llovizna",
+    SN: "nieve",
+    SG: "cinarra",
+    GR: "granizo",
+    GS: "granizo pequeño",
+    PL: "hielo granulado",
+    UP: "precipitación",
+    FG: "niebla",
+    BR: "neblina",
+    HZ: "calima",
+    FU: "humo",
+    DU: "polvo",
+    SA: "arena",
+    VA: "ceniza",
+    TS: "tormenta",
+    SH: "chubascos",
+    SQ: "turbonada",
+    FC: "tromba",
+    DS: "tempestad de polvo",
+    SS: "tempestad de arena",
+    PO: "remolinos de polvo",
+    FZ: "engelante",
+    MI: "baja",
+    BC: "en bancos",
+    PR: "parcial",
+    DR: "arrastrada",
+    BL: "levantada",
+    VC: "en las cercanías"
+  };
+  var CANT = { FEW: "pocas (1–2/8)", SCT: "dispersas (3–4/8)", BKN: "fragmentadas (5–7/8)", OVC: "cubierto (8/8)", VV: "cielo invisible" };
+  function fenomeno(tok) {
+    const m = /^([+-]|VC)?((?:MI|BC|PR|DR|BL|SH|TS|FZ))?((?:DZ|RA|SN|SG|IC|PL|GR|GS|UP|BR|FG|FU|VA|DU|SA|HZ|PO|SQ|FC|SS|DS)+)?$/.exec(tok);
+    if (!m || !m[2] && !m[3]) return null;
+    const partes = [];
+    if (m[3]) for (let i = 0; i < m[3].length; i += 2) partes.push(FENOMENOS[m[3].slice(i, i + 2)]);
+    if (m[2]) partes.push(FENOMENOS[m[2]]);
+    if (m[1] === "-") partes.push("débil");
+    else if (m[1] === "+") partes.push("fuerte");
+    else if (m[1] === "VC") partes.push("en las cercanías");
+    return { codigo: tok, texto: partes.filter(Boolean).join(" ") };
+  }
+  function horaReporte(ddhhmm, ahora = /* @__PURE__ */ new Date()) {
+    const d = Number(ddhhmm.slice(0, 2)), h = Number(ddhhmm.slice(2, 4)), mi = Number(ddhhmm.slice(4, 6));
+    let f = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), d, h, mi));
+    if (f - ahora > 36e5 * 24) f = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - 1, d, h, mi));
+    return f;
+  }
+  function categoria(techoPies, visM) {
+    const sm = visM == null ? null : visM / MILLA;
+    if (techoPies != null && techoPies < 500 || sm != null && sm < 1) return "LIFR";
+    if (techoPies != null && techoPies < 1e3 || sm != null && sm < 3) return "IFR";
+    if (techoPies != null && techoPies <= 3e3 || sm != null && sm <= 5) return "MVFR";
+    return "VFR";
+  }
+  function decodificarUno(texto, ahora = /* @__PURE__ */ new Date()) {
+    const t = String(texto).replace(/=+\s*$/, "").trim();
+    const cab = /^(?:(METAR|SPECI)\s+)?(?:COR\s+)?([A-Z]{4})\s+(\d{6})Z\s+(.*)$/s.exec(t);
+    if (!cab) return null;
+    const r = {
+      tipo: cab[1] || "METAR",
+      icao: cab[2],
+      hora: horaReporte(cab[3], ahora),
+      texto: `${cab[1] || "METAR"} ${cab[2]} ${cab[3]}Z ${cab[4]}`.replace(/\s+/g, " ").trim(),
+      viento: null,
+      visibilidadM: null,
+      cavok: false,
+      nubes: [],
+      fenomenos: [],
+      temp: null,
+      rocio: null,
+      qnh: null,
+      tendencia: ""
+    };
+    const toks = cab[4].split(/\s+/);
+    for (let i = 0; i < toks.length; i++) {
+      const k = toks[i];
+      if (k === "RMK") break;
+      if (/^(NOSIG|BECMG|TEMPO)$/.test(k)) {
+        r.tendencia = toks.slice(i).join(" ");
+        break;
+      }
+      let m;
+      if (m = /^(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(KT|MPS)$/.exec(k)) {
+        const f = m[4] === "KT" ? NUDO : 1;
+        r.viento = { dir: m[1] === "VRB" ? null : Number(m[1]), ms: Number(m[2]) * f, rafMs: m[3] ? Number(m[3]) * f : null, kt: m[4] === "KT" ? Number(m[2]) : Number(m[2]) / NUDO, rafKt: m[3] ? m[4] === "KT" ? Number(m[3]) : Number(m[3]) / NUDO : null };
+      } else if ((m = /^(\d{3})V(\d{3})$/.exec(k)) && r.viento) {
+        r.viento.varDe = Number(m[1]);
+        r.viento.varA = Number(m[2]);
+      } else if (k === "CAVOK") {
+        r.cavok = true;
+        r.visibilidadM = 1e4;
+      } else if (/^\d{4}$/.test(k) && r.visibilidadM == null) r.visibilidadM = k === "9999" ? 1e4 : Number(k);
+      else if (m = /^(P)?(\d+)(?:\/(\d+))?SM$/.exec(k)) r.visibilidadM = (m[3] ? Number(m[2]) / Number(m[3]) : Number(m[2])) * MILLA;
+      else if (m = /^(FEW|SCT|BKN|OVC|VV)(\d{3}|\/\/\/)(CB|TCU)?$/.exec(k)) r.nubes.push({ cant: m[1], texto: CANT[m[1]], pies: m[2] === "///" ? null : Number(m[2]) * 100, m: m[2] === "///" ? null : Math.round(Number(m[2]) * 100 * PIE), tipo: m[3] || "" });
+      else if (/^(NSC|SKC|CLR|NCD)$/.test(k)) r.sinNubes = true;
+      else if (m = /^(M?\d{2})\/(M?\d{2})?$/.exec(k)) {
+        const n = (s) => s ? Number(s.replace("M", "-")) : null;
+        r.temp = n(m[1]);
+        r.rocio = n(m[2]);
+      } else if (m = /^Q(\d{4})$/.exec(k)) r.qnh = Number(m[1]);
+      else if (m = /^A(\d{4})$/.exec(k)) r.qnh = Math.round(Number(m[1]) / 100 * 33.8639);
+      else {
+        const f = fenomeno(k);
+        if (f) r.fenomenos.push(f);
+      }
+    }
+    const techo = r.nubes.filter((n) => ["BKN", "OVC", "VV"].includes(n.cant) && n.pies != null).map((n) => n.pies);
+    r.techoPies = techo.length ? Math.min(...techo) : null;
+    r.categoria = categoria(r.techoPies, r.visibilidadM);
+    return r;
+  }
+  function decodificar(texto, ahora = /* @__PURE__ */ new Date()) {
+    const limpio = String(texto || "").replace(/\r/g, "");
+    const metars = [];
+    const re = /(?:^|\s)((?:METAR|SPECI)\s+(?:COR\s+)?[A-Z]{4}\s+\d{6}Z[^=\n]*|[A-Z]{4}\s+\d{6}Z\s+(?:AUTO\s+)?(?:\d{3}|VRB)\d{2,3}(?:G\d{2,3})?(?:KT|MPS)[^=\n]*)/g;
+    let m;
+    while (m = re.exec(limpio)) {
+      const d = decodificarUno(m[1].replace(/\bAUTO\b/, ""), ahora);
+      if (d && !metars.some((x) => x.texto === d.texto)) metars.push(d);
+    }
+    const taf = /TAF\s+(?:AMD\s+|COR\s+)?[A-Z]{4}\s+\d{6}Z[\s\S]*?(?:=|$)/.exec(limpio);
+    metars.sort((a, b) => b.hora - a.hora);
+    return { metars, taf: taf ? taf[0].replace(/\s+/g, " ").trim() : "" };
+  }
+  function comparar(m, dron, horaPron = null) {
+    const out = [];
+    if (m.viento) {
+      const v = m.viento.ms, g = m.viento.rafMs;
+      out.push({
+        texto: `Viento ${m.viento.dir == null ? "variable" : m.viento.dir + "°"} ${v.toFixed(1)} m/s${g ? `, ráfagas ${g.toFixed(1)} m/s` : ""} (en el aeródromo, a 10 m)`,
+        nivel: v > dron.vientoMaxMs || g && g > dron.rafagaMaxMs ? "no" : v > 0.8 * dron.vientoMaxMs || g && g > 0.8 * dron.rafagaMaxMs ? "aviso" : "ok"
+      });
+    }
+    if (m.visibilidadM != null) out.push({ texto: m.cavok ? "CAVOK: visibilidad 10 km o más, sin nubes bajas" : `Visibilidad ${m.visibilidadM >= 1e4 ? "10 km o más" : (m.visibilidadM / 1e3).toFixed(1) + " km"}`, nivel: m.visibilidadM < 3e3 ? "no" : m.visibilidadM < 5e3 ? "aviso" : "ok" });
+    if (m.techoPies != null) out.push({ texto: `Techo de nubes a ${Math.round(m.techoPies * PIE)} m (${m.techoPies} pies)`, nivel: m.techoPies * PIE < 300 ? "aviso" : "ok" });
+    for (const f of m.fenomenos) out.push({ texto: `Fenómeno: ${f.texto} (${f.codigo})`, nivel: /TS|GR|\+/.test(f.codigo) ? "no" : /RA|DZ|SN|FG|SH/.test(f.codigo) ? "aviso" : "ok" });
+    if (m.temp != null) out.push({ texto: `Temperatura ${m.temp} °C${m.rocio != null ? ` · punto de rocío ${m.rocio} °C` : ""}`, nivel: m.temp < 5 ? "aviso" : "ok" });
+    if (m.temp != null && m.rocio != null && m.temp - m.rocio <= 2) out.push({ texto: "Temperatura y rocío muy cerca: posible niebla o condensación en la cámara", nivel: "aviso" });
+    if (horaPron && horaPron.v != null && m.viento) {
+      out.push({ texto: `El pronóstico decía ${horaPron.v.toFixed(1)} m/s a 120 m para esa hora; el METAR mide ${m.viento.ms.toFixed(1)} m/s a 10 m. A 120 m el viento suele ser mayor que en superficie.`, nivel: m.viento.ms > horaPron.v + 3 ? "aviso" : "ok" });
+    }
+    return out;
+  }
+  var antiguedadMin = (m, ahora = /* @__PURE__ */ new Date()) => Math.round((ahora - m.hora) / 6e4);
+
+  // modulos/vuelos/metar-ui.js
+  var esc = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  var NIVEL = { ok: "mt-ok", aviso: "mt-aviso", no: "mt-no" };
+  var COLOR_CAT = { VFR: "mt-ok", MVFR: "mt-aviso", IFR: "mt-no", LIFR: "mt-no" };
+  function horaLocal(fecha) {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(fecha).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:00`;
+  }
+  var horaTexto = (f) => f.toLocaleString("es-CL", { timeZone: "America/Santiago", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+  function htmlPanelMetar({ lat, lon, elevArea = null, guardado = null, dron, horasPron = null, acc = "data-accion", titulo = "METAR · TAF" }) {
+    const cerca = lat != null && lon != null ? cercanas(lat, lon, 3) : [];
+    const lista = cerca.length ? `<ul class="mt-lista">${cerca.map((e) => {
+      const r = representatividad(e, elevArea);
+      return `<li><div><b class="mt-icao">${esc(e.icao)}</b> ${esc(e.nombre)}<span class="mt-tenue"> · ${Math.round(e.km)} km ${e.hacia} · ${e.elev} m${e.taf ? " · con TAF" : ""}</span>
+      ${r.buena ? "" : `<span class="mt-ref">Solo referencia: ${esc(r.motivos.join(" y "))}</span>`}</div>
+      <div class="mt-enlaces">${enlaces(e.icao).map(([t, u]) => `<a href="${u}" target="_blank" rel="noopener">${t} ↗</a>`).join("")}</div></li>`;
+    }).join("")}</ul>` : '<p class="mt-tenue">Carga el área para ver los aeródromos con METAR más cercanos.</p>';
+    let leido = "";
+    if (guardado && guardado.texto) {
+      const d = decodificar(guardado.texto, new Date(guardado.leidoEn || Date.now()));
+      const m = d.metars[0];
+      if (!m) leido = '<p class="mt-no">No reconocí un METAR en el texto pegado. Copia la línea que empieza con METAR o con el código del aeródromo (por ejemplo SCEL 021400Z…).</p>';
+      else {
+        const fila = horasPron ? horasPron.find((h) => h.t === horaLocal(m.hora)) : null;
+        const comp = comparar(m, dron, fila);
+        const edad = antiguedadMin(m);
+        leido = `<div class="mt-leido">
+        <div class="mt-cab"><b>${esc(m.tipo)} ${esc(m.icao)}</b><span class="mt-chip ${COLOR_CAT[m.categoria]}">${m.categoria}</span>
+          <span class="mt-tenue">${esc(horaTexto(m.hora))} hora de Chile${edad >= 0 && edad < 60 * 24 * 3 ? ` · hace ${edad < 90 ? edad + " min" : Math.round(edad / 60) + " h"}` : ""}</span></div>
+        ${edad > 90 ? '<p class="mt-aviso">Este reporte tiene más de hora y media: revisa si hay uno más nuevo.</p>' : ""}
+        <ul class="mt-comp">${comp.map((c) => `<li class="${NIVEL[c.nivel]}">${esc(c.texto)}</li>`).join("")}</ul>
+        <pre class="mt-crudo">${esc(m.texto)}${d.metars.length > 1 ? `
+(+${d.metars.length - 1} reporte${d.metars.length > 2 ? "s" : ""} anterior${d.metars.length > 2 ? "es" : ""})` : ""}${d.taf ? "\n\n" + esc(d.taf) : ""}</pre>
+        <button type="button" class="mt-btn" ${acc}="metar-borrar">Borrar METAR</button></div>`;
+      }
+    }
+    return `<div class="mt-panel"><h3 class="mt-tit">${esc(titulo)}</h3>
+    <p class="mt-tenue">Aeródromos con METAR más cercanos. Abre uno, copia el reporte y pégalo abajo: la app lo lee y lo compara con el dron y el pronóstico.</p>
+    ${lista}
+    <label class="mt-pegar"><span>Pegar METAR (y TAF si quieres)</span><textarea rows="3" data-metar-texto placeholder="METAR SCEL 021400Z 20008KT 9999 FEW030 22/08 Q1015 NOSIG=">${esc(guardado && guardado.texto && !leido.includes("mt-leido") ? guardado.texto : "")}</textarea></label>
+    <button type="button" class="mt-btn mt-pri" ${acc}="metar-leer">Leer METAR</button>
+    ${leido}</div>`;
+  }
+
+  // compartido/util.js
   function escapar(t) {
     return String(t != null ? t : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
 
-  // ../sistema/modulos/vuelos/calculo.js
+  // modulos/vuelos/calculo.js
   function fmt(n, dec = 0) {
     if (n == null || !isFinite(n)) return "—";
     return n.toLocaleString("es-CL", { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
 
-  // ../sistema/modulos/vuelos/graficos.js
+  // modulos/vuelos/graficos.js
   var COLOR_ESTADO = { go: "#0F766E", marg: "#C2410C", no: "#B42318", noche: "#B9B5AC" };
   var TEXTO_ESTADO = { go: "GO", marg: "Marg.", no: "NO", noche: "Luz" };
   function graficoPronostico(filas, dron) {
@@ -276,7 +469,7 @@ var PronosticoVuelo = (() => {
     return items.map(([t, malas]) => ({ texto: t, cumple: !malas.length, detalle: malas.length ? `No ${rango(malas)}` : "Cumple" }));
   }
 
-  // ../sistema/modulos/vuelos/drones.js
+  // modulos/vuelos/drones.js
   var DRONES_BASE = [
     {
       id: "m4e",
@@ -284,9 +477,11 @@ var PronosticoVuelo = (() => {
       familiaNombre: "DJI Matrice 4E",
       sensor: "Cámara gran angular",
       nombre: "DJI Matrice 4E (cámara gran angular)",
+      // Focal efectiva 12,20 mm (ficha: 12,29 mm): con ella la altura para un GSD calza con DJI Pilot 2 (3,5 cm/px → 130,3 m).
       sensorAnchoMm: 17.3,
       sensorAltoMm: 13,
-      focalMm: 12.29,
+      focalMm: 12.2,
+      focalFichaMm: 12.29,
       pixelesAncho: 5280,
       pixelesAlto: 3956,
       obturador: "mecanico",
@@ -336,6 +531,29 @@ var PronosticoVuelo = (() => {
       lidar: { puntosPorSegundo: 24e4, fovGrados: 70.4 }
     },
     {
+      // v0.11.1 · Matrice 400 + Zenmuse L3 (ficha DJI): RGB 4/3" de 100 MP (12288 × 8192), 28 mm equivalentes, FOV horizontal 62°.
+      // DJI no publica la focal real: 14,4 mm sale del FOV horizontal (17,3 mm / 2 / tan 31°) y calza con «GSD 3 cm a 300 m».
+      // LiDAR: 80° de FOV (escaneo lineal); pulsos 100, 350, 1000 o 2000 kHz (350 kHz para volar bajo 300 m).
+      // Autonomía: la ficha da 59 min solo con H30T; con la L3 (1,6 kg + conector) se estiman 45 min: corregir con vuelos reales.
+      id: "m400-l3",
+      familia: "m400",
+      familiaNombre: "DJI Matrice 400",
+      sensor: "Zenmuse L3",
+      nombre: "DJI Matrice 400 · Zenmuse L3",
+      sensorAnchoMm: 17.3,
+      sensorAltoMm: 11.53,
+      focalMm: 14.4,
+      pixelesAncho: 12288,
+      pixelesAlto: 8192,
+      obturador: "mecanico",
+      velocidadMaxMs: 20,
+      autonomiaMin: 45,
+      intervaloMinS: 1,
+      vientoMaxMs: 12,
+      rafagaMaxMs: 12,
+      lidar: { puntosPorSegundo: 35e4, fovGrados: 80 }
+    },
+    {
       id: "p4rtk",
       familia: "p4rtk",
       familiaNombre: "DJI Phantom 4 RTK",
@@ -356,18 +574,17 @@ var PronosticoVuelo = (() => {
     }
   ];
 
-  // ../sistema/modulos/vuelos/pronostico-widget.js
-  var VERSION = "1.0 (Vuelos 0.3)";
+  // modulos/vuelos/pronostico-widget.js
+  var VERSION = "1.1 (Vuelos 0.6)";
   var DRONES = DRONES_BASE.map((d) => ({ id: d.id, nombre: d.nombre, vientoMaxMs: d.vientoMaxMs, rafagaMaxMs: d.rafagaMaxMs }));
-  var piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, metarCercano, vientoDeMetar, enlaceMetar, graficoPronostico, checklistClima };
-  var esc = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  var piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, cercanas, decodificar, comparar, graficoPronostico, checklistClima };
+  var esc2 = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   var dos = (n) => String(n).padStart(2, "0");
   var DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   var fechaCorta = (iso) => {
     const d = /* @__PURE__ */ new Date(iso + "T12:00:00");
     return `${DIAS[d.getDay()]} ${d.getDate()}`;
   };
-  var n1 = (v) => v == null || !isFinite(v) ? "—" : v.toLocaleString("es-CL", { maximumFractionDigits: 1 });
   function filasDelDia(p, dron, kps, dia) {
     return p.horas.filter((x) => x.fecha === dia && x.hora >= 6 && x.hora <= 21).map((h) => {
       const kp = kpEnHora(kps, h.t);
@@ -396,7 +613,7 @@ var PronosticoVuelo = (() => {
   }
   function montar(el, opciones = {}) {
     const o = { dronId: "m4e", ...opciones };
-    const st = { pron: null, kps: null, metar: null, dia: null, cargando: false, error: "", errorMetar: "" };
+    const st = { pron: null, kps: null, metar: opciones.ultimo && opciones.ultimo.metar && opciones.ultimo.metar.texto ? opciones.ultimo.metar : null, dia: null, cargando: false, error: "" };
     const dron = () => o.dron || DRONES.find((d) => d.id === o.dronId) || DRONES[0];
     el.classList.add("pv");
     function resumen() {
@@ -418,28 +635,23 @@ var PronosticoVuelo = (() => {
         modelos: ((_a = st.pron.horas[0]) == null ? void 0 : _a.modelos) || 0,
         checklist: b.checklist,
         horas: b.filas.map((f) => ({ hora: f.h.hora, v: f.h.v, g: f.h.g, dir: f.h.dir, prob: f.h.prob, nubes: f.h.nubes, temp: f.h.temp, kp: f.kp, estado: f.ev.estado })),
-        metar: st.metar ? { icao: st.metar.icao, nombre: st.metar.nombre, km: st.metar.km, metar: st.metar.metar, taf: st.metar.taf } : null
+        metar: st.metar
+        // { texto, leidoEn }: el METAR pegado
       };
     }
-    const checklistHtml = (chk, titulo) => `<div class="pv-caja"><h3>${esc(titulo)}</h3><ul class="pv-chk">${chk.map((x) => `<li class="${x.cumple ? "si" : "no"}"><span>${esc(x.texto)}</span><b>${esc(x.detalle)}</b></li>`).join("")}</ul></div>`;
-    function metarHtml() {
-      const m = st.metar;
-      if (m) return `<div class="pv-caja"><h3>METAR · TAF</h3><p class="pv-tenue">${esc(m.icao)} · ${esc(m.nombre)} · a ${Math.round(m.km)} km${m.viento ? ` · viento ${m.viento.dir != null ? m.viento.dir + "°" : "variable"} ${n1(m.viento.v)} m/s${m.viento.g ? ` ráf. ${n1(m.viento.g)}` : ""}` : ""}</p>
-      <pre class="pv-metar">${esc(m.metar)}${m.taf ? "\n\n" + esc(m.taf) : ""}</pre><a class="pv-link" href="${enlaceMetar(m.icao)}" target="_blank" rel="noopener">Ver en NOAA ↗</a></div>`;
-      if (st.errorMetar) return `<div class="pv-caja"><h3>METAR · TAF</h3><p class="pv-tenue">${esc(st.errorMetar)}</p><a class="pv-link" href="https://aipchile.dgac.gob.cl/" target="_blank" rel="noopener">Revisar en AIP Chile ↗</a></div>`;
-      return "";
-    }
+    const checklistHtml = (chk, titulo) => `<div class="pv-caja"><h3>${esc2(titulo)}</h3><ul class="pv-chk">${chk.map((x) => `<li class="${x.cumple ? "si" : "no"}"><span>${esc2(x.texto)}</span><b>${esc2(x.detalle)}</b></li>`).join("")}</ul></div>`;
+    const metarHtml = () => `<div class="pv-caja">${htmlPanelMetar({ lat: o.lat, lon: o.lon, elevArea: st.pron ? st.pron.elevacionModelo : null, guardado: st.metar, dron: dron(), horasPron: st.pron ? st.pron.horas : null, acc: "data-pv" })}</div>`;
     function render() {
       const d = dron();
       const cab = `<div class="pv-cab">
-      <div><h2>Pronóstico de vuelo</h2>${o.lugar ? `<p class="pv-tenue">${esc(o.lugar)}</p>` : ""}</div>
+      <div><h2>Pronóstico de vuelo</h2>${o.lugar ? `<p class="pv-tenue">${esc2(o.lugar)}</p>` : ""}</div>
       <div class="pv-acc">
-        ${o.dron ? "" : `<select class="pv-dron" aria-label="Dron">${DRONES.map((x) => `<option value="${x.id}" ${x.id === d.id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select>`}
+        ${o.dron ? "" : `<select class="pv-dron" aria-label="Dron">${DRONES.map((x) => `<option value="${x.id}" ${x.id === d.id ? "selected" : ""}>${esc2(x.nombre)}</option>`).join("")}</select>`}
         <button type="button" class="pv-btn pri" data-pv="consultar" ${st.cargando || o.lat == null ? "disabled" : ""}>${st.cargando ? "Consultando…" : st.pron ? "Actualizar" : "Consultar"}</button>
       </div></div>`;
       let cuerpo = "";
       if (o.lat == null || o.lon == null) cuerpo = '<p class="pv-tenue">Falta la ubicación (centro del área o del tramo) para consultar.</p>';
-      else if (st.error) cuerpo = `<div class="pv-error">${esc(st.error)}</div>${o.ultimo ? ultimoHtml(o.ultimo) : ""}`;
+      else if (st.error) cuerpo = `<div class="pv-error">${esc2(st.error)}</div>${o.ultimo ? ultimoHtml(o.ultimo) : ""}`;
       else if (st.pron) {
         const dias = [...new Set(st.pron.horas.map((x) => x.fecha))];
         if (!st.dia || !dias.includes(st.dia)) st.dia = o.fecha && dias.includes(o.fecha) ? o.fecha : dias[0];
@@ -455,18 +667,18 @@ var PronosticoVuelo = (() => {
         <div class="pv-dos">${checklistHtml(b.checklist, b.ventana ? `Checklist · ventana ${dos(b.ventana[0])}–${dos(b.ventana[1] + 1)} h` : "Checklist · horas con luz")}${metarHtml()}</div>
         ${o.alGuardar ? '<button type="button" class="pv-btn" data-pv="guardar">Guardar en la jornada</button>' : ""}`;
       } else if (o.ultimo) cuerpo = ultimoHtml(o.ultimo);
-      else cuerpo = '<p class="pv-tenue">Consulta los próximos 3 días: viento a 120 m, ráfagas, lluvia, nubes, temperatura, Kp y METAR cercano.</p>';
-      el.innerHTML = cab + cuerpo + `<div class="pv-enlaces">${ENLACES_CONSULTA.map(([t, u]) => `<a class="pv-link" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join("")}</div>`;
+      else cuerpo = '<p class="pv-tenue">Consulta los próximos 3 días: viento a 120 m, ráfagas, lluvia, nubes, temperatura y Kp.</p>';
+      if (o.lat != null && !st.pron) cuerpo += metarHtml();
+      el.innerHTML = cab + cuerpo + `<div class="pv-enlaces">${ENLACES_CONSULTA.map(([t, u]) => `<a class="pv-link" href="${u}" target="_blank" rel="noopener">${esc2(t)} ↗</a>`).join("")}</div>`;
     }
     function ultimoHtml(u) {
       const f = new Date(u.consultadoEn);
-      return `<p class="pv-tenue">Última consulta guardada: ${f.toLocaleDateString("es-CL")} ${dos(f.getHours())}:${dos(f.getMinutes())}${u.ventana ? ` · ventana ${esc(u.ventana)}` : ""}. Sin conexión se muestra esto.</p>${u.checklist ? checklistHtml(u.checklist, "Checklist (última consulta)") : ""}`;
+      return `<p class="pv-tenue">Última consulta guardada: ${f.toLocaleDateString("es-CL")} ${dos(f.getHours())}:${dos(f.getMinutes())}${u.ventana ? ` · ventana ${esc2(u.ventana)}` : ""}. Sin conexión se muestra esto.</p>${u.checklist ? checklistHtml(u.checklist, "Checklist (última consulta)") : ""}`;
     }
     async function consultar() {
       if (o.lat == null || o.lon == null) return;
       st.cargando = true;
       st.error = "";
-      st.errorMetar = "";
       render();
       try {
         const [p, kps] = await Promise.all([pedirPronostico(o.lat, o.lon), st.kps ? Promise.resolve(st.kps) : pedirKp()]);
@@ -475,13 +687,6 @@ var PronosticoVuelo = (() => {
       } catch (e) {
         st.pron = null;
         st.error = `No se pudo consultar el pronóstico (${e.message}). Revisa la conexión a internet.`;
-      }
-      try {
-        st.metar = await metarCercano(o.lat, o.lon);
-        if (!st.metar) st.errorMetar = "No hay aeródromos con METAR a menos de ~120 km.";
-      } catch {
-        st.metar = null;
-        st.errorMetar = "No se pudo leer el METAR (sin conexión o el servicio no respondió).";
       }
       st.cargando = false;
       render();
@@ -492,6 +697,19 @@ var PronosticoVuelo = (() => {
       if (b.dataset.pv === "consultar") consultar();
       else if (b.dataset.pv === "dia") {
         st.dia = b.dataset.dia;
+        render();
+      } else if (b.dataset.pv === "metar-leer") {
+        const ta = el.querySelector("[data-metar-texto]");
+        const t = (ta && ta.value || "").trim();
+        if (!t) return;
+        st.metar = { texto: t, leidoEn: (/* @__PURE__ */ new Date()).toISOString() };
+        render();
+        if (o.alGuardar && st.pron) {
+          const r = resumen();
+          if (r) o.alGuardar(r);
+        }
+      } else if (b.dataset.pv === "metar-borrar") {
+        st.metar = null;
         render();
       } else if (b.dataset.pv === "guardar" && o.alGuardar) {
         const r = resumen();

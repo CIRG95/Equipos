@@ -312,6 +312,25 @@ export function rumboMasCorto(hoja, d, geo, i, velocidad) {
   return { rumbo: mejor, minTotal: minimo };
 }
 
+/**
+ * Puntos de despegue sugeridos para el sector i (v0.11.1): inicio de las líneas, cada cambio de batería, final de las líneas
+ * y centro del sector. Cada uno con su jornada calculada. → [{ k, texto, xy, lonLat, minTotal, mejor }]
+ */
+export function opcionesDespegue(hoja, d, geo, i) {
+  // Ruta de referencia con despegue en el centro: así las letras no cambian de lugar al elegir una opción.
+  const sec = geo.sectores[i];
+  const r = calcularSector(hoja, d, geo, i, { despegue: centroide(sec.poligono) });
+  if (!r || !r.baterias || !r.baterias.length) return [];
+  const bs = r.baterias;
+  const cand = [{ k: 'inicio', texto: 'Inicio de las líneas (primera pasada)', xy: bs[0].inicio }];
+  bs.slice(0, -1).forEach((b, k) => cand.push({ k: `cambio${k + 1}`, texto: `Cambio de batería ${k + 1} → ${k + 2}`, xy: b.fin }));
+  cand.push({ k: 'final', texto: 'Final de las líneas (última pasada)', xy: bs[bs.length - 1].fin });
+  cand.push({ k: 'centro', texto: 'Centro del sector', xy: centroide(sec.poligono) });
+  const out = cand.filter(c => c.xy && isFinite(c.xy[0])).map(c => ({ ...c, lonLat: geo.marco.aLonLat(c.xy), minTotal: calcularSector(hoja, d, geo, i, { despegue: c.xy }).minTotal }));
+  const min = Math.min(...out.map(o => o.minTotal));
+  return out.map(o => ({ ...o, mejor: o.minTotal <= min + 1e-6 }));
+}
+
 /** Totales de la hoja (todos los sectores). */
 export function totales(hoja, d, geo) {
   if (!geo || !d) return null;

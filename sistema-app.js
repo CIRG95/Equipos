@@ -1810,6 +1810,29 @@ Content-Type: ${mime}\r
       lidar: { puntosPorSegundo: 24e4, fovGrados: 70.4 }
     },
     {
+      // v0.11.1 · Matrice 400 + Zenmuse L3 (ficha DJI): RGB 4/3" de 100 MP (12288 × 8192), 28 mm equivalentes, FOV horizontal 62°.
+      // DJI no publica la focal real: 14,4 mm sale del FOV horizontal (17,3 mm / 2 / tan 31°) y calza con «GSD 3 cm a 300 m».
+      // LiDAR: 80° de FOV (escaneo lineal); pulsos 100, 350, 1000 o 2000 kHz (350 kHz para volar bajo 300 m).
+      // Autonomía: la ficha da 59 min solo con H30T; con la L3 (1,6 kg + conector) se estiman 45 min: corregir con vuelos reales.
+      id: "m400-l3",
+      familia: "m400",
+      familiaNombre: "DJI Matrice 400",
+      sensor: "Zenmuse L3",
+      nombre: "DJI Matrice 400 · Zenmuse L3",
+      sensorAnchoMm: 17.3,
+      sensorAltoMm: 11.53,
+      focalMm: 14.4,
+      pixelesAncho: 12288,
+      pixelesAlto: 8192,
+      obturador: "mecanico",
+      velocidadMaxMs: 20,
+      autonomiaMin: 45,
+      intervaloMinS: 1,
+      vientoMaxMs: 12,
+      rafagaMaxMs: 12,
+      lidar: { puntosPorSegundo: 35e4, fovGrados: 80 }
+    },
+    {
       id: "p4rtk",
       familia: "p4rtk",
       familiaNombre: "DJI Phantom 4 RTK",
@@ -1846,7 +1869,7 @@ Content-Type: ${mime}\r
   var fmt1 = (n) => Number(n).toLocaleString("es-CL", { maximumFractionDigits: 2 });
   function sensoresDe(eq) {
     const t = `${eq.marca || ""} ${eq.modelo || ""} ${eq.equipo || ""}`.toLowerCase().replace(/\s+/g, " ");
-    const clave2 = [["matrice 4e", "m4e"], ["m4e", "m4e"], ["matrice 300", "m300"], ["m300", "m300"], ["phantom 4 rtk", "p4rtk"], ["p4 rtk", "p4rtk"], ["p4rtk", "p4rtk"]].find(([k]) => t.includes(k));
+    const clave2 = [["matrice 4e", "m4e"], ["m4e", "m4e"], ["matrice 300", "m300"], ["m300", "m300"], ["matrice 400", "m400"], ["m400", "m400"], ["phantom 4 rtk", "p4rtk"], ["p4 rtk", "p4rtk"], ["p4rtk", "p4rtk"]].find(([k]) => t.includes(k));
     return clave2 ? DRONES_BASE.filter((d) => d.familia === clave2[1]) : [];
   }
   var textoSensor = (d) => `${d.sensor}: ${fmt1(d.sensorAnchoMm)} × ${fmt1(d.sensorAltoMm)} mm · ${d.pixelesAncho} × ${d.pixelesAlto} px · focal ${fmt1(d.focalMm)} mm${d.lidar ? ` · LiDAR ${fmt1(d.lidar.fovGrados)}° · ${Math.round(d.lidar.puntosPorSegundo / 1e3)} mil pts/s` : ""}`;
@@ -2798,6 +2821,7 @@ Content-Type: ${mime}\r
     const VISTAS2 = {
       async lista() {
         cacheLista = (await listarConEstado()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        if (!cacheLista.length && st.alta) return VISTAS2.alta();
         if (!cacheLista.length) {
           return `<section class="eq-vacio">
           ${ICONOS.vacio}
@@ -2821,11 +2845,16 @@ Content-Type: ${mime}\r
           <span class="eq-vistas" role="tablist" aria-label="Vista"><button type="button" role="tab" aria-selected="${st.vistaLista === "tarjetas"}" class="${st.vistaLista === "tarjetas" ? "activo" : ""}" data-accion="vista-lista" data-v="tarjetas">Tarjetas</button><button type="button" role="tab" aria-selected="${st.vistaLista === "lista"}" class="${st.vistaLista === "lista" ? "activo" : ""}" data-accion="vista-lista" data-v="lista">Lista</button></span>
           ${esRRHH ? '<button class="eq-btn primario" data-accion="nuevo-equipo">+ Equipo</button>' : ""}
         </div>
-        <div class="eq-cats" role="group" aria-label="Tipo de equipo">${catChips}</div>
-        <div class="eq-filtros"><span class="eq-tenue">Estado:</span>${chips}</div>
-        <div id="eq-resultados"></div>`;
+        <div class="eq-con-lado">
+          <div class="eq-lado-principal">
+            <div class="eq-cats" role="group" aria-label="Tipo de equipo">${catChips}</div>
+            <div class="eq-filtros"><span class="eq-tenue">Estado:</span>${chips}</div>
+            <div id="eq-resultados"></div>
+          </div>
+          <aside class="eq-lado" aria-label="${st.alta ? "Agregar equipo" : "Resumen de equipos"}">${st.alta ? await VISTAS2.alta(true) : htmlLadoResumen(esRRHH)}</aside>
+        </div>`;
       },
-      async alta() {
+      async alta(enLado = false) {
         const a = st.alta || (st.alta = { paso: 1, d: {} });
         const d = a.d, cat = d.categoria || "";
         const PASOS_ALTA = ["Tipo", "Marca y modelo", "Serie y registro", "Calibración y documentos", "Resumen"];
@@ -2858,8 +2887,7 @@ Content-Type: ${mime}\r
         else cuerpo = `<dl class="eq-resumen-alta">${[["Tipo", cat], ["Equipo", d.equipo], ["Marca y modelo", [d.marca, d.modelo].filter(Boolean).join(" ")], ["Descripción", d.descripcion], ["N° de serie", d.numeroSerie], ["Código interno", d.codigoInterno], ["Registro DGAC", d.dgacRegistro], ["Calibración", d.calibracionNoAplica ? "No requiere" : d.fechaUltimaCalibracion || "sin fecha"], ["Seguro vence", d.seguroVence]].filter(([, v]) => v).map(([t, v]) => `<div><dt>${t}</dt><dd>${escapar(v)}</dd></div>`).join("")}</dl>
           <label class="eq-campo"><span>Observaciones</span><textarea name="observaciones" rows="2">${val("observaciones")}</textarea></label>`;
         const faltan = a.paso === 2 && !d.equipo ? "Falta el nombre del equipo." : a.paso === 3 && !d.numeroSerie ? "Falta el N° de serie: sin él no se puede rastrear el equipo." : "";
-        return `<button class="eq-volver" data-accion="alta-cancelar">← Cancelar</button>
-        <h2>Nuevo equipo</h2>
+        return `${enLado ? `<div class="eq-lado-cab"><b>Agregar equipo</b><small>Paso ${a.paso} de 5</small><button type="button" class="eq-btn chico" data-accion="alta-cancelar">Cancelar</button></div>` : '<button class="eq-volver" data-accion="alta-cancelar">← Cancelar</button>\n        <h2>Nuevo equipo</h2>'}
         <div class="eq-pasos-alta">${PASOS_ALTA.map((t, i) => `<span class="${i + 1 < a.paso ? "hecho" : i + 1 === a.paso ? "actual" : ""}"><i>${i + 1 < a.paso ? "✓" : i + 1}</i>${t}</span>`).join("")}</div>
         <form class="eq-form eq-form-alta" data-form="alta">
           <fieldset><legend>${a.paso}. ${PASOS_ALTA[a.paso - 1]}</legend>${cuerpo}</fieldset>
@@ -3107,6 +3135,55 @@ Content-Type: ${mime}\r
         return `<td>${escapar(v)}</td>`;
       }).join("");
     }
+    const fmtN = (n) => Number(n).toLocaleString("es-CL", { maximumFractionDigits: 1 });
+    function datosClave(eq) {
+      const sens = sensoresDe(eq);
+      if (sens.length > 1) return { chips: sens.map((x) => x.sensor) };
+      if (sens.length === 1) {
+        const x = sens[0];
+        return { cajas: [["Sensor", `${fmtN(x.sensorAnchoMm)} × ${fmtN(x.sensorAltoMm)} mm`], ["Imagen", `${x.pixelesAncho} px`], x.lidar ? ["LiDAR", `${Math.round(x.lidar.puntosPorSegundo / 1e3)} mil pts/s`] : [x.focalFichaMm ? "Focal efectiva" : "Focal", `${fmtN(x.focalMm)} mm`]] };
+      }
+      const esp = eq.especificaciones || {};
+      return { cajas: camposEspecificacion(eq.categoria).filter((c) => esp[c.clave]).slice(0, 3).map((c) => [c.etiqueta, `${esp[c.clave]}${c.sufijo ? " " + c.sufijo : ""}`]) };
+    }
+    function htmlTarjeta(e) {
+      const eq = e.equipo, serie2 = String(eq.numeroSerie || "");
+      const sub3 = [eq.categoria || "Otro", serie2 ? `serie ···${serie2.slice(-4)}` : "sin N° de serie", eq.descripcion].filter(Boolean).join(" · ");
+      const dc = datosClave(eq);
+      const pie = e.alertasActivas.length ? chipAlertas2(e.alertasActivas.length) : chipCalibracion(e.calibracion);
+      return `<button class="eq-tarjeta eq-tarjeta-foto" data-accion="ver" data-id="${eq.id}">
+        <div class="eq-tf-cab"><div class="eq-tf-foto"${eq.fotoId ? ` data-foto="${escapar(eq.fotoId)}"` : ""}>${dibujo(eq.categoria)}</div>
+          <div class="eq-tf-tit"><div class="eq-tf-fila"><b>${escapar(e.nombre)}</b>${chipUbicacion(e.ubicacion)}</div><small>${escapar(sub3)}</small></div></div>
+        ${dc.chips ? `<div class="eq-tf-chips">${dc.chips.map((t) => `<span>${escapar(t)}</span>`).join("")}</div>` : dc.cajas.length ? `<div class="eq-tf-datos">${dc.cajas.map(([t, v]) => `<div><small>${escapar(t)}</small><b>${escapar(v)}</b></div>`).join("")}</div>` : ""}
+        <div class="eq-tf-pie">${pie}</div>
+      </button>`;
+    }
+    const fotos = /* @__PURE__ */ new Map();
+    async function cargarFotos(cont) {
+      for (const el of cont.querySelectorAll("[data-foto]")) {
+        const id = el.dataset.foto;
+        try {
+          if (!fotos.has(id)) fotos.set(id, await urlArchivo(id));
+          const url = fotos.get(id);
+          if (url && el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+        } catch {
+        }
+      }
+    }
+    function htmlLadoResumen(esRRHH2) {
+      const vivos = cacheLista.filter((e) => e.ubicacion.lugar !== "baja");
+      const cuenta2 = (l) => vivos.filter((e) => e.ubicacion.lugar === l).length;
+      const lugares = Object.keys(LUGARES).filter((l) => l !== "baja" && cuenta2(l));
+      const urgentes = vivos.filter((e) => e.alertasActivas.length || ["vencida", "por_vencer"].includes(e.calibracion.nivel)).sort((a, b) => {
+        var _a, _b;
+        return ((_a = a.calibracion.dias) != null ? _a : 999) - ((_b = b.calibracion.dias) != null ? _b : 999);
+      }).slice(0, 6);
+      return `<div class="eq-lado-cab"><b>Resumen</b><small>${vivos.length} equipos</small></div>
+      <dl class="eq-lado-cuentas">${lugares.map((l) => `<div><dt>${escapar(LUGARES[l])}</dt><dd>${cuenta2(l)}</dd></div>`).join("")}</dl>
+      <b class="eq-lado-sub">Por atender</b>
+      ${urgentes.length ? `<ul class="eq-lado-lista">${urgentes.map((e) => `<li><button type="button" data-accion="ver" data-id="${e.equipo.id}"><span>${escapar(e.nombre)}</span>${e.alertasActivas.length ? chipAlertas2(e.alertasActivas.length) : chipCalibracion(e.calibracion)}</button></li>`).join("")}</ul>` : '<p class="eq-tenue">Nada vencido ni por vencer.</p>'}
+      ${esRRHH2 ? '<button type="button" class="eq-btn primario eq-lado-btn" data-accion="nuevo-equipo">Agregar equipo</button><p class="eq-tenue">El alta se hace aquí, paso a paso, sin salir del listado.</p>' : ""}`;
+    }
     function pintarResultados() {
       const cont = zona.querySelector("#eq-resultados");
       if (!cont) return;
@@ -3117,23 +3194,13 @@ Content-Type: ${mime}\r
         cont.innerHTML = '<p class="eq-tenue">Ningún equipo coincide.</p>';
         return;
       }
-      const tarjetas = lista.map((e) => {
-        const sens = sensoresDe(e.equipo), esp = e.equipo.especificaciones || {};
-        const datos = sens.length ? sens.map(textoSensor) : camposEspecificacion(e.equipo.categoria).filter((c) => esp[c.clave]).slice(0, 3).map((c) => `${c.etiqueta}: ${esp[c.clave]}${c.sufijo ? " " + c.sufijo : ""}`);
-        return `<button class="eq-tarjeta eq-tarjeta-v11" data-accion="ver" data-id="${e.equipo.id}">
-        <div class="eq-tarjeta-cab"><span class="eq-tarjeta-cat">${escapar(e.equipo.categoria || "Otro")}</span>${chipUbicacion(e.ubicacion)}</div>
-        <div class="eq-tarjeta-nombre">${escapar(e.nombre)}</div>
-        ${e.equipo.descripcion ? `<div class="eq-tenue">${escapar(e.equipo.descripcion)}</div>` : ""}
-        <div class="eq-tenue">N° serie <span class="eq-mono">${escapar(e.equipo.numeroSerie || "—")}</span>${e.equipo.codigoInterno ? ` · ${escapar(e.equipo.codigoInterno)}` : ""}</div>
-        ${datos.length ? `<ul class="eq-tarjeta-datos">${datos.map((t) => `<li>${escapar(t)}</li>`).join("")}</ul>` : ""}
-        <div class="eq-chips">${chipCalibracion(e.calibracion)} ${chipAlertas2(e.alertasActivas.length)}</div>
-      </button>`;
-      }).join("");
+      const tarjetas = lista.map(htmlTarjeta).join("");
       const filas = lista.map((e) => `<tr data-accion="ver" data-id="${e.equipo.id}">
         ${celdasPlanilla(e.equipo)}
         <td>${chipUbicacion(e.ubicacion)}</td><td>${chipCalibracion(e.calibracion)}</td><td>${chipAlertas2(e.alertasActivas.length)}</td></tr>`).join("");
       if (st.vistaLista === "tarjetas") {
         cont.innerHTML = `<div class="eq-tarjetas eq-siempre">${tarjetas}</div>`;
+        cargarFotos(cont);
         return;
       }
       cont.innerHTML = `<div class="eq-tabla-scroll eq-siempre"><table class="eq-tabla">
@@ -3168,9 +3235,11 @@ Content-Type: ${mime}\r
           case "cert-de-proyecto":
             await ir("cert-proyecto", { certProyectoId: id });
             break;
-          case "nuevo-equipo":
-            await ir("alta", { equipoId: null, alta: { paso: 1, d: { fechaAlta: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), periodoCalibracionMeses: PERIODO_CALIBRACION_MESES } } });
+          case "nuevo-equipo": {
+            const enPc = document.body.dataset.modo === "pc" && st.vista === "lista";
+            await ir(enPc ? "lista" : "alta", { equipoId: null, alta: { paso: 1, d: { fechaAlta: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), periodoCalibracionMeses: PERIODO_CALIBRACION_MESES } } });
             break;
+          }
           case "alta-tipo": {
             const c = el.dataset.c;
             st.alta.d.categoria = c;
@@ -3769,6 +3838,16 @@ Content-Type: ${mime}\r
     return tramos;
   }
   function recorrerPorBaterias(pasadas, { v, segGiro = 0, segUtiles, despegue = null }) {
+    if (despegue && pasadas.length) {
+      const ult = pasadas.length - 1, finDe = (p) => p[p.length - 1];
+      const opciones = [
+        { d: dist(despegue, pasadas[0][0]), f: (x) => x },
+        { d: dist(despegue, finDe(pasadas[0])), f: (x) => x.map((p) => p.slice().reverse()) },
+        { d: dist(despegue, pasadas[ult][0]), f: (x) => x.slice().reverse() },
+        { d: dist(despegue, finDe(pasadas[ult])), f: (x) => x.slice().reverse().map((p) => p.slice().reverse()) }
+      ];
+      pasadas = opciones.reduce((m, o) => o.d < m.d - 1e-6 ? o : m).f(pasadas);
+    }
     const segs = [];
     pasadas.forEach((p, k) => {
       const linea = k % 2 === 0 ? p : p.slice().reverse();
@@ -4195,7 +4274,7 @@ Content-Type: ${mime}\r
       const g = girado ? giro(rumbo2) : null;
       despegueGirado = p.despegue ? g ? g.ida(p.despegue) : p.despegue : null;
       const rep = recorrerPorBaterias(pasadas, { v, segGiro: p.segGiro, segUtiles: Math.max(60, minUtiles * 60), despegue: despegueGirado });
-      baterias = rep.baterias.map((b) => ({ ...b, min: b.seg / 60, piezas: g ? b.piezas.map((pz) => pz.map(g.vuelta)) : b.piezas, inicio: g ? g.vuelta(b.inicio) : b.inicio }));
+      baterias = rep.baterias.map((b) => ({ ...b, min: b.seg / 60, piezas: g ? b.piezas.map((pz) => pz.map(g.vuelta)) : b.piezas, inicio: g ? g.vuelta(b.inicio) : b.inicio, fin: g ? g.vuelta(b.fin) : b.fin }));
       segMision = rep.segVuelo;
       trasladoM = baterias.reduce((t, b) => t + b.traslado, 0) * v;
       vuelos = Math.max(1, baterias.length);
@@ -4604,6 +4683,27 @@ Content-Type: ${mime}\r
     cacheGeo = { clave: clave2, valor };
     return valor;
   }
+  function ladosSector(geo, i, max = 8) {
+    const sec = geo && geo.sectores[i];
+    if (!sec || geo.tipo === "corredor") return [];
+    const pl = sec.poligono, xs = pl.map((p) => p[0]), ys = pl.map((p) => p[1]);
+    const tam = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    const simple = simplificar([...pl, pl[0]], Math.max(1, tam * 0.015)).slice(0, -1);
+    const lados = [];
+    for (let k = 0; k < simple.length; k++) {
+      const a = simple[k], b = simple[(k + 1) % simple.length], largo2 = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (largo2 < tam * 0.08) continue;
+      const ang = Math.atan2(b[0] - a[0], b[1] - a[1]) * 180 / Math.PI;
+      const medio = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const comun = geo.sectores.map((o, j) => j).filter((j) => j !== i && (() => {
+        const q = geo.sectores[j].poligono;
+        for (let e = 0; e < q.length; e++) if (distPuntoSegmento(medio, q[e], q[(e + 1) % q.length]) < 1) return true;
+        return false;
+      })());
+      lados.push({ a, b, medio, largo: largo2, rumbo: Math.round((ang % 180 + 180) % 180), comun });
+    }
+    return lados.sort((x, y) => y.largo - x.largo).slice(0, max).map((l, k) => ({ ...l, n: k + 1 }));
+  }
   function metaSector(hoja2, i) {
     const s = hoja2.area.sectores;
     while (s.length <= i) s.push({ despegue: null, rumbo: "", nombre: "" });
@@ -4755,6 +4855,19 @@ Content-Type: ${mime}\r
     }
     return { rumbo: mejor, minTotal: minimo };
   }
+  function opcionesDespegue(hoja2, d, geo, i) {
+    const sec = geo.sectores[i];
+    const r = calcularSector(hoja2, d, geo, i, { despegue: centroide(sec.poligono) });
+    if (!r || !r.baterias || !r.baterias.length) return [];
+    const bs = r.baterias;
+    const cand = [{ k: "inicio", texto: "Inicio de las líneas (primera pasada)", xy: bs[0].inicio }];
+    bs.slice(0, -1).forEach((b, k) => cand.push({ k: `cambio${k + 1}`, texto: `Cambio de batería ${k + 1} → ${k + 2}`, xy: b.fin }));
+    cand.push({ k: "final", texto: "Final de las líneas (última pasada)", xy: bs[bs.length - 1].fin });
+    cand.push({ k: "centro", texto: "Centro del sector", xy: centroide(sec.poligono) });
+    const out = cand.filter((c) => c.xy && isFinite(c.xy[0])).map((c) => ({ ...c, lonLat: geo.marco.aLonLat(c.xy), minTotal: calcularSector(hoja2, d, geo, i, { despegue: c.xy }).minTotal }));
+    const min = Math.min(...out.map((o) => o.minTotal));
+    return out.map((o) => ({ ...o, mejor: o.minTotal <= min + 1e-6 }));
+  }
   function totales(hoja2, d, geo) {
     if (!geo || !d) return null;
     const rs = geo.sectores.map((_, i) => calcularSector(hoja2, d, geo, i));
@@ -4860,13 +4973,19 @@ Content-Type: ${mime}\r
     return extraerKmlDeZip(buf);
   }
   async function extraerKmlDeZip(buf) {
+    const entradas = leerZip(buf);
+    const kml = entradas.find((e) => /(^|\/)doc\.kml$/i.test(e.nombre)) || entradas.find((e) => /\.kml$/i.test(e.nombre));
+    if (!kml) throw new Error("El KMZ no trae ningún archivo .kml adentro.");
+    return new TextDecoder("utf-8").decode(await kml.datos());
+  }
+  function leerZip(buf) {
     const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
     let fin = -1;
     for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 101010256) {
       fin = i;
       break;
     }
-    if (fin < 0) throw new Error("El KMZ está dañado: no se encontró el índice del zip.");
+    if (fin < 0) throw new Error("El archivo comprimido está dañado: no se encontró el índice del zip.");
     const total = dv.getUint16(fin + 10, true);
     let p = dv.getUint32(fin + 16, true);
     const entradas = [];
@@ -4879,18 +4998,18 @@ Content-Type: ${mime}\r
       const largoComent = dv.getUint16(p + 32, true);
       const local = dv.getUint32(p + 42, true);
       const nombre = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + largoNombre));
-      entradas.push({ nombre, metodo, comprimido, local });
+      entradas.push({ nombre, datos: async () => {
+        const ini = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+        const datos = buf.subarray(ini, ini + comprimido);
+        if (metodo === 0) return datos;
+        if (metodo !== 8) throw new Error("El zip usa una compresión que no reconozco.");
+        if (typeof DecompressionStream === "undefined") throw new Error("Este navegador no puede abrir archivos comprimidos. Actualiza Chrome o descomprime el archivo.");
+        const flujo = new Blob([datos]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return new Uint8Array(await new Response(flujo).arrayBuffer());
+      } });
       p += 46 + largoNombre + largoExtra + largoComent;
     }
-    const kml = entradas.find((e) => /(^|\/)doc\.kml$/i.test(e.nombre)) || entradas.find((e) => /\.kml$/i.test(e.nombre));
-    if (!kml) throw new Error("El KMZ no trae ningún archivo .kml adentro.");
-    const ini = kml.local + 30 + dv.getUint16(kml.local + 26, true) + dv.getUint16(kml.local + 28, true);
-    const datos = buf.subarray(ini, ini + kml.comprimido);
-    if (kml.metodo === 0) return new TextDecoder("utf-8").decode(datos);
-    if (kml.metodo !== 8) throw new Error("El KMZ usa una compresión que no reconozco.");
-    if (typeof DecompressionStream === "undefined") throw new Error("Este navegador no puede abrir KMZ. Actualiza Chrome o descomprime el KMZ y carga el .kml.");
-    const flujo = new Blob([datos]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-    return new Response(flujo).text();
+    return entradas;
   }
   var hijos = (el, nombre) => [...el.getElementsByTagNameNS("*", nombre)];
   var texto2 = (el, nombre) => {
@@ -6677,6 +6796,172 @@ ${escapar(t.nota)}${t.notaPor ? `
     };
   }
 
+  // modulos/vuelos/formatos.js
+  var FORMATOS_CAMINO = ".kml,.kmz,.zip,.shp,.dbf,.prj,.cpg,.geojson,.json,.gpx";
+  async function lineasDeArchivos(archivos) {
+    const lista = [...archivos];
+    const shp = lista.find((f) => /\.shp$/i.test(f.name));
+    if (shp) {
+      const par = (ext) => lista.find((f) => f.name.toLowerCase() === shp.name.toLowerCase().replace(/\.shp$/, ext));
+      const leerBuf = async (f) => f ? new Uint8Array(await f.arrayBuffer()) : null;
+      const leerTxt = async (f) => f ? f.text() : "";
+      return lineasDeShapefile({ shp: await leerBuf(shp), dbf: await leerBuf(par(".dbf")), prj: await leerTxt(par(".prj")), cpg: await leerTxt(par(".cpg")), nombre: shp.name });
+    }
+    const out = { lineas: [], aviso: "" };
+    for (const f of lista) {
+      const r = await lineasDeUnArchivo(f);
+      out.lineas.push(...r.lineas);
+      if (r.aviso) out.aviso = r.aviso;
+    }
+    return out;
+  }
+  async function lineasDeUnArchivo(f) {
+    const nombre = f.name;
+    if (/\.(geo)?json$/i.test(nombre)) return { lineas: lineasDeGeoJSON(JSON.parse(await f.text()), nombre) };
+    if (/\.gpx$/i.test(nombre)) return { lineas: lineasDeGpx(await f.text(), nombre) };
+    if (/\.zip$/i.test(nombre)) {
+      const ent = leerZip(new Uint8Array(await f.arrayBuffer()));
+      const e = (ext) => ent.find((x) => new RegExp(`\\.${ext}$`, "i").test(x.nombre) && !/__MACOSX/.test(x.nombre));
+      const shp = e("shp");
+      if (shp) {
+        const base = shp.nombre.replace(/\.shp$/i, "").toLowerCase();
+        const par = (ext) => ent.find((x) => x.nombre.toLowerCase() === `${base}.${ext}`) || e(ext);
+        const dec = async (x) => x ? new TextDecoder().decode(await x.datos()) : "";
+        return lineasDeShapefile({ shp: await shp.datos(), dbf: par("dbf") ? await par("dbf").datos() : null, prj: await dec(par("prj")), cpg: await dec(par("cpg")), nombre: shp.nombre.split("/").pop() });
+      }
+      const kml = e("kml");
+      if (kml) return { lineas: analizarKml(new TextDecoder().decode(await kml.datos()), nombre).ejes.map((l) => ({ nombre: l.nombre || nombre, linea: l.linea })) };
+      const gj = e("geojson") || e("json");
+      if (gj) return { lineas: lineasDeGeoJSON(JSON.parse(new TextDecoder().decode(await gj.datos())), nombre) };
+      throw new Error("El zip no trae un shapefile (.shp), KML ni GeoJSON.");
+    }
+    if (/\.(dbf|prj|cpg)$/i.test(nombre)) return { lineas: [] };
+    return { lineas: analizarKml(await leerArchivo(f), nombre).ejes.map((l) => ({ nombre: l.nombre || nombre, linea: l.linea })) };
+  }
+  function lineasDeGeoJSON(json, nombreArchivo = "") {
+    const out = [];
+    const nom = (p) => p && (p.name || p.nombre || p.Name || p.NOMBRE || p.ROL || p.rol) || nombreArchivo;
+    const agregar = (g, nombre) => {
+      if (!g) return;
+      const c2 = (l) => l.map((c) => [c[0], c[1]]);
+      if (g.type === "LineString") out.push({ nombre, linea: c2(g.coordinates) });
+      else if (g.type === "MultiLineString") g.coordinates.forEach((l) => out.push({ nombre, linea: c2(l) }));
+      else if (g.type === "GeometryCollection") g.geometries.forEach((x) => agregar(x, nombre));
+    };
+    if (json.type === "FeatureCollection") for (const f of json.features || []) agregar(f.geometry, String(nom(f.properties)));
+    else if (json.type === "Feature") agregar(json.geometry, String(nom(json.properties)));
+    else agregar(json, nombreArchivo);
+    return out.filter((l) => l.linea.length >= 2);
+  }
+  function lineasDeGpx(xml, nombreArchivo = "") {
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    const out = [];
+    const pts = (el, tag) => [...el.getElementsByTagNameNS("*", tag)].map((p) => [Number(p.getAttribute("lon")), Number(p.getAttribute("lat"))]).filter((c) => c.every(isFinite));
+    const nom = (el) => {
+      const n = [...el.children].find((c) => c.localName === "name");
+      return n ? n.textContent.trim() : nombreArchivo;
+    };
+    for (const t of doc.getElementsByTagNameNS("*", "trk")) for (const seg of t.getElementsByTagNameNS("*", "trkseg")) out.push({ nombre: nom(t), linea: pts(seg, "trkpt") });
+    for (const r of doc.getElementsByTagNameNS("*", "rte")) out.push({ nombre: nom(r), linea: pts(r, "rtept") });
+    return out.filter((l) => l.linea.length >= 2);
+  }
+  function lineasDeShapefile({ shp, dbf, prj, cpg, nombre = "" }) {
+    const geoms = leerShp(shp);
+    const nombres = dbf ? nombresDbf(dbf, cpg) : [];
+    const proy = proyeccionDePrj(prj, geoms);
+    const lineas = [];
+    geoms.forEach((partes, k) => partes.forEach((pts) => {
+      if (pts.length >= 2) lineas.push({ nombre: nombres[k] || `${nombre.replace(/\.shp$/i, "")} ${k + 1}`, linea: pts.map(proy.aLonLat) });
+    }));
+    return { lineas, aviso: proy.aviso };
+  }
+  function leerShp(buf) {
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    if (dv.getInt32(0, false) !== 9994) throw new Error("El .shp no es un shapefile válido.");
+    const largo2 = dv.getInt32(24, false) * 2, tipo = dv.getInt32(32, true);
+    if (![3, 5, 13, 15, 23, 25].includes(tipo)) throw new Error("El shapefile no trae líneas: es de puntos u otro tipo.");
+    const out = [];
+    let p = 100;
+    while (p + 8 <= Math.min(largo2, buf.length)) {
+      const lc = dv.getInt32(p + 4, false) * 2, c = p + 8;
+      const t = dv.getInt32(c, true);
+      const partes = [];
+      if (t !== 0) {
+        const nPartes = dv.getInt32(c + 36, true), nPts = dv.getInt32(c + 40, true);
+        const ini = [];
+        for (let i = 0; i < nPartes; i++) ini.push(dv.getInt32(c + 44 + 4 * i, true));
+        const base = c + 44 + 4 * nPartes;
+        for (let i = 0; i < nPartes; i++) {
+          const a = ini[i], b = i + 1 < nPartes ? ini[i + 1] : nPts, pts = [];
+          for (let j = a; j < b; j++) pts.push([dv.getFloat64(base + 16 * j, true), dv.getFloat64(base + 16 * j + 8, true)]);
+          partes.push(pts);
+        }
+      }
+      out.push(partes);
+      p = c + lc;
+    }
+    return out;
+  }
+  function nombresDbf(buf, cpg = "") {
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    const n = dv.getUint32(4, true), largoCab = dv.getUint16(8, true), largoReg = dv.getUint16(10, true);
+    const dec = new TextDecoder(/utf-?8/i.test(cpg) ? "utf-8" : "windows-1252");
+    const campos = [];
+    for (let p = 32, off = 1; p < largoCab - 1 && buf[p] !== 13; p += 32) {
+      const nombre = dec.decode(buf.subarray(p, p + 11)).replace(/\0.*$/, "").trim();
+      const tipo = String.fromCharCode(buf[p + 11]), largo2 = buf[p + 16];
+      campos.push({ nombre, tipo, off, largo: largo2 });
+      off += largo2;
+    }
+    const pref = ["NOMBRE", "NOMBRE_CAM", "NAME", "ROL", "ROL_LABEL", "CODIGO", "COD", "ID"];
+    const campo2 = pref.map((x) => campos.find((c) => c.nombre.toUpperCase() === x)).find(Boolean) || campos.find((c) => c.tipo === "C");
+    if (!campo2) return [];
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const ini = largoCab + i * largoReg + campo2.off;
+      out.push(dec.decode(buf.subarray(ini, ini + campo2.largo)).trim());
+    }
+    return out;
+  }
+  var WGS84 = { a: 6378137, f: 1 / 298.257223563 };
+  function proyeccionDePrj(prj, geoms = []) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    const wkt = (prj || "").trim();
+    if (wkt && !/PROJCS|PROJCRS/i.test(wkt)) return { aLonLat: (p2) => [p2[0], p2[1]], aviso: "" };
+    let tm = null;
+    if (wkt) {
+      const par = (n) => {
+        const m = wkt.match(new RegExp(`PARAMETER\\[\\s*"${n}"\\s*,\\s*(-?[\\d.]+)`, "i"));
+        return m ? Number(m[1]) : null;
+      };
+      const cm = (_b = (_a = par("central_meridian")) != null ? _a : par("longitude_of_origin")) != null ? _b : par("Longitude of natural origin");
+      const zona = wkt.match(/UTM[ _]?zone[ _]?(\d{1,2})\s*([NS])?/i);
+      if (cm != null) tm = { lon0: cm, k0: (_d = (_c = par("scale_factor")) != null ? _c : par("Scale factor at natural origin")) != null ? _d : 0.9996, fe: (_f = (_e = par("false_easting")) != null ? _e : par("False easting")) != null ? _f : 5e5, fn: (_h = (_g = par("false_northing")) != null ? _g : par("False northing")) != null ? _h : 0, lat0: (_i = par("latitude_of_origin")) != null ? _i : 0 };
+      else if (zona) tm = utm(Number(zona[1]), (zona[2] || "S").toUpperCase() === "S");
+      if (!tm) throw new Error("No reconozco la proyección del .prj: exporta el shapefile en WGS84 (geográficas) o en UTM.");
+      const aviso = /PSAD|SAD.?69|Provisional_S_American/i.test(wkt) ? "El shapefile está en PSAD56/SAD69: se convirtió sin cambio de datum (puede desplazarse unos 200 m)." : "";
+      return { aLonLat: (p2) => tmInversa(p2[0], p2[1], tm), aviso };
+    }
+    const p = geoms.flat(2)[0];
+    if (!p || Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90) return { aLonLat: (q) => [q[0], q[1]], aviso: "" };
+    tm = utm(19, true);
+    return { aLonLat: (q) => tmInversa(q[0], q[1], tm), aviso: "El shapefile no trae .prj: se asumió UTM 19 Sur (WGS84). Revisa que el camino caiga en su lugar." };
+  }
+  var utm = (zona, sur) => ({ lon0: zona * 6 - 183, k0: 0.9996, fe: 5e5, fn: sur ? 1e7 : 0, lat0: 0 });
+  function tmInversa(x, y, { lon0, k0, fe, fn, lat0 = 0 }) {
+    const { a, f } = WGS84, e2 = f * (2 - f), ep2 = e2 / (1 - e2), rad = Math.PI / 180;
+    const M = (phi) => a * ((1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 ** 3 / 256) * phi - (3 * e2 / 8 + 3 * e2 * e2 / 32 + 45 * e2 ** 3 / 1024) * Math.sin(2 * phi) + (15 * e2 * e2 / 256 + 45 * e2 ** 3 / 1024) * Math.sin(4 * phi) - 35 * e2 ** 3 / 3072 * Math.sin(6 * phi));
+    const m = M(lat0 * rad) + (y - fn) / k0;
+    const mu = m / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 ** 3 / 256));
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const phi1 = mu + (3 * e1 / 2 - 27 * e1 ** 3 / 32) * Math.sin(2 * mu) + (21 * e1 * e1 / 16 - 55 * e1 ** 4 / 32) * Math.sin(4 * mu) + 151 * e1 ** 3 / 96 * Math.sin(6 * mu) + 1097 * e1 ** 4 / 512 * Math.sin(8 * mu);
+    const s = Math.sin(phi1), c = Math.cos(phi1), t = Math.tan(phi1);
+    const C1 = ep2 * c * c, T1 = t * t, N1 = a / Math.sqrt(1 - e2 * s * s), R1 = a * (1 - e2) / (1 - e2 * s * s) ** 1.5, D = (x - fe) / (N1 * k0);
+    const lat = phi1 - N1 * t / R1 * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * D ** 4 / 24 + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * D ** 6 / 720);
+    const lon = lon0 * rad + (D - (1 + 2 * T1 + C1) * D ** 3 / 6 + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * D ** 5 / 120) / c;
+    return [lon / rad, lat / rad];
+  }
+
   // modulos/vuelos/cortes.js
   var METODOS = {
     medida: { texto: "Cortes a medida", grupo: "lineal", ayuda: "Cortes fijos en los DM que elijas (escritos o marcados en el eje) y, después del último, cortes cada X m o km hasta el fin del eje. El último sector termina en el fin del eje." },
@@ -8039,12 +8324,9 @@ ${escapar(t.nota)}${t.notaPor ? `
         manual: () => ""
       };
       return `<section class="sis-tarjeta"><h2>Cortes</h2>
-      ${htmlMiniaturas(g, modo)}
-      <label class="sis-campo"><span>Método de corte</span><select data-auto="modo">
-        <optgroup label="Área lineal (usa el eje)">${lineal ? METODOS_LINEALES.map(opt).join("") : "<option disabled>Solo para áreas lineales</option>"}</optgroup>
-        <optgroup label="Cualquier área">${["n", ...a.tipo === "corredor" ? [] : ["cerrados"], "baterias", "dias"].map(opt).join("")}</optgroup>
-        <optgroup label="A mano">${(a.tipo === "corredor" ? ["manual"] : ["vertices", "manual"]).map(opt).join("")}</optgroup>
-      </select></label>
+      ${htmlTipoCorte(modo)}
+      ${htmlMiniaturas(g, modo, propuesto)}
+      <h3 class="vu-subt">${escapar(METODOS[modo] ? METODOS[modo].texto : "")}${modo === propuesto ? ' <small class="sis-tenue">(propuesto)</small>' : ""}</h3>
       <div class="vu-fila-campos">${(campos[modo] || (() => ""))()}</div>
       <p class="sis-tenue">${escapar(METODOS[modo] ? METODOS[modo].ayuda : "")}</p>
       <p class="vu-vista-previa" id="vu-vista-previa">${htmlVistaPrevia()}</p>
@@ -8053,7 +8335,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       <p class="sis-tenue">Los cortes generados quedan como los manuales: sus vértices blancos se arrastran en el mapa.</p>
     </section>`;
     }
-    function svgSectores(polis, sel) {
+    function svgSectores(polis, sel, gris) {
       const todos2 = polis.flat();
       if (!todos2.length) return "";
       const xs = todos2.map((p) => p[0]), ys = todos2.map((p) => p[1]);
@@ -8063,32 +8345,50 @@ ${escapar(t.nota)}${t.notaPor ? `
       const pt = (p) => `${(ox + (p[0] - x0) * k).toFixed(1)},${(H - oy - (p[1] - y0) * k).toFixed(1)}`;
       return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" aria-hidden="true">${polis.map((pl, i) => {
         const paso = Math.max(1, Math.ceil(pl.length / 150));
-        return `<polygon points="${pl.filter((_, j) => j % paso === 0).map(pt).join(" ")}" fill="${COLORES_SECTOR[i % COLORES_SECTOR.length]}" fill-opacity="${sel ? 0.75 : 0.55}" stroke="#1C1F23" stroke-width="1.2" stroke-linejoin="round"></polygon>`;
+        return `<polygon points="${pl.filter((_, j) => j % paso === 0).map(pt).join(" ")}" fill="${gris ? "#C9CED4" : COLORES_SECTOR[i % COLORES_SECTOR.length]}" fill-opacity="${sel ? 0.75 : 0.55}" stroke="#1C1F23" stroke-width="1.2" stroke-linejoin="round"></polygon>`;
       }).join("")}</svg>`;
     }
-    function htmlMiniaturas(g, modo) {
-      const h = st.hoja, a = h.area, au = a.auto || {}, f = formaDe(h);
-      const lista = [...f && f.lineal ? ["medida"] : [], "n", ...a.tipo === "corredor" ? [] : ["cerrados", "vertices"]];
-      const clave2 = JSON.stringify([g.vuelo.length, g.vuelo[0], a.margen, a.rectas, a.corredor, au, a.ejeCalc ? a.ejeCalc.largo : 0, modo === "vertices" ? a.cortes : null]);
+    const MANUALES = ["vertices", "manual"];
+    function htmlTipoCorte(modo) {
+      const manual = MANUALES.includes(modo);
+      return `<div class="vu-tipo-corte" role="group" aria-label="Tipo de corte">
+        <button type="button" class="${manual ? "" : "activo"}" data-accion="tipo-corte" data-t="auto" aria-pressed="${!manual}"><b>Automático</b><small>La app propone los cortes</small></button>
+        <button type="button" class="${manual ? "activo" : ""}" data-accion="tipo-corte" data-t="manual" aria-pressed="${manual}"><b>Manual</b><small>Tú marcas cada corte en el mapa</small></button></div>`;
+    }
+    function metodosVisibles(modo) {
+      const a = st.hoja.area, f = formaDe(st.hoja), corredor = a.tipo === "corredor";
+      if (MANUALES.includes(modo)) return corredor ? ["manual"] : ["vertices", "manual"];
+      return [...f && f.lineal ? METODOS_LINEALES : [], "n", ...corredor ? [] : ["cerrados"], "baterias", "dias"];
+    }
+    function htmlMiniaturas(g, modo, propuesto) {
+      const h = st.hoja, a = h.area, au = a.auto || {};
+      const lista = metodosVisibles(modo);
+      const clave2 = JSON.stringify([lista, g.vuelo.length, g.vuelo[0], a.margen, a.rectas, a.corredor, a.dm, au, h.dronId, h.params, a.ejeCalc ? a.ejeCalc.largo : 0, MANUALES.includes(modo) ? [modo, a.cortes] : null]);
       if (!st.previas || st.previas.clave !== clave2) {
         const datos = lista.map((k) => {
           var _a;
+          if (MANUALES.includes(k)) {
+            const cortes = modo === k ? a.cortes : [];
+            const gp = geometria({ ...h, area: { ...a, cortes, sectores: [] } });
+            return { k, polis: gp ? gp.sectores.map((x) => x.poligono) : [g.vuelo], n: gp ? gp.sectores.length : 1, pendiente: !cortes.length };
+          }
+          if (k === "tramos") return { k, polis: [g.vuelo], n: 1, falta: "usa los tramos del Seguimiento" };
+          if (k === "dm" && (!a.dm || a.dm.inicio == null)) return { k, polis: [g.vuelo], n: 1, falta: "falta el DM del inicio" };
           try {
-            let cortes;
-            if (k === "vertices") cortes = modo === "vertices" ? a.cortes : [];
-            else cortes = generarCortes({ ...h, area: { ...a, auto: { ...au, modo: k }, cortes: [], sectores: [] } }, { dron: dron(), primerDM: (_a = au.primerKm) != null ? _a : null }).cortes;
+            const cortes = generarCortes({ ...h, area: { ...a, auto: { ...au, modo: k }, cortes: [], sectores: [] } }, { dron: dron(), primerDM: (_a = au.primerKm) != null ? _a : null }).cortes;
             const gp = geometria({ ...h, area: { ...a, cortes, sectores: [] } });
             return { k, polis: gp ? gp.sectores.map((x) => x.poligono) : [], n: gp ? gp.sectores.length : 0 };
           } catch (e) {
-            return { k, error: e.message, polis: [g.vuelo], n: 1 };
+            return { k, falta: "revisa los datos", polis: [g.vuelo], n: 1 };
           }
         });
         geometria(h);
         st.previas = { clave: clave2, datos };
       }
-      return `<div class="vu-metodos" role="group" aria-label="Vista previa de cada método de corte">${st.previas.datos.map((d) => `<button type="button" class="vu-metodo${d.k === modo ? " activo" : ""}" data-accion="elegir-metodo" data-m="${d.k}" title="${escapar(METODOS[d.k].ayuda)}">
-        ${svgSectores(d.polis, d.k === modo)}<span>${escapar(METODOS[d.k].texto)}</span><small>${d.error ? "revisa los datos" : d.k === "vertices" && d.n < 2 ? "toca dos vértices" : `${d.n} sector${d.n === 1 ? "" : "es"}`}</small></button>`).join("")}</div>
-      <p class="sis-tenue">Toca una vista previa para usar ese método. Los ajustes (cantidad, dirección, distancias) están más abajo.</p>`;
+      const pie = (d) => d.falta ? d.falta : d.pendiente ? d.k === "vertices" ? "toca dos vértices" : "traza en el mapa" : `${d.n} sector${d.n === 1 ? "" : "es"}`;
+      return `<div class="vu-metodos" role="group" aria-label="Vista previa de cada método de corte">${st.previas.datos.map((d) => `<button type="button" class="vu-metodo${d.k === modo ? " activo" : ""}${d.falta ? " sin-datos" : ""}" data-accion="elegir-metodo" data-m="${d.k}" title="${escapar(METODOS[d.k].ayuda)}">
+        ${d.k === propuesto ? '<i class="vu-metodo-prop">propuesto</i>' : ""}${svgSectores(d.polis, d.k === modo, d.falta || d.pendiente)}<span>${escapar(METODOS[d.k].texto)}</span><small>${pie(d)}</small></button>`).join("")}</div>
+      <p class="sis-tenue">Toca una vista previa para usar ese método. Sus ajustes están abajo.</p>`;
     }
     function htmlUbicacionDron() {
       const h = st.hoja, u = h.ubicacion || {}, d = dron(), fam = d.familia || d.id;
@@ -8225,9 +8525,10 @@ ${escapar(t.nota)}${t.notaPor ? `
       ${cam.length ? `<ul class="vu-caminos">${cam.map((c, k) => `<li><i></i>${escapar(c.nombre || "Camino")} <button class="vu-link" data-accion="quitar-camino" data-i="${k}">quitar</button></li>`).join("")}</ul>` : ""}
       <div class="sis-acciones">
         <button class="sis-btn chico${dib2 ? " primario" : ""}" data-accion="dibujar" data-modo="camino">✎ Dibujar camino</button>
-        <label class="sis-btn chico vu-archivo">Cargar camino (KML o KMZ)<input type="file" accept=".kml,.kmz" data-archivo="camino" hidden></label>
+        <label class="sis-btn chico vu-archivo">Cargar caminos<input type="file" accept="${FORMATOS_CAMINO}" multiple data-archivo="camino" hidden></label>
       </div>
       <p class="sis-tenue">Agrega huellas o accesos que no estén en la red del MOP. En el paso 2 (Vuelo) se sugiere el despegue de cada sector sobre estos caminos. Es solo una referencia: acceso, rejas, permisos y línea de vista se confirman en terreno.</p>
+      <p class="sis-tenue">Formatos: KML, KMZ, Shapefile (.zip, o .shp con su .dbf y .prj seleccionados juntos), GeoJSON y GPX. Los shapefiles en UTM se convierten solos.</p>
     </div>`;
     }
     function barraDibujo() {
@@ -8265,8 +8566,9 @@ ${escapar(t.nota)}${t.notaPor ? `
       const vMax = d.velocidadMaxMs;
       const n = g.sectores.length;
       return `${n > 1 ? `<div class="vu-sector-sel"><label class="vu-sector-elegir"><span>Sector</span><select data-sector-sel aria-label="Sector que se muestra">${g.sectores.map((s, k) => `<option value="${k}" ${k === i ? "selected" : ""}>${escapar(nombreSector(h, k, n))} · ${fmt(s.area / 1e4, 1)} ha</option>`).join("")}</select></label>
-        <span class="vu-sector-de">Sector ${i + 1} de ${n} · los demás se ven solo como contorno</span>
-        <button type="button" class="sis-btn chico" data-accion="ir-sector" data-i="${(i + n - 1) % n}" aria-label="Sector anterior">‹</button><button type="button" class="sis-btn chico" data-accion="ir-sector" data-i="${(i + 1) % n}" aria-label="Sector siguiente">›</button>
+        <span class="vu-sector-nav"><button type="button" class="sis-btn vu-sec-btn" data-accion="ir-sector" data-i="${(i + n - 1) % n}">‹ Sector anterior</button>
+          <b class="vu-sector-de">Sector ${i + 1} de ${n}</b>
+          <button type="button" class="sis-btn primario vu-sec-btn" data-accion="ir-sector" data-i="${(i + 1) % n}">Sector siguiente ›</button></span>
         <span class="sis-tenue" id="vu-total-hoja">${htmlTotalHoja()}</span></div>` : ""}
       <div class="vu-dos">
         <div class="vu-izquierda">
@@ -8294,7 +8596,8 @@ ${escapar(t.nota)}${t.notaPor ? `
             </details>
           </section>
           </form>
-          <section class="sis-tarjeta"><h2>Despegue sugerido</h2>
+          ${r && !r.corredor ? `<section class="sis-tarjeta"><h2>Punto de despegue</h2><div id="vu-desp-ops">${htmlDespegue(r)}</div></section>` : ""}
+          <section class="sis-tarjeta"><h2>Despegue sobre un camino</h2>
             <div id="vu-desp-sug">${htmlDespegueSugerido()}</div>
             <div class="sis-acciones">
               <button class="sis-btn chico primario" data-accion="despegue-buscar" data-todos="0">Buscar sobre un camino</button>
@@ -8319,7 +8622,8 @@ ${escapar(t.nota)}${t.notaPor ? `
           ${r && !r.corredor ? `<div class="vu-rumbo-desl"><label for="vu-rumbo-rango"><b>Rumbo de las líneas</b> <span id="vu-rumbo-num" class="mono">${fmt(r.rumbo, 0)}°</span></label>
             <input id="vu-rumbo-rango" type="range" min="0" max="179" step="1" value="${Math.round((r.rumbo % 180 + 180) % 180)}" data-rumbo-rango aria-label="Rumbo de las líneas de vuelo">
             <div class="vu-rumbo-esc" aria-hidden="true"><span>0° N</span><span>45°</span><span>90° E</span><span>135°</span><span>179°</span></div>
-            <p class="sis-tenue">Mueve la barra: las líneas giran en el mapa y se recalculan líneas, distancia, baterías y tiempo.</p></div>` : ""}
+            <p class="sis-tenue">Mueve la barra: las líneas giran en el mapa y se recalculan líneas, distancia, baterías y tiempo.</p>
+            <div id="vu-lados">${htmlLados(r)}</div></div>` : ""}
           <p class="sis-tenue vu-pie">Arrastra el punto para cambiar el despegue: el tiempo incluye ir y volver desde él en cada batería.</p>
           <div id="vu-detalle">${htmlDetalle(r)}</div>
         </div>
@@ -8341,6 +8645,37 @@ ${escapar(t.nota)}${t.notaPor ? `
         return `<li><b>${nom}</b>: ${cam}${lugar} · ${fmtDuracion(res.minTotal)} de jornada (${ahorro})
         ${usado ? '<span class="vu-verde">✓ en uso</span>' : `<button class="sis-btn chico" data-accion="despegue-usar" data-i="${i}">Usar</button>`}</li>`;
       }).join("")}</ul>`;
+    }
+    function htmlLados(r) {
+      const g = geo(), i = secSel(), h = st.hoja, n = g.sectores.length;
+      const lados = ladosSector(g, i);
+      const actual = Math.round((r.rumbo % 180 + 180) % 180);
+      const sug = rumboSugerido(r);
+      const sugHtml = sug ? `<div class="vu-rumbo-sug${sug.rumbo === actual ? " en-uso" : ""}"><span><b>Rumbo sugerido: ${sug.rumbo}°</b><small>${fmtDuracion(sug.minTotal)} de jornada con este despegue${sug.ahorro >= 0.5 ? ` · ahorra ${fmtDuracion(sug.ahorro)}` : ""}</small></span>
+        ${sug.rumbo === actual ? '<span class="vu-verde">✓ en uso</span>' : `<button type="button" class="sis-btn primario chico" data-accion="rumbo-lado" data-r="${sug.rumbo}">Usar ${sug.rumbo}°</button>`}</div>` : "";
+      if (!lados.length) return sugHtml;
+      return `${sugHtml}<div class="vu-lados-cab"><b>Orientar paralelo a un lado</b><span class="sis-tenue">Los números están en el mapa.</span></div>
+      <div class="vu-lados-lista">${lados.map((l) => `<button type="button" class="vu-lado${Math.abs(l.rumbo - actual) < 1 ? " activo" : ""}" data-accion="rumbo-lado" data-r="${l.rumbo}"><b>${l.n}</b><span>${fmt(l.largo, 0)} m · ${l.rumbo}°${l.comun.length ? `<small>común con ${l.comun.map((j) => escapar(nombreSector(h, j, n))).join(", ")}</small>` : ""}</span></button>`).join("")}</div>
+      ${n > 1 ? `<div class="sis-acciones"><button type="button" class="sis-btn chico" data-accion="rumbo-todos" data-r="${actual}">Usar ${actual}° en todos los sectores</button></div>` : ""}`;
+    }
+    let cacheRumbo = null;
+    function rumboSugerido(r) {
+      const h = st.hoja, g = geo(), i = secSel(), meta = metaSector(h, i);
+      const clave2 = JSON.stringify([h.id, i, h.dronId, h.params, meta.despegue, g.sectores.length, g.sectores[i].area]);
+      if (!cacheRumbo || cacheRumbo.clave !== clave2) {
+        const m = rumboMasCorto(h, dron(), g, i, r.velocidad);
+        cacheRumbo = { clave: clave2, rumbo: m.rumbo, minTotal: m.minTotal };
+      }
+      return { ...cacheRumbo, ahorro: r.minTotal - cacheRumbo.minTotal };
+    }
+    function htmlDespegue(r) {
+      const h = st.hoja, g = geo(), i = secSel(), d = dron();
+      const ops = opcionesDespegue(h, d, g, i);
+      if (!ops.length) return "";
+      const actual = r.despegueXY, cerca = (o) => Math.hypot(o.xy[0] - actual[0], o.xy[1] - actual[1]) < 5;
+      return `<div class="vu-desp-ops">${ops.map((o, k) => `<button type="button" class="vu-desp-op${cerca(o) ? " activo" : ""}" data-accion="despegue-op" data-lon="${o.lonLat[0]}" data-lat="${o.lonLat[1]}">
+        <b class="vu-desp-letra">${String.fromCharCode(65 + k)}</b><span>${escapar(o.texto)}<small>${fmtDuracion(o.minTotal)}${o.mejor ? " · <b>el más rápido</b>" : ""}</small></span>${cerca(o) ? '<i class="vu-verde">en uso</i>' : ""}</button>`).join("")}</div>
+      <p class="sis-tenue">Las letras están en el mapa. La ruta parte por la esquina de las líneas más cercana al despegue. También puedes arrastrar el punto.</p>`;
     }
     function htmlTotalHoja() {
       const g = geo(), t = totales(st.hoja, dron(), g);
@@ -8454,7 +8789,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       <p class="sis-tenue">Tiempo en el aire${geo().sectores.length > 1 ? " del sector" : ""} con el dron y traslapes del plan. ⚠ sobre 120 m: requiere autorización DGAC. * sobre la velocidad sugerida.</p>
     </section>`;
     }
-    return { vistaVuelo, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd };
+    return { vistaVuelo, htmlLados, htmlDespegue, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd };
   }
 
   // modulos/vuelos/paso-clima.js
@@ -9163,7 +9498,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     function pintarVuelo(m) {
       const { L, mapa } = m;
       const g = geo(), h = st.hoja;
-      quitar(m, "sectores", "lineas", "traslados", "sugerido");
+      quitar(m, "sectores", "lineas", "traslados", "sugerido", "lados", "opsDesp");
       if (!g) return;
       pintarCaminos(m);
       const LL = aLL(g), i = secSel();
@@ -9178,7 +9513,17 @@ ${escapar(t.nota)}${t.notaPor ? `
         }
       }))).addTo(mapa);
       if (!r) return;
+      const lados = ladosSector(g, i);
+      if (lados.length) m.capas.lados = L.layerGroup(lados.map((l) => L.marker(LL(l.medio), { interactive: false, keyboard: false, icon: L.divIcon({ className: "vu-lado-num", html: `<span>${l.n}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }) }))).addTo(mapa);
       m.capas.lineas = L.layerGroup(r.baterias.flatMap((b, k) => b.piezas.map((pz) => L.polyline(pz.slice(0, 5e3).map(LL), { color: COLORES_BATERIA[k % COLORES_BATERIA.length], weight: 2, opacity: 0.95, interactive: false })))).addTo(mapa);
+      if (!r.corredor) {
+        const ops = opcionesDespegue(st.hoja, dron(), g, i);
+        m.capas.opsDesp = L.layerGroup(ops.map((o, k) => L.marker(LL(o.xy), { keyboard: false, icon: L.divIcon({ className: `vu-desp-mapa${o.mejor ? " mejor" : ""}`, html: `<span>${String.fromCharCode(65 + k)}</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }) }).bindTooltip(`${o.texto} · ${Math.round(o.minTotal)} min`, { direction: "top" }).on("click", () => {
+          metaSector(st.hoja, i).despegue = o.lonLat;
+          cambio();
+          refrescarVuelo();
+        }))).addTo(mapa);
+      }
       const desp = LL(r.despegueXY);
       m.capas.traslados = L.layerGroup(r.baterias.slice(0, 40).map((b) => L.polyline([desp, LL(b.inicio)], { color: "#FFFFFF", weight: 1.5, dashArray: "5 5", opacity: 0.9, interactive: false }))).addTo(mapa);
       if (!m.capas.despegue) {
@@ -9455,6 +9800,8 @@ ${escapar(t.nota)}${t.notaPor ? `
       barraDibujo,
       htmlVistaPrevia,
       vistaVuelo,
+      htmlLados,
+      htmlDespegue,
       htmlTotalHoja,
       pieVelocidad,
       htmlKpis,
@@ -9498,6 +9845,10 @@ ${escapar(t.nota)}${t.notaPor ? `
       poner("vu-detalle", htmlDetalle(r));
       poner("vu-vel-pie", pieVelocidad(r));
       poner("vu-total-hoja", htmlTotalHoja());
+      if (r && !r.corredor) {
+        poner("vu-lados", htmlLados(r));
+        poner("vu-desp-ops", htmlDespegue(r));
+      }
       if (r && st.hoja.params.velocidad === "") ponerValor("velocidad", Math.round(r.velocidad * 10) / 10);
       const rr = raiz.querySelector("#vu-rumbo-rango");
       if (r && rr && document.activeElement !== rr) {
@@ -9580,6 +9931,21 @@ ${escapar(t.nota)}${t.notaPor ? `
       return true;
     }
     v.agregarFijo = agregarFijo;
+    async function elegirMetodo(h, m) {
+      const antes = (h.area.auto || {}).modo;
+      h.area.auto = { ...h.area.auto || {}, modo: m };
+      st.dibujo = null;
+      if (m === "vertices" || m === "manual") {
+        if (antes !== m) {
+          h.area.cortes = [];
+          h.area.sectores = [];
+          h.area.sel = 0;
+        }
+        st.dibujo = { modo: m === "vertices" ? "vertice" : "corte", puntos: [] };
+        avisar2(m === "vertices" ? "Toca un vértice del área y luego otro: el corte une ambos vértices." : "Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».");
+        cambio();
+      } else await cortarAutomatico(h);
+    }
     async function cortarAutomatico(h) {
       var _a;
       const a = h.area;
@@ -9730,17 +10096,17 @@ ${escapar(t.nota)}${t.notaPor ? `
         avisar2(`Capa cargada: ${n} elemento${n === 1 ? "" : "s"}.`);
         return;
       }
-      const analisis = analizarKml(await leerArchivo(archivo), archivo.name);
       if (tipo === "camino") {
-        const lineas = analisis.ejes;
+        const { lineas, aviso } = await lineasDeArchivos(t.files);
         if (!lineas.length) throw new Error("El archivo no trae líneas (caminos).");
         const h = st.hoja;
         h.area.caminos = h.area.caminos || [];
         for (const l of lineas) h.area.caminos.push({ nombre: l.nombre || archivo.name, linea: l.linea });
-        avisar2(`${lineas.length} camino${lineas.length === 1 ? "" : "s"} agregado${lineas.length === 1 ? "" : "s"}.`);
+        avisar2(`${lineas.length} camino${lineas.length === 1 ? "" : "s"} agregado${lineas.length === 1 ? "" : "s"}.${aviso ? " " + aviso : ""}`, aviso ? "error" : "ok");
         cambio();
         return;
       }
+      const analisis = analizarKml(await leerArchivo(archivo), archivo.name);
       if (tipo === "kml") {
         st.kml = analisis;
         st.kmlError = "";
@@ -10259,21 +10625,11 @@ ${escapar(t.nota)}${t.notaPor ? `
             cambio();
           }
         } else if (a === "auto-cortar") await cortarAutomatico(h);
-        else if (a === "elegir-metodo") {
-          const m = b.dataset.m, antes = (h.area.auto || {}).modo;
-          h.area.auto = { ...h.area.auto || {}, modo: m };
-          st.dibujo = null;
-          if (m === "vertices") {
-            if (antes !== "vertices") {
-              h.area.cortes = [];
-              h.area.sectores = [];
-              h.area.sel = 0;
-            }
-            st.dibujo = { modo: "vertice", puntos: [] };
-            avisar2("Toca un vértice del área y luego otro: el corte une ambos vértices.");
-            cambio();
-          } else await cortarAutomatico(h);
-        } else if (a === "detectar-ubicacion") {
+        else if (a === "tipo-corte") {
+          const manual = b.dataset.t === "manual", antes = (h.area.auto || {}).modo || metodoPropuesto(formaDe(h));
+          if (manual !== ["vertices", "manual"].includes(antes)) await elegirMetodo(h, manual ? h.area.tipo === "corredor" ? "manual" : "vertices" : metodoPropuesto(formaDe(h)));
+        } else if (a === "elegir-metodo") await elegirMetodo(h, b.dataset.m);
+        else if (a === "detectar-ubicacion") {
           await detectarUbicacion(true);
           return;
         } else if (a === "programar") {
@@ -10355,6 +10711,21 @@ ${escapar(t.nota)}${t.notaPor ? `
           cambio();
           refrescarVuelo();
           return;
+        } else if (a === "despegue-op") {
+          metaSector(h, secSel()).despegue = [Number(b.dataset.lon), Number(b.dataset.lat)];
+          cambio();
+          refrescarVuelo();
+          return;
+        } else if (a === "rumbo-lado") {
+          metaSector(h, secSel()).rumbo = String(Number(b.dataset.r));
+          cambio();
+          refrescarVuelo();
+          return;
+        } else if (a === "rumbo-todos") {
+          const g = geo();
+          for (let k = 0; k < g.sectores.length; k++) metaSector(h, k).rumbo = String(Number(b.dataset.r));
+          avisar2(`Rumbo ${b.dataset.r}° en los ${g.sectores.length} sectores.`);
+          cambio();
         } else if (a === "vel-auto") {
           h.params.velocidad = "";
           cambio();
@@ -12484,7 +12855,7 @@ ${escapar(t.nota)}${t.notaPor ? `
   var etapaProyecto = (p) => p.estado === "cerrado" ? "completado" : NOMBRE_ETAPA_PROYECTO[p.etapa] && p.etapa !== "completado" ? p.etapa : "terreno";
 
   // app/version.js
-  var VERSION_SISTEMA = "0.11";
+  var VERSION_SISTEMA = "0.11.1";
   var MODULOS_INCLUIDOS = "Equipos 0.2 (+ avisos) + Vuelos 0.9 + Seguimiento 0.2 + Monografías 0.3 (desde Terreno)";
 
   // app/vistas.js

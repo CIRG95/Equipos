@@ -21,7 +21,8 @@ import {
   todasLasAlertas, usosConAlerta, avisosDe,
 } from './datos.js';
 import { prepararImportacion, aplicarImportacion } from './importar.js';
-import { crearFicha } from './ficha.js';
+import { crearFicha, dibujo } from './ficha.js';
+import { urlArchivo } from '../../compartido/archivos.js';
 import { descargarPlanilla } from './exportar.js';
 
 // Íconos de trazo, mismo estilo que la barra de Terreno Topografía.
@@ -176,6 +177,7 @@ export function montarPantallas(contenedor, contexto) {
   const VISTAS = {
     async lista() {
       cacheLista = (await listarConEstado()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      if (!cacheLista.length && st.alta) return VISTAS.alta(); // sin equipos todavía: el alta va a pantalla completa
       if (!cacheLista.length) {
         return `<section class="eq-vacio">
           ${ICONOS.vacio}
@@ -203,12 +205,17 @@ export function montarPantallas(contenedor, contexto) {
           <span class="eq-vistas" role="tablist" aria-label="Vista"><button type="button" role="tab" aria-selected="${st.vistaLista === 'tarjetas'}" class="${st.vistaLista === 'tarjetas' ? 'activo' : ''}" data-accion="vista-lista" data-v="tarjetas">Tarjetas</button><button type="button" role="tab" aria-selected="${st.vistaLista === 'lista'}" class="${st.vistaLista === 'lista' ? 'activo' : ''}" data-accion="vista-lista" data-v="lista">Lista</button></span>
           ${esRRHH ? '<button class="eq-btn primario" data-accion="nuevo-equipo">+ Equipo</button>' : ''}
         </div>
-        <div class="eq-cats" role="group" aria-label="Tipo de equipo">${catChips}</div>
-        <div class="eq-filtros"><span class="eq-tenue">Estado:</span>${chips}</div>
-        <div id="eq-resultados"></div>`;
+        <div class="eq-con-lado">
+          <div class="eq-lado-principal">
+            <div class="eq-cats" role="group" aria-label="Tipo de equipo">${catChips}</div>
+            <div class="eq-filtros"><span class="eq-tenue">Estado:</span>${chips}</div>
+            <div id="eq-resultados"></div>
+          </div>
+          <aside class="eq-lado" aria-label="${st.alta ? 'Agregar equipo' : 'Resumen de equipos'}">${st.alta ? await VISTAS.alta(true) : htmlLadoResumen(esRRHH)}</aside>
+        </div>`;
     },
 
-    async alta() {
+    async alta(enLado = false) {
       // v0.11: alta paso a paso: 1 Tipo · 2 Marca y modelo · 3 Serie y registro · 4 Calibración y documentos · 5 Resumen.
       const a = st.alta || (st.alta = { paso: 1, d: {} });
       const d = a.d, cat = d.categoria || '';
@@ -236,8 +243,7 @@ export function montarPantallas(contenedor, contexto) {
       else cuerpo = `<dl class="eq-resumen-alta">${[['Tipo', cat], ['Equipo', d.equipo], ['Marca y modelo', [d.marca, d.modelo].filter(Boolean).join(' ')], ['Descripción', d.descripcion], ['N° de serie', d.numeroSerie], ['Código interno', d.codigoInterno], ['Registro DGAC', d.dgacRegistro], ['Calibración', d.calibracionNoAplica ? 'No requiere' : (d.fechaUltimaCalibracion || 'sin fecha')], ['Seguro vence', d.seguroVence]].filter(([, v]) => v).map(([t, v]) => `<div><dt>${t}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
           <label class="eq-campo"><span>Observaciones</span><textarea name="observaciones" rows="2">${val('observaciones')}</textarea></label>`;
       const faltan = a.paso === 2 && !d.equipo ? 'Falta el nombre del equipo.' : a.paso === 3 && !d.numeroSerie ? 'Falta el N° de serie: sin él no se puede rastrear el equipo.' : '';
-      return `<button class="eq-volver" data-accion="alta-cancelar">← Cancelar</button>
-        <h2>Nuevo equipo</h2>
+      return `${enLado ? `<div class="eq-lado-cab"><b>Agregar equipo</b><small>Paso ${a.paso} de 5</small><button type="button" class="eq-btn chico" data-accion="alta-cancelar">Cancelar</button></div>` : '<button class="eq-volver" data-accion="alta-cancelar">← Cancelar</button>\n        <h2>Nuevo equipo</h2>'}
         <div class="eq-pasos-alta">${PASOS_ALTA.map((t, i) => `<span class="${i + 1 < a.paso ? 'hecho' : i + 1 === a.paso ? 'actual' : ''}"><i>${i + 1 < a.paso ? '✓' : i + 1}</i>${t}</span>`).join('')}</div>
         <form class="eq-form eq-form-alta" data-form="alta">
           <fieldset><legend>${a.paso}. ${PASOS_ALTA[a.paso - 1]}</legend>${cuerpo}</fieldset>
@@ -504,6 +510,57 @@ export function montarPantallas(contenedor, contexto) {
     }).join('');
   }
 
+  // ─────────── Tarjetas con foto y panel lateral (v0.11.1, como el boceto) ───────────
+  const fmtN = n => Number(n).toLocaleString('es-CL', { maximumFractionDigits: 1 });
+  /** Hasta tres datos clave: la cámara del catálogo de Vuelos (drones) o las especificaciones de la ficha. */
+  function datosClave(eq) {
+    const sens = sensoresDe(eq);
+    if (sens.length > 1) return { chips: sens.map(x => x.sensor) };
+    if (sens.length === 1) {
+      const x = sens[0];
+      return { cajas: [['Sensor', `${fmtN(x.sensorAnchoMm)} × ${fmtN(x.sensorAltoMm)} mm`], ['Imagen', `${x.pixelesAncho} px`], x.lidar ? ['LiDAR', `${Math.round(x.lidar.puntosPorSegundo / 1000)} mil pts/s`] : [x.focalFichaMm ? 'Focal efectiva' : 'Focal', `${fmtN(x.focalMm)} mm`]] };
+    }
+    const esp = eq.especificaciones || {};
+    return { cajas: camposEspecificacion(eq.categoria).filter(c => esp[c.clave]).slice(0, 3).map(c => [c.etiqueta, `${esp[c.clave]}${c.sufijo ? ' ' + c.sufijo : ''}`]) };
+  }
+  function htmlTarjeta(e) {
+    const eq = e.equipo, serie = String(eq.numeroSerie || '');
+    const sub = [eq.categoria || 'Otro', serie ? `serie ···${serie.slice(-4)}` : 'sin N° de serie', eq.descripcion].filter(Boolean).join(' · ');
+    const dc = datosClave(eq);
+    const pie = e.alertasActivas.length ? chipAlertas(e.alertasActivas.length) : chipCalibracion(e.calibracion);
+    return `<button class="eq-tarjeta eq-tarjeta-foto" data-accion="ver" data-id="${eq.id}">
+        <div class="eq-tf-cab"><div class="eq-tf-foto"${eq.fotoId ? ` data-foto="${esc(eq.fotoId)}"` : ''}>${dibujo(eq.categoria)}</div>
+          <div class="eq-tf-tit"><div class="eq-tf-fila"><b>${esc(e.nombre)}</b>${chipUbicacion(e.ubicacion)}</div><small>${esc(sub)}</small></div></div>
+        ${dc.chips ? `<div class="eq-tf-chips">${dc.chips.map(t => `<span>${esc(t)}</span>`).join('')}</div>` : dc.cajas.length ? `<div class="eq-tf-datos">${dc.cajas.map(([t, v]) => `<div><small>${esc(t)}</small><b>${esc(v)}</b></div>`).join('')}</div>` : ''}
+        <div class="eq-tf-pie">${pie}</div>
+      </button>`;
+  }
+  const fotos = new Map();
+  /** Las fotos se cargan después de pintar (vienen de IndexedDB o de la nube). */
+  async function cargarFotos(cont) {
+    for (const el of cont.querySelectorAll('[data-foto]')) {
+      const id = el.dataset.foto;
+      try {
+        if (!fotos.has(id)) fotos.set(id, await urlArchivo(id));
+        const url = fotos.get(id);
+        if (url && el.isConnected) el.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+      } catch { /* queda el dibujo */ }
+    }
+  }
+  /** Panel lateral (PC) cuando no hay un alta en curso: cuántos hay en cada lugar y los próximos vencimientos. */
+  function htmlLadoResumen(esRRHH) {
+    const vivos = cacheLista.filter(e => e.ubicacion.lugar !== 'baja');
+    const cuenta = l => vivos.filter(e => e.ubicacion.lugar === l).length;
+    const lugares = Object.keys(LUGARES).filter(l => l !== 'baja' && cuenta(l));
+    const urgentes = vivos.filter(e => e.alertasActivas.length || ['vencida', 'por_vencer'].includes(e.calibracion.nivel))
+      .sort((a, b) => (a.calibracion.dias ?? 999) - (b.calibracion.dias ?? 999)).slice(0, 6);
+    return `<div class="eq-lado-cab"><b>Resumen</b><small>${vivos.length} equipos</small></div>
+      <dl class="eq-lado-cuentas">${lugares.map(l => `<div><dt>${esc(LUGARES[l])}</dt><dd>${cuenta(l)}</dd></div>`).join('')}</dl>
+      <b class="eq-lado-sub">Por atender</b>
+      ${urgentes.length ? `<ul class="eq-lado-lista">${urgentes.map(e => `<li><button type="button" data-accion="ver" data-id="${e.equipo.id}"><span>${esc(e.nombre)}</span>${e.alertasActivas.length ? chipAlertas(e.alertasActivas.length) : chipCalibracion(e.calibracion)}</button></li>`).join('')}</ul>` : '<p class="eq-tenue">Nada vencido ni por vencer.</p>'}
+      ${esRRHH ? '<button type="button" class="eq-btn primario eq-lado-btn" data-accion="nuevo-equipo">Agregar equipo</button><p class="eq-tenue">El alta se hace aquí, paso a paso, sin salir del listado.</p>' : ''}`;
+  }
+
   function pintarResultados() {
     const cont = zona.querySelector('#eq-resultados');
     if (!cont) return;
@@ -512,22 +569,11 @@ export function montarPantallas(contenedor, contexto) {
     const lista = cacheLista.filter(fn).filter(e => !st.categoria || e.equipo.categoria === st.categoria).filter(e => !q || [e.equipo.equipo, e.equipo.modelo, e.equipo.numeroSerie, e.equipo.marca, e.equipo.descripcion, e.equipo.codigoInterno, e.equipo.categoria]
       .some(v => String(v || '').toLowerCase().includes(q)));
     if (!lista.length) { cont.innerHTML = '<p class="eq-tenue">Ningún equipo coincide.</p>'; return; }
-    const tarjetas = lista.map(e => {
-      const sens = sensoresDe(e.equipo), esp = e.equipo.especificaciones || {};
-      const datos = sens.length ? sens.map(textoSensor) : camposEspecificacion(e.equipo.categoria).filter(c => esp[c.clave]).slice(0, 3).map(c => `${c.etiqueta}: ${esp[c.clave]}${c.sufijo ? ' ' + c.sufijo : ''}`);
-      return `<button class="eq-tarjeta eq-tarjeta-v11" data-accion="ver" data-id="${e.equipo.id}">
-        <div class="eq-tarjeta-cab"><span class="eq-tarjeta-cat">${esc(e.equipo.categoria || 'Otro')}</span>${chipUbicacion(e.ubicacion)}</div>
-        <div class="eq-tarjeta-nombre">${esc(e.nombre)}</div>
-        ${e.equipo.descripcion ? `<div class="eq-tenue">${esc(e.equipo.descripcion)}</div>` : ''}
-        <div class="eq-tenue">N° serie <span class="eq-mono">${esc(e.equipo.numeroSerie || '—')}</span>${e.equipo.codigoInterno ? ` · ${esc(e.equipo.codigoInterno)}` : ''}</div>
-        ${datos.length ? `<ul class="eq-tarjeta-datos">${datos.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
-        <div class="eq-chips">${chipCalibracion(e.calibracion)} ${chipAlertas(e.alertasActivas.length)}</div>
-      </button>`;
-    }).join('');
+    const tarjetas = lista.map(htmlTarjeta).join('');
     const filas = lista.map(e => `<tr data-accion="ver" data-id="${e.equipo.id}">
         ${celdasPlanilla(e.equipo)}
         <td>${chipUbicacion(e.ubicacion)}</td><td>${chipCalibracion(e.calibracion)}</td><td>${chipAlertas(e.alertasActivas.length)}</td></tr>`).join('');
-    if (st.vistaLista === 'tarjetas') { cont.innerHTML = `<div class="eq-tarjetas eq-siempre">${tarjetas}</div>`; return; }
+    if (st.vistaLista === 'tarjetas') { cont.innerHTML = `<div class="eq-tarjetas eq-siempre">${tarjetas}</div>`; cargarFotos(cont); return; }
     cont.innerHTML = `<div class="eq-tabla-scroll eq-siempre"><table class="eq-tabla">
         <thead><tr>${COLUMNAS_PLANILLA.map(c => `<th>${c.etiqueta}</th>`).join('')}<th>Ubicación</th><th>Calibración</th><th>Alertas</th></tr></thead>
         <tbody>${filas}</tbody></table></div>`;
@@ -554,7 +600,11 @@ export function montarPantallas(contenedor, contexto) {
         case 'filtro': st.filtro = el.dataset.filtro; zona.querySelectorAll('.eq-filtro').forEach(b => b.classList.toggle('activo', b === el)); pintarResultados(); break;
         case 'ver': await ir('ficha', { equipoId: id, verPlaca: false }); break;
         case 'cert-de-proyecto': await ir('cert-proyecto', { certProyectoId: id }); break;
-        case 'nuevo-equipo': await ir('alta', { equipoId: null, alta: { paso: 1, d: { fechaAlta: new Date().toISOString().slice(0, 10), periodoCalibracionMeses: PERIODO_CALIBRACION_MESES } } }); break;
+        case 'nuevo-equipo': {
+          // v0.11.1: en PC el alta va en el panel lateral, al lado del listado; en teléfono, a pantalla completa.
+          const enPc = document.body.dataset.modo === 'pc' && st.vista === 'lista';
+          await ir(enPc ? 'lista' : 'alta', { equipoId: null, alta: { paso: 1, d: { fechaAlta: new Date().toISOString().slice(0, 10), periodoCalibracionMeses: PERIODO_CALIBRACION_MESES } } }); break;
+        }
         case 'alta-tipo': { const c = el.dataset.c; st.alta.d.categoria = c; if (['Dron (RPAS)', 'Escáner láser'].includes(c)) st.alta.d.calibracionNoAplica = true; if (!st.alta.d.equipo) st.alta.d.equipo = c === 'Dron (RPAS)' ? 'Dron' : c; st.alta.paso = 2; await render(); break; }
         case 'alta-modelo': { st.alta.d.modelo = el.dataset.m; st.alta.d.marca = st.alta.d.marca || 'DJI'; await render(); break; }
         case 'alta-cancelar': st.alta = null; await ir('lista'); break;

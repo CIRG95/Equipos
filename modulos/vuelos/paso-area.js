@@ -6,6 +6,7 @@ import { deslizador } from './ui.js';
 import { proyectar, areaM2 } from './calculo.js';
 import { totales, kmADm, kmEnEje, lineaEje, marcoDe, geometria, nombreSector } from './hoja.js';
 import { largo } from './geom.js';
+import { FORMATOS_CAMINO } from './formatos.js';
 import { formaDe, metodoPropuesto, METODOS, METODOS_LINEALES, vistaPrevia, rumboCortesPropuesto, tramosVistaPrevia, generarCortes } from './cortes.js';
 import { textoUbicacion } from './ubicacion.js';
 import { revisarZonas, TIPOS_CAPA } from './capas.js';
@@ -142,12 +143,9 @@ export function crearPasoArea(v) {
       manual: () => '',
     };
     return `<section class="sis-tarjeta"><h2>Cortes</h2>
-      ${htmlMiniaturas(g, modo)}
-      <label class="sis-campo"><span>Método de corte</span><select data-auto="modo">
-        <optgroup label="Área lineal (usa el eje)">${lineal ? METODOS_LINEALES.map(opt).join('') : '<option disabled>Solo para áreas lineales</option>'}</optgroup>
-        <optgroup label="Cualquier área">${['n', ...(a.tipo === 'corredor' ? [] : ['cerrados']), 'baterias', 'dias'].map(opt).join('')}</optgroup>
-        <optgroup label="A mano">${(a.tipo === 'corredor' ? ['manual'] : ['vertices', 'manual']).map(opt).join('')}</optgroup>
-      </select></label>
+      ${htmlTipoCorte(modo)}
+      ${htmlMiniaturas(g, modo, propuesto)}
+      <h3 class="vu-subt">${esc(METODOS[modo] ? METODOS[modo].texto : '')}${modo === propuesto ? ' <small class="sis-tenue">(propuesto)</small>' : ''}</h3>
       <div class="vu-fila-campos">${(campos[modo] || (() => ''))()}</div>
       <p class="sis-tenue">${esc(METODOS[modo] ? METODOS[modo].ayuda : '')}</p>
       <p class="vu-vista-previa" id="vu-vista-previa">${htmlVistaPrevia()}</p>
@@ -162,7 +160,7 @@ export function crearPasoArea(v) {
   }
 
   // ─────────── Vista previa de cada método de corte (v0.11) ───────────
-  function svgSectores(polis, sel) {
+  function svgSectores(polis, sel, gris) {
     const todos = polis.flat();
     if (!todos.length) return '';
     const xs = todos.map(p => p[0]), ys = todos.map(p => p[1]);
@@ -171,28 +169,49 @@ export function crearPasoArea(v) {
     const ox = (W - (x1 - x0) * k) / 2, oy = (H - (y1 - y0) * k) / 2;
     const pt = p => `${(ox + (p[0] - x0) * k).toFixed(1)},${(H - oy - (p[1] - y0) * k).toFixed(1)}`;
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" aria-hidden="true">${polis.map((pl, i) => { const paso = Math.max(1, Math.ceil(pl.length / 150));
-      return `<polygon points="${pl.filter((_, j) => j % paso === 0).map(pt).join(' ')}" fill="${COLORES_SECTOR[i % COLORES_SECTOR.length]}" fill-opacity="${sel ? 0.75 : 0.55}" stroke="#1C1F23" stroke-width="1.2" stroke-linejoin="round"></polygon>`; }).join('')}</svg>`;
+      return `<polygon points="${pl.filter((_, j) => j % paso === 0).map(pt).join(' ')}" fill="${gris ? '#C9CED4' : COLORES_SECTOR[i % COLORES_SECTOR.length]}" fill-opacity="${sel ? 0.75 : 0.55}" stroke="#1C1F23" stroke-width="1.2" stroke-linejoin="round"></polygon>`; }).join('')}</svg>`;
   }
-  function htmlMiniaturas(g, modo) {
-    const h = st.hoja, a = h.area, au = a.auto || {}, f = formaDe(h);
-    const lista = [...(f && f.lineal ? ['medida'] : []), 'n', ...(a.tipo === 'corredor' ? [] : ['cerrados', 'vertices'])];
-    const clave = JSON.stringify([g.vuelo.length, g.vuelo[0], a.margen, a.rectas, a.corredor, au, a.ejeCalc ? a.ejeCalc.largo : 0, modo === 'vertices' ? a.cortes : null]);
+  const MANUALES = ['vertices', 'manual'];
+  /** Automático o manual (v0.11.1): el tipo sale del método elegido. */
+  function htmlTipoCorte(modo) {
+    const manual = MANUALES.includes(modo);
+    return `<div class="vu-tipo-corte" role="group" aria-label="Tipo de corte">
+        <button type="button" class="${manual ? '' : 'activo'}" data-accion="tipo-corte" data-t="auto" aria-pressed="${!manual}"><b>Automático</b><small>La app propone los cortes</small></button>
+        <button type="button" class="${manual ? 'activo' : ''}" data-accion="tipo-corte" data-t="manual" aria-pressed="${manual}"><b>Manual</b><small>Tú marcas cada corte en el mapa</small></button></div>`;
+  }
+  /** Métodos que se muestran según el tipo de corte y la forma del área. */
+  function metodosVisibles(modo) {
+    const a = st.hoja.area, f = formaDe(st.hoja), corredor = a.tipo === 'corredor';
+    if (MANUALES.includes(modo)) return corredor ? ['manual'] : ['vertices', 'manual'];
+    return [...(f && f.lineal ? METODOS_LINEALES : []), 'n', ...(corredor ? [] : ['cerrados']), 'baterias', 'dias'];
+  }
+  function htmlMiniaturas(g, modo, propuesto) {
+    const h = st.hoja, a = h.area, au = a.auto || {};
+    const lista = metodosVisibles(modo);
+    const clave = JSON.stringify([lista, g.vuelo.length, g.vuelo[0], a.margen, a.rectas, a.corredor, a.dm, au, h.dronId, h.params, a.ejeCalc ? a.ejeCalc.largo : 0, MANUALES.includes(modo) ? [modo, a.cortes] : null]);
     if (!st.previas || st.previas.clave !== clave) {
       const datos = lista.map(k => {
+        // Manuales: muestran los cortes que ya marcaste (si el método está en uso) o el área sin cortar.
+        if (MANUALES.includes(k)) {
+          const cortes = modo === k ? a.cortes : [];
+          const gp = geometria({ ...h, area: { ...a, cortes, sectores: [] } });
+          return { k, polis: gp ? gp.sectores.map(x => x.poligono) : [g.vuelo], n: gp ? gp.sectores.length : 1, pendiente: !cortes.length };
+        }
+        if (k === 'tramos') return { k, polis: [g.vuelo], n: 1, falta: 'usa los tramos del Seguimiento' };
+        if (k === 'dm' && (!a.dm || a.dm.inicio == null)) return { k, polis: [g.vuelo], n: 1, falta: 'falta el DM del inicio' };
         try {
-          let cortes;
-          if (k === 'vertices') cortes = modo === 'vertices' ? a.cortes : [];
-          else cortes = generarCortes({ ...h, area: { ...a, auto: { ...au, modo: k }, cortes: [], sectores: [] } }, { dron: dron(), primerDM: au.primerKm ?? null }).cortes;
+          const cortes = generarCortes({ ...h, area: { ...a, auto: { ...au, modo: k }, cortes: [], sectores: [] } }, { dron: dron(), primerDM: au.primerKm ?? null }).cortes;
           const gp = geometria({ ...h, area: { ...a, cortes, sectores: [] } });
           return { k, polis: gp ? gp.sectores.map(x => x.poligono) : [], n: gp ? gp.sectores.length : 0 };
-        } catch (e) { return { k, error: e.message, polis: [g.vuelo], n: 1 }; }
+        } catch (e) { return { k, falta: 'revisa los datos', polis: [g.vuelo], n: 1 }; }
       });
       geometria(h); // deja la geometría de la hoja en el caché
       st.previas = { clave, datos };
     }
-    return `<div class="vu-metodos" role="group" aria-label="Vista previa de cada método de corte">${st.previas.datos.map(d => `<button type="button" class="vu-metodo${d.k === modo ? ' activo' : ''}" data-accion="elegir-metodo" data-m="${d.k}" title="${esc(METODOS[d.k].ayuda)}">
-        ${svgSectores(d.polis, d.k === modo)}<span>${esc(METODOS[d.k].texto)}</span><small>${d.error ? 'revisa los datos' : d.k === 'vertices' && d.n < 2 ? 'toca dos vértices' : `${d.n} sector${d.n === 1 ? '' : 'es'}`}</small></button>`).join('')}</div>
-      <p class="sis-tenue">Toca una vista previa para usar ese método. Los ajustes (cantidad, dirección, distancias) están más abajo.</p>`;
+    const pie = d => d.falta ? d.falta : d.pendiente ? (d.k === 'vertices' ? 'toca dos vértices' : 'traza en el mapa') : `${d.n} sector${d.n === 1 ? '' : 'es'}`;
+    return `<div class="vu-metodos" role="group" aria-label="Vista previa de cada método de corte">${st.previas.datos.map(d => `<button type="button" class="vu-metodo${d.k === modo ? ' activo' : ''}${d.falta ? ' sin-datos' : ''}" data-accion="elegir-metodo" data-m="${d.k}" title="${esc(METODOS[d.k].ayuda)}">
+        ${d.k === propuesto ? '<i class="vu-metodo-prop">propuesto</i>' : ''}${svgSectores(d.polis, d.k === modo, d.falta || d.pendiente)}<span>${esc(METODOS[d.k].texto)}</span><small>${pie(d)}</small></button>`).join('')}</div>
+      <p class="sis-tenue">Toca una vista previa para usar ese método. Sus ajustes están abajo.</p>`;
   }
 
   // ─────────── Ubicación y dron (v0.11, en Origen) ───────────
@@ -330,9 +349,10 @@ export function crearPasoArea(v) {
       ${cam.length ? `<ul class="vu-caminos">${cam.map((c, k) => `<li><i></i>${esc(c.nombre || 'Camino')} <button class="vu-link" data-accion="quitar-camino" data-i="${k}">quitar</button></li>`).join('')}</ul>` : ''}
       <div class="sis-acciones">
         <button class="sis-btn chico${dib ? ' primario' : ''}" data-accion="dibujar" data-modo="camino">✎ Dibujar camino</button>
-        <label class="sis-btn chico vu-archivo">Cargar camino (KML o KMZ)<input type="file" accept=".kml,.kmz" data-archivo="camino" hidden></label>
+        <label class="sis-btn chico vu-archivo">Cargar caminos<input type="file" accept="${FORMATOS_CAMINO}" multiple data-archivo="camino" hidden></label>
       </div>
       <p class="sis-tenue">Agrega huellas o accesos que no estén en la red del MOP. En el paso 2 (Vuelo) se sugiere el despegue de cada sector sobre estos caminos. Es solo una referencia: acceso, rejas, permisos y línea de vista se confirman en terreno.</p>
+      <p class="sis-tenue">Formatos: KML, KMZ, Shapefile (.zip, o .shp con su .dbf y .prj seleccionados juntos), GeoJSON y GPX. Los shapefiles en UTM se convierten solos.</p>
     </div>`;
   }
 

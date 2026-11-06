@@ -15,6 +15,7 @@ import { HORARIO_INICIAL, jornadasNecesarias } from './hoja.js';
 import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, kmADm, totales } from './hoja.js';
 import * as Seguimiento from '../seguimiento/seguimiento.js';
 import { diasHabilesDesde } from '../../compartido/periodicidad.js';
+import { lineasDeArchivos } from './formatos.js';
 import { formaDe, metodoPropuesto, generarCortes, corredorDesdeEje, rumboCortesPropuesto } from './cortes.js';
 import { caminosEn, caminosDeHoja, recuadro, despegueSobreCamino } from './redvial.js';
 import { TIPO_KML } from './ui.js';
@@ -103,7 +104,7 @@ export function montarPantallas(contenedor, ctx) {
   Object.assign(v, crearVistaHojas(v), crearPasoArea(v), crearPasoVuelo(v), crearPasoClima(v), crearPasoPermisos(v), crearHerramientas(v), crearMapas(v));
   const {
     vistaHojas, encabezadoHoja, vistaResumen, vistaIdentificacion, pieDePaso, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo, htmlVistaPrevia,
-    vistaVuelo, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd,
+    vistaVuelo, htmlLados, htmlDespegue, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd,
     vistaClima, vistaRapido, consultarClima, consultarTramos, guardarResumenClima, vistaPermisos, imprimir, vistaKml, vistaDrones,
     mapaArea, mapaVuelo, mapaKml, pintarArea, pintarVuelo, pintarDibujo,
   } = v;
@@ -120,6 +121,7 @@ export function montarPantallas(contenedor, ctx) {
     const r = calcularSector(st.hoja, dron(), g, secSel());
     poner('vu-kpis', htmlKpis(r)); poner('vu-barra', htmlBarraRumbo(r)); poner('vu-leyenda', htmlLeyenda(r));
     poner('vu-detalle', htmlDetalle(r)); poner('vu-vel-pie', pieVelocidad(r)); poner('vu-total-hoja', htmlTotalHoja());
+    if (r && !r.corredor) { poner('vu-lados', htmlLados(r)); poner('vu-desp-ops', htmlDespegue(r)); }
     if (r && st.hoja.params.velocidad === '') ponerValor('velocidad', Math.round(r.velocidad * 10) / 10);
     const rr = raiz.querySelector('#vu-rumbo-rango');
     if (r && rr && document.activeElement !== rr) { rr.value = Math.round(((r.rumbo % 180) + 180) % 180); const num = raiz.querySelector('#vu-rumbo-num'); if (num) num.textContent = `${fmt(r.rumbo, 0)}°`; }
@@ -185,6 +187,19 @@ export function montarPantallas(contenedor, ctx) {
     return true;
   }
   v.agregarFijo = agregarFijo;
+
+  /** Cambia el método de corte (v0.11.1: tarjetas con vista previa; los manuales dejan el mapa listo para marcar). */
+  async function elegirMetodo(h, m) {
+    const antes = (h.area.auto || {}).modo;
+    h.area.auto = { ...(h.area.auto || {}), modo: m };
+    st.dibujo = null;
+    if (m === 'vertices' || m === 'manual') {
+      if (antes !== m) { h.area.cortes = []; h.area.sectores = []; h.area.sel = 0; }
+      st.dibujo = { modo: m === 'vertices' ? 'vertice' : 'corte', puntos: [] };
+      avisar(m === 'vertices' ? 'Toca un vértice del área y luego otro: el corte une ambos vértices.' : 'Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».');
+      cambio();
+    } else await cortarAutomatico(h);
+  }
 
   async function cortarAutomatico(h) {
     const a = h.area;
@@ -298,14 +313,15 @@ export function montarPantallas(contenedor, ctx) {
       st.capas = await listarCapas();
       avisar(`Capa cargada: ${n} elemento${n === 1 ? '' : 's'}.`); return;
     }
-    const analisis = analizarKml(await leerArchivo(archivo), archivo.name);
     if (tipo === 'camino') {
-      const lineas = analisis.ejes;
+      // v0.11.1: KML/KMZ, shapefile (.zip o .shp + .dbf + .prj juntos), GeoJSON o GPX.
+      const { lineas, aviso } = await lineasDeArchivos(t.files);
       if (!lineas.length) throw new Error('El archivo no trae líneas (caminos).');
       const h = st.hoja; h.area.caminos = h.area.caminos || [];
       for (const l of lineas) h.area.caminos.push({ nombre: l.nombre || archivo.name, linea: l.linea });
-      avisar(`${lineas.length} camino${lineas.length === 1 ? '' : 's'} agregado${lineas.length === 1 ? '' : 's'}.`); cambio(); return;
+      avisar(`${lineas.length} camino${lineas.length === 1 ? '' : 's'} agregado${lineas.length === 1 ? '' : 's'}.${aviso ? ' ' + aviso : ''}`, aviso ? 'error' : 'ok'); cambio(); return;
     }
+    const analisis = analizarKml(await leerArchivo(archivo), archivo.name);
     if (tipo === 'kml') { st.kml = analisis; st.kmlError = ''; return; }
     const contornos = analisis.poligonos.filter(p => !p.abierta);
     if (!contornos.length && !analisis.ejes.length) throw new Error('El archivo no trae polígonos ni líneas.');
@@ -564,17 +580,12 @@ export function montarPantallas(contenedor, ctx) {
         if (ar.original) { Object.assign(ar, { tipo: 'poligono', eje: null, cortes: [], sectores: [], sel: 0 }); avisar('Se vuelve a volar como polígono.'); cambio(); }
       }
       else if (a === 'auto-cortar') await cortarAutomatico(h);
-      else if (a === 'elegir-metodo') {
-        const m = b.dataset.m, antes = (h.area.auto || {}).modo;
-        h.area.auto = { ...(h.area.auto || {}), modo: m };
-        st.dibujo = null;
-        if (m === 'vertices') {
-          if (antes !== 'vertices') { h.area.cortes = []; h.area.sectores = []; h.area.sel = 0; }
-          st.dibujo = { modo: 'vertice', puntos: [] };
-          avisar('Toca un vértice del área y luego otro: el corte une ambos vértices.');
-          cambio();
-        } else await cortarAutomatico(h);
+      else if (a === 'tipo-corte') {
+        const manual = b.dataset.t === 'manual', antes = (h.area.auto || {}).modo || metodoPropuesto(formaDe(h));
+        // Al pasar a manual se parte por vértices (o trazado libre en corredores); al volver, con el método propuesto.
+        if (manual !== ['vertices', 'manual'].includes(antes)) await elegirMetodo(h, manual ? (h.area.tipo === 'corredor' ? 'manual' : 'vertices') : metodoPropuesto(formaDe(h)));
       }
+      else if (a === 'elegir-metodo') await elegirMetodo(h, b.dataset.m);
       else if (a === 'detectar-ubicacion') { await detectarUbicacion(true); return; }
       else if (a === 'programar') {
         const g = geo(), jor = jornadasNecesarias(h, dron(), g);
@@ -622,6 +633,12 @@ export function montarPantallas(contenedor, ctx) {
           cambio(); await render(); return;
         }
         cambio(); refrescarVuelo(); return;
+      }
+      else if (a === 'despegue-op') { metaSector(h, secSel()).despegue = [Number(b.dataset.lon), Number(b.dataset.lat)]; cambio(); refrescarVuelo(); return; }
+      else if (a === 'rumbo-lado') { metaSector(h, secSel()).rumbo = String(Number(b.dataset.r)); cambio(); refrescarVuelo(); return; }
+      else if (a === 'rumbo-todos') {
+        const g = geo(); for (let k = 0; k < g.sectores.length; k++) metaSector(h, k).rumbo = String(Number(b.dataset.r));
+        avisar(`Rumbo ${b.dataset.r}° en los ${g.sectores.length} sectores.`); cambio();
       }
       else if (a === 'vel-auto') { h.params.velocidad = ''; cambio(); refrescarVuelo(); return; }
       else if (a === 'leyenda') { st.leyendaAbierta = !st.leyendaAbierta; poner('vu-leyenda', htmlLeyenda(calcularSector(h, dron(), geo(), secSel()))); return; }

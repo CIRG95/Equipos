@@ -206,18 +206,21 @@ export function cortarEje(eje, cortes) {
  * Si una pasada es más larga que una batería, se corta a la mitad: la batería siguiente retoma desde ahí.
  * Devuelve { baterias: [{ piezas: [[pt…]…], seg, traslado, inicio, fin, excede }], segVuelo }.
  */
-export function recorrerPorBaterias(pasadas, { v, segGiro = 0, segUtiles, despegue = null }) {
-  // v0.11.1: la ruta parte por la esquina más cercana al despegue (primera o última pasada, en uno u otro sentido).
-  if (despegue && pasadas.length) {
-    const ult = pasadas.length - 1, finDe = p => p[p.length - 1];
-    const opciones = [
-      { d: dist(despegue, pasadas[0][0]), f: x => x },
-      { d: dist(despegue, finDe(pasadas[0])), f: x => x.map(p => p.slice().reverse()) },
-      { d: dist(despegue, pasadas[ult][0]), f: x => x.slice().reverse() },
-      { d: dist(despegue, finDe(pasadas[ult])), f: x => x.slice().reverse().map(p => p.slice().reverse()) },
-    ];
-    pasadas = opciones.reduce((m, o) => (o.d < m.d - 1e-6 ? o : m)).f(pasadas);
+export function recorrerPorBaterias(pasadas, op) {
+  // v0.11.1: con despegue se prueban los 4 puntos de partida (primera o última pasada, en uno u otro sentido) y se queda
+  // con el de menos baterías y, a igualdad, menos tiempo. Así nunca queda peor que partir siempre por la primera pasada.
+  if (!op.despegue || !pasadas.length) return recorrerDesde(pasadas, op);
+  const inv = p => p.slice().reverse();
+  const opciones = [x => x, x => x.map(inv), x => x.slice().reverse(), x => x.slice().reverse().map(inv)];
+  let mejor = null;
+  for (const f of opciones) {
+    const r = recorrerDesde(f(pasadas), op);
+    if (!mejor || r.baterias.length < mejor.baterias.length || (r.baterias.length === mejor.baterias.length && r.segVuelo < mejor.segVuelo - 1e-6)) mejor = r;
   }
+  return mejor;
+}
+
+function recorrerDesde(pasadas, { v, segGiro = 0, segUtiles, despegue = null }) {
   // Segmentos en orden: { a, b, giro } — giro: se suma segGiro al terminar (fin de pasada).
   const segs = [];
   pasadas.forEach((p, k) => {

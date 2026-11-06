@@ -95,19 +95,40 @@ export function crearMapas(v) {
     const clave = bb.map(x => x.toFixed(2)).join(',');
     if (st.redVialClave === clave) return false;
     st.redVialClave = clave;
-    try { st.redVialDatos = await caminosEn(bb); st.redVialInfo = `${st.redVialDatos.length} caminos del MOP cerca del área. ${ATRIBUCION}.`; }
+    try { st.redVialDatos = await caminosEn(bb); st.redVialInfo = `${st.redVialDatos.length} tramos de caminos del MOP a menos de 3 km del área. ${ATRIBUCION}.`; }
     catch { st.redVialDatos = []; st.redVialInfo = 'No se pudo leer la red vial (falta vendor/capas/redvial).'; st.redVialClave = null; }
     return true;
   }
+  // v0.11.1: los caminos se dibujan en canvas (no SVG), agrupados por tipo de carpeta, y la capa se arma una sola vez
+  // mientras no cambien la red vial ni los caminos de la hoja (antes se rehacían miles de líneas en cada repintado).
   function pintarCaminos(m) {
     const { L, mapa } = m;
-    quitar(m, 'caminos');
-    const capas = [];
     const mop = st.redVial ? (st.redVialDatos || []) : [];
-    for (const c of mop.slice(0, 4000)) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: '#3A3A3A', weight: /pavimento/i.test(c.carpeta) ? 5 : 4, opacity: 0.55, interactive: false }));
-    for (const c of mop.slice(0, 4000)) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: COLOR_CARPETA(c.carpeta), weight: /pavimento/i.test(c.carpeta) ? 3 : 2, opacity: 0.85, dashArray: /suelo/i.test(c.carpeta) ? '4 4' : null }).bindTooltip(describirCamino(c) || 'Camino', { sticky: true }));
-    for (const c of (st.hoja && st.hoja.area.caminos) || []) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: '#FFD54F', weight: 3, opacity: 0.95 }).bindTooltip(c.nombre || 'Camino agregado', { sticky: true }));
-    if (capas.length) m.capas.caminos = L.layerGroup(capas).addTo(mapa);
+    const propios = (st.hoja && st.hoja.area.caminos) || [];
+    const clave = `${st.redVial ? st.redVialClave : '-'}|${mop.length}|${propios.length}|${propios.length ? propios[propios.length - 1].linea.length : 0}`;
+    if (m.caminos && m.caminos.clave === clave) {
+      if (m.caminos.grupo && !mapa.hasLayer(m.caminos.grupo)) m.caminos.grupo.addTo(mapa);
+      return;
+    }
+    if (m.caminos && m.caminos.grupo) m.caminos.grupo.remove();
+    m.lienzo = m.lienzo || L.canvas({ padding: 0.5, tolerance: 6 });
+    const ll = l => l.map(([lon, lat]) => [lat, lon]);
+    const capas = [];
+    if (mop.length) {
+      // Bordes: una sola línea múltiple por grosor.
+      const pav = mop.filter(c => /pavimento/i.test(c.carpeta)), resto = mop.filter(c => !/pavimento/i.test(c.carpeta));
+      for (const [lista, w] of [[resto, 4], [pav, 5]]) if (lista.length) capas.push(L.polyline(lista.map(c => ll(c.linea)), { renderer: m.lienzo, color: '#3A3A3A', weight: w, opacity: 0.55, interactive: false }));
+      if (mop.length <= 400) {
+        for (const c of mop) capas.push(L.polyline(ll(c.linea), { renderer: m.lienzo, color: COLOR_CARPETA(c.carpeta), weight: /pavimento/i.test(c.carpeta) ? 3 : 2, opacity: 0.85, dashArray: /suelo/i.test(c.carpeta) ? '4 4' : null }).bindTooltip(describirCamino(c) || 'Camino', { sticky: true }));
+      } else {
+        // Muchos caminos: una línea múltiple por tipo de carpeta (sin nombre por camino).
+        const grupos = new Map();
+        for (const c of mop) { const k = c.carpeta || 'Sin dato'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(ll(c.linea)); }
+        for (const [k, lineas] of grupos) capas.push(L.polyline(lineas, { renderer: m.lienzo, color: COLOR_CARPETA(k), weight: /pavimento/i.test(k) ? 3 : 2, opacity: 0.85, dashArray: /suelo/i.test(k) ? '4 4' : null }).bindTooltip(`Red vial MOP · ${k}`, { sticky: true }));
+      }
+    }
+    if (propios.length) capas.push(L.polyline(propios.map(c => ll(c.linea)), { renderer: m.lienzo, color: '#FFD54F', weight: 3, opacity: 0.95 }).bindTooltip(propios.length === 1 ? (propios[0].nombre || 'Camino agregado') : `Caminos agregados (${propios.length})`, { sticky: true }));
+    m.caminos = { clave, grupo: capas.length ? L.layerGroup(capas).addTo(mapa) : null };
     if (mapa.attributionControl) { mapa.attributionControl.removeAttribution(ATRIBUCION); if (mop.length) mapa.attributionControl.addAttribution(ATRIBUCION); }
   }
   async function redVialYRepintar(m, pintar) {

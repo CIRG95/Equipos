@@ -17,7 +17,7 @@ import * as Seguimiento from '../seguimiento/seguimiento.js';
 import { diasHabilesDesde } from '../../compartido/periodicidad.js';
 import { lineasDeArchivos } from './formatos.js';
 import { formaDe, metodoPropuesto, generarCortes, corredorDesdeEje, rumboCortesPropuesto } from './cortes.js';
-import { caminosEn, caminosDeHoja, recuadro, despegueSobreCamino } from './redvial.js';
+import { caminosEn, caminosDeHoja, recuadro, despegueSobreCamino, recortarLinea, simplificarLL } from './redvial.js';
 import { TIPO_KML } from './ui.js';
 import { crearVistaHojas } from './vista-hojas.js';
 import { crearPasoArea } from './paso-area.js';
@@ -317,9 +317,23 @@ export function montarPantallas(contenedor, ctx) {
       // v0.11.1: KML/KMZ, shapefile (.zip o .shp + .dbf + .prj juntos), GeoJSON o GPX.
       const { lineas, aviso } = await lineasDeArchivos(t.files);
       if (!lineas.length) throw new Error('El archivo no trae líneas (caminos).');
+      // v0.11.1: solo lo que está a menos de 3 km del área, simplificado (~3 m) y con un tope, para no pegar la app.
       const h = st.hoja; h.area.caminos = h.area.caminos || [];
-      for (const l of lineas) h.area.caminos.push({ nombre: l.nombre || archivo.name, linea: l.linea });
-      avisar(`${lineas.length} camino${lineas.length === 1 ? '' : 's'} agregado${lineas.length === 1 ? '' : 's'}.${aviso ? ' ' + aviso : ''}`, aviso ? 'error' : 'ok'); cambio(); return;
+      const g = geometria(h), bb = g ? recuadro(g.vuelo.map(g.marco.aLonLat), 3) : null;
+      const grupo = [...t.files].map(f => f.name).find(n => !/\.(dbf|prj|cpg)$/i.test(n)) || archivo.name;
+      let nuevas = [], fuera = 0;
+      for (const l of lineas) {
+        const partes = bb ? recortarLinea(l.linea, bb) : [simplificarLL(l.linea, 0.00003)];
+        if (!partes.length) fuera++;
+        for (const linea of partes) nuevas.push({ nombre: l.nombre || grupo, grupo, linea });
+      }
+      const MAX_VERTICES = 60000, total = n => n.reduce((s, c) => s + c.linea.length, 0);
+      const yaHay = total(h.area.caminos);
+      let recortado = false;
+      while (nuevas.length && yaHay + total(nuevas) > MAX_VERTICES) { nuevas = nuevas.slice(0, Math.floor(nuevas.length * 0.8)); recortado = true; }
+      if (!nuevas.length) throw new Error(bb ? 'Ningún camino del archivo pasa a menos de 3 km del área.' : 'El archivo no trae caminos que se puedan usar.');
+      h.area.caminos.push(...nuevas);
+      avisar(`${nuevas.length} tramo${nuevas.length === 1 ? '' : 's'} de camino agregado${nuevas.length === 1 ? '' : 's'}${bb && fuera > 0 ? ` (se omitieron ${fuera} caminos a más de 3 km del área)` : ''}${recortado ? '. El archivo era muy grande: se cargó solo una parte; carga un archivo recortado a la zona' : ''}.${aviso ? ' ' + aviso : ''}${bb ? '' : ' Sin área cargada no se pudo recortar: carga primero el área.'}`, aviso || recortado ? 'error' : 'ok'); cambio(); return;
     }
     const analisis = analizarKml(await leerArchivo(archivo), archivo.name);
     if (tipo === 'kml') { st.kml = analisis; st.kmlError = ''; return; }
@@ -550,7 +564,12 @@ export function montarPantallas(contenedor, ctx) {
         }
         st.dibujo = null;
       }
-      else if (a === 'quitar-camino') { h.area.caminos.splice(Number(b.dataset.i), 1); cambio(); }
+      else if (a === 'quitar-camino') {
+        const gr = b.dataset.g;
+        h.area.caminos = gr != null ? (h.area.caminos || []).filter(c => (c.grupo || c.nombre || 'Camino') !== gr) : [];
+        st.sugDesp = null; cambio();
+        avisar(gr != null ? `Se quitó «${gr}».` : 'Se quitaron todos los caminos agregados.');
+      }
       else if (a === 'despegue-buscar') { await buscarDespegue(h, b.dataset.todos === '1'); }
       else if (a === 'despegue-usar') {
         const i = Number(b.dataset.i), e = st.sugDesp && st.sugDesp.lista.find(x => x.i === i);

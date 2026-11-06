@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.11.1
+# INTEGRACION.md — Sistema v0.11.2
 
 ## Qué contiene
 
@@ -136,6 +136,14 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Seguimiento 0.2: el ciclo guarda `entrega`, `terreno`, `diasEntrega` cuando sale de la periodicidad; `plazoCiclo` usa `ciclo.entrega` si existe.
 - Sin almacenes nuevos ni cambios en el paquete de conexión (Terreno no se actualiza).
 
+
+## Sistema v0.11.2
+- **Vuelos 0.9.2:**
+  - `redvial.js`: `recortarLinea(linea, bbox, tol)` y `simplificarLL(linea, tol)` (grados; 0,00003 ≈ 3 m). `caminosEn` recorta y simplifica al recuadro y guarda el último resultado (el mapa y la búsqueda de despegue piden el mismo). Cada camino del MOP lleva `bbox`. `despegueSobreCamino` filtra por recuadro del sector + radio, pasa a metros una vez, máx. 300 pruebas + 60 de afinado.
+  - `pantallas.js`: caminos cargados → recortados a 3 km del área (sin área: solo simplificados), campo `grupo` (nombre del archivo), tope de 60.000 vértices por hoja. Acción `quitar-camino` con `data-g` (un archivo) o sin él (todos).
+  - `mapas.js › pintarCaminos`: renderer `L.canvas` por mapa, capa en caché (`m.caminos = { clave, grupo }`), con más de 400 caminos MOP se agrupan por carpeta en una polilínea múltiple.
+  - `geom.js › recorrerPorBaterias`: prueba las 4 partidas (`recorrerDesde`) y elige menos baterías y luego menos tiempo. `hoja.js › opcionesDespegue` con memoria (máx. 60 entradas).
+- Pruebas: `caminos-formatos.test.mjs` agrega recorte y simplificación (71 pasan). Sin almacenes nuevos; paquetes de conexión y pronóstico sin cambios (Terreno no se actualiza).
 
 ## Sistema v0.11.1
 - **Vuelos 0.9.1:**

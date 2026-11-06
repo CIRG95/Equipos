@@ -346,7 +346,15 @@ export function crearPasoArea(v) {
     return `<div class="vu-caminos-caja"><h3 class="vu-subtit">Caminos</h3>
       <label class="sis-check"><input type="checkbox" data-redvial ${st.redVial ? 'checked' : ''}> Mostrar la red vial del MOP en los mapas</label>
       ${st.redVial ? `<p class="sis-tenue vu-caminos-info">${esc(st.redVialInfo || 'Cargando la red vial de la región…')}</p>` : ''}
-      ${cam.length ? `<ul class="vu-caminos">${cam.map((c, k) => `<li><i></i>${esc(c.nombre || 'Camino')} <button class="vu-link" data-accion="quitar-camino" data-i="${k}">quitar</button></li>`).join('')}</ul>` : ''}
+      ${(() => {
+        // v0.11.1: agrupados por archivo (un shapefile puede traer cientos de tramos) y botón para quitarlos todos.
+        if (!cam.length) return '';
+        const grupos = new Map();
+        for (const c of cam) { const k = c.grupo || c.nombre || 'Camino'; grupos.set(k, (grupos.get(k) || 0) + 1); }
+        const lista = [...grupos];
+        return `<ul class="vu-caminos">${lista.slice(0, 12).map(([k, n]) => `<li><i></i>${esc(k)}${n > 1 ? ` <span class="sis-tenue">· ${n} tramos</span>` : ''} <button class="vu-link" data-accion="quitar-camino" data-g="${esc(k)}">quitar</button></li>`).join('')}${lista.length > 12 ? `<li class="sis-tenue">… y ${lista.length - 12} más</li>` : ''}</ul>
+          <button class="sis-btn chico" data-accion="quitar-camino">✕ Quitar todos los caminos (${cam.length})</button>`;
+      })()}
       <div class="sis-acciones">
         <button class="sis-btn chico${dib ? ' primario' : ''}" data-accion="dibujar" data-modo="camino">✎ Dibujar camino</button>
         <label class="sis-btn chico vu-archivo">Cargar caminos<input type="file" accept="${FORMATOS_CAMINO}" multiple data-archivo="camino" hidden></label>

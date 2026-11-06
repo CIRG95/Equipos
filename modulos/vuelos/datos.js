@@ -5,7 +5,7 @@ import { sellar } from '../../compartido/util.js';
 import { enviarAPapelera } from '../../compartido/papelera.js';
 import { DRONES_BASE } from './drones.js';
 
-export const VERSION_MODULO = '0.9.1';
+export const VERSION_MODULO = '0.9.2';
 export const SCHEMA_VERSION = 2; // 2: hoja de vuelo (área, clima, permisos)
 export const ALM = { planes: 'vuelos_planes', drones: 'vuelos_drones' };
 // Las capas de zonas pueden pesar varios MB: quedan solo en este equipo (sin prefijo vuelos_, la nube no las sube).

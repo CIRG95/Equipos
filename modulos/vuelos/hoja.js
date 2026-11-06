@@ -316,7 +316,20 @@ export function rumboMasCorto(hoja, d, geo, i, velocidad) {
  * Puntos de despegue sugeridos para el sector i (v0.11.1): inicio de las líneas, cada cambio de batería, final de las líneas
  * y centro del sector. Cada uno con su jornada calculada. → [{ k, texto, xy, lonLat, minTotal, mejor }]
  */
+const memoDespegue = new Map();
 export function opcionesDespegue(hoja, d, geo, i) {
+  // v0.11.1: el panel y el mapa piden lo mismo en cada repintado: se guarda mientras no cambie nada que mueva las líneas.
+  const sec0 = geo.sectores[i];
+  if (!sec0) return [];
+  const { despegue, ...meta } = metaSector(hoja, i);
+  const clave = JSON.stringify([hoja.id, i, d, hoja.params, meta, sec0.area, sec0.poligono.length, sec0.poligono[0], sec0.poligono[1]]);
+  if (memoDespegue.has(clave)) return memoDespegue.get(clave);
+  const res = opcionesDespegueSinMemo(hoja, d, geo, i);
+  if (memoDespegue.size > 60) memoDespegue.clear();
+  memoDespegue.set(clave, res);
+  return res;
+}
+function opcionesDespegueSinMemo(hoja, d, geo, i) {
   // Ruta de referencia con despegue en el centro: así las letras no cambian de lugar al elegir una opción.
   const sec = geo.sectores[i];
   const r = calcularSector(hoja, d, geo, i, { despegue: centroide(sec.poligono) });

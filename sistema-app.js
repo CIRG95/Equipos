@@ -3837,17 +3837,18 @@ Content-Type: ${mime}\r
     if (largo(actual) > 1) tramos.push(actual);
     return tramos;
   }
-  function recorrerPorBaterias(pasadas, { v, segGiro = 0, segUtiles, despegue = null }) {
-    if (despegue && pasadas.length) {
-      const ult = pasadas.length - 1, finDe = (p) => p[p.length - 1];
-      const opciones = [
-        { d: dist(despegue, pasadas[0][0]), f: (x) => x },
-        { d: dist(despegue, finDe(pasadas[0])), f: (x) => x.map((p) => p.slice().reverse()) },
-        { d: dist(despegue, pasadas[ult][0]), f: (x) => x.slice().reverse() },
-        { d: dist(despegue, finDe(pasadas[ult])), f: (x) => x.slice().reverse().map((p) => p.slice().reverse()) }
-      ];
-      pasadas = opciones.reduce((m, o) => o.d < m.d - 1e-6 ? o : m).f(pasadas);
+  function recorrerPorBaterias(pasadas, op) {
+    if (!op.despegue || !pasadas.length) return recorrerDesde(pasadas, op);
+    const inv = (p) => p.slice().reverse();
+    const opciones = [(x) => x, (x) => x.map(inv), (x) => x.slice().reverse(), (x) => x.slice().reverse().map(inv)];
+    let mejor = null;
+    for (const f of opciones) {
+      const r = recorrerDesde(f(pasadas), op);
+      if (!mejor || r.baterias.length < mejor.baterias.length || r.baterias.length === mejor.baterias.length && r.segVuelo < mejor.segVuelo - 1e-6) mejor = r;
     }
+    return mejor;
+  }
+  function recorrerDesde(pasadas, { v, segGiro = 0, segUtiles, despegue = null }) {
     const segs = [];
     pasadas.forEach((p, k) => {
       const linea = k % 2 === 0 ? p : p.slice().reverse();
@@ -4855,7 +4856,19 @@ Content-Type: ${mime}\r
     }
     return { rumbo: mejor, minTotal: minimo };
   }
+  var memoDespegue = /* @__PURE__ */ new Map();
   function opcionesDespegue(hoja2, d, geo, i) {
+    const sec0 = geo.sectores[i];
+    if (!sec0) return [];
+    const { despegue, ...meta } = metaSector(hoja2, i);
+    const clave2 = JSON.stringify([hoja2.id, i, d, hoja2.params, meta, sec0.area, sec0.poligono.length, sec0.poligono[0], sec0.poligono[1]]);
+    if (memoDespegue.has(clave2)) return memoDespegue.get(clave2);
+    const res = opcionesDespegueSinMemo(hoja2, d, geo, i);
+    if (memoDespegue.size > 60) memoDespegue.clear();
+    memoDespegue.set(clave2, res);
+    return res;
+  }
+  function opcionesDespegueSinMemo(hoja2, d, geo, i) {
     const sec = geo.sectores[i];
     const r = calcularSector(hoja2, d, geo, i, { despegue: centroide(sec.poligono) });
     if (!r || !r.baterias || !r.baterias.length) return [];
@@ -7195,19 +7208,80 @@ ${escapar(t.nota)}${t.notaPor ? `
       regiones.set(archivo, fetch(`vendor/capas/redvial/${archivo}`).then((r) => {
         if (!r.ok) throw new Error("sin archivo");
         return r.json();
-      }).then((j) => j.caminos.map(([rol, nombre, clasificacion, carpeta, linea]) => ({ rol, nombre, clasificacion, carpeta, linea, origen: "mop" }))).catch((e) => {
+      }).then((j) => j.caminos.map(([rol, nombre, clasificacion, carpeta, linea]) => ({ rol, nombre, clasificacion, carpeta, linea, bbox: bboxDe(linea), origen: "mop" }))).catch((e) => {
         regiones.delete(archivo);
         throw e;
       }));
     }
     return regiones.get(archivo);
   }
+  var bboxDe = (linea) => {
+    let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+    for (const [x, y] of linea) {
+      if (x < a) a = x;
+      if (y < b) b = y;
+      if (x > c) c = x;
+      if (y > d) d = y;
+    }
+    return [a, b, c, d];
+  };
+  var tocaBbox = (b, bb) => !(b[0] > bb[2] || b[2] < bb[0] || b[1] > bb[3] || b[3] < bb[1]);
+  function recortarLinea(linea, bb, tol = 3e-5) {
+    const dentro = ([x, y]) => x >= bb[0] && x <= bb[2] && y >= bb[1] && y <= bb[3];
+    const out = [];
+    let actual = null;
+    for (let k = 0; k < linea.length; k++) {
+      const p = linea[k], cerca = dentro(p) || k > 0 && dentro(linea[k - 1]) || k + 1 < linea.length && dentro(linea[k + 1]);
+      if (cerca) {
+        if (!actual) actual = [];
+        actual.push(p);
+      } else if (actual) {
+        out.push(actual);
+        actual = null;
+      }
+    }
+    if (actual) out.push(actual);
+    return out.filter((l) => l.length >= 2).map((l) => simplificarLL(l, tol));
+  }
+  function simplificarLL(l, tol) {
+    if (l.length < 3 || !(tol > 0)) return l;
+    const marca = new Uint8Array(l.length);
+    marca[0] = marca[l.length - 1] = 1;
+    const pila = [[0, l.length - 1]];
+    while (pila.length) {
+      const [a, b] = pila.pop();
+      const [ax, ay] = l[a], [bx, by] = l[b], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      let max = -1, idx = -1;
+      for (let k = a + 1; k < b; k++) {
+        const [px, py] = l[k];
+        const t = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
+        const d = Math.hypot(px - ax - t * dx, py - ay - t * dy);
+        if (d > max) {
+          max = d;
+          idx = k;
+        }
+      }
+      if (max > tol) {
+        marca[idx] = 1;
+        pila.push([a, idx], [idx, b]);
+      }
+    }
+    return l.filter((_, k) => marca[k]).map(([x, y]) => [Math.round(x * 1e6) / 1e6, Math.round(y * 1e6) / 1e6]);
+  }
+  var ultimo = null;
   async function caminosEn(bbox) {
+    const clave2 = bbox.map((x) => x.toFixed(3)).join(",");
+    if (ultimo && ultimo.clave === clave2) return ultimo.caminos;
     const ind = await cargarIndice();
-    const tocan = ind.regiones.filter((r) => !(r.bbox[0] > bbox[2] || r.bbox[2] < bbox[0] || r.bbox[1] > bbox[3] || r.bbox[3] < bbox[1]));
+    const tocan = ind.regiones.filter((r) => tocaBbox(r.bbox, bbox));
     const listas = await Promise.all(tocan.map((r) => cargarRegion(r.archivo)));
-    const dentro = (c) => c.linea.some(([x, y]) => x >= bbox[0] && x <= bbox[2] && y >= bbox[1] && y <= bbox[3]);
-    return listas.flat().filter(dentro);
+    const caminos = [];
+    for (const c of listas.flat()) {
+      if (!tocaBbox(c.bbox, bbox)) continue;
+      for (const linea of recortarLinea(c.linea, bbox)) caminos.push({ ...c, linea, bbox: bboxDe(linea) });
+    }
+    ultimo = { clave: clave2, caminos };
+    return caminos;
   }
   function recuadro(puntos, km = 2) {
     const xs = puntos.map((p) => p[0]), ys = puntos.map((p) => p[1]);
@@ -7228,20 +7302,46 @@ ${escapar(t.nota)}${t.notaPor ? `
     const extra = { velocidad: actual.velocidad, ...actual.rumbo != null && !actual.corredor ? { rumbo: actual.rumbo } : {} };
     const poli = sec.poligono;
     const lejos = (p) => puntoEnPoligono(p, poli) ? 0 : distPuntoPoligono(p, poli);
-    const muestras = (paso) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of poli) {
+      if (x < x0) x0 = x;
+      if (y < y0) y0 = y;
+      if (x > x1) x1 = x;
+      if (y > y1) y1 = y;
+    }
+    x0 -= radio;
+    y0 -= radio;
+    x1 += radio;
+    y1 += radio;
+    const cerca = [];
+    caminos.forEach((c, ci) => {
+      const xy = c.linea.map(geo.marco.aXY);
+      let a = Infinity, b = Infinity, c2 = -Infinity, d2 = -Infinity;
+      for (const [x, y] of xy) {
+        if (x < a) a = x;
+        if (y < b) b = y;
+        if (x > c2) c2 = x;
+        if (y > d2) d2 = y;
+      }
+      if (!(a > x1 || c2 < x0 || b > y1 || d2 < y0)) cerca.push({ ci, xy });
+    });
+    if (!cerca.length) return null;
+    const muestras = (paso, centro = null, rCentro = 0) => {
       const out = [];
-      caminos.forEach((c, ci) => {
-        const xy = c.linea.map(geo.marco.aXY);
+      for (const { ci, xy } of cerca) {
         for (let k = 0; k + 1 < xy.length; k++) {
           const a = xy[k], b = xy[k + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          if (centro && distPuntoSegmento(centro, a, b) > rCentro) continue;
           const n = Math.max(1, Math.ceil(l / paso));
           for (let j = 0; j < n; j++) {
             const p = [a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n];
+            if (p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1) continue;
+            if (centro && Math.hypot(p[0] - centro[0], p[1] - centro[1]) > rCentro) continue;
             const dd = lejos(p);
             if (dd <= radio) out.push({ p, ci, dd });
           }
         }
-      });
+      }
       return out;
     };
     let cand = muestras(100);
@@ -7259,8 +7359,12 @@ ${escapar(t.nota)}${t.notaPor ? `
       const t = evaluar(c);
       if (!mejor || t < mejor.t - 1e-6 || Math.abs(t - mejor.t) < 1e-6 && c.dd < mejor.c.dd) mejor = { c, t };
     }
-    for (const c of muestras(15)) {
-      if (Math.hypot(c.p[0] - mejor.c.p[0], c.p[1] - mejor.c.p[1]) > 150) continue;
+    let fino = muestras(15, mejor.c.p, 150);
+    if (fino.length > 60) {
+      const k = Math.ceil(fino.length / 60);
+      fino = fino.filter((_, j) => j % k === 0);
+    }
+    for (const c of fino) {
       const t = evaluar(c);
       if (t < mejor.t - 1e-6) mejor = { c, t };
     }
@@ -8283,7 +8387,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       const sel = (k, t, val, ops) => `<label class="sis-campo"><span>${t}</span><select data-auto="${k}">${ops.map(([v2, x]) => `<option value="${v2}" ${val === v2 ? "selected" : ""}>${x}</option>`).join("")}</select></label>`;
       const marcando = st.dibujo && st.dibujo.modo === "dmfijo";
       const fijos = au.fijos || [];
-      const ultimo = fijos.length ? fijos[fijos.length - 1] : null;
+      const ultimo2 = fijos.length ? fijos[fijos.length - 1] : null;
       const campos = {
         medida: () => {
           var _a;
@@ -8291,7 +8395,7 @@ ${escapar(t.nota)}${t.notaPor ? `
           <div class="vu-chips">${fijos.length ? fijos.map((f2, i) => `<span class="vu-chip-dm">${escapar(f2)}<button type="button" data-accion="quitar-fijo" data-i="${i}" aria-label="Quitar el corte ${escapar(f2)}">✕</button></span>`).join("") : '<span class="sis-tenue">Sin cortes fijos: se corta desde el inicio.</span>'}</div>
           <div class="vu-fila-dm"><input id="vu-nuevo-fijo" placeholder="ej. 4+900" aria-label="DM del corte fijo"><button type="button" class="sis-btn chico" data-accion="agregar-fijo">+ Agregar</button>
             <button type="button" class="sis-btn chico${marcando ? " primario" : ""}" data-accion="dibujar" data-modo="dmfijo">◎ ${marcando ? "Marcando en el mapa" : "Marcar en el mapa"}</button></div></div>
-        ${num("cada", ultimo ? `Después de ${escapar(ultimo)}, cortar cada` : "Cortar cada", (_a = au.cada) != null ? _a : "5", 'min="0" step="any"')}${sel("unidad", "Unidad", au.unidad || "km", [["km", "km"], ["m", "m"]])}`;
+        ${num("cada", ultimo2 ? `Después de ${escapar(ultimo2)}, cortar cada` : "Cortar cada", (_a = au.cada) != null ? _a : "5", 'min="0" step="any"')}${sel("unidad", "Unidad", au.unidad || "km", [["km", "km"], ["m", "m"]])}`;
         },
         distancia: () => {
           var _a;
@@ -8522,7 +8626,17 @@ ${escapar(t.nota)}${t.notaPor ? `
       return `<div class="vu-caminos-caja"><h3 class="vu-subtit">Caminos</h3>
       <label class="sis-check"><input type="checkbox" data-redvial ${st.redVial ? "checked" : ""}> Mostrar la red vial del MOP en los mapas</label>
       ${st.redVial ? `<p class="sis-tenue vu-caminos-info">${escapar(st.redVialInfo || "Cargando la red vial de la región…")}</p>` : ""}
-      ${cam.length ? `<ul class="vu-caminos">${cam.map((c, k) => `<li><i></i>${escapar(c.nombre || "Camino")} <button class="vu-link" data-accion="quitar-camino" data-i="${k}">quitar</button></li>`).join("")}</ul>` : ""}
+      ${(() => {
+        if (!cam.length) return "";
+        const grupos = /* @__PURE__ */ new Map();
+        for (const c of cam) {
+          const k = c.grupo || c.nombre || "Camino";
+          grupos.set(k, (grupos.get(k) || 0) + 1);
+        }
+        const lista = [...grupos];
+        return `<ul class="vu-caminos">${lista.slice(0, 12).map(([k, n]) => `<li><i></i>${escapar(k)}${n > 1 ? ` <span class="sis-tenue">· ${n} tramos</span>` : ""} <button class="vu-link" data-accion="quitar-camino" data-g="${escapar(k)}">quitar</button></li>`).join("")}${lista.length > 12 ? `<li class="sis-tenue">… y ${lista.length - 12} más</li>` : ""}</ul>
+          <button class="sis-btn chico" data-accion="quitar-camino">✕ Quitar todos los caminos (${cam.length})</button>`;
+      })()}
       <div class="sis-acciones">
         <button class="sis-btn chico${dib2 ? " primario" : ""}" data-accion="dibujar" data-modo="camino">✎ Dibujar camino</button>
         <label class="sis-btn chico vu-archivo">Cargar caminos<input type="file" accept="${FORMATOS_CAMINO}" multiple data-archivo="camino" hidden></label>
@@ -9384,7 +9498,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       st.redVialClave = clave2;
       try {
         st.redVialDatos = await caminosEn(bb);
-        st.redVialInfo = `${st.redVialDatos.length} caminos del MOP cerca del área. ${ATRIBUCION}.`;
+        st.redVialInfo = `${st.redVialDatos.length} tramos de caminos del MOP a menos de 3 km del área. ${ATRIBUCION}.`;
       } catch {
         st.redVialDatos = [];
         st.redVialInfo = "No se pudo leer la red vial (falta vendor/capas/redvial).";
@@ -9394,13 +9508,34 @@ ${escapar(t.nota)}${t.notaPor ? `
     }
     function pintarCaminos(m) {
       const { L, mapa } = m;
-      quitar(m, "caminos");
-      const capas = [];
       const mop = st.redVial ? st.redVialDatos || [] : [];
-      for (const c of mop.slice(0, 4e3)) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: "#3A3A3A", weight: /pavimento/i.test(c.carpeta) ? 5 : 4, opacity: 0.55, interactive: false }));
-      for (const c of mop.slice(0, 4e3)) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: COLOR_CARPETA(c.carpeta), weight: /pavimento/i.test(c.carpeta) ? 3 : 2, opacity: 0.85, dashArray: /suelo/i.test(c.carpeta) ? "4 4" : null }).bindTooltip(describirCamino(c) || "Camino", { sticky: true }));
-      for (const c of st.hoja && st.hoja.area.caminos || []) capas.push(L.polyline(c.linea.map(([lon, lat]) => [lat, lon]), { color: "#FFD54F", weight: 3, opacity: 0.95 }).bindTooltip(c.nombre || "Camino agregado", { sticky: true }));
-      if (capas.length) m.capas.caminos = L.layerGroup(capas).addTo(mapa);
+      const propios = st.hoja && st.hoja.area.caminos || [];
+      const clave2 = `${st.redVial ? st.redVialClave : "-"}|${mop.length}|${propios.length}|${propios.length ? propios[propios.length - 1].linea.length : 0}`;
+      if (m.caminos && m.caminos.clave === clave2) {
+        if (m.caminos.grupo && !mapa.hasLayer(m.caminos.grupo)) m.caminos.grupo.addTo(mapa);
+        return;
+      }
+      if (m.caminos && m.caminos.grupo) m.caminos.grupo.remove();
+      m.lienzo = m.lienzo || L.canvas({ padding: 0.5, tolerance: 6 });
+      const ll = (l) => l.map(([lon, lat]) => [lat, lon]);
+      const capas = [];
+      if (mop.length) {
+        const pav = mop.filter((c) => /pavimento/i.test(c.carpeta)), resto = mop.filter((c) => !/pavimento/i.test(c.carpeta));
+        for (const [lista, w] of [[resto, 4], [pav, 5]]) if (lista.length) capas.push(L.polyline(lista.map((c) => ll(c.linea)), { renderer: m.lienzo, color: "#3A3A3A", weight: w, opacity: 0.55, interactive: false }));
+        if (mop.length <= 400) {
+          for (const c of mop) capas.push(L.polyline(ll(c.linea), { renderer: m.lienzo, color: COLOR_CARPETA(c.carpeta), weight: /pavimento/i.test(c.carpeta) ? 3 : 2, opacity: 0.85, dashArray: /suelo/i.test(c.carpeta) ? "4 4" : null }).bindTooltip(describirCamino(c) || "Camino", { sticky: true }));
+        } else {
+          const grupos = /* @__PURE__ */ new Map();
+          for (const c of mop) {
+            const k = c.carpeta || "Sin dato";
+            if (!grupos.has(k)) grupos.set(k, []);
+            grupos.get(k).push(ll(c.linea));
+          }
+          for (const [k, lineas] of grupos) capas.push(L.polyline(lineas, { renderer: m.lienzo, color: COLOR_CARPETA(k), weight: /pavimento/i.test(k) ? 3 : 2, opacity: 0.85, dashArray: /suelo/i.test(k) ? "4 4" : null }).bindTooltip(`Red vial MOP · ${k}`, { sticky: true }));
+        }
+      }
+      if (propios.length) capas.push(L.polyline(propios.map((c) => ll(c.linea)), { renderer: m.lienzo, color: "#FFD54F", weight: 3, opacity: 0.95 }).bindTooltip(propios.length === 1 ? propios[0].nombre || "Camino agregado" : `Caminos agregados (${propios.length})`, { sticky: true }));
+      m.caminos = { clave: clave2, grupo: capas.length ? L.layerGroup(capas).addTo(mapa) : null };
       if (mapa.attributionControl) {
         mapa.attributionControl.removeAttribution(ATRIBUCION);
         if (mop.length) mapa.attributionControl.addAttribution(ATRIBUCION);
@@ -10101,8 +10236,24 @@ ${escapar(t.nota)}${t.notaPor ? `
         if (!lineas.length) throw new Error("El archivo no trae líneas (caminos).");
         const h = st.hoja;
         h.area.caminos = h.area.caminos || [];
-        for (const l of lineas) h.area.caminos.push({ nombre: l.nombre || archivo.name, linea: l.linea });
-        avisar2(`${lineas.length} camino${lineas.length === 1 ? "" : "s"} agregado${lineas.length === 1 ? "" : "s"}.${aviso ? " " + aviso : ""}`, aviso ? "error" : "ok");
+        const g = geometria(h), bb = g ? recuadro(g.vuelo.map(g.marco.aLonLat), 3) : null;
+        const grupo = [...t.files].map((f) => f.name).find((n) => !/\.(dbf|prj|cpg)$/i.test(n)) || archivo.name;
+        let nuevas = [], fuera = 0;
+        for (const l of lineas) {
+          const partes = bb ? recortarLinea(l.linea, bb) : [simplificarLL(l.linea, 3e-5)];
+          if (!partes.length) fuera++;
+          for (const linea of partes) nuevas.push({ nombre: l.nombre || grupo, grupo, linea });
+        }
+        const MAX_VERTICES = 6e4, total = (n) => n.reduce((s, c) => s + c.linea.length, 0);
+        const yaHay = total(h.area.caminos);
+        let recortado = false;
+        while (nuevas.length && yaHay + total(nuevas) > MAX_VERTICES) {
+          nuevas = nuevas.slice(0, Math.floor(nuevas.length * 0.8));
+          recortado = true;
+        }
+        if (!nuevas.length) throw new Error(bb ? "Ningún camino del archivo pasa a menos de 3 km del área." : "El archivo no trae caminos que se puedan usar.");
+        h.area.caminos.push(...nuevas);
+        avisar2(`${nuevas.length} tramo${nuevas.length === 1 ? "" : "s"} de camino agregado${nuevas.length === 1 ? "" : "s"}${bb && fuera > 0 ? ` (se omitieron ${fuera} caminos a más de 3 km del área)` : ""}${recortado ? ". El archivo era muy grande: se cargó solo una parte; carga un archivo recortado a la zona" : ""}.${aviso ? " " + aviso : ""}${bb ? "" : " Sin área cargada no se pudo recortar: carga primero el área."}`, aviso || recortado ? "error" : "ok");
         cambio();
         return;
       }
@@ -10576,8 +10727,11 @@ ${escapar(t.nota)}${t.notaPor ? `
           }
           st.dibujo = null;
         } else if (a === "quitar-camino") {
-          h.area.caminos.splice(Number(b.dataset.i), 1);
+          const gr = b.dataset.g;
+          h.area.caminos = gr != null ? (h.area.caminos || []).filter((c) => (c.grupo || c.nombre || "Camino") !== gr) : [];
+          st.sugDesp = null;
           cambio();
+          avisar2(gr != null ? `Se quitó «${gr}».` : "Se quitaron todos los caminos agregados.");
         } else if (a === "despegue-buscar") {
           await buscarDespegue(h, b.dataset.todos === "1");
         } else if (a === "despegue-usar") {
@@ -12855,7 +13009,7 @@ ${escapar(t.nota)}${t.notaPor ? `
   var etapaProyecto = (p) => p.estado === "cerrado" ? "completado" : NOMBRE_ETAPA_PROYECTO[p.etapa] && p.etapa !== "completado" ? p.etapa : "terreno";
 
   // app/version.js
-  var VERSION_SISTEMA = "0.11.1";
+  var VERSION_SISTEMA = "0.11.2";
   var MODULOS_INCLUIDOS = "Equipos 0.2 (+ avisos) + Vuelos 0.9 + Seguimiento 0.2 + Monografías 0.3 (desde Terreno)";
 
   // app/vistas.js

@@ -1,6 +1,15 @@
-# Topoland · Sistema de trabajo — v0.11.1 (Matrice 400 + L3, despegue y rumbo sugeridos, cortes con vista previa, caminos en SHP/GeoJSON/GPX, Equipos como el boceto)
+# Topoland · Sistema de trabajo — v0.11.2 (caminos y red vial más livianos, «Quitar todos los caminos»)
 
 **Sistema v0.11 = v0.10 + navegación nueva + Vuelos 0.9 + Equipos 0.2 + Monografías 0.3.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
+
+## Qué cambia en v0.11.2
+- **Red vial y caminos más livianos** (la app se pegaba con muchos caminos):
+  - Los caminos del MOP y los cargados se **recortan a 3 km del área** y se **simplifican (~3 m)**; un archivo enorme se carga hasta un tope y se avisa.
+  - En el mapa se dibujan en **canvas** y agrupados por tipo de carpeta (con más de 400 caminos), y la capa se arma una sola vez en vez de rehacerse en cada repintado.
+  - La búsqueda del despegue sobre un camino solo mira los caminos cerca del sector y limita las pruebas.
+  - Medido con el CPU 6 veces más lento (como un teléfono), corredor de 106 km con 3.000 caminos cargados + red MOP: cambiar de sector 14,2 s → 1,6 s; «Despegue para todos los sectores» 17,4 s → 1,5 s.
+- **Botón «Quitar todos los caminos»** y lista de caminos agrupada por archivo (con «quitar» por archivo).
+- **Ruta por baterías:** con despegue se prueban los 4 puntos de partida (primera o última pasada, en ambos sentidos) y se elige el de menos baterías y tiempo (en la v0.11.1 se tomaba la esquina más cercana, que a veces daba más tiempo).
 
 ## Qué cambia en v0.11.1
 - **Dron nuevo: DJI Matrice 400 · Zenmuse L3** en el catálogo de Vuelos (sensor 4/3" de 100 MP, 12288 × 8192 px, focal 14,4 mm calculada del FOV de 62°, LiDAR 80° y 350 mil pts/s, 20 m/s, autonomía estimada 45 min). La ficha administrativa del equipo se completa en Equipos.

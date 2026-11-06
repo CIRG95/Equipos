@@ -63,3 +63,22 @@ test('GeoJSON: líneas y multilíneas con su nombre', () => {
   assert.equal(l[0].nombre, 'Camino A'); assert.deepEqual(l[0].linea[0], [-70, -27]);
   assert.equal(l[1].nombre, 'caminos.geojson');
 });
+
+// v0.11.1 · recorte y simplificación de caminos (para que la red vial y los shapefiles grandes no peguen la app).
+import { recortarLinea, simplificarLL } from '../modulos/vuelos/redvial.js';
+
+test('recorta al recuadro: deja solo los tramos que entran (con un vértice de más a cada lado)', () => {
+  const linea = Array.from({ length: 21 }, (_, k) => [-71 + k * 0.1, -30]); // de -71 a -69
+  const partes = recortarLinea(linea, [-70.25, -30.1, -69.75, -29.9], 0);
+  assert.equal(partes.length, 1);
+  assert.ok(partes[0][0][0] <= -70.25 && partes[0].at(-1)[0] >= -69.75);
+  assert.ok(partes[0].length <= 8);
+  assert.deepEqual(recortarLinea(linea, [-60, -10, -59, -9]), []);
+});
+
+test('simplifica una línea casi recta y conserva los quiebres', () => {
+  const recta = Array.from({ length: 500 }, (_, k) => [-70 + k * 1e-4, -30 + (k % 2) * 1e-6]);
+  assert.equal(simplificarLL(recta, 0.00003).length, 2);
+  const quiebre = [[-70, -30], [-69.99, -30], [-69.99, -29.99]];
+  assert.equal(simplificarLL(quiebre, 0.00003).length, 3);
+});

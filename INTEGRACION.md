@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.11.2
+# INTEGRACION.md — Sistema v0.11.3
 
 ## Qué contiene
 
@@ -136,6 +136,17 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Seguimiento 0.2: el ciclo guarda `entrega`, `terreno`, `diasEntrega` cuando sale de la periodicidad; `plazoCiclo` usa `ciclo.entrega` si existe.
 - Sin almacenes nuevos ni cambios en el paquete de conexión (Terreno no se actualiza).
 
+
+## Sistema v0.11.3
+- **`compartido/papelera.js`:** `eliminarDefinitivo(almacen, id, { personaId })` reemplaza el registro por una marca `{ id, eliminadoEn, eliminadoPor, purgadoEn, creadoEn, creadoPor, dispositivoId }` + sellos (gana en la sincronización) y hace lo mismo con los `compartido_archivos` cuyo `duenoId` es ese id. `estaPurgado(r)`; `enPapelera` ya no lista los purgados. Como la marca conserva `eliminadoEn`, todo lo que filtra eliminados (incluida la app de Terreno) la ignora sin cambios.
+- **Sistema:** acciones `purgar-proyecto` y `vaciar-papelera-proyectos` (Proyectos); Equipos `purgar` y `vaciar-papelera`.
+- **Vuelos 0.9.3:**
+  - `datos.js`: `planesEnPapelera`, `restaurarPlan`, `purgarPlan`; papelera en la lista de vuelos (`restaurar-hoja`, `purgar-hoja`, `vaciar-papelera-vuelos`).
+  - `mapas.js`: control de medición en todos los mapas (`agregarMedir`, `pintarMedir`; distancia con `mapa.distance`, superficie en proyección local). Mientras se mide, la clase `vu-midiendo` deja pasar los clics al mapa. Capa `propuesta` (cortes por aplicar, punteados).
+  - `pantallas.js`: `elegirMetodo` ya no aplica; `cortarAutomatico` arma `st.propuesta`; `aplicarCortes`; `st.respaldoCortes` guarda los cortes al entrar a editar a mano (`descartar-cortes` los repone). `h.area.aplicado = { modo, en }`.
+  - `paso-area.js › htmlPropuesta`. `vista-hojas.js › htmlBateriasDia` y `miniatura` sobre `mapa-estatico.js › fondoEstatico(puntosLL, W, H)` (teselas Esri en %, `xy(lonLat)` para dibujar encima). `ui.js › COLORES_DIA`.
+  - `vuelos.js › planesDeProyecto` agrega `jornadas`, `mapa` (html) y `coloresDia` para la ficha del proyecto.
+- Pruebas: `mapa-estatico.test.mjs` (72 pasan). Sin almacenes nuevos; paquetes de conexión y pronóstico sin cambios (Terreno no se actualiza).
 
 ## Sistema v0.11.2
 - **Vuelos 0.9.2:**

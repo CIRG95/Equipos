@@ -4,7 +4,7 @@
 import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre, cargarScript, descargar } from '../compartido/util.js';
 import { resolverUrlTerreno } from './url-terreno.js';
 import { estado as estadoNube } from '../compartido/nube.js';
-import { enviarAPapelera, enPapelera, restaurar } from '../compartido/papelera.js';
+import { enviarAPapelera, enPapelera, restaurar, eliminarDefinitivo } from '../compartido/papelera.js';
 import {
   listarProyectos, obtenerProyecto, guardarProyecto, listarPersonas, obtenerPersona, guardarPersona, OFICINA_ID,
 } from '../compartido/catalogos.js';
@@ -257,8 +257,13 @@ async function proyectos(ctx, sub = null) {
     ${eliminados.length ? `<details class="sis-papelera"><summary>Papelera de proyectos (${eliminados.length})</summary>
       <section class="sis-tarjeta"><div class="sis-lista">${eliminados.map(p => `<div class="sis-fila">
         <span class="sis-fila-txt"><b>${esc(p.nombre)}</b><span class="sis-tenue">Eliminado ${fechaHoraLegible(p.eliminadoEn)}</span></span>
-        <button class="sis-btn chico" data-accion="restaurar-proyecto" data-id="${esc(p.id)}">Restaurar</button></div>`).join('')}</div></section></details>` : ''}`;
+        <button class="sis-btn chico" data-accion="restaurar-proyecto" data-id="${esc(p.id)}">Restaurar</button>
+        <button class="sis-btn chico peligro" data-accion="purgar-proyecto" data-id="${esc(p.id)}" data-nombre="${esc(p.nombre)}">Eliminar definitivamente</button></div>`).join('')}</div>
+        ${eliminados.length > 1 ? `<button class="sis-btn chico peligro" data-accion="vaciar-papelera-proyectos">Vaciar la papelera (${eliminados.length})</button>` : ''}</section></details>` : ''}`;
 }
+
+/** Minutos → «3 h 20 min». */
+const duracion = m => { const t = Math.round(m); return t >= 60 ? `${Math.floor(t / 60)} h${t % 60 ? ` ${t % 60} min` : ''}` : `${t} min`; };
 
 // ─────────── Registro por mandante (v0.11): base de datos de los proyectos completados ───────────
 async function datosRegistro() {
@@ -348,9 +353,13 @@ async function proyecto(ctx, id) {
             : '<p class="sis-tenue">Sin ciclos en los próximos 4 meses: revisa la periodicidad (primer ciclo y término).</p>'}</section>`; })() : ''}
       <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Vuelos</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">Planificación</a>` : ''}</div>
-        ${planes.length ? `<div class="sis-lista">${planes.map(v => `<a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
+        ${planes.length ? `<div class="sis-vuelos-proy">${planes.map(v => `<article class="sis-vuelo-proy">
+            <a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
             <span class="sis-fila-txt"><b>${esc(v.nombre)}</b><span class="sis-tenue">${esc(v.dron)}</span></span>
-            <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>`).join('')}</div>`
+            <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} batería${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>
+            ${v.mapa || v.jornadas.length ? `<div class="sis-vuelo-proy-det">${v.mapa || ''}
+              ${v.jornadas.length ? `<ol class="sis-jornadas">${v.jornadas.map((j, k) => `<li><i style="background: ${v.coloresDia[k]}"></i><span><b>Día ${j.dia}</b>${j.fecha ? ` <small>${esc(diaCorto(j.fecha))}</small>` : ''} · ${j.baterias} batería${j.baterias === 1 ? '' : 's'} · ${duracion(j.min)}<small>${esc(j.sectores)}${j.excede ? ' · no cabe en el horario' : ''}</small></span></li>`).join('')}</ol>` : ''}</div>` : ''}
+          </article>`).join('')}</div>`
           : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
       </section>
       <section class="sis-tarjeta">
@@ -675,6 +684,18 @@ export async function manejarClic(boton, ctx) {
       ctx.avisar('Proyecto eliminado');
       ctx.ir('#/proyectos');
       return false;
+    }
+    case 'purgar-proyecto':
+      if (!confirm(`¿Eliminar definitivamente «${boton.dataset.nombre}»?\n\nSe borra con sus archivos y no se puede deshacer.`)) return false;
+      await eliminarDefinitivo('compartido_proyectos', boton.dataset.id, { personaId: ctx.personaId });
+      ctx.avisar('Proyecto eliminado definitivamente');
+      return true;
+    case 'vaciar-papelera-proyectos': {
+      const lista = await enPapelera('compartido_proyectos');
+      if (!confirm(`¿Eliminar definitivamente los ${lista.length} proyectos de la papelera?\n\nNo se puede deshacer.`)) return false;
+      for (const x of lista) await eliminarDefinitivo('compartido_proyectos', x.registro.id, { personaId: ctx.personaId });
+      ctx.avisar('Papelera vaciada');
+      return true;
     }
     case 'restaurar-proyecto':
       await restaurar('compartido_proyectos', boton.dataset.id, { personaId: ctx.personaId });

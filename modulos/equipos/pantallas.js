@@ -8,7 +8,7 @@ import {
   listarProyectos, listarPersonas, guardarProyecto, guardarPersona, mapaNombres, catalogosEditables, OFICINA_ID,
 } from '../../compartido/catalogos.js';
 import { descargarRespaldo, importarRespaldo } from '../../compartido/respaldo.js';
-import { enPapelera, restaurar } from '../../compartido/papelera.js';
+import { enPapelera, restaurar, eliminarDefinitivo } from '../../compartido/papelera.js';
 import {
   COLUMNAS_PLANILLA, CATEGORIAS, ESTADOS_ALERTA, PASOS_ALERTA, LUGARES, TIPOS_EVENTO, ESTADOS_ACCESORIO,
   VERSION_MODULO, nombreCorto, alertaActiva, nuevoEquipo, PERIODO_CALIBRACION_MESES, MARCAS_CONOCIDAS, camposEspecificacion,
@@ -485,11 +485,14 @@ export function montarPantallas(contenedor, contexto) {
         <div class="eq-intro"><h2>Papelera</h2>
         ${items.length ? `<ul class="eq-lista-simple">${items.map(({ almacen, registro }) =>
           `<li>${esc(nombreCorto(registro))} · N° ${esc(registro.numeroSerie || '—')} <span class="eq-tenue">eliminado ${fechaHoraLegible(registro.eliminadoEn)}</span>
-            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${almacen}" data-id="${registro.id}">Restaurar</button></li>`).join('')}</ul>`
+            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${almacen}" data-id="${registro.id}">Restaurar</button>
+            <button class="eq-btn chico peligro" data-accion="purgar" data-almacen="${almacen}" data-id="${registro.id}" data-nombre="${esc(nombreCorto(registro))}">Eliminar definitivamente</button></li>`).join('')}</ul>`
           : '<p class="eq-tenue">No hay equipos en la papelera.</p>'}
         ${otros.length ? `<h3 style="margin-top:14px">Certificados, mantenciones y archivos</h3><ul class="eq-lista-simple">${otros.map(o =>
           `<li>${etiquetaOtro(o)} <span class="eq-tenue">eliminado ${fechaHoraLegible(o.registro.eliminadoEn)}</span>
-            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${o.almacen}" data-id="${o.registro.id}">Restaurar</button></li>`).join('')}</ul>` : ''}</div>`;
+            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${o.almacen}" data-id="${o.registro.id}">Restaurar</button>
+            <button class="eq-btn chico peligro" data-accion="purgar" data-almacen="${o.almacen}" data-id="${o.registro.id}" data-nombre="${esc(etiquetaOtro(o).replace(/<[^>]+>/g, ''))}">Eliminar definitivamente</button></li>`).join('')}</ul>` : ''}
+        ${items.length + otros.length > 1 ? `<p style="margin-top:14px"><button class="eq-btn chico peligro" data-accion="vaciar-papelera">Vaciar la papelera (${items.length + otros.length})</button></p>` : ''}</div>`;
     },
   };
 
@@ -626,6 +629,16 @@ export function montarPantallas(contenedor, contexto) {
           if (!confirm('¿Enviar este equipo a la papelera? Se puede restaurar desde Administrar → Papelera.')) return;
           await papeleraEquipo(id); avisar('Equipo enviado a la papelera'); await ir('lista'); break;
         case 'restaurar': await restaurar(el.dataset.almacen, id, { personaId: persona }); avisar('Restaurado'); await render(); break;
+        case 'purgar':
+          // v0.11.3: borrado definitivo, siempre con confirmación.
+          if (!confirm(`¿Eliminar definitivamente «${el.dataset.nombre}»?\n\nSe borra con sus archivos y no se puede deshacer.`)) return;
+          await eliminarDefinitivo(el.dataset.almacen, id, { personaId: persona }); avisar('Eliminado definitivamente'); await render(); break;
+        case 'vaciar-papelera': {
+          const todosEnPapelera = [...await enPapelera('equipos_'), ...await enPapelera('compartido_archivos')];
+          if (!confirm(`¿Eliminar definitivamente los ${todosEnPapelera.length} elementos de la papelera?\n\nNo se puede deshacer.`)) return;
+          for (const x of todosEnPapelera) await eliminarDefinitivo(x.almacen, x.registro.id, { personaId: persona });
+          avisar('Papelera vaciada'); await render(); break;
+        }
         case 'alerta-paso': {
           const nota = prompt('Nota (opcional): proveedor, n° de orden, qué se reparó…', '');
           if (nota === null) return;

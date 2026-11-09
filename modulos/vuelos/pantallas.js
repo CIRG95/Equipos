@@ -6,7 +6,7 @@
 import { escapar as esc, descargar, cargarScript } from '../../compartido/util.js';
 import { listarProyectos, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
 import { guardarArchivo, abrirArchivo } from '../../compartido/archivos.js';
-import { fijarPersona, listarDrones, guardarDron, restablecerDron, listarPlanes, obtenerPlan, guardarPlan, eliminarPlan } from './datos.js';
+import { fijarPersona, listarDrones, guardarDron, restablecerDron, listarPlanes, obtenerPlan, guardarPlan, eliminarPlan, planesEnPapelera, restaurarPlan, purgarPlan } from './datos.js';
 import { CAMPOS_DRON } from './drones.js';
 import { alturaParaGsd, gsdCm, fmt, fmtDuracion, proyectar, areaM2 } from './calculo.js';
 import { leerArchivo, analizarKml, limpiarParaDji, kmlDePoligono, kmlDeLinea, limpiarEje, nombreArchivoSeguro, limpiarAnillo, autoInterseccion } from './kml.js';
@@ -53,7 +53,7 @@ export function montarPantallas(contenedor, ctx) {
     capas: null, capasActivas: leerLS('vu_capas_activas', null), redVial: leerLS('vu_red_vial', false), redVialInfo: '', sugDesp: null,
     mensaje: null, filtroProyecto: ctx.proyectoId || '',
   };
-  const base = { drones: [], proyectos: [], personas: [], hojas: [] };
+  const base = { drones: [], proyectos: [], personas: [], hojas: [], papelera: [] };
   const mapas = {};
 
   const avisar = (texto, tipo = 'ok') => { st.mensaje = { texto, tipo }; };
@@ -66,7 +66,7 @@ export function montarPantallas(contenedor, ctx) {
   const capasActivas = () => st.capasActivas || (st.capas || []).map(c => c.id);
 
   async function cargarBase() {
-    [base.drones, base.proyectos, base.personas, base.hojas] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes()]);
+    [base.drones, base.proyectos, base.personas, base.hojas, base.papelera] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes(), planesEnPapelera()]);
     base.hojas = base.hojas.map(migrarHoja);
   }
 
@@ -188,19 +188,30 @@ export function montarPantallas(contenedor, ctx) {
   }
   v.agregarFijo = agregarFijo;
 
-  /** Cambia el método de corte (v0.11.1: tarjetas con vista previa; los manuales dejan el mapa listo para marcar). */
+  /**
+   * v0.11.3 · Cortar → Aplicar. Elegir un método ya no cambia los sectores: «Cortar» arma una propuesta que se ve
+   * punteada en el mapa y «Aplicar» la deja como cortes de la hoja. En los manuales se parte de los cortes actuales
+   * (no se borran) y «Descartar cambios» vuelve a como estaban.
+   */
+  const MANUALES = ['vertices', 'manual'];
   async function elegirMetodo(h, m) {
-    const antes = (h.area.auto || {}).modo;
     h.area.auto = { ...(h.area.auto || {}), modo: m };
+    st.propuesta = null;
     st.dibujo = null;
-    if (m === 'vertices' || m === 'manual') {
-      if (antes !== m) { h.area.cortes = []; h.area.sectores = []; h.area.sel = 0; }
+    if (MANUALES.includes(m)) {
+      if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes || [])), sel: h.area.sel || 0, aplicado: h.area.aplicado || null };
       st.dibujo = { modo: m === 'vertices' ? 'vertice' : 'corte', puntos: [] };
-      avisar(m === 'vertices' ? 'Toca un vértice del área y luego otro: el corte une ambos vértices.' : 'Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».');
-      cambio();
-    } else await cortarAutomatico(h);
+      avisar(m === 'vertices' ? 'Toca un vértice del área y luego otro: el corte une ambos vértices. Al terminar, «Aplicar».' : 'Traza el corte: toca afuera del área, sigue el camino y termina afuera. Al terminar, «Aplicar».');
+    } else descartarManual(h, false);
+    cambio();
+  }
+  function descartarManual(h, restaurar) {
+    if (!st.respaldoCortes) return;
+    if (restaurar) { h.area.cortes = st.respaldoCortes.cortes; h.area.sel = st.respaldoCortes.sel; h.area.aplicado = st.respaldoCortes.aplicado; h.area.sectores = []; }
+    st.respaldoCortes = null;
   }
 
+  /** Arma la propuesta del método automático elegido, sin tocar los cortes aplicados. */
   async function cortarAutomatico(h) {
     const a = h.area;
     a.auto = a.auto || {};
@@ -219,12 +230,28 @@ export function montarPantallas(contenedor, ctx) {
     }
     let r;
     try { r = generarCortes(h, extra); } catch (e) { avisar(e.message, 'error'); return; }
-    a.cortes = r.cortes; a.sectores = []; a.sel = 0;
+    const hp = { ...h, area: { ...a, cortes: r.cortes, sectores: [], sel: 0 } };
+    const g = geometria(hp);
+    const t = g ? totales(hp, dron(), g) : null;
+    st.propuesta = { modo: a.auto.modo, cortes: r.cortes, nota: r.nota || '', sectores: g ? g.sectores.length : 1, fallidos: g ? g.fallidos.length : 0,
+      baterias: t ? t.baterias : null, minJornada: t ? t.minJornada : null };
+    geometria(h); // deja en caché la geometría aplicada
+    if (!r.cortes.length) avisar(r.nota || 'Con este método no hace falta cortar.');
+  }
+
+  /** Deja la propuesta (automática) o los cambios manuales como cortes de la hoja. */
+  function aplicarCortes(h) {
+    const a = h.area;
+    if (st.propuesta) {
+      a.cortes = st.propuesta.cortes; a.sectores = []; a.sel = 0; a.aplicado = { modo: st.propuesta.modo, en: new Date().toISOString() };
+      st.propuesta = null;
+    } else if (st.respaldoCortes) {
+      a.aplicado = { modo: (a.auto || {}).modo, en: new Date().toISOString() };
+      st.respaldoCortes = null; st.dibujo = null;
+    } else return;
     cambio();
-    const g = geometria(h);
-    if (!r.cortes.length) { avisar(r.nota || 'No hizo falta cortar.'); return; }
-    const t = totales(h, dron(), g);
-    avisar(`Listo: ${g.sectores.length} sectores${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ''}${g.fallidos.length ? ` · ${g.fallidos.length} corte${g.fallidos.length > 1 ? 's' : ''} no cruzó el área (arrástralo o quítalo)` : ''}.${r.nota ? ' ' + r.nota : ''}`, g.fallidos.length ? 'error' : 'ok');
+    const g = geometria(h), t = g ? totales(h, dron(), g) : null;
+    avisar(`Cortes aplicados: ${g ? g.sectores.length : 1} sectores${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ''}${g && g.fallidos.length ? ` · ${g.fallidos.length} corte${g.fallidos.length > 1 ? 's' : ''} no cruzó el área (arrástralo o quítalo)` : ''}.`, g && g.fallidos.length ? 'error' : 'ok');
   }
 
   function refrescarArea() {
@@ -435,6 +462,7 @@ export function montarPantallas(contenedor, ctx) {
         else if (k === 'primer') { a.auto.primer = t.value.trim(); a.auto.primerKm = t.value.trim() ? dmAKm(t.value) : null; }
         else a.auto[k] = t.value.trim();
         if (k === 'n') { const x = raiz.querySelector('#vu-n-txt'); if (x) x.textContent = t.value; }
+        if (st.propuesta) { st.propuesta = null; cambio(); await render(); return; } // la propuesta era con los ajustes anteriores
         cambio();
         if (k === 'modo' || k === 'unidad' || k === 'unidadSup') { await render(); return; }
         refrescarArea(); return;
@@ -514,6 +542,16 @@ export function montarPantallas(contenedor, ctx) {
       else if (a === 'volver-lista') { await guardarAhora(); st.vista = 'hojas'; st.hoja = null; try { history.replaceState(null, '', '#/vuelos'); } catch { /* */ } }
       else if (a === 'nueva-hoja') { await abrirHoja(null); }
       else if (a === 'abrir-hoja') { await abrirHoja(b.dataset.id); try { history.replaceState(null, '', `#/vuelos/plan/${b.dataset.id}`); } catch { /* */ } }
+      else if (a === 'restaurar-hoja') { await restaurarPlan(b.dataset.id); avisar('Vuelo restaurado'); }
+      else if (a === 'purgar-hoja') {
+        if (!confirm(`¿Eliminar definitivamente «${b.dataset.nombre}»?\n\nSe borra con sus archivos (logs, permisos) y no se puede deshacer.`)) return;
+        await purgarPlan(b.dataset.id); avisar('Vuelo eliminado definitivamente');
+      }
+      else if (a === 'vaciar-papelera-vuelos') {
+        if (!confirm(`¿Eliminar definitivamente los ${base.papelera.length} vuelos de la papelera?\n\nNo se puede deshacer.`)) return;
+        for (const p of base.papelera) await purgarPlan(p.id);
+        avisar('Papelera vaciada');
+      }
       else if (a === 'eliminar-hoja') { if (!confirm('¿Eliminar esta hoja de vuelo? Queda en la papelera.')) return; await eliminarPlan(b.dataset.id); avisar('Hoja eliminada'); }
       else if (a === 'paso') { st.paso = b.dataset.paso; st.dibujo = null; await guardarAhora(); }
       else if (a === 'estado') { h.estado = b.dataset.e; if (b.dataset.e !== 'volada') h.procesado = false; cambio(); await guardarAhora(); }
@@ -537,6 +575,7 @@ export function montarPantallas(contenedor, ctx) {
         st.paso = 'area';
         if (modo === 'corte' || modo === 'dmfijo' || modo === 'vertice') st.subArea = 'sectores';
         if (modo === 'vertice' && st.dibujo) { h.area.auto = { ...(h.area.auto || {}), modo: 'vertices' }; cambio(); }
+        if ((modo === 'vertice' || modo === 'corte') && st.dibujo && !st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes || [])), sel: h.area.sel || 0, aplicado: h.area.aplicado || null };
         if (modo === 'area' || modo === 'eje') st.subArea = 'origen';
         if (modo === 'camino') st.subArea = 'zonas';
         if (st.dibujo && modo === 'corte') avisar('Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».');
@@ -599,6 +638,8 @@ export function montarPantallas(contenedor, ctx) {
         if (ar.original) { Object.assign(ar, { tipo: 'poligono', eje: null, cortes: [], sectores: [], sel: 0 }); avisar('Se vuelve a volar como polígono.'); cambio(); }
       }
       else if (a === 'auto-cortar') await cortarAutomatico(h);
+      else if (a === 'aplicar-cortes') aplicarCortes(h);
+      else if (a === 'descartar-cortes') { if (st.propuesta) st.propuesta = null; else { descartarManual(h, true); st.dibujo = null; cambio(); } avisar('Sin cambios en los cortes.'); }
       else if (a === 'tipo-corte') {
         const manual = b.dataset.t === 'manual', antes = (h.area.auto || {}).modo || metodoPropuesto(formaDe(h));
         // Al pasar a manual se parte por vértices (o trazado libre en corredores); al volver, con el método propuesto.
@@ -616,8 +657,8 @@ export function montarPantallas(contenedor, ctx) {
         }
       }
       else if (a === 'desprogramar') { h.programa = []; avisar('Se quitaron las jornadas del calendario.'); cambio(); }
-      else if (a === 'deshacer-corte') { h.area.cortes.pop(); cambio(); }
-      else if (a === 'quitar-cortes') { h.area.cortes = []; h.area.sel = 0; cambio(); }
+      else if (a === 'deshacer-corte') { if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes)), sel: h.area.sel || 0, aplicado: h.area.aplicado || null }; h.area.cortes.pop(); cambio(); }
+      else if (a === 'quitar-cortes') { if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes)), sel: h.area.sel || 0, aplicado: h.area.aplicado || null }; h.area.cortes = []; h.area.sel = 0; cambio(); }
       else if (a === 'margen') { h.area.margen = Number(b.dataset.m); cambio(); }
       else if (a === 'invertir') { h.area.corredor.invertir = !h.area.corredor.invertir; cambio(); }
       else if (a === 'usar-eje') usarEje(st.candidatos.ejes[Number(b.dataset.i)], st.candidatos.archivo);

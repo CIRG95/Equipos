@@ -1,6 +1,13 @@
-# Topoland · Sistema de trabajo — v0.11.2 (caminos y red vial más livianos, «Quitar todos los caminos»)
+# Topoland · Sistema de trabajo — v0.11.3 (borrado definitivo, medir, Cortar → Aplicar, jornadas por batería y esquemas sobre imagen)
 
 **Sistema v0.11 = v0.10 + navegación nueva + Vuelos 0.9 + Equipos 0.2 + Monografías 0.3.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
+
+## Qué cambia en v0.11.3
+- **Borrado definitivo con confirmación** en las papeleras de Proyectos, Equipos (equipos, certificados, mantenciones, archivos) y la nueva **papelera de Vuelos** (debajo de la lista de vuelos). Cada elemento tiene «Restaurar» y «Eliminar definitivamente»; con más de uno, «Vaciar la papelera». Siempre pide confirmar. Se borran también sus archivos. Queda solo una marca vacía para que la sincronización no lo traiga de vuelta desde otro dispositivo.
+- **Medir en los mapas de Vuelos:** botón de regla en el mapa; se tocan puntos y muestra la distancia acumulada y, con 3 puntos o más, la superficie y el perímetro del polígono. Deshacer, Borrar y Terminar.
+- **Cortes: Cortar → Aplicar.** Elegir un método ya no cambia los sectores. «✂ Cortar» arma la propuesta y la muestra punteada (amarillo) en el mapa con sectores, baterías y jornada; «Aplicar» la deja en la hoja y «Descartar» no cambia nada. En los manuales se parte de los cortes actuales (ya no se borran) y «Descartar cambios» vuelve a como estaban.
+- **Jornadas por batería:** en el Resumen del vuelo, cada jornada tiene «Ver las N baterías» (sector, minutos y traslado de cada una). En la **ficha del proyecto**, cada vuelo muestra sus jornadas (fecha, baterías, duración, sectores) y el esquema.
+- **Esquema del área sobre imagen híbrida fija** (Esri: imagen + caminos + nombres), sin mover ni hacer zoom, en el Resumen del vuelo y en la ficha del proyecto. Sin internet queda el esquema sobre fondo liso.
 
 ## Qué cambia en v0.11.2
 - **Red vial y caminos más livianos** (la app se pegaba con muchos caminos):

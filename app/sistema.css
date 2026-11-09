@@ -408,3 +408,14 @@ body[data-modo="pc"] .sis-mandantes{flex-direction:column;}
 .sis-tabla th{text-align:left; font-size:12px; color:var(--muted); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--borde);}
 .sis-tabla td{padding:8px; border-bottom:1px solid var(--borde-suave); vertical-align:top;}
 .sis-tabla td small{display:block; color:var(--muted); font-size:12px;}
+
+/* v0.11.3 · ficha del proyecto: vuelos con jornadas y esquema fijo */
+.sis-vuelos-proy{display:flex; flex-direction:column; gap:12px;}
+.sis-vuelo-proy{border:1px solid var(--line, #E2E0DA); border-radius:12px; overflow:hidden;}
+.sis-vuelo-proy > .sis-fila{border:0; border-radius:0;}
+.sis-vuelo-proy-det{display:grid; grid-template-columns:minmax(0, 1.3fr) minmax(0, 1fr); gap:12px; padding:0 12px 12px; align-items:start;}
+@media (max-width: 720px){ .sis-vuelo-proy-det{grid-template-columns:1fr;} }
+.sis-jornadas{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-size:13px;}
+.sis-jornadas li{display:grid; grid-template-columns:10px 1fr; gap:8px; align-items:start;}
+.sis-jornadas li i{width:10px; height:10px; border-radius:3px; margin-top:4px;}
+.sis-jornadas li span > small:last-child{display:block; color:var(--muted);}

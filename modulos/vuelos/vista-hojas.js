@@ -1,5 +1,7 @@
 // modulos/vuelos/vista-hojas.js — lista de hojas de vuelo, encabezado de la hoja y Resumen.
 
+import { fondoEstatico } from './mapa-estatico.js';
+import { COLORES_DIA } from './ui.js';
 import { escapar as esc, fechaLegible } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { chip, kpi, fechaHora, dosD } from './ui.js';
@@ -118,7 +120,13 @@ export function crearVistaHojas(v) {
       <div class="vu-resumen-vuelos">
         <div class="vu-lista-vuelos">${lista.length ? lista.map(tarjeta).join('') : `<div class="sis-vacio"><p>${base.hojas.length ? 'No hay vuelos con este filtro.' : 'Todavía no hay vuelos. Toca «Planificación» y carga el KMZ del área.'}</p></div>`}</div>
         ${sel ? htmlPronLateral(sel) : ''}
-      </div>`;
+      </div>
+      ${base.papelera.length ? `<details class="sis-papelera"><summary>Papelera de vuelos (${base.papelera.length})</summary>
+        <section class="sis-tarjeta"><div class="sis-lista">${base.papelera.map(h => `<div class="sis-fila">
+          <span class="sis-fila-txt"><b>${esc(h.nombre || 'Vuelo sin nombre')}</b><span class="sis-tenue">${esc(nomProy(h.proyectoId))} · eliminado ${esc(String(h.eliminadoEn || '').slice(0, 10))}</span></span>
+          <button class="sis-btn chico" data-accion="restaurar-hoja" data-id="${esc(h.id)}">Restaurar</button>
+          <button class="sis-btn chico peligro" data-accion="purgar-hoja" data-id="${esc(h.id)}" data-nombre="${esc(h.nombre || 'Vuelo sin nombre')}">Eliminar definitivamente</button></div>`).join('')}</div>
+          ${base.papelera.length > 1 ? `<button class="sis-btn chico peligro" data-accion="vaciar-papelera-vuelos">Vaciar la papelera (${base.papelera.length})</button>` : ''}</section></details>` : ''}`;
   }
 
   // ─────────── Encabezado de la hoja ───────────
@@ -172,20 +180,32 @@ export function crearVistaHojas(v) {
   }
 
   // ─────────── Resumen (v0.10): avance, área con cinta, jornadas necesarias, clima por jornada y plazo DGAC ───────────
-  const COLORES_DIA = ['#4FC3F7', '#C6F15A', '#FFD54F', '#FF8A80', '#B39DDB', '#80CBC4', '#F48FB1', '#AED581'];
   const colorDia = k => COLORES_DIA[k % COLORES_DIA.length];
 
   /** Miniatura SVG del área con cada sector pintado según la jornada en que se vuela. */
   function miniatura(g, diaDe) {
     const todos = g.sectores.flatMap(s => s.poligono);
     if (!todos.length) return '';
-    const xs = todos.map(p => p[0]), ys = todos.map(p => p[1]);
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const W = 700, H = 220, m = 12, k = Math.min((W - 2 * m) / ((x1 - x0) || 1), (H - 2 * m) / ((y1 - y0) || 1));
-    const ox = (W - (x1 - x0) * k) / 2, oy = (H - (y1 - y0) * k) / 2;
-    const pt = p => `${(ox + (p[0] - x0) * k).toFixed(1)},${(H - oy - (p[1] - y0) * k).toFixed(1)}`;
-    const poli = (s, i) => { const paso = Math.max(1, Math.ceil(s.poligono.length / 400)); return `<polygon points="${s.poligono.filter((_, j) => j % paso === 0).map(pt).join(' ')}" fill="${colorDia(diaDe[i] ?? 0)}" fill-opacity=".8" stroke="${colorDia(diaDe[i] ?? 0)}" stroke-width="7" stroke-linejoin="round" paint-order="stroke"><title>${esc(nombreSector(st.hoja, i, g.sectores.length))}</title></polygon>`; };
-    return `<svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del área con sus sectores">${g.sectores.map(poli).join('')}</svg>`;
+    // v0.11.3: sobre imagen híbrida fija (Esri), sin mover ni hacer zoom. Sin internet queda el esquema sobre gris.
+    const W = 700, H = 260, aLL = g.marco.aLonLat;
+    const f = fondoEstatico(todos.map(aLL), W, H, { margen: 18 });
+    const pt = p => f.xy(aLL(p)).map(x => x.toFixed(1)).join(',');
+    const poli = (s, i) => { const paso = Math.max(1, Math.ceil(s.poligono.length / 400)); return `<polygon points="${s.poligono.filter((_, j) => j % paso === 0).map(pt).join(' ')}" fill="${colorDia(diaDe[i] ?? 0)}" fill-opacity=".35" stroke="${colorDia(diaDe[i] ?? 0)}" stroke-width="3" stroke-linejoin="round"><title>${esc(nombreSector(st.hoja, i, g.sectores.length))}</title></polygon>`; };
+    return `<div class="vu-mapa-fijo" style="aspect-ratio: ${W} / ${H}"><div class="vu-mapa-fijo-teselas" aria-hidden="true">${f.html}</div>
+      <svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del área con sus sectores sobre imagen satelital">${g.sectores.map(poli).join('')}</svg>
+      <small class="vu-mapa-fijo-atr">Imagen © Esri, Maxar</small></div>`;
+  }
+
+  /** v0.11.3: baterías de una jornada, en orden, con sector, minutos y traslado. */
+  function htmlBateriasDia(h, g, t, di) {
+    const filas = [];
+    let n = 0;
+    for (const i of di.sectores) {
+      const r = t.sectores[i];
+      if (!r || !r.baterias) continue;
+      r.baterias.forEach((b, k) => { n++; filas.push(`<li><b>B${n}</b><span>${esc(nombreSector(h, i, g.sectores.length))}${r.baterias.length > 1 ? ` · ${k + 1}/${r.baterias.length}` : ''}</span><span class="vu-mono">${fmtDuracion(b.seg / 60)}</span><small>${b.traslado ? `incluye ${fmtDuracion(b.traslado / 60)} de ida y vuelta` : ''}${b.excede ? ' · <b class="vu-rojo">no alcanza</b>' : ''}</small></li>`); });
+    }
+    return filas.length ? `<details class="vu-bat-dia"><summary>Ver las ${filas.length} batería${filas.length === 1 ? '' : 's'}</summary><ol>${filas.join('')}</ol></details>` : '<span></span>';
   }
 
   /** Cinta de sectores: proporcional al largo en áreas lineales, a la superficie en las demás. */
@@ -256,7 +276,8 @@ export function crearVistaHojas(v) {
               ${jor && jor.util ? `<div class="vu-dias">${jor.dias.map((di, k) => { const a = di.sectores[0], b = di.sectores[di.sectores.length - 1], n = g.sectores.length;
                 const rango = n > 1 ? (a === b ? nombreSector(h, a, n) : g.sectores[a].dm && g.sectores[b].dm ? `${kmADm(Math.min(...g.sectores[a].dm, ...g.sectores[b].dm))} – ${kmADm(Math.max(...g.sectores[a].dm, ...g.sectores[b].dm))}` : `${nombreSector(h, a, n)} a ${nombreSector(h, b, n)}`) : 'Área completa';
                 return `<b>Día ${k + 1}${fechas[k] ? `<small>${esc(diaCorto(fechas[k]))}</small>` : ''}</b><div class="vu-dia-barra"><i style="width: ${Math.min(100, 100 * di.min / jor.util).toFixed(1)}%; background: ${colorDia(k)}"></i></div><span class="vu-dia-min${di.excede ? ' vu-rojo' : ''}">${fmtDuracion(di.min)}</span>
-                  <span></span><small class="vu-dia-det">${esc(rango)} · ${di.sectores.length} sector${di.sectores.length === 1 ? '' : 'es'} · ${di.baterias} batería${di.baterias === 1 ? '' : 's'}${di.excede ? ' · <b>no cabe en el horario: divide el sector</b>' : ''}</small><span></span>`; }).join('')}</div>
+                  <span></span><small class="vu-dia-det">${esc(rango)} · ${di.sectores.length} sector${di.sectores.length === 1 ? '' : 'es'} · ${di.baterias} batería${di.baterias === 1 ? '' : 's'}${di.excede ? ' · <b>no cabe en el horario: divide el sector</b>' : ''}</small><span></span>
+                  <span></span>${htmlBateriasDia(h, g, t, di)}<span></span>`; }).join('')}</div>
                 <p class="sis-tenue vu-res-nota">Cada día toma sectores completos, en orden${g.sectores.some(s => s.dm) ? ' (sentido del eje)' : ''}, hasta llenar ${fmtDuracion(jor.util)} útiles. ${h.fecha ? 'Días hábiles desde el primer día de vuelo.' : 'Pon el primer día de vuelo para ver las fechas.'}</p>
                 <div class="sis-acciones"><button class="sis-btn chico${programado ? '' : ' primario'}" data-accion="programar" ${h.fecha ? '' : 'disabled'}>${programado ? `Actualizar el calendario (${h.programa.length} días)` : `Agregar ${jor.dias.length === 1 ? 'la jornada' : `las ${jor.dias.length} jornadas`} al calendario`}</button>${programado ? '<button class="sis-btn chico" data-accion="desprogramar">Quitar del calendario</button>' : ''}</div>`
                 : '<p class="vu-rojo">Revisa el horario: el término debe ser después del inicio.</p>'}

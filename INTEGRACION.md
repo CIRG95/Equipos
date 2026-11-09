@@ -1,4 +1,13 @@
-# INTEGRACION.md — Sistema v0.11.4
+# INTEGRACION.md — Sistema v0.12
+
+## v0.12 · Monografías paso a paso
+- Rutas: `#/monografias/<p>/comun` (paso 1), `#/monografias/<p>/<id>` (paso 2), `#/monografias/<p>/<id>/ubicacion` (paso 3), `#/monografias/<p>/revisar`. El envoltorio pasa `paso: partes[3]` a `Monografias.montar`.
+- Archivos nuevos: `modulos/monografias/pasos.js` (pantallas del paso a paso), `comun.js` (lógica pura: datos comunes, nombres, tabla pegada, UTM ↔ geográficas, chequeo por paso; pruebas en `pruebas/monografias-comun.test.mjs`), `borrado.js` (papelera de monografías).
+- `datos.js` **no se tocó** porque va dentro del paquete de conexión de Terreno; el paquete sale idéntico.
+- Datos comunes por proyecto en el navegador (`mono_comun_<proyecto>`: casillas «Todas las fichas», valores, módulos del PDF, formato); los valores quedan además en cada ficha. Frases propias en `mono_frases`.
+- Módulos del PDF nuevos: `logoEmpresa`, `logoCliente` (en `ficha.modulos`) y `disposicionImg: 'solo-croquis'`; se aplican en `pdf.js` con `efectiva()` sin tocar `pieza-terreno.js`.
+- Monografías usa `listarEquiposConEstado()` de Equipos y `ubicacionDe()` de Vuelos.
+
 
 ## Qué contiene
 

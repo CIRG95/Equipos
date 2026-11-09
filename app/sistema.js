@@ -221,9 +221,9 @@ async function mostrar() {
   }
 
   if (base === 'monografias') {
-    // #/monografias · #/monografias/<proyectoId> · #/monografias/<proyectoId>/<monografiaId>
+    // #/monografias · #/monografias/<proyectoId> · #/monografias/<proyectoId>/comun|revisar · #/monografias/<proyectoId>/<monografiaId>[/ubicacion]
     const partes = location.hash.replace(/^#\/?/, '').split('/');
-    montado = Monografias.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, monografiaId: partes[2] || null });
+    montado = Monografias.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, proyectoId: partes[1] || null, monografiaId: partes[2] || null, paso: partes[3] || null });
     rutaActual = clave;
     window.scrollTo(0, 0);
     return;

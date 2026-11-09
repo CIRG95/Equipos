@@ -5,7 +5,7 @@
 import * as D from './datos.js';
 import { montarPantallas } from './pantallas.js';
 
-export const VERSION = D.VERSION_MODULO;
+export const VERSION = '0.4'; // v0.12: paso a paso (datos.js conserva su versión porque va en el paquete de conexión)
 export const ALMACENES = Object.values(D.ALM);
 
 let iniciado = false;

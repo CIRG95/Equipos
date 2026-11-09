@@ -23,3 +23,6 @@ export const deslizador = (nombre, etiqueta, valor, { min, max, paso, sufijo, no
 export const kpi = (t, v, d = '', clase = '') => `<div class="vu-kpi ${clase}"><span>${t}</span><b>${v}</b>${d ? `<small>${d}</small>` : ''}</div>`;
 export const fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
 export const fechaHora = iso => new Date(iso).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+
+/** Colores de las jornadas de vuelo (Resumen de la hoja y ficha del proyecto). */
+export const COLORES_DIA = ['#4FC3F7', '#C6F15A', '#FFD54F', '#FF8A80', '#B39DDB', '#80CBC4', '#F48FB1', '#AED581'];

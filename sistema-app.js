@@ -403,6 +403,9 @@
   function estaEliminado(r) {
     return !!(r && r.eliminadoEn);
   }
+  function estaPurgado(r) {
+    return !!(r && r.purgadoEn);
+  }
   async function enviarAPapelera(almacen, id, { personaId = null, schemaVersion = 1 } = {}) {
     const r = await obtener(almacen, id);
     if (!r) return null;
@@ -423,9 +426,31 @@
     const salida = [];
     for (const nombre of almacenesRegistrados()) {
       if (!nombre.startsWith(prefijo)) continue;
-      for (const r of await todos(nombre)) if (estaEliminado(r)) salida.push({ almacen: nombre, registro: r });
+      for (const r of await todos(nombre)) if (estaEliminado(r) && !estaPurgado(r)) salida.push({ almacen: nombre, registro: r });
     }
     return salida.sort((a, b) => b.registro.eliminadoEn.localeCompare(a.registro.eliminadoEn));
+  }
+  async function eliminarDefinitivo(almacen, id, { personaId = null } = {}) {
+    var _a;
+    const r = await obtener(almacen, id);
+    if (!r) return null;
+    const marca = {
+      id: r.id,
+      eliminadoEn: r.eliminadoEn || ahoraISO(),
+      eliminadoPor: (_a = r.eliminadoPor) != null ? _a : personaId,
+      purgadoEn: ahoraISO(),
+      creadoEn: r.creadoEn,
+      creadoPor: r.creadoPor,
+      dispositivoId: r.dispositivoId
+    };
+    sellar(marca, { personaId, schemaVersion: r.schemaVersion || 1 });
+    await guardar(almacen, marca);
+    if (almacen !== "compartido_archivos" && almacenesRegistrados().includes("compartido_archivos")) {
+      for (const a of await todos("compartido_archivos")) {
+        if (a.duenoId === id && !a.purgadoEn) await eliminarDefinitivo("compartido_archivos", a.id, { personaId });
+      }
+    }
+    return marca;
   }
 
   // compartido/nube.js
@@ -3117,9 +3142,12 @@ Content-Type: ${mime}\r
         return `<button class="eq-volver" data-accion="ir" data-vista="admin">← Administrar</button>
         <div class="eq-intro"><h2>Papelera</h2>
         ${items.length ? `<ul class="eq-lista-simple">${items.map(({ almacen, registro }) => `<li>${escapar(nombreCorto(registro))} · N° ${escapar(registro.numeroSerie || "—")} <span class="eq-tenue">eliminado ${fechaHoraLegible(registro.eliminadoEn)}</span>
-            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${almacen}" data-id="${registro.id}">Restaurar</button></li>`).join("")}</ul>` : '<p class="eq-tenue">No hay equipos en la papelera.</p>'}
+            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${almacen}" data-id="${registro.id}">Restaurar</button>
+            <button class="eq-btn chico peligro" data-accion="purgar" data-almacen="${almacen}" data-id="${registro.id}" data-nombre="${escapar(nombreCorto(registro))}">Eliminar definitivamente</button></li>`).join("")}</ul>` : '<p class="eq-tenue">No hay equipos en la papelera.</p>'}
         ${otros.length ? `<h3 style="margin-top:14px">Certificados, mantenciones y archivos</h3><ul class="eq-lista-simple">${otros.map((o) => `<li>${etiquetaOtro(o)} <span class="eq-tenue">eliminado ${fechaHoraLegible(o.registro.eliminadoEn)}</span>
-            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${o.almacen}" data-id="${o.registro.id}">Restaurar</button></li>`).join("")}</ul>` : ""}</div>`;
+            <button class="eq-btn chico" data-accion="restaurar" data-almacen="${o.almacen}" data-id="${o.registro.id}">Restaurar</button>
+            <button class="eq-btn chico peligro" data-accion="purgar" data-almacen="${o.almacen}" data-id="${o.registro.id}" data-nombre="${escapar(etiquetaOtro(o).replace(/<[^>]+>/g, ""))}">Eliminar definitivamente</button></li>`).join("")}</ul>` : ""}
+        ${items.length + otros.length > 1 ? `<p style="margin-top:14px"><button class="eq-btn chico peligro" data-accion="vaciar-papelera">Vaciar la papelera (${items.length + otros.length})</button></p>` : ""}</div>`;
       }
     };
     const enlaceEquipo = contexto.enlaceEquipo || ((id) => `${location.href.split("#")[0]}#equipo=${id}`);
@@ -3299,6 +3327,24 @@ Content-Type: ${mime}\r
             avisar2("Restaurado");
             await render();
             break;
+          case "purgar":
+            if (!confirm(`¿Eliminar definitivamente «${el.dataset.nombre}»?
+
+Se borra con sus archivos y no se puede deshacer.`)) return;
+            await eliminarDefinitivo(el.dataset.almacen, id, { personaId: persona4 });
+            avisar2("Eliminado definitivamente");
+            await render();
+            break;
+          case "vaciar-papelera": {
+            const todosEnPapelera = [...await enPapelera("equipos_"), ...await enPapelera("compartido_archivos")];
+            if (!confirm(`¿Eliminar definitivamente los ${todosEnPapelera.length} elementos de la papelera?
+
+No se puede deshacer.`)) return;
+            for (const x of todosEnPapelera) await eliminarDefinitivo(x.almacen, x.registro.id, { personaId: persona4 });
+            avisar2("Papelera vaciada");
+            await render();
+            break;
+          }
           case "alerta-paso": {
             const nota = prompt("Nota (opcional): proveedor, n° de orden, qué se reparó…", "");
             if (nota === null) return;
@@ -3642,6 +3688,15 @@ Content-Type: ${mime}\r
   }
   async function eliminarPlan(id) {
     return enviarAPapelera(ALM3.planes, id, { personaId: persona });
+  }
+  async function planesEnPapelera() {
+    return (await enPapelera(ALM3.planes)).map((x) => x.registro);
+  }
+  async function restaurarPlan(id) {
+    return restaurar(ALM3.planes, id, { personaId: persona });
+  }
+  async function purgarPlan(id) {
+    return eliminarDefinitivo(ALM3.planes, id, { personaId: persona });
   }
   async function listarCapasUsuario() {
     return (await todos(ALM_CAPAS)).filter(vivo2);
@@ -4978,6 +5033,212 @@ Content-Type: ${mime}\r
     return { util, dias };
   }
 
+  // modulos/vuelos/mapa-base.js
+  var CLAVE_LS = "vu_mapa_base";
+  var ESRI_PUBLICO = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
+  var clave = () => typeof window !== "undefined" && window.TOPOLAND_CONFIG && window.TOPOLAND_CONFIG.esriClave || "";
+  function capasBase(L) {
+    const k = clave();
+    const op = { maxZoom: 20, maxNativeZoom: 19 };
+    const esri = k ? L.layerGroup([
+      L.tileLayer(`https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${encodeURIComponent(k)}`, { ...op, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }),
+      L.tileLayer(`https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/labels/static/tile/{z}/{y}/{x}?token=${encodeURIComponent(k)}`, { ...op, tileSize: 512, zoomOffset: -1 })
+    ]) : L.layerGroup([
+      L.tileLayer(ESRI_PUBLICO("World_Imagery"), { ...op, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }),
+      L.tileLayer(ESRI_PUBLICO("Reference/World_Transportation"), op),
+      L.tileLayer(ESRI_PUBLICO("Reference/World_Boundaries_and_Places"), op)
+    ]);
+    const sentinel = L.tileLayer("https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg", {
+      maxZoom: 20,
+      maxNativeZoom: 15,
+      attribution: '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)'
+    });
+    return { "Satélite Esri": esri, "Sentinel-2 2016 (libre, 10 m)": sentinel };
+  }
+  function agregarMapaBase(L, mapa) {
+    const capas = capasBase(L);
+    let elegida = "Satélite Esri";
+    try {
+      const x = localStorage.getItem(CLAVE_LS);
+      if (x && capas[x]) elegida = x;
+    } catch {
+    }
+    capas[elegida].addTo(mapa);
+    L.control.layers(capas, null, { position: "topleft", collapsed: true }).addTo(mapa);
+    mapa.on("baselayerchange", (e) => {
+      try {
+        localStorage.setItem(CLAVE_LS, e.name);
+      } catch {
+      }
+    });
+    return capas;
+  }
+
+  // modulos/vuelos/mapa-estatico.js
+  var TES = 256;
+  var ESRI = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile`;
+  var px = (lon, lat, z) => {
+    const n = TES * 2 ** z, s = Math.sin(lat * Math.PI / 180);
+    return [(lon + 180) / 360 * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n];
+  };
+  function fondoEstatico(puntosLL, W, H, { margen = 16, capas = "hibrido" } = {}) {
+    const lons = puntosLL.map((p) => p[0]), lats = puntosLL.map((p) => p[1]);
+    const b = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+    let z = 18;
+    for (; z > 2; z--) {
+      const [x0, y1] = px(b[0], b[1], z), [x1, y0] = px(b[2], b[3], z);
+      if (x1 - x0 <= W - 2 * margen && y1 - y0 <= H - 2 * margen) break;
+    }
+    const [cx0, cy1] = px(b[0], b[1], z), [cx1, cy0] = px(b[2], b[3], z);
+    const ox = (cx0 + cx1) / 2 - W / 2, oy = (cy0 + cy1) / 2 - H / 2;
+    const xy = ([lon, lat]) => {
+      const [x, y] = px(lon, lat, z);
+      return [x - ox, y - oy];
+    };
+    const k = clave();
+    const urls = [k ? `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${encodeURIComponent(k)}` : `${ESRI("World_Imagery")}/{z}/{y}/{x}`];
+    if (capas === "hibrido") urls.push(`${ESRI("Reference/World_Transportation")}/{z}/{y}/{x}`, `${ESRI("Reference/World_Boundaries_and_Places")}/{z}/{y}/{x}`);
+    const tx0 = Math.floor(ox / TES), tx1 = Math.floor((ox + W) / TES), ty0 = Math.floor(oy / TES), ty1 = Math.floor((oy + H) / TES);
+    const max = 2 ** z;
+    let html = "";
+    for (const u of urls) for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+      if (ty < 0 || ty >= max) continue;
+      const x = (tx % max + max) % max;
+      const src = u.replace("{z}", z).replace("{y}", ty).replace("{x}", x);
+      html += `<img src="${src}" alt="" loading="lazy" draggable="false" onerror="this.remove()" style="left:${((tx * TES - ox) / W * 100).toFixed(4)}%;top:${((ty * TES - oy) / H * 100).toFixed(4)}%;width:${(TES / W * 100).toFixed(4)}%;height:${(TES / H * 100).toFixed(4)}%">`;
+    }
+    return { html, xy, z };
+  }
+
+  // compartido/periodicidad.js
+  var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  var SEMANAS = [["primera", "primera semana"], ["segunda", "segunda semana"], ["tercera", "tercera semana"], ["cuarta", "cuarta semana"], ["ultima", "última semana completa"]];
+  var DATOS = [["lunes", "el lunes siguiente"], ["siguiente", "el día hábil siguiente"], ["mismo", "el último día de terreno"]];
+  var BASE_RECURRENTE = { tipo: "recurrente", cada: 1, unidad: "mes", semana: "ultima", desde: "", mesInicial: 1, diasTerreno: 4, datos: "lunes", diasEntrega: 5, hasta: "" };
+  var aFecha = (iso) => {
+    const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, 12);
+  };
+  var aISO = (f) => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
+  var habil = (f) => f.getDay() !== 0 && f.getDay() !== 6;
+  function sumarDias(iso, n) {
+    const f = aFecha(iso);
+    f.setDate(f.getDate() + n);
+    return aISO(f);
+  }
+  function sumarHabiles(iso, n) {
+    const f = aFecha(iso);
+    let k = 0;
+    while (k < n) {
+      f.setDate(f.getDate() + 1);
+      if (habil(f)) k++;
+    }
+    return aISO(f);
+  }
+  function restarHabiles(iso, n) {
+    const f = aFecha(iso);
+    let k = 0;
+    while (k < n) {
+      f.setDate(f.getDate() - 1);
+      if (habil(f)) k++;
+    }
+    return aISO(f);
+  }
+  function diasHabilesDesde(iso, n) {
+    const out = [], f = aFecha(iso);
+    while (!habil(f)) f.setDate(f.getDate() + 1);
+    while (out.length < n) {
+      if (habil(f)) out.push(aISO(f));
+      f.setDate(f.getDate() + 1);
+    }
+    return out;
+  }
+  var nombreMes = (y, m) => `${MESES[m]} ${y}`;
+  function lunesDelMes(y, m, semana, diasTerreno = 4) {
+    const lunes = [];
+    for (let d = 1; d <= 31; d++) {
+      const f = new Date(y, m, d, 12);
+      if (f.getMonth() !== m) break;
+      if (f.getDay() === 1) lunes.push(f);
+    }
+    const k = { primera: 0, segunda: 1, tercera: 2, cuarta: 3 }[semana];
+    if (k != null) return aISO(lunes[Math.min(k, lunes.length - 1)]);
+    for (let i = lunes.length - 1; i >= 0; i--) {
+      const dias = diasHabilesDesde(aISO(lunes[i]), Math.max(1, diasTerreno));
+      if (aFecha(dias[dias.length - 1]).getMonth() === m) return aISO(lunes[i]);
+    }
+    return aISO(lunes[0]);
+  }
+  function fechasDelCiclo(p, inicio2) {
+    const terreno = diasHabilesDesde(inicio2, Math.max(1, Number(p.diasTerreno) || 1));
+    const fin = terreno[terreno.length - 1];
+    const datos = p.datos === "mismo" ? fin : p.datos === "siguiente" ? sumarHabiles(fin, 1) : (() => {
+      const f = aFecha(fin);
+      do {
+        f.setDate(f.getDate() + 1);
+      } while (f.getDay() !== 1);
+      return aISO(f);
+    })();
+    return { terreno: [terreno[0], fin], diasTerreno: terreno, datos, entrega: sumarHabiles(datos, Math.max(0, Number(p.diasEntrega) || 0)) };
+  }
+  function ciclosEntre(per, desde, hasta) {
+    const p = { ...BASE_RECURRENTE, ...per || {} };
+    if (p.tipo !== "recurrente" || !p.desde) return [];
+    const cada = Math.max(1, Number(p.cada) || 1), out = [];
+    for (let k = 0; k < 600; k++) {
+      let inicio2, nombre;
+      if (p.unidad === "semana") {
+        const f = aFecha(p.desde);
+        while (f.getDay() !== 1) f.setDate(f.getDate() - 1);
+        f.setDate(f.getDate() + 7 * cada * k);
+        inicio2 = aISO(f);
+        nombre = `Semana del ${f.getDate()} de ${MESES[f.getMonth()].toLowerCase()}`;
+      } else {
+        const [y0, m0] = p.desde.split("-").map(Number), t = m0 - 1 + cada * k, y = y0 + Math.floor(t / 12), m = t % 12;
+        inicio2 = lunesDelMes(y, m, p.semana, p.diasTerreno);
+        nombre = nombreMes(y, m);
+      }
+      if (p.hasta && inicio2 > p.hasta) break;
+      const c = fechasDelCiclo(p, inicio2);
+      if (c.terreno[0] > hasta) break;
+      const n = (Number(p.mesInicial) || 1) + k, numero = String(n).padStart(3, "0");
+      if (c.entrega >= desde) out.push({ n, numero, nombre, carpeta: `${numero} ${nombre.split(" ")[0]}`, ...c });
+    }
+    return out;
+  }
+  function cicloDelMes(per, iso) {
+    const d = aFecha(iso), ini = aISO(new Date(d.getFullYear(), d.getMonth(), 1, 12)), fin = aISO(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12));
+    return ciclosEntre(per, ini, sumarDias(fin, 60)).find((c) => c.terreno[0] >= ini) || null;
+  }
+  function textoPeriodicidad(per) {
+    if (!per || per.tipo !== "recurrente") return "Único";
+    const p = { ...BASE_RECURRENTE, ...per };
+    const cada = Number(p.cada) > 1 ? `cada ${p.cada} ${p.unidad === "semana" ? "semanas" : "meses"}` : p.unidad === "semana" ? "semanal" : "mensual";
+    return `Recurrente · ${cada} · terreno ${p.diasTerreno} día${Number(p.diasTerreno) === 1 ? "" : "s"} · entrega ${p.diasEntrega} días hábiles después de los datos`;
+  }
+
+  // modulos/vuelos/ui.js
+  var COLORES_BATERIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4", "#FFAB40", "#B0BEC5"];
+  var COLORES_SECTOR = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4"];
+  var ESTADOS_HOJA = { borrador: ["Borrador", "gris"], lista: ["Programado", "verde"], volada: ["Volado", "azul"] };
+  var PASOS = [["identificacion", "1 · Identificación"], ["area", "2 · Área"], ["vuelo", "3 · Vuelo"], ["clima", "4 · Clima"], ["permisos", "5 · Permisos"]];
+  var GSD_TABLA = [3, 2.5, 2, 1.5];
+  var UMBRAL_BATERIAS = 6;
+  var TIPO_KML = "application/vnd.google-earth.kml+xml";
+  var dosD = (n) => String(n).padStart(2, "0");
+  var chip = (t, clase = "gris") => `<span class="sis-chip ${clase}">${t}</span>`;
+  var campo = (nombre, etiqueta, valor, extra = "", sufijo = "") => `<label class="sis-campo"><span>${etiqueta}</span>
+    <span class="vu-con-sufijo"><input name="${nombre}" value="${escapar(valor)}" inputmode="decimal" ${extra}>${sufijo ? `<em>${sufijo}</em>` : ""}</span></label>`;
+  var deslizador = (nombre, etiqueta, valor, { min, max, paso, sufijo, nota = "" }) => `<div class="vu-desl">
+      <div class="vu-desl-cab"><label for="vu-${nombre}">${etiqueta}${nota ? ` <small>${nota}</small>` : ""}</label>
+        <span class="vu-desl-valor"><input type="number" data-espejo="${nombre}" value="${escapar(valor)}" step="${paso}" min="${min}" max="${max}" aria-label="${etiqueta}">${sufijo}</span></div>
+      <input type="range" id="vu-${nombre}" name="${nombre}" min="${min}" max="${max}" step="${paso}" value="${escapar(valor)}">
+    </div>`;
+  var kpi = (t, v, d = "", clase = "") => `<div class="vu-kpi ${clase}"><span>${t}</span><b>${v}</b>${d ? `<small>${d}</small>` : ""}</div>`;
+  var fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
+  var fechaHora = (iso) => new Date(iso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
+  var COLORES_DIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#B39DDB", "#80CBC4", "#F48FB1", "#AED581"];
+
   // modulos/vuelos/kml.js
   async function leerArchivo(archivo) {
     const buf = new Uint8Array(await archivo.arrayBuffer());
@@ -5383,7 +5644,7 @@ Content-Type: ${mime}\r
   // modulos/seguimiento/modelo.js
   var SIGUIENTE = { falta: "proc", proc: "listo", listo: "falta" };
   var TEXTO_ESTADO = { falta: "falta", proc: "en proceso", listo: "listo" };
-  var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  var MESES2 = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   var COLS_VUELO = () => [
     { id: "terreno", tipo: "terreno", nombre: "Terreno", ancho: 128, visible: true },
     { id: "np", tipo: "producto", nombre: "NP", ext: ".laz", ancho: 60, visible: true },
@@ -5478,21 +5739,21 @@ Content-Type: ${mime}\r
     }
     return { eventos, inversos };
   }
-  var aFecha = (iso) => /* @__PURE__ */ new Date(iso + "T12:00:00");
-  var aISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  function sumarHabiles(iso, n) {
-    const d = aFecha(iso);
+  var aFecha2 = (iso) => /* @__PURE__ */ new Date(iso + "T12:00:00");
+  var aISO2 = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function sumarHabiles2(iso, n) {
+    const d = aFecha2(iso);
     let k = 0;
     while (k < n) {
       d.setDate(d.getDate() + 1);
       const w = d.getDay();
       if (w && w !== 6) k++;
     }
-    return aISO(d);
+    return aISO2(d);
   }
   function habilesEntre(a, b) {
     if (a === b) return 0;
-    const s = a < b ? 1 : -1, d = aFecha(s > 0 ? a : b), f = aFecha(s > 0 ? b : a);
+    const s = a < b ? 1 : -1, d = aFecha2(s > 0 ? a : b), f = aFecha2(s > 0 ? b : a);
     let n = 0;
     while (d < f) {
       d.setDate(d.getDate() + 1);
@@ -5506,24 +5767,24 @@ Content-Type: ${mime}\r
     if (ciclo && ciclo.entrega) return { vence: ciclo.entrega, quedan: habilesEntre(hoy, ciclo.entrega) };
     if (!ciclo || !ciclo.datos || p.tipo === "ninguno") return null;
     let vence;
-    if (p.tipo === "habiles") vence = sumarHabiles(ciclo.datos, Math.max(1, Number(p.dias) || 1));
+    if (p.tipo === "habiles") vence = sumarHabiles2(ciclo.datos, Math.max(1, Number(p.dias) || 1));
     else {
-      const d = aFecha(ciclo.datos);
+      const d = aFecha2(ciclo.datos);
       d.setMonth(d.getMonth() + 1);
-      vence = aISO(d);
+      vence = aISO2(d);
     }
     return { vence, quedan: habilesEntre(hoy, vence) };
   }
   function mesSiguiente(nombre, n) {
     const m = /^(\p{L}+)\s+(\d{4})$/u.exec(String(nombre || "").trim());
-    const k = m ? MESES.findIndex((x) => x.toLowerCase() === m[1].toLowerCase()) : -1;
+    const k = m ? MESES2.findIndex((x) => x.toLowerCase() === m[1].toLowerCase()) : -1;
     if (k < 0) return { nombre: "", mesContrato: (Number(n) || 0) + 1 };
     const y = Number(m[2]) + (k === 11 ? 1 : 0);
-    return { nombre: `${MESES[(k + 1) % 12]} ${y}`, mesContrato: (Number(n) || 0) + 1 };
+    return { nombre: `${MESES2[(k + 1) % 12]} ${y}`, mesContrato: (Number(n) || 0) + 1 };
   }
-  var nombreMes = (fecha2) => {
-    const d = aFecha(fecha2);
-    return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  var nombreMes2 = (fecha2) => {
+    const d = aFecha2(fecha2);
+    return `${MESES2[d.getMonth()]} ${d.getFullYear()}`;
   };
   var carpetaMes = (ciclo) => ciclo && ciclo.mesContrato ? `${String(ciclo.mesContrato).padStart(3, "0")} ${(ciclo.nombre || "").split(" ")[0]}`.trim() : "";
   var norm = (s) => String(s || "").normalize("NFC").trim().toLowerCase();
@@ -5566,113 +5827,6 @@ Content-Type: ${mime}\r
         { id: nuevoId2(), nombre: "04 Reservorio", carpeta: "04 Reservorio", tramos: [{ id: nuevoId2(), n: "001", nombre: "Reservorio", carpeta: "04 Reservorio" }] }
       ]
     };
-  }
-
-  // compartido/periodicidad.js
-  var MESES2 = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-  var SEMANAS = [["primera", "primera semana"], ["segunda", "segunda semana"], ["tercera", "tercera semana"], ["cuarta", "cuarta semana"], ["ultima", "última semana completa"]];
-  var DATOS = [["lunes", "el lunes siguiente"], ["siguiente", "el día hábil siguiente"], ["mismo", "el último día de terreno"]];
-  var BASE_RECURRENTE = { tipo: "recurrente", cada: 1, unidad: "mes", semana: "ultima", desde: "", mesInicial: 1, diasTerreno: 4, datos: "lunes", diasEntrega: 5, hasta: "" };
-  var aFecha2 = (iso) => {
-    const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
-    return new Date(y, (m || 1) - 1, d || 1, 12);
-  };
-  var aISO2 = (f) => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`;
-  var habil = (f) => f.getDay() !== 0 && f.getDay() !== 6;
-  function sumarDias(iso, n) {
-    const f = aFecha2(iso);
-    f.setDate(f.getDate() + n);
-    return aISO2(f);
-  }
-  function sumarHabiles2(iso, n) {
-    const f = aFecha2(iso);
-    let k = 0;
-    while (k < n) {
-      f.setDate(f.getDate() + 1);
-      if (habil(f)) k++;
-    }
-    return aISO2(f);
-  }
-  function restarHabiles(iso, n) {
-    const f = aFecha2(iso);
-    let k = 0;
-    while (k < n) {
-      f.setDate(f.getDate() - 1);
-      if (habil(f)) k++;
-    }
-    return aISO2(f);
-  }
-  function diasHabilesDesde(iso, n) {
-    const out = [], f = aFecha2(iso);
-    while (!habil(f)) f.setDate(f.getDate() + 1);
-    while (out.length < n) {
-      if (habil(f)) out.push(aISO2(f));
-      f.setDate(f.getDate() + 1);
-    }
-    return out;
-  }
-  var nombreMes2 = (y, m) => `${MESES2[m]} ${y}`;
-  function lunesDelMes(y, m, semana, diasTerreno = 4) {
-    const lunes = [];
-    for (let d = 1; d <= 31; d++) {
-      const f = new Date(y, m, d, 12);
-      if (f.getMonth() !== m) break;
-      if (f.getDay() === 1) lunes.push(f);
-    }
-    const k = { primera: 0, segunda: 1, tercera: 2, cuarta: 3 }[semana];
-    if (k != null) return aISO2(lunes[Math.min(k, lunes.length - 1)]);
-    for (let i = lunes.length - 1; i >= 0; i--) {
-      const dias = diasHabilesDesde(aISO2(lunes[i]), Math.max(1, diasTerreno));
-      if (aFecha2(dias[dias.length - 1]).getMonth() === m) return aISO2(lunes[i]);
-    }
-    return aISO2(lunes[0]);
-  }
-  function fechasDelCiclo(p, inicio2) {
-    const terreno = diasHabilesDesde(inicio2, Math.max(1, Number(p.diasTerreno) || 1));
-    const fin = terreno[terreno.length - 1];
-    const datos = p.datos === "mismo" ? fin : p.datos === "siguiente" ? sumarHabiles2(fin, 1) : (() => {
-      const f = aFecha2(fin);
-      do {
-        f.setDate(f.getDate() + 1);
-      } while (f.getDay() !== 1);
-      return aISO2(f);
-    })();
-    return { terreno: [terreno[0], fin], diasTerreno: terreno, datos, entrega: sumarHabiles2(datos, Math.max(0, Number(p.diasEntrega) || 0)) };
-  }
-  function ciclosEntre(per, desde, hasta) {
-    const p = { ...BASE_RECURRENTE, ...per || {} };
-    if (p.tipo !== "recurrente" || !p.desde) return [];
-    const cada = Math.max(1, Number(p.cada) || 1), out = [];
-    for (let k = 0; k < 600; k++) {
-      let inicio2, nombre;
-      if (p.unidad === "semana") {
-        const f = aFecha2(p.desde);
-        while (f.getDay() !== 1) f.setDate(f.getDate() - 1);
-        f.setDate(f.getDate() + 7 * cada * k);
-        inicio2 = aISO2(f);
-        nombre = `Semana del ${f.getDate()} de ${MESES2[f.getMonth()].toLowerCase()}`;
-      } else {
-        const [y0, m0] = p.desde.split("-").map(Number), t = m0 - 1 + cada * k, y = y0 + Math.floor(t / 12), m = t % 12;
-        inicio2 = lunesDelMes(y, m, p.semana, p.diasTerreno);
-        nombre = nombreMes2(y, m);
-      }
-      if (p.hasta && inicio2 > p.hasta) break;
-      const c = fechasDelCiclo(p, inicio2);
-      if (c.terreno[0] > hasta) break;
-      const n = (Number(p.mesInicial) || 1) + k, numero = String(n).padStart(3, "0");
-      if (c.entrega >= desde) out.push({ n, numero, nombre, carpeta: `${numero} ${nombre.split(" ")[0]}`, ...c });
-    }
-    return out;
-  }
-  function cicloDelMes(per, iso) {
-    const d = aFecha2(iso), ini = aISO2(new Date(d.getFullYear(), d.getMonth(), 1, 12)), fin = aISO2(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12));
-    return ciclosEntre(per, ini, sumarDias(fin, 60)).find((c) => c.terreno[0] >= ini) || null;
-  }
-  function textoPeriodicidad(per) {
-    if (!per || per.tipo !== "recurrente") return "Único";
-    const p = { ...BASE_RECURRENTE, ...per };
-    const cada = Number(p.cada) > 1 ? `cada ${p.cada} ${p.unidad === "semana" ? "semanas" : "meses"}` : p.unidad === "semana" ? "semanal" : "mensual";
-    return `Recurrente · ${cada} · terreno ${p.diasTerreno} día${Number(p.diasTerreno) === 1 ? "" : "s"} · entrega ${p.diasEntrega} días hábiles después de los datos`;
   }
 
   // compartido/tooltip.js
@@ -5993,7 +6147,7 @@ Content-Type: ${mime}\r
         <div class="sis-campo"><span>Tipo de trabajo</span><div class="sis-opciones">
           <label class="sis-opcion"><input type="radio" name="tipo" value="mensual" checked> Mensual (un ciclo por mes)</label>
           <label class="sis-opcion"><input type="radio" name="tipo" value="unico"> Único</label></div></div>
-        <div class="sis-par"><label class="sis-campo"><span>Mes</span><input name="mes" value="${escapar(nombreMes(hoyISO()))}"></label>
+        <div class="sis-par"><label class="sis-campo"><span>Mes</span><input name="mes" value="${escapar(nombreMes2(hoyISO()))}"></label>
           <label class="sis-campo"><span>N° de mes del contrato</span><input name="mesContrato" type="number" min="1" value="1"></label></div>
         <div class="sis-campo"><span>Columnas</span><div class="sis-opciones">
           <label class="sis-opcion"><input type="radio" name="cols" value="vuelo" checked> Vuelo: NP, MDS, OF, KMZ</label>
@@ -6523,7 +6677,7 @@ Nota: ${escapar(t.nota)}` : ""}`;
           }
           case "nuevo-ciclo": {
             const ult = st.ciclos[0];
-            let sig = ult ? mesSiguiente(ult.nombre, ult.mesContrato) : { nombre: nombreMes(hoyISO()), mesContrato: 1 };
+            let sig = ult ? mesSiguiente(ult.nombre, ult.mesContrato) : { nombre: nombreMes2(hoyISO()), mesContrato: 1 };
             const proy = await obtenerProyecto(st.proyectoId), per = proy && proy.periodicidad && proy.periodicidad.tipo === "recurrente" ? proy.periodicidad : null;
             let extra = { datos: "" };
             if (per) {
@@ -6638,7 +6792,7 @@ Nota: ${escapar(t.nota)}` : ""}`;
         }
         if (t.dataset.ciclo === "datos") {
           st.ciclo.datos = t.value;
-          if (st.ciclo.entrega && t.value) st.ciclo.entrega = sumarHabiles2(t.value, st.ciclo.diasEntrega || 0);
+          if (st.ciclo.entrega && t.value) st.ciclo.entrega = sumarHabiles(t.value, st.ciclo.diasEntrega || 0);
           await guardarCiclo(st.ciclo);
           render();
           return;
@@ -7253,9 +7407,9 @@ ${escapar(t.nota)}${t.notaPor ? `
       const [ax, ay] = l[a], [bx, by] = l[b], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
       let max = -1, idx = -1;
       for (let k = a + 1; k < b; k++) {
-        const [px, py] = l[k];
-        const t = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
-        const d = Math.hypot(px - ax - t * dx, py - ay - t * dy);
+        const [px2, py] = l[k];
+        const t = L2 ? Math.max(0, Math.min(1, ((px2 - ax) * dx + (py - ay) * dy) / L2)) : 0;
+        const d = Math.hypot(px2 - ax - t * dx, py - ay - t * dy);
         if (d > max) {
           max = d;
           idx = k;
@@ -7380,27 +7534,6 @@ ${escapar(t.nota)}${t.notaPor ? `
       probados: cand.length
     };
   }
-
-  // modulos/vuelos/ui.js
-  var COLORES_BATERIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4", "#FFAB40", "#B0BEC5"];
-  var COLORES_SECTOR = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#CE93D8", "#80CBC4"];
-  var ESTADOS_HOJA = { borrador: ["Borrador", "gris"], lista: ["Programado", "verde"], volada: ["Volado", "azul"] };
-  var PASOS = [["identificacion", "1 · Identificación"], ["area", "2 · Área"], ["vuelo", "3 · Vuelo"], ["clima", "4 · Clima"], ["permisos", "5 · Permisos"]];
-  var GSD_TABLA = [3, 2.5, 2, 1.5];
-  var UMBRAL_BATERIAS = 6;
-  var TIPO_KML = "application/vnd.google-earth.kml+xml";
-  var dosD = (n) => String(n).padStart(2, "0");
-  var chip = (t, clase = "gris") => `<span class="sis-chip ${clase}">${t}</span>`;
-  var campo = (nombre, etiqueta, valor, extra = "", sufijo = "") => `<label class="sis-campo"><span>${etiqueta}</span>
-    <span class="vu-con-sufijo"><input name="${nombre}" value="${escapar(valor)}" inputmode="decimal" ${extra}>${sufijo ? `<em>${sufijo}</em>` : ""}</span></label>`;
-  var deslizador = (nombre, etiqueta, valor, { min, max, paso, sufijo, nota = "" }) => `<div class="vu-desl">
-      <div class="vu-desl-cab"><label for="vu-${nombre}">${etiqueta}${nota ? ` <small>${nota}</small>` : ""}</label>
-        <span class="vu-desl-valor"><input type="number" data-espejo="${nombre}" value="${escapar(valor)}" step="${paso}" min="${min}" max="${max}" aria-label="${etiqueta}">${sufijo}</span></div>
-      <input type="range" id="vu-${nombre}" name="${nombre}" min="${min}" max="${max}" step="${paso}" value="${escapar(valor)}">
-    </div>`;
-  var kpi = (t, v, d = "", clase = "") => `<div class="vu-kpi ${clase}"><span>${t}</span><b>${v}</b>${d ? `<small>${d}</small>` : ""}</div>`;
-  var fila = (t, v) => `<div><dt>${t}</dt><dd>${v}</dd></div>`;
-  var fechaHora = (iso) => new Date(iso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
 
   // modulos/vuelos/pronostico.js
   var MODELOS = [["ecmwf_ifs025", "ECMWF"], ["gfs_seamless", "GFS"], ["icon_seamless", "ICON"]];
@@ -8041,7 +8174,13 @@ ${escapar(t.nota)}${t.notaPor ? `
       <div class="vu-resumen-vuelos">
         <div class="vu-lista-vuelos">${lista.length ? lista.map(tarjeta).join("") : `<div class="sis-vacio"><p>${base.hojas.length ? "No hay vuelos con este filtro." : "Todavía no hay vuelos. Toca «Planificación» y carga el KMZ del área."}</p></div>`}</div>
         ${sel ? htmlPronLateral(sel) : ""}
-      </div>`;
+      </div>
+      ${base.papelera.length ? `<details class="sis-papelera"><summary>Papelera de vuelos (${base.papelera.length})</summary>
+        <section class="sis-tarjeta"><div class="sis-lista">${base.papelera.map((h) => `<div class="sis-fila">
+          <span class="sis-fila-txt"><b>${escapar(h.nombre || "Vuelo sin nombre")}</b><span class="sis-tenue">${escapar(nomProy(h.proyectoId))} · eliminado ${escapar(String(h.eliminadoEn || "").slice(0, 10))}</span></span>
+          <button class="sis-btn chico" data-accion="restaurar-hoja" data-id="${escapar(h.id)}">Restaurar</button>
+          <button class="sis-btn chico peligro" data-accion="purgar-hoja" data-id="${escapar(h.id)}" data-nombre="${escapar(h.nombre || "Vuelo sin nombre")}">Eliminar definitivamente</button></div>`).join("")}</div>
+          ${base.papelera.length > 1 ? `<button class="sis-btn chico peligro" data-accion="vaciar-papelera-vuelos">Vaciar la papelera (${base.papelera.length})</button>` : ""}</section></details>` : ""}`;
     }
     const consultasHechas = (h) => CONSULTAS.every(([k]) => h.permisos.consultas.some((c) => c.tipo === k));
     const ultimaConsulta = (h, tipo) => h.permisos.consultas.filter((c) => c.tipo === tipo).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
@@ -8090,22 +8229,34 @@ ${escapar(t.nota)}${t.notaPor ? `
         return `<button class="vu-paso${st.paso === k ? " activo" : ""} ${mk || "pend"}" data-accion="paso" data-paso="${k}" ${st.paso === k ? 'aria-current="step"' : ""}><span class="vu-paso-n">${mk === "ok" ? "✓" : mk === "aviso" ? "!" : n + 1}</span>${t2.replace(/^\d · /, "")}</button>`;
       }).join("")}</nav>`;
     }
-    const COLORES_DIA = ["#4FC3F7", "#C6F15A", "#FFD54F", "#FF8A80", "#B39DDB", "#80CBC4", "#F48FB1", "#AED581"];
     const colorDia = (k) => COLORES_DIA[k % COLORES_DIA.length];
     function miniatura(g, diaDe) {
       const todos2 = g.sectores.flatMap((s) => s.poligono);
       if (!todos2.length) return "";
-      const xs = todos2.map((p) => p[0]), ys = todos2.map((p) => p[1]);
-      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-      const W = 700, H = 220, m = 12, k = Math.min((W - 2 * m) / (x1 - x0 || 1), (H - 2 * m) / (y1 - y0 || 1));
-      const ox = (W - (x1 - x0) * k) / 2, oy = (H - (y1 - y0) * k) / 2;
-      const pt = (p) => `${(ox + (p[0] - x0) * k).toFixed(1)},${(H - oy - (p[1] - y0) * k).toFixed(1)}`;
+      const W = 700, H = 260, aLL = g.marco.aLonLat;
+      const f = fondoEstatico(todos2.map(aLL), W, H, { margen: 18 });
+      const pt = (p) => f.xy(aLL(p)).map((x) => x.toFixed(1)).join(",");
       const poli = (s, i) => {
         var _a, _b;
         const paso = Math.max(1, Math.ceil(s.poligono.length / 400));
-        return `<polygon points="${s.poligono.filter((_, j) => j % paso === 0).map(pt).join(" ")}" fill="${colorDia((_a = diaDe[i]) != null ? _a : 0)}" fill-opacity=".8" stroke="${colorDia((_b = diaDe[i]) != null ? _b : 0)}" stroke-width="7" stroke-linejoin="round" paint-order="stroke"><title>${escapar(nombreSector(st.hoja, i, g.sectores.length))}</title></polygon>`;
+        return `<polygon points="${s.poligono.filter((_, j) => j % paso === 0).map(pt).join(" ")}" fill="${colorDia((_a = diaDe[i]) != null ? _a : 0)}" fill-opacity=".35" stroke="${colorDia((_b = diaDe[i]) != null ? _b : 0)}" stroke-width="3" stroke-linejoin="round"><title>${escapar(nombreSector(st.hoja, i, g.sectores.length))}</title></polygon>`;
       };
-      return `<svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del área con sus sectores">${g.sectores.map(poli).join("")}</svg>`;
+      return `<div class="vu-mapa-fijo" style="aspect-ratio: ${W} / ${H}"><div class="vu-mapa-fijo-teselas" aria-hidden="true">${f.html}</div>
+      <svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del área con sus sectores sobre imagen satelital">${g.sectores.map(poli).join("")}</svg>
+      <small class="vu-mapa-fijo-atr">Imagen © Esri, Maxar</small></div>`;
+    }
+    function htmlBateriasDia(h, g, t, di) {
+      const filas = [];
+      let n = 0;
+      for (const i of di.sectores) {
+        const r = t.sectores[i];
+        if (!r || !r.baterias) continue;
+        r.baterias.forEach((b, k) => {
+          n++;
+          filas.push(`<li><b>B${n}</b><span>${escapar(nombreSector(h, i, g.sectores.length))}${r.baterias.length > 1 ? ` · ${k + 1}/${r.baterias.length}` : ""}</span><span class="vu-mono">${fmtDuracion(b.seg / 60)}</span><small>${b.traslado ? `incluye ${fmtDuracion(b.traslado / 60)} de ida y vuelta` : ""}${b.excede ? ' · <b class="vu-rojo">no alcanza</b>' : ""}</small></li>`);
+        });
+      }
+      return filas.length ? `<details class="vu-bat-dia"><summary>Ver las ${filas.length} batería${filas.length === 1 ? "" : "s"}</summary><ol>${filas.join("")}</ol></details>` : "<span></span>";
     }
     function cinta(g, t, diaDe) {
       const h = st.hoja, n = g.sectores.length;
@@ -8178,7 +8329,8 @@ ${escapar(t.nota)}${t.notaPor ? `
         const a = di.sectores[0], b = di.sectores[di.sectores.length - 1], n = g.sectores.length;
         const rango = n > 1 ? a === b ? nombreSector(h, a, n) : g.sectores[a].dm && g.sectores[b].dm ? `${kmADm(Math.min(...g.sectores[a].dm, ...g.sectores[b].dm))} – ${kmADm(Math.max(...g.sectores[a].dm, ...g.sectores[b].dm))}` : `${nombreSector(h, a, n)} a ${nombreSector(h, b, n)}` : "Área completa";
         return `<b>Día ${k + 1}${fechas[k] ? `<small>${escapar(diaCorto2(fechas[k]))}</small>` : ""}</b><div class="vu-dia-barra"><i style="width: ${Math.min(100, 100 * di.min / jor.util).toFixed(1)}%; background: ${colorDia(k)}"></i></div><span class="vu-dia-min${di.excede ? " vu-rojo" : ""}">${fmtDuracion(di.min)}</span>
-                  <span></span><small class="vu-dia-det">${escapar(rango)} · ${di.sectores.length} sector${di.sectores.length === 1 ? "" : "es"} · ${di.baterias} batería${di.baterias === 1 ? "" : "s"}${di.excede ? " · <b>no cabe en el horario: divide el sector</b>" : ""}</small><span></span>`;
+                  <span></span><small class="vu-dia-det">${escapar(rango)} · ${di.sectores.length} sector${di.sectores.length === 1 ? "" : "es"} · ${di.baterias} batería${di.baterias === 1 ? "" : "s"}${di.excede ? " · <b>no cabe en el horario: divide el sector</b>" : ""}</small><span></span>
+                  <span></span>${htmlBateriasDia(h, g, t, di)}<span></span>`;
       }).join("")}</div>
                 <p class="sis-tenue vu-res-nota">Cada día toma sectores completos, en orden${g.sectores.some((s) => s.dm) ? " (sentido del eje)" : ""}, hasta llenar ${fmtDuracion(jor.util)} útiles. ${h.fecha ? "Días hábiles desde el primer día de vuelo." : "Pon el primer día de vuelo para ver las fechas."}</p>
                 <div class="sis-acciones"><button class="sis-btn chico${programado ? "" : " primario"}" data-accion="programar" ${h.fecha ? "" : "disabled"}>${programado ? `Actualizar el calendario (${h.programa.length} días)` : `Agregar ${jor.dias.length === 1 ? "la jornada" : `las ${jor.dias.length} jornadas`} al calendario`}</button>${programado ? '<button class="sis-btn chico" data-accion="desprogramar">Quitar del calendario</button>' : ""}</div>` : '<p class="vu-rojo">Revisa el horario: el término debe ser después del inicio.</p>'}
@@ -8377,6 +8529,16 @@ ${escapar(t.nota)}${t.notaPor ? `
       const v0 = vistaPrevia(st.hoja);
       return v0 ? `Vista previa: <b>${v0.sectores} sector${v0.sectores === 1 ? "" : "es"}</b> · ~${fmt(v0.haPorSector, 1)} ha cada uno` : "";
     }
+    function htmlPropuesta(modo) {
+      const a = st.hoja.area, g = geometria(st.hoja), n = g ? g.sectores.length : 1;
+      const aplicados = `<span class="vu-aplicados">Aplicado: <b>${n} sector${n === 1 ? "" : "es"}</b>${a.aplicado && METODOS[a.aplicado.modo] ? ` · ${escapar(METODOS[a.aplicado.modo].texto)}` : ""}</span>`;
+      const p = st.propuesta;
+      if (p) return `<div class="vu-propuesta"><span><b>Propuesta: ${p.sectores} sector${p.sectores === 1 ? "" : "es"}</b>${p.baterias != null ? ` · ${p.baterias} baterías · ${fmtDuracion(p.minJornada)} de jornada` : ""}${p.fallidos ? ` · <span class="vu-rojo">${p.fallidos} corte${p.fallidos > 1 ? "s" : ""} no cruza${p.fallidos > 1 ? "n" : ""}</span>` : ""}${p.nota ? `<small>${escapar(p.nota)}</small>` : ""}<small>Se ve punteada en el mapa. ${aplicados}</small></span>
+        <span class="vu-propuesta-acc"><button class="sis-btn primario" data-accion="aplicar-cortes">Aplicar</button><button class="sis-btn chico" data-accion="descartar-cortes">Descartar</button></span></div>`;
+      if (st.respaldoCortes && MANUALES.includes(modo)) return `<div class="vu-propuesta"><span><b>Editando cortes a mano</b><small>Los cambios se ven en el mapa. «Descartar cambios» vuelve a como estaban.</small></span>
+        <span class="vu-propuesta-acc"><button class="sis-btn primario" data-accion="aplicar-cortes">Aplicar</button><button class="sis-btn chico" data-accion="descartar-cortes">Descartar cambios</button></span></div>`;
+      return `<p class="sis-tenue">${aplicados}</p>`;
+    }
     function htmlCortes(g) {
       const a = st.hoja.area, au = a.auto || {}, f = g ? formaDe(st.hoja) : null;
       const propuesto = metodoPropuesto(f);
@@ -8434,9 +8596,10 @@ ${escapar(t.nota)}${t.notaPor ? `
       <div class="vu-fila-campos">${(campos[modo] || (() => ""))()}</div>
       <p class="sis-tenue">${escapar(METODOS[modo] ? METODOS[modo].ayuda : "")}</p>
       <p class="vu-vista-previa" id="vu-vista-previa">${htmlVistaPrevia()}</p>
-      <div class="sis-acciones">${modo === "manual" ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === "corte" ? " primario" : ""}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>` : modo === "vertices" ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === "vertice" ? " primario" : ""}" data-accion="dibujar" data-modo="vertice">◎ ${st.dibujo && st.dibujo.modo === "vertice" ? "Tocando vértices en el mapa" : "Tocar vértices"}</button>` : '<button class="sis-btn chico primario" data-accion="auto-cortar">Generar cortes</button>'}
-        ${a.cortes.length ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ""}</div>
-      <p class="sis-tenue">Los cortes generados quedan como los manuales: sus vértices blancos se arrastran en el mapa.</p>
+      ${htmlPropuesta(modo)}
+      <div class="sis-acciones">${modo === "manual" ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === "corte" ? " primario" : ""}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>` : modo === "vertices" ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === "vertice" ? " primario" : ""}" data-accion="dibujar" data-modo="vertice">◎ ${st.dibujo && st.dibujo.modo === "vertice" ? "Tocando vértices en el mapa" : "Tocar vértices"}</button>` : `<button class="sis-btn ${st.propuesta ? "chico" : "primario"}" data-accion="auto-cortar">✂ Cortar${st.propuesta ? " de nuevo" : ""}</button>`}
+        ${a.cortes.length && MANUALES.includes(modo) ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ""}</div>
+      <p class="sis-tenue">«Cortar» muestra la propuesta punteada en el mapa sin tocar los sectores actuales; «Aplicar» la deja en la hoja. Los vértices blancos de los cortes aplicados se arrastran en el mapa.</p>
     </section>`;
     }
     function svgSectores(polis, sel, gris) {
@@ -9357,47 +9520,6 @@ ${escapar(t.nota)}${t.notaPor ? `
     return { vistaKml, vistaDrones };
   }
 
-  // modulos/vuelos/mapa-base.js
-  var CLAVE_LS = "vu_mapa_base";
-  var ESRI_PUBLICO = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
-  var clave = () => window.TOPOLAND_CONFIG && window.TOPOLAND_CONFIG.esriClave || "";
-  function capasBase(L) {
-    const k = clave();
-    const op = { maxZoom: 20, maxNativeZoom: 19 };
-    const esri = k ? L.layerGroup([
-      L.tileLayer(`https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${encodeURIComponent(k)}`, { ...op, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }),
-      L.tileLayer(`https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/imagery/labels/static/tile/{z}/{y}/{x}?token=${encodeURIComponent(k)}`, { ...op, tileSize: 512, zoomOffset: -1 })
-    ]) : L.layerGroup([
-      L.tileLayer(ESRI_PUBLICO("World_Imagery"), { ...op, attribution: "Imagen © Esri, Maxar, Earthstar Geographics" }),
-      L.tileLayer(ESRI_PUBLICO("Reference/World_Transportation"), op),
-      L.tileLayer(ESRI_PUBLICO("Reference/World_Boundaries_and_Places"), op)
-    ]);
-    const sentinel = L.tileLayer("https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg", {
-      maxZoom: 20,
-      maxNativeZoom: 15,
-      attribution: '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)'
-    });
-    return { "Satélite Esri": esri, "Sentinel-2 2016 (libre, 10 m)": sentinel };
-  }
-  function agregarMapaBase(L, mapa) {
-    const capas = capasBase(L);
-    let elegida = "Satélite Esri";
-    try {
-      const x = localStorage.getItem(CLAVE_LS);
-      if (x && capas[x]) elegida = x;
-    } catch {
-    }
-    capas[elegida].addTo(mapa);
-    L.control.layers(capas, null, { position: "topleft", collapsed: true }).addTo(mapa);
-    mapa.on("baselayerchange", (e) => {
-      try {
-        localStorage.setItem(CLAVE_LS, e.name);
-      } catch {
-      }
-    });
-    return capas;
-  }
-
   // modulos/vuelos/mapas.js
   function crearMapas(v) {
     const ref = (n) => (...a) => v[n](...a);
@@ -9435,12 +9557,82 @@ ${escapar(t.nota)}${t.notaPor ? `
         agregarMapaBase(L, mapa);
         m = mapas[clave2] = { el, mapa, capas: {}, L, encuadre: null };
         mapa.setView(CENTRO_CHILE, 7);
-        mapa.on("click", (ev) => alClicMapa(clave2, ev));
+        mapa.on("click", (ev) => {
+          if (m.medir && m.medir.activo) agregarPuntoMedir(m, ev.latlng);
+          else alClicMapa(clave2, ev);
+        });
+        agregarMedir(m);
         mapa.on("mousemove", (ev) => alMoverMapa(clave2, ev));
       }
       if (m.el.parentNode !== lugar) lugar.appendChild(m.el);
       m.mapa.invalidateSize();
       return m;
+    }
+    const fmtDist = (d) => d >= 1e3 ? `${(d / 1e3).toLocaleString("es-CL", { maximumFractionDigits: 3 })} km` : `${Math.round(d).toLocaleString("es-CL")} m`;
+    const fmtSup = (a) => a >= 1e4 ? `${(a / 1e4).toLocaleString("es-CL", { maximumFractionDigits: 2 })} ha` : `${Math.round(a).toLocaleString("es-CL")} m²`;
+    function superficieLL(pts) {
+      const lat0 = pts[0].lat * Math.PI / 180, kx = 111320 * Math.cos(lat0), ky = 110540;
+      const xy = pts.map((p) => [(p.lng - pts[0].lng) * kx, (p.lat - pts[0].lat) * ky]);
+      let a = 0;
+      for (let i = 0; i < xy.length; i++) {
+        const [x1, y1] = xy[i], [x2, y2] = xy[(i + 1) % xy.length];
+        a += x1 * y2 - x2 * y1;
+      }
+      return Math.abs(a) / 2;
+    }
+    function agregarMedir(m) {
+      const { L, mapa } = m;
+      m.medir = { activo: false, pts: [] };
+      const Control = L.Control.extend({
+        options: { position: "topleft" },
+        onAdd() {
+          const caja2 = L.DomUtil.create("div", "leaflet-bar vu-medir");
+          caja2.innerHTML = `<button type="button" class="vu-medir-btn" data-m="toggle" title="Medir distancia y superficie" aria-label="Medir"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 17L17 3l4 4L7 21z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <div class="vu-medir-panel" hidden><b class="vu-medir-res">Toca puntos en el mapa</b><span><button type="button" data-m="deshacer">Deshacer</button><button type="button" data-m="borrar">Borrar</button><button type="button" data-m="toggle">Terminar</button></span></div>`;
+          L.DomEvent.disableClickPropagation(caja2);
+          L.DomEvent.disableScrollPropagation(caja2);
+          caja2.addEventListener("click", (e) => {
+            const b = e.target.closest("button[data-m]");
+            if (!b) return;
+            const acc = b.dataset.m;
+            if (acc === "toggle") {
+              m.medir.activo = !m.medir.activo;
+              if (!m.medir.activo && m.medir.pts.length < 2) m.medir.pts = [];
+            } else if (acc === "deshacer") m.medir.pts.pop();
+            else if (acc === "borrar") m.medir.pts = [];
+            pintarMedir(m);
+          });
+          m.medir.caja = caja2;
+          return caja2;
+        }
+      });
+      new Control().addTo(mapa);
+    }
+    function agregarPuntoMedir(m, ll) {
+      m.medir.pts.push(ll);
+      pintarMedir(m);
+    }
+    function pintarMedir(m) {
+      const { L, mapa } = m, md = m.medir, pts = md.pts;
+      if (md.capa) {
+        md.capa.remove();
+        md.capa = null;
+      }
+      m.el.classList.toggle("vu-midiendo", md.activo);
+      md.caja.querySelector(".vu-medir-btn").classList.toggle("activo", md.activo);
+      md.caja.querySelector(".vu-medir-panel").hidden = !md.activo && pts.length < 2;
+      let dist2 = 0;
+      for (let i = 1; i < pts.length; i++) dist2 += mapa.distance(pts[i - 1], pts[i]);
+      const sup = pts.length >= 3 ? superficieLL(pts) : 0;
+      const txt = pts.length < 2 ? md.activo ? "Toca puntos en el mapa" : "" : `${fmtDist(dist2)}${sup ? ` · cerrado ${fmtSup(sup)} (perímetro ${fmtDist(dist2 + mapa.distance(pts[pts.length - 1], pts[0]))})` : ""}`;
+      md.caja.querySelector(".vu-medir-res").textContent = txt;
+      if (!pts.length) return;
+      const capas = [];
+      if (pts.length >= 3) capas.push(L.polygon(pts, { color: "#FFD54F", weight: 0, fillOpacity: 0.15, interactive: false }));
+      if (pts.length >= 2) capas.push(L.polyline(pts, { color: "#FFD54F", weight: 3, dashArray: "6 4", interactive: false }));
+      pts.forEach((p, k) => capas.push(L.circleMarker(p, { radius: 4, color: "#1C1F23", weight: 1.5, fillColor: "#FFD54F", fillOpacity: 1, interactive: false })));
+      if (pts.length >= 2) capas.push(L.marker(pts[pts.length - 1], { interactive: false, icon: L.divIcon({ className: "vu-medir-etq", html: `<span>${fmtDist(dist2)}</span>`, iconSize: null, iconAnchor: [-8, 12] }) }));
+      md.capa = L.layerGroup(capas).addTo(mapa);
     }
     const quitar = (m, ...ns) => {
       for (const n of ns) if (m.capas[n]) {
@@ -9551,7 +9743,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     function pintarArea(m) {
       const { L, mapa } = m;
       const g = geo(), h = st.hoja;
-      quitar(m, "original", "sectores", "cortes", "eje", "sentido");
+      quitar(m, "original", "sectores", "cortes", "eje", "sentido", "propuesta");
       pintarZonas(m);
       pintarCaminos(m);
       if (!g) return;
@@ -9586,6 +9778,11 @@ ${escapar(t.nota)}${t.notaPor ? `
       if (m.capas.sectores) m.capas.sectores.eachLayer((l) => {
         if (l.options.weight === 5) l.bringToFront();
       });
+      if (st.propuesta && st.propuesta.cortes.length) {
+        const gp = geometria({ ...h, area: { ...h.area, cortes: st.propuesta.cortes, sectores: [], sel: 0 } });
+        if (gp) m.capas.propuesta = L.layerGroup(gp.sectores.map((s2, k) => L.polygon(s2.poligono.map(aLL(gp)), { color: "#FFD54F", weight: 3, dashArray: "8 6", fill: false, interactive: false }).bindTooltip(String(k + 1), { permanent: gp.sectores.length <= 20, direction: "center", className: "vu-etiqueta-prop" }))).addTo(mapa);
+        geometria(h);
+      }
       encuadrar(m, g.vuelo.map(LL), `area:${JSON.stringify(g.vuelo[0])}:${g.vuelo.length}`);
       if (st.zoomSector && varios) {
         st.zoomSector = false;
@@ -9853,7 +10050,7 @@ ${escapar(t.nota)}${t.notaPor ? `
       mensaje: null,
       filtroProyecto: ctx2.proyectoId || ""
     };
-    const base = { drones: [], proyectos: [], personas: [], hojas: [] };
+    const base = { drones: [], proyectos: [], personas: [], hojas: [], papelera: [] };
     const mapas = {};
     const avisar2 = (texto3, tipo = "ok") => {
       st.mensaje = { texto: texto3, tipo };
@@ -9869,7 +10066,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     };
     const capasActivas = () => st.capasActivas || (st.capas || []).map((c) => c.id);
     async function cargarBase() {
-      [base.drones, base.proyectos, base.personas, base.hojas] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes()]);
+      [base.drones, base.proyectos, base.personas, base.hojas, base.papelera] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes(), planesEnPapelera()]);
       base.hojas = base.hojas.map(migrarHoja);
     }
     let timerGuardar = null;
@@ -10066,20 +10263,27 @@ ${escapar(t.nota)}${t.notaPor ? `
       return true;
     }
     v.agregarFijo = agregarFijo;
+    const MANUALES = ["vertices", "manual"];
     async function elegirMetodo(h, m) {
-      const antes = (h.area.auto || {}).modo;
       h.area.auto = { ...h.area.auto || {}, modo: m };
+      st.propuesta = null;
       st.dibujo = null;
-      if (m === "vertices" || m === "manual") {
-        if (antes !== m) {
-          h.area.cortes = [];
-          h.area.sectores = [];
-          h.area.sel = 0;
-        }
+      if (MANUALES.includes(m)) {
+        if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes || [])), sel: h.area.sel || 0, aplicado: h.area.aplicado || null };
         st.dibujo = { modo: m === "vertices" ? "vertice" : "corte", puntos: [] };
-        avisar2(m === "vertices" ? "Toca un vértice del área y luego otro: el corte une ambos vértices." : "Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».");
-        cambio();
-      } else await cortarAutomatico(h);
+        avisar2(m === "vertices" ? "Toca un vértice del área y luego otro: el corte une ambos vértices. Al terminar, «Aplicar»." : "Traza el corte: toca afuera del área, sigue el camino y termina afuera. Al terminar, «Aplicar».");
+      } else descartarManual(h, false);
+      cambio();
+    }
+    function descartarManual(h, restaurar2) {
+      if (!st.respaldoCortes) return;
+      if (restaurar2) {
+        h.area.cortes = st.respaldoCortes.cortes;
+        h.area.sel = st.respaldoCortes.sel;
+        h.area.aplicado = st.respaldoCortes.aplicado;
+        h.area.sectores = [];
+      }
+      st.respaldoCortes = null;
     }
     async function cortarAutomatico(h) {
       var _a;
@@ -10122,17 +10326,37 @@ ${escapar(t.nota)}${t.notaPor ? `
         avisar2(e.message, "error");
         return;
       }
-      a.cortes = r.cortes;
-      a.sectores = [];
-      a.sel = 0;
+      const hp = { ...h, area: { ...a, cortes: r.cortes, sectores: [], sel: 0 } };
+      const g = geometria(hp);
+      const t = g ? totales(hp, dron(), g) : null;
+      st.propuesta = {
+        modo: a.auto.modo,
+        cortes: r.cortes,
+        nota: r.nota || "",
+        sectores: g ? g.sectores.length : 1,
+        fallidos: g ? g.fallidos.length : 0,
+        baterias: t ? t.baterias : null,
+        minJornada: t ? t.minJornada : null
+      };
+      geometria(h);
+      if (!r.cortes.length) avisar2(r.nota || "Con este método no hace falta cortar.");
+    }
+    function aplicarCortes2(h) {
+      const a = h.area;
+      if (st.propuesta) {
+        a.cortes = st.propuesta.cortes;
+        a.sectores = [];
+        a.sel = 0;
+        a.aplicado = { modo: st.propuesta.modo, en: (/* @__PURE__ */ new Date()).toISOString() };
+        st.propuesta = null;
+      } else if (st.respaldoCortes) {
+        a.aplicado = { modo: (a.auto || {}).modo, en: (/* @__PURE__ */ new Date()).toISOString() };
+        st.respaldoCortes = null;
+        st.dibujo = null;
+      } else return;
       cambio();
-      const g = geometria(h);
-      if (!r.cortes.length) {
-        avisar2(r.nota || "No hizo falta cortar.");
-        return;
-      }
-      const t = totales(h, dron(), g);
-      avisar2(`Listo: ${g.sectores.length} sectores${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ""}${g.fallidos.length ? ` · ${g.fallidos.length} corte${g.fallidos.length > 1 ? "s" : ""} no cruzó el área (arrástralo o quítalo)` : ""}.${r.nota ? " " + r.nota : ""}`, g.fallidos.length ? "error" : "ok");
+      const g = geometria(h), t = g ? totales(h, dron(), g) : null;
+      avisar2(`Cortes aplicados: ${g ? g.sectores.length : 1} sectores${t ? ` · ${t.baterias} baterías · ${fmtDuracion(t.minJornada)} de jornada` : ""}${g && g.fallidos.length ? ` · ${g.fallidos.length} corte${g.fallidos.length > 1 ? "s" : ""} no cruzó el área (arrástralo o quítalo)` : ""}.`, g && g.fallidos.length ? "error" : "ok");
     }
     function refrescarArea() {
       const g = geo();
@@ -10484,6 +10708,12 @@ ${escapar(t.nota)}${t.notaPor ? `
             const x = raiz.querySelector("#vu-n-txt");
             if (x) x.textContent = t.value;
           }
+          if (st.propuesta) {
+            st.propuesta = null;
+            cambio();
+            await render();
+            return;
+          }
           cambio();
           if (k === "modo" || k === "unidad" || k === "unidadSup") {
             await render();
@@ -10633,6 +10863,21 @@ ${escapar(t.nota)}${t.notaPor ? `
             history.replaceState(null, "", `#/vuelos/plan/${b.dataset.id}`);
           } catch {
           }
+        } else if (a === "restaurar-hoja") {
+          await restaurarPlan(b.dataset.id);
+          avisar2("Vuelo restaurado");
+        } else if (a === "purgar-hoja") {
+          if (!confirm(`¿Eliminar definitivamente «${b.dataset.nombre}»?
+
+Se borra con sus archivos (logs, permisos) y no se puede deshacer.`)) return;
+          await purgarPlan(b.dataset.id);
+          avisar2("Vuelo eliminado definitivamente");
+        } else if (a === "vaciar-papelera-vuelos") {
+          if (!confirm(`¿Eliminar definitivamente los ${base.papelera.length} vuelos de la papelera?
+
+No se puede deshacer.`)) return;
+          for (const p of base.papelera) await purgarPlan(p.id);
+          avisar2("Papelera vaciada");
         } else if (a === "eliminar-hoja") {
           if (!confirm("¿Eliminar esta hoja de vuelo? Queda en la papelera.")) return;
           await eliminarPlan(b.dataset.id);
@@ -10685,6 +10930,7 @@ ${escapar(t.nota)}${t.notaPor ? `
             h.area.auto = { ...h.area.auto || {}, modo: "vertices" };
             cambio();
           }
+          if ((modo === "vertice" || modo === "corte") && st.dibujo && !st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes || [])), sel: h.area.sel || 0, aplicado: h.area.aplicado || null };
           if (modo === "area" || modo === "eje") st.subArea = "origen";
           if (modo === "camino") st.subArea = "zonas";
           if (st.dibujo && modo === "corte") avisar2("Traza el corte: toca afuera del área, sigue el camino y termina afuera. Luego «Terminar».");
@@ -10779,7 +11025,16 @@ ${escapar(t.nota)}${t.notaPor ? `
             cambio();
           }
         } else if (a === "auto-cortar") await cortarAutomatico(h);
-        else if (a === "tipo-corte") {
+        else if (a === "aplicar-cortes") aplicarCortes2(h);
+        else if (a === "descartar-cortes") {
+          if (st.propuesta) st.propuesta = null;
+          else {
+            descartarManual(h, true);
+            st.dibujo = null;
+            cambio();
+          }
+          avisar2("Sin cambios en los cortes.");
+        } else if (a === "tipo-corte") {
           const manual = b.dataset.t === "manual", antes = (h.area.auto || {}).modo || metodoPropuesto(formaDe(h));
           if (manual !== ["vertices", "manual"].includes(antes)) await elegirMetodo(h, manual ? h.area.tipo === "corredor" ? "manual" : "vertices" : metodoPropuesto(formaDe(h)));
         } else if (a === "elegir-metodo") await elegirMetodo(h, b.dataset.m);
@@ -10801,9 +11056,11 @@ ${escapar(t.nota)}${t.notaPor ? `
           avisar2("Se quitaron las jornadas del calendario.");
           cambio();
         } else if (a === "deshacer-corte") {
+          if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes)), sel: h.area.sel || 0, aplicado: h.area.aplicado || null };
           h.area.cortes.pop();
           cambio();
         } else if (a === "quitar-cortes") {
+          if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes)), sel: h.area.sel || 0, aplicado: h.area.aplicado || null };
           h.area.cortes = [];
           h.area.sel = 0;
           cambio();
@@ -11020,7 +11277,45 @@ ${escapar(t.nota)}${t.notaPor ? `
   async function planesDeProyecto2(proyectoId) {
     iniciar4();
     const [planes, drones] = await Promise.all([planesDeProyecto(proyectoId), listarDrones()]);
-    return planes.map((p) => ({ id: p.id, nombre: p.nombre, dronId: p.dronId, dron: (drones.find((d) => d.id === p.dronId) || {}).nombre || p.dronId, resumen: p.resumen || {} }));
+    return planes.map((p) => {
+      const d = drones.find((x) => x.id === p.dronId);
+      return { id: p.id, nombre: p.nombre, dronId: p.dronId, dron: (d || {}).nombre || p.dronId, resumen: p.resumen || {}, ...jornadasYMapa(p, d) };
+    });
+  }
+  function jornadasYMapa(plan, d) {
+    try {
+      const h = migrarHoja(plan), g = geometria(h);
+      if (!g || !d) return { jornadas: [], mapa: "" };
+      const t = totales(h, d, g), jor = jornadasNecesarias(h, d, g, t);
+      const fechas = Array.isArray(h.programa) && h.programa.length ? h.programa.map((x) => x.fecha) : jor && h.fecha ? diasHabilesDesde(h.fecha, jor.dias.length) : [];
+      const n = g.sectores.length, diaDe = {};
+      const jornadas = jor ? jor.dias.map((di, k) => {
+        di.sectores.forEach((i) => {
+          diaDe[i] = k;
+        });
+        const a = di.sectores[0], b = di.sectores[di.sectores.length - 1];
+        return {
+          dia: k + 1,
+          fecha: fechas[k] || null,
+          baterias: di.baterias,
+          min: di.min,
+          excede: di.excede,
+          sectores: n > 1 ? a === b ? nombreSector(h, a, n) : `${nombreSector(h, a, n)} – ${nombreSector(h, b, n)}` : "Área completa"
+        };
+      }) : [];
+      const todos2 = g.sectores.flatMap((s) => s.poligono), aLL = g.marco.aLonLat, W = 480, H = 200;
+      const f = fondoEstatico(todos2.map(aLL), W, H, { margen: 14 });
+      const color = (k) => COLORES_DIA[k % COLORES_DIA.length];
+      const polis = g.sectores.map((s, i) => {
+        var _a, _b;
+        const paso = Math.max(1, Math.ceil(s.poligono.length / 300));
+        return `<polygon points="${s.poligono.filter((_, j) => j % paso === 0).map((p) => f.xy(aLL(p)).map((x) => x.toFixed(1)).join(",")).join(" ")}" fill="${color((_a = diaDe[i]) != null ? _a : 0)}" fill-opacity=".35" stroke="${color((_b = diaDe[i]) != null ? _b : 0)}" stroke-width="2.5"/>`;
+      }).join("");
+      const mapa = `<div class="vu-mapa-fijo" style="aspect-ratio: ${W} / ${H}"><div class="vu-mapa-fijo-teselas" aria-hidden="true">${f.html}</div><svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del vuelo sobre imagen satelital">${polis}</svg><small class="vu-mapa-fijo-atr">Imagen © Esri, Maxar</small></div>`;
+      return { jornadas, mapa, coloresDia: jornadas.map((_, k) => color(k)) };
+    } catch {
+      return { jornadas: [], mapa: "" };
+    }
   }
   async function listarVuelos() {
     iniciar4();
@@ -11168,8 +11463,8 @@ ${escapar(t.nota)}${t.notaPor ? `
   }
 
   // modulos/monografias/croquis.js
-  var ESRI = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
-  var CAPAS = [ESRI("World_Imagery"), ESRI("Reference/World_Transportation"), ESRI("Reference/World_Boundaries_and_Places")];
+  var ESRI2 = (s) => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
+  var CAPAS = [ESRI2("World_Imagery"), ESRI2("Reference/World_Transportation"), ESRI2("Reference/World_Boundaries_and_Places")];
   var SIMBOLOS = [["circulo-cruz", "Círculo con cruz"], ["triangulo", "Triángulo"], ["cuadrado", "Cuadrado"], ["circulo", "Círculo lleno"], ["estrella", "Estrella"]];
   var FUENTES = [["Arial", "Arial"], ["IBM Plex Sans", "IBM Plex Sans"], ["Georgia", "Georgia (serif)"], ["Courier New", "Courier (monoespaciada)"]];
   function dibujarSimbolo(c, tipo, x, y, r, color) {
@@ -12820,7 +13115,7 @@ ${escapar(t.nota)}${t.notaPor ? `
     const f = aFecha3(iso);
     const w = (f.getDay() + 6) % 7;
     f.setDate(f.getDate() - w);
-    return aISO2(f);
+    return aISO(f);
   };
   async function eventosEntre(desde, hasta) {
     const [proyectos2, hojas, equipos] = await Promise.all([listarProyectos(), listarPlanes().catch(() => []), listarEquiposConEstado().catch(() => [])]);
@@ -12864,9 +13159,9 @@ ${escapar(t.nota)}${t.notaPor ? `
     const f = aFecha3(ref);
     let desde, hasta, titulo;
     if (modo === "mes") {
-      desde = lunesDe(aISO2(new Date(f.getFullYear(), f.getMonth(), 1, 12)));
+      desde = lunesDe(aISO(new Date(f.getFullYear(), f.getMonth(), 1, 12)));
       hasta = sumarDias(desde, 41);
-      titulo = `${MESES2[f.getMonth()]} ${f.getFullYear()}`;
+      titulo = `${MESES[f.getMonth()]} ${f.getFullYear()}`;
     } else {
       desde = lunesDe(ref);
       hasta = sumarDias(desde, 6);
@@ -12914,8 +13209,8 @@ ${escapar(t.nota)}${t.notaPor ? `
   };
   function mover(estado3, d) {
     const f = aFecha3(estado3.ref || hoyISO());
-    if ((estado3.modo || "mes") === "mes") return aISO2(new Date(f.getFullYear(), f.getMonth() + d, 1, 12));
-    return sumarDias(aISO2(f), 7 * d);
+    if ((estado3.modo || "mes") === "mes") return aISO(new Date(f.getFullYear(), f.getMonth() + d, 1, 12));
+    return sumarDias(aISO(f), 7 * d);
   }
 
   // app/catalogo.js
@@ -13009,7 +13304,7 @@ ${escapar(t.nota)}${t.notaPor ? `
   var etapaProyecto = (p) => p.estado === "cerrado" ? "completado" : NOMBRE_ETAPA_PROYECTO[p.etapa] && p.etapa !== "completado" ? p.etapa : "terreno";
 
   // app/version.js
-  var VERSION_SISTEMA = "0.11.2";
+  var VERSION_SISTEMA = "0.11.3";
   var MODULOS_INCLUIDOS = "Equipos 0.2 (+ avisos) + Vuelos 0.9 + Seguimiento 0.2 + Monografías 0.3 (desde Terreno)";
 
   // app/vistas.js
@@ -13249,8 +13544,14 @@ ${escapar(t.nota)}${t.notaPor ? `
     ${eliminados.length ? `<details class="sis-papelera"><summary>Papelera de proyectos (${eliminados.length})</summary>
       <section class="sis-tarjeta"><div class="sis-lista">${eliminados.map((p) => `<div class="sis-fila">
         <span class="sis-fila-txt"><b>${escapar(p.nombre)}</b><span class="sis-tenue">Eliminado ${fechaHoraLegible(p.eliminadoEn)}</span></span>
-        <button class="sis-btn chico" data-accion="restaurar-proyecto" data-id="${escapar(p.id)}">Restaurar</button></div>`).join("")}</div></section></details>` : ""}`;
+        <button class="sis-btn chico" data-accion="restaurar-proyecto" data-id="${escapar(p.id)}">Restaurar</button>
+        <button class="sis-btn chico peligro" data-accion="purgar-proyecto" data-id="${escapar(p.id)}" data-nombre="${escapar(p.nombre)}">Eliminar definitivamente</button></div>`).join("")}</div>
+        ${eliminados.length > 1 ? `<button class="sis-btn chico peligro" data-accion="vaciar-papelera-proyectos">Vaciar la papelera (${eliminados.length})</button>` : ""}</section></details>` : ""}`;
   }
+  var duracion = (m) => {
+    const t = Math.round(m);
+    return t >= 60 ? `${Math.floor(t / 60)} h${t % 60 ? ` ${t % 60} min` : ""}` : `${t} min`;
+  };
   async function datosRegistro() {
     const [lista, vuelos, monos] = await Promise.all([listarProyectos(), listarVuelos().catch(() => []), Promise.resolve(null)]);
     const cerrados = lista.filter((p) => p.id !== OFICINA_ID && p.estado === "cerrado");
@@ -13347,9 +13648,13 @@ ${escapar(t.nota)}${t.notaPor ? `
     })() : ""}
       <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Vuelos</h2>${ctx2.rol === "terreno" ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${escapar(id)}">Planificación</a>` : ""}</div>
-        ${planes.length ? `<div class="sis-lista">${planes.map((v) => `<a class="sis-fila" href="#/vuelos/plan/${escapar(v.id)}">
+        ${planes.length ? `<div class="sis-vuelos-proy">${planes.map((v) => `<article class="sis-vuelo-proy">
+            <a class="sis-fila" href="#/vuelos/plan/${escapar(v.id)}">
             <span class="sis-fila-txt"><b>${escapar(v.nombre)}</b><span class="sis-tenue">${escapar(v.dron)}</span></span>
-            <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 1e4).toLocaleString("es-CL", { maximumFractionDigits: 1 })} ha</span>` : ""}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString("es-CL", { maximumFractionDigits: 2 })} cm</span>` : ""}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ""}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} vuelo${v.resumen.vuelos > 1 ? "s" : ""}</span>` : ""}</span></a>`).join("")}</div>` : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
+            <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 1e4).toLocaleString("es-CL", { maximumFractionDigits: 1 })} ha</span>` : ""}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString("es-CL", { maximumFractionDigits: 2 })} cm</span>` : ""}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ""}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} batería${v.resumen.vuelos > 1 ? "s" : ""}</span>` : ""}</span></a>
+            ${v.mapa || v.jornadas.length ? `<div class="sis-vuelo-proy-det">${v.mapa || ""}
+              ${v.jornadas.length ? `<ol class="sis-jornadas">${v.jornadas.map((j, k) => `<li><i style="background: ${v.coloresDia[k]}"></i><span><b>Día ${j.dia}</b>${j.fecha ? ` <small>${escapar(diaCorto(j.fecha))}</small>` : ""} · ${j.baterias} batería${j.baterias === 1 ? "" : "s"} · ${duracion(j.min)}<small>${escapar(j.sectores)}${j.excede ? " · no cabe en el horario" : ""}</small></span></li>`).join("")}</ol>` : ""}</div>` : ""}
+          </article>`).join("")}</div>` : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
       </section>
       <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Entregas</h2>${seg ? `<a class="sis-btn chico" href="#/seguimiento/${escapar(id)}">Abrir</a>` : ctx2.rol === "terreno" && !esOficina ? `<a class="sis-btn chico" href="#/seguimiento/${escapar(id)}">+ Seguimiento</a>` : ""}</div>
@@ -13725,6 +14030,22 @@ Va a la papelera y se puede restaurar desde Proyectos.`)) return false;
         ctx2.avisar("Proyecto eliminado");
         ctx2.ir("#/proyectos");
         return false;
+      }
+      case "purgar-proyecto":
+        if (!confirm(`¿Eliminar definitivamente «${boton.dataset.nombre}»?
+
+Se borra con sus archivos y no se puede deshacer.`)) return false;
+        await eliminarDefinitivo("compartido_proyectos", boton.dataset.id, { personaId: ctx2.personaId });
+        ctx2.avisar("Proyecto eliminado definitivamente");
+        return true;
+      case "vaciar-papelera-proyectos": {
+        const lista = await enPapelera("compartido_proyectos");
+        if (!confirm(`¿Eliminar definitivamente los ${lista.length} proyectos de la papelera?
+
+No se puede deshacer.`)) return false;
+        for (const x of lista) await eliminarDefinitivo("compartido_proyectos", x.registro.id, { personaId: ctx2.personaId });
+        ctx2.avisar("Papelera vaciada");
+        return true;
       }
       case "restaurar-proyecto":
         await restaurar("compartido_proyectos", boton.dataset.id, { personaId: ctx2.personaId });

@@ -37,13 +37,69 @@ export function crearMapas(v) {
       agregarMapaBase(L, mapa);
       m = mapas[clave] = { el, mapa, capas: {}, L, encuadre: null };
       mapa.setView(CENTRO_CHILE, 7);
-      mapa.on('click', ev => alClicMapa(clave, ev));
+      mapa.on('click', ev => { if (m.medir && m.medir.activo) agregarPuntoMedir(m, ev.latlng); else alClicMapa(clave, ev); });
+      agregarMedir(m);
       mapa.on('mousemove', ev => alMoverMapa(clave, ev));
     }
     if (m.el.parentNode !== lugar) lugar.appendChild(m.el);
     m.mapa.invalidateSize();
     return m;
   }
+
+  // ─────────── Medir en el mapa (v0.11.3): distancia acumulada y, con 3 puntos o más, superficie ───────────
+  const fmtDist = d => (d >= 1000 ? `${(d / 1000).toLocaleString('es-CL', { maximumFractionDigits: 3 })} km` : `${Math.round(d).toLocaleString('es-CL')} m`);
+  const fmtSup = a => (a >= 10000 ? `${(a / 10000).toLocaleString('es-CL', { maximumFractionDigits: 2 })} ha` : `${Math.round(a).toLocaleString('es-CL')} m²`);
+  function superficieLL(pts) {
+    // Proyección local equirectangular (error < 0,5 % en áreas de pocos km).
+    const lat0 = pts[0].lat * Math.PI / 180, kx = 111320 * Math.cos(lat0), ky = 110540;
+    const xy = pts.map(p => [(p.lng - pts[0].lng) * kx, (p.lat - pts[0].lat) * ky]);
+    let a = 0; for (let i = 0; i < xy.length; i++) { const [x1, y1] = xy[i], [x2, y2] = xy[(i + 1) % xy.length]; a += x1 * y2 - x2 * y1; }
+    return Math.abs(a) / 2;
+  }
+  function agregarMedir(m) {
+    const { L, mapa } = m;
+    m.medir = { activo: false, pts: [] };
+    const Control = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd() {
+        const caja = L.DomUtil.create('div', 'leaflet-bar vu-medir');
+        caja.innerHTML = `<button type="button" class="vu-medir-btn" data-m="toggle" title="Medir distancia y superficie" aria-label="Medir"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 17L17 3l4 4L7 21z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <div class="vu-medir-panel" hidden><b class="vu-medir-res">Toca puntos en el mapa</b><span><button type="button" data-m="deshacer">Deshacer</button><button type="button" data-m="borrar">Borrar</button><button type="button" data-m="toggle">Terminar</button></span></div>`;
+        L.DomEvent.disableClickPropagation(caja); L.DomEvent.disableScrollPropagation(caja);
+        caja.addEventListener('click', e => {
+          const b = e.target.closest('button[data-m]'); if (!b) return;
+          const acc = b.dataset.m;
+          if (acc === 'toggle') { m.medir.activo = !m.medir.activo; if (!m.medir.activo && m.medir.pts.length < 2) m.medir.pts = []; }
+          else if (acc === 'deshacer') m.medir.pts.pop();
+          else if (acc === 'borrar') m.medir.pts = [];
+          pintarMedir(m);
+        });
+        m.medir.caja = caja;
+        return caja;
+      },
+    });
+    new Control().addTo(mapa);
+  }
+  function agregarPuntoMedir(m, ll) { m.medir.pts.push(ll); pintarMedir(m); }
+  function pintarMedir(m) {
+    const { L, mapa } = m, md = m.medir, pts = md.pts;
+    if (md.capa) { md.capa.remove(); md.capa = null; }
+    m.el.classList.toggle('vu-midiendo', md.activo);
+    md.caja.querySelector('.vu-medir-btn').classList.toggle('activo', md.activo);
+    md.caja.querySelector('.vu-medir-panel').hidden = !md.activo && pts.length < 2;
+    let dist = 0; for (let i = 1; i < pts.length; i++) dist += mapa.distance(pts[i - 1], pts[i]);
+    const sup = pts.length >= 3 ? superficieLL(pts) : 0;
+    const txt = pts.length < 2 ? (md.activo ? 'Toca puntos en el mapa' : '') : `${fmtDist(dist)}${sup ? ` · cerrado ${fmtSup(sup)} (perímetro ${fmtDist(dist + mapa.distance(pts[pts.length - 1], pts[0]))})` : ''}`;
+    md.caja.querySelector('.vu-medir-res').textContent = txt;
+    if (!pts.length) return;
+    const capas = [];
+    if (pts.length >= 3) capas.push(L.polygon(pts, { color: '#FFD54F', weight: 0, fillOpacity: 0.15, interactive: false }));
+    if (pts.length >= 2) capas.push(L.polyline(pts, { color: '#FFD54F', weight: 3, dashArray: '6 4', interactive: false }));
+    pts.forEach((p, k) => capas.push(L.circleMarker(p, { radius: 4, color: '#1C1F23', weight: 1.5, fillColor: '#FFD54F', fillOpacity: 1, interactive: false })));
+    if (pts.length >= 2) capas.push(L.marker(pts[pts.length - 1], { interactive: false, icon: L.divIcon({ className: 'vu-medir-etq', html: `<span>${fmtDist(dist)}</span>`, iconSize: null, iconAnchor: [-8, 12] }) }));
+    md.capa = L.layerGroup(capas).addTo(mapa);
+  }
+
   const quitar = (m, ...ns) => { for (const n of ns) if (m.capas[n]) { m.capas[n].remove(); delete m.capas[n]; } };
   const aLL = g => p => g.marco.aLatLng(p);
 
@@ -138,7 +194,7 @@ export function crearMapas(v) {
   function pintarArea(m) {
     const { L, mapa } = m;
     const g = geo(), h = st.hoja;
-    quitar(m, 'original', 'sectores', 'cortes', 'eje', 'sentido');
+    quitar(m, 'original', 'sectores', 'cortes', 'eje', 'sentido', 'propuesta');
     pintarZonas(m);
     pintarCaminos(m);
     if (!g) return;
@@ -167,6 +223,13 @@ export function crearMapas(v) {
     m.capas.cortes = L.layerGroup(capas).addTo(mapa);
     pintarSentido(m);
     if (m.capas.sectores) m.capas.sectores.eachLayer(l => { if (l.options.weight === 5) l.bringToFront(); });
+    // v0.11.3: propuesta por aplicar, punteada y sin relleno sobre los sectores actuales.
+    if (st.propuesta && st.propuesta.cortes.length) {
+      const gp = geometria({ ...h, area: { ...h.area, cortes: st.propuesta.cortes, sectores: [], sel: 0 } });
+      if (gp) m.capas.propuesta = L.layerGroup(gp.sectores.map((s2, k) => L.polygon(s2.poligono.map(aLL(gp)), { color: '#FFD54F', weight: 3, dashArray: '8 6', fill: false, interactive: false })
+        .bindTooltip(String(k + 1), { permanent: gp.sectores.length <= 20, direction: 'center', className: 'vu-etiqueta-prop' }))).addTo(mapa);
+      geometria(h);
+    }
     encuadrar(m, g.vuelo.map(LL), `area:${JSON.stringify(g.vuelo[0])}:${g.vuelo.length}`);
     if (st.zoomSector && varios) { st.zoomSector = false; const b = L.latLngBounds(g.sectores[sel].poligono.map(LL)); if (b.isValid()) mapa.fitBounds(b, { padding: [60, 60], maxZoom: 16 }); }
   }

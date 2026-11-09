@@ -110,6 +110,18 @@ export function crearPasoArea(v) {
     return v0 ? `Vista previa: <b>${v0.sectores} sector${v0.sectores === 1 ? '' : 'es'}</b> · ~${fmt(v0.haPorSector, 1)} ha cada uno` : '';
   }
 
+  /** v0.11.3: estado de los cortes (aplicados, propuesta por aplicar o edición manual) con Aplicar / Descartar. */
+  function htmlPropuesta(modo) {
+    const a = st.hoja.area, g = geometria(st.hoja), n = g ? g.sectores.length : 1;
+    const aplicados = `<span class="vu-aplicados">Aplicado: <b>${n} sector${n === 1 ? '' : 'es'}</b>${a.aplicado && METODOS[a.aplicado.modo] ? ` · ${esc(METODOS[a.aplicado.modo].texto)}` : ''}</span>`;
+    const p = st.propuesta;
+    if (p) return `<div class="vu-propuesta"><span><b>Propuesta: ${p.sectores} sector${p.sectores === 1 ? '' : 'es'}</b>${p.baterias != null ? ` · ${p.baterias} baterías · ${fmtDuracion(p.minJornada)} de jornada` : ''}${p.fallidos ? ` · <span class="vu-rojo">${p.fallidos} corte${p.fallidos > 1 ? 's' : ''} no cruza${p.fallidos > 1 ? 'n' : ''}</span>` : ''}${p.nota ? `<small>${esc(p.nota)}</small>` : ''}<small>Se ve punteada en el mapa. ${aplicados}</small></span>
+        <span class="vu-propuesta-acc"><button class="sis-btn primario" data-accion="aplicar-cortes">Aplicar</button><button class="sis-btn chico" data-accion="descartar-cortes">Descartar</button></span></div>`;
+    if (st.respaldoCortes && MANUALES.includes(modo)) return `<div class="vu-propuesta"><span><b>Editando cortes a mano</b><small>Los cambios se ven en el mapa. «Descartar cambios» vuelve a como estaban.</small></span>
+        <span class="vu-propuesta-acc"><button class="sis-btn primario" data-accion="aplicar-cortes">Aplicar</button><button class="sis-btn chico" data-accion="descartar-cortes">Descartar cambios</button></span></div>`;
+    return `<p class="sis-tenue">${aplicados}</p>`;
+  }
+
   function htmlCortes(g) {
     const a = st.hoja.area, au = a.auto || {}, f = g ? formaDe(st.hoja) : null;
     const propuesto = metodoPropuesto(f);
@@ -149,13 +161,14 @@ export function crearPasoArea(v) {
       <div class="vu-fila-campos">${(campos[modo] || (() => ''))()}</div>
       <p class="sis-tenue">${esc(METODOS[modo] ? METODOS[modo].ayuda : '')}</p>
       <p class="vu-vista-previa" id="vu-vista-previa">${htmlVistaPrevia()}</p>
+      ${htmlPropuesta(modo)}
       <div class="sis-acciones">${modo === 'manual'
         ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === 'corte' ? ' primario' : ''}" data-accion="dibujar" data-modo="corte">✎ Trazar corte</button>`
         : modo === 'vertices'
           ? `<button class="sis-btn chico${st.dibujo && st.dibujo.modo === 'vertice' ? ' primario' : ''}" data-accion="dibujar" data-modo="vertice">◎ ${st.dibujo && st.dibujo.modo === 'vertice' ? 'Tocando vértices en el mapa' : 'Tocar vértices'}</button>`
-          : '<button class="sis-btn chico primario" data-accion="auto-cortar">Generar cortes</button>'}
-        ${a.cortes.length ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ''}</div>
-      <p class="sis-tenue">Los cortes generados quedan como los manuales: sus vértices blancos se arrastran en el mapa.</p>
+          : `<button class="sis-btn ${st.propuesta ? 'chico' : 'primario'}" data-accion="auto-cortar">✂ Cortar${st.propuesta ? ' de nuevo' : ''}</button>`}
+        ${a.cortes.length && MANUALES.includes(modo) ? '<button class="sis-btn chico" data-accion="deshacer-corte">Deshacer último corte</button><button class="sis-btn chico" data-accion="quitar-cortes">Quitar todos</button>' : ''}</div>
+      <p class="sis-tenue">«Cortar» muestra la propuesta punteada en el mapa sin tocar los sectores actuales; «Aplicar» la deja en la hoja. Los vértices blancos de los cortes aplicados se arrastran en el mapa.</p>
     </section>`;
   }
 

@@ -2,10 +2,10 @@
 
 import { registrarAlmacenes, obtener, todos, porIndice, guardar, borrarDefinitivo } from '../../compartido/almacen.js';
 import { sellar } from '../../compartido/util.js';
-import { enviarAPapelera } from '../../compartido/papelera.js';
+import { enviarAPapelera, enPapelera, restaurar, eliminarDefinitivo } from '../../compartido/papelera.js';
 import { DRONES_BASE } from './drones.js';
 
-export const VERSION_MODULO = '0.9.2';
+export const VERSION_MODULO = '0.9.3';
 export const SCHEMA_VERSION = 2; // 2: hoja de vuelo (área, clima, permisos)
 export const ALM = { planes: 'vuelos_planes', drones: 'vuelos_drones' };
 // Las capas de zonas pueden pesar varios MB: quedan solo en este equipo (sin prefijo vuelos_, la nube no las sube).
@@ -46,6 +46,10 @@ export async function planesDeProyecto(proyectoId) { return (await porIndice(ALM
 export async function obtenerPlan(id) { const p = await obtener(ALM.planes, id); return p && vivo(p) ? p : null; }
 export async function guardarPlan(plan) { return guardar(ALM.planes, sello({ ...plan })); }
 export async function eliminarPlan(id) { return enviarAPapelera(ALM.planes, id, { personaId: persona }); }
+// v0.11.3: papelera de vuelos (restaurar o eliminar definitivamente).
+export async function planesEnPapelera() { return (await enPapelera(ALM.planes)).map(x => x.registro); }
+export async function restaurarPlan(id) { return restaurar(ALM.planes, id, { personaId: persona }); }
+export async function purgarPlan(id) { return eliminarDefinitivo(ALM.planes, id, { personaId: persona }); }
 
 // ─────────── Capas de zonas cargadas por el usuario ───────────
 export async function listarCapasUsuario() { return (await todos(ALM_CAPAS)).filter(vivo); }

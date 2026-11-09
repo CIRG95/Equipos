@@ -1,4 +1,10 @@
-# INTEGRACION.md — Sistema v0.13
+# INTEGRACION.md — Sistema v0.14
+
+## v0.14 · Paquete de conexión 1.4 (Gastos desde Terreno)
+- `app/conexion-terreno.js`: sección «Gastos (v1.4)» que reutiliza `modulos/gastos/datos.js` y `modelo.js` (sin pantallas): `CATEGORIAS_GASTO`, `proyectosGastos`, `misGastos`, `gastosDevueltos`, `guardarGasto`, `eliminarGasto`, `restaurarGasto`, `boleta`. Ver `paquete-conexion/LEEME.md`.
+- Reglas: la persona vinculada firma; solo gastos propios y editables (`gastoEditable`); foto obligatoria; mismo aviso de duplicado; carpeta de la boleta `Gastos/<proyecto>/<persona>`.
+- Paquete copiado a `terreno/js/topoland-conexion.js`; Terreno 0.5.9 (caché `terreno-topo-v46-0.5.9`) suma la pestaña Gastos.
+- El Sistema no cambia en lo que hace; las 90 pruebas pasan.
 
 ## v0.13 · Gastos 0.1
 - Módulo nuevo `modulos/gastos/`: `gastos.js` (puerta: `iniciar`, `montar`, `resumenDeProyecto`, `avisos`), `datos.js` (almacenes y operaciones), `modelo.js` (reglas puras: montos, estados, libro de la cuenta, avisos; pruebas en `pruebas/gastos.test.mjs`), `pantallas.js`, `exportar.js` (Excel con SheetJS y PDF con jsPDF, ambos de `vendor/`), `gastos.css`.

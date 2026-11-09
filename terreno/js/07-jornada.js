@@ -135,6 +135,7 @@ function renderJornada() {
       <button class="btn btn-danger" id="btnTerminarJornada" type="button">Terminar jornada</button>
     </div>
     ${jornadaEsDron(j) ? '<div id="pronosticoJornada"></div>' : ""}
+    ${typeof gastosTarjetaJornadaHtml === "function" ? gastosTarjetaJornadaHtml(j) : ""}
     <div class="card">
       <h2>Objetivos del día</h2>
       ${j.objetivos.length ? j.objetivos.map((bloque) => `
@@ -154,6 +155,7 @@ function renderJornada() {
       ${!state.plantillas.length ? `<p class="muted">No tienes plantillas creadas — usa el ícono 📋 del header.</p>` : ""}
     </div>
   `;
+  if (typeof gastosEnlazarJornada === "function") gastosEnlazarJornada(j);
   el.querySelectorAll("[data-ir]").forEach((b) => b.addEventListener("click", () => {
     const [tab, instr, tipo] = b.dataset.ir.split("|");
     if (instr) state.preseleccionLev = { instrumento: instr, tipo: tipo };

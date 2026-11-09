@@ -1,4 +1,7 @@
-# Topoland · Sistema de trabajo — v0.13 (Gastos 0.1)
+# Topoland · Sistema de trabajo — v0.14 (paquete de conexión 1.4)
+
+**Sistema v0.14 = v0.13 + paquete de conexión 1.4.** La app de Terreno (0.5.9) ya registra gastos: foto de la boleta, monto y categoría en el momento. Esos gastos llegan al borrador de la misma cuenta persona × proyecto que se ve aquí en **Gastos**, y la rendición se sigue enviando desde el Sistema. El Sistema no cambia en lo que hace.
+
 
 **Sistema v0.13 = v0.12 + Gastos 0.1.** El paquete de conexión cambia solo en el esquema (tres almacenes nuevos de Gastos) y ya va copiado en `terreno/js/` con el caché de Terreno subido (`terreno-topo-v45`): Terreno no cambia en lo que hace.
 

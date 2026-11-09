@@ -112,18 +112,21 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.8.1: cuando el teléfono ya está vinculado y con carpeta, Ajustes → Sistema muestra una vista corta («Conectado con el Sistema», persona, carpeta, última sincronización y un botón). Los 4 pasos solo aparecen mientras falte algo. El nombre de la empresa ya no viene de ejemplo: lo escribes tú en ⚙ → Marca. La sesión de Google dura 1 hora: si venció, el botón dice «Renovar sesión de Google» en vez de mostrar todo como desconectado."
+    "Versión 0.5.9: pestaña «Gastos». Registra el gasto en el momento: foto de la boleta (o del comprobante del correo), monto y categoría. Queda en el borrador de tu cuenta del proyecto, el mismo que ves en el Sistema; la rendición se envía a RRHH desde el Sistema al cerrar el proyecto.",
+    "En la jornada en curso aparece la tarjeta «Gastos del proyecto» con el total sin rendir y el botón «Nuevo gasto».",
+    "Muestra fondo recibido, gastado y saldo si RRHH depositó fondo; aviso de posible gasto repetido (misma fecha y monto); rendiciones devueltas con el motivo y los gastos observados para corregirlos."
   ],
   probar: [
-    "Ajustes → Sistema: con el teléfono vinculado debe verse solo «Conectado con el Sistema» y un botón."
+    "Sin señal (modo avión): registrar un gasto con foto, cerrar y abrir la app, y ver que sigue ahí; al volver la señal debe subir solo («☁ Al día»).",
+    "Cámara desde «Tomar foto» y comprobante PDF o captura desde «Galería o PDF».",
+    "El gasto registrado en Terreno debe verse en el Sistema → Gastos del mismo proyecto."
   ],
   conocidos: [
+    "Gastos necesita el teléfono vinculado con el Sistema (⚙ → Sistema). La foto de la boleta es obligatoria en Terreno.",
+    "Enviar la rendición, depósitos y pagos se hacen en el Sistema.",
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",
-    "Aún no: avisos de equipos y tramos volados.",
     "Hay dos conexiones de Google distintas: la de Terreno (⚙ Nube, por jornada) y la del Sistema (⚙ Sistema). Se unificarán con la nube común.",
-    "Consultar necesita internet (Open-Meteo, NOAA). Open-Meteo es gratis solo para uso no comercial: ver plan pagado antes de usarlo en la empresa.",
-    "Sin ubicación en la jornada la tarjeta pide capturarla (GPS o mapa).",
-    "Siguen: registro de puntos más rápido, estado siempre visible y navegación y mapa.",
+    "Consultar el pronóstico necesita internet (Open-Meteo, NOAA). Open-Meteo es gratis solo para uso no comercial.",
     "El Excel sigue sin tocar. CNR y SERVIU siguen sin valores propios."
   ]
 };

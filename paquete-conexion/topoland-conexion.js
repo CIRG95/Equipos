@@ -21,24 +21,32 @@ var TopolandConexion = (() => {
   // app/conexion-terreno.js
   var conexion_terreno_exports = {};
   __export(conexion_terreno_exports, {
+    CATEGORIAS_GASTO: () => CATEGORIAS_GASTO,
     VERSION: () => VERSION,
     alCambiarNube: () => alCambiarNube,
     alLlegarDatos: () => alLlegarDatos,
     alVincular: () => alVincular,
+    boleta: () => boleta,
     codigoQR: () => codigoQR,
     conectarNube: () => conectarNube,
     desvincular: () => desvincular,
+    eliminarGasto: () => eliminarGasto,
     estadoMonografias: () => estadoMonografias2,
     estadoNube: () => estadoNube,
     explicarVinculo: () => explicarVinculo,
+    gastosDevueltos: () => gastosDevueltos,
+    guardarGasto: () => guardarGasto2,
     iniciar: () => iniciar4,
     marcarTramoVolado: () => marcarTramoVolado2,
     misEquiposEnTerreno: () => misEquiposEnTerreno,
+    misGastos: () => misGastos,
     misProyectos: () => misProyectos,
-    persona: () => persona3,
+    persona: () => persona4,
+    proyectosGastos: () => proyectosGastos,
     publicarJornada: () => publicarJornada2,
     publicarMonografia: () => publicarMonografia2,
     reportar: () => reportar,
+    restaurarGasto: () => restaurarGasto2,
     sincronizar: () => sincronizar2,
     subirFoto: () => subirFoto,
     tramosDeProyecto: () => tramosDeProyecto2,
@@ -771,6 +779,11 @@ Content-Type: ${mime}\r
       }
     }
   }
+  async function descargarArchivo(registro) {
+    if (!registro || !registro.nube || !registro.nube.id) return null;
+    if (!adaptador || !adaptador.tokenVigente()) return null;
+    return adaptador.descargar(registro.nube.id);
+  }
 
   // compartido/catalogos.js
   var OFICINA_ID = "oficina";
@@ -803,6 +816,24 @@ Content-Type: ${mime}\r
   async function listarPersonas() {
     if (proveedor) return (await proveedor.listarPersonas()).sort(porNombre);
     return (await todos(ALM_PERSONAS)).filter(activo).sort(porNombre);
+  }
+
+  // compartido/papelera.js
+  async function enviarAPapelera(almacen, id, { personaId = null, schemaVersion = 1 } = {}) {
+    const r = await obtener(almacen, id);
+    if (!r) return null;
+    r.eliminadoEn = ahoraISO();
+    r.eliminadoPor = personaId;
+    sellar(r, { personaId, schemaVersion: r.schemaVersion || schemaVersion });
+    return guardar(almacen, r);
+  }
+  async function restaurar(almacen, id, { personaId = null } = {}) {
+    const r = await obtener(almacen, id);
+    if (!r) return null;
+    delete r.eliminadoEn;
+    delete r.eliminadoPor;
+    sellar(r, { personaId, schemaVersion: r.schemaVersion || 1 });
+    return guardar(almacen, r);
   }
 
   // compartido/archivos.js
@@ -859,6 +890,12 @@ Content-Type: ${mime}\r
     }, { personaId });
     return guardar(ALM, reg);
   }
+  async function infoArchivo(id) {
+    const a = id ? await obtener(ALM, id) : null;
+    if (!a || a.eliminadoEn) return null;
+    const { datos, ...resto } = a;
+    return resto;
+  }
   async function guardarArchivoDatos(dataURL, nombre, meta, ctx) {
     const blob = aBlob(dataURL);
     const archivo = new File([blob], nombre || `${meta.rol || "foto"}.${(blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg")}`, { type: blob.type });
@@ -875,6 +912,25 @@ Content-Type: ${mime}\r
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return new Blob([bytes], { type: mime });
+  }
+  var urlsCreadas = /* @__PURE__ */ new Map();
+  async function urlArchivo(id) {
+    if (urlsCreadas.has(id)) return urlsCreadas.get(id);
+    const a = id ? await obtener(ALM, id) : null;
+    if (!a || a.eliminadoEn) return null;
+    if (!a.datos) {
+      const blob = await descargarArchivo(a).catch(() => null);
+      if (!blob) return null;
+      a.datos = await leerComoDataURL(blob);
+      await guardar(ALM, a, { silencioso: true });
+    }
+    const url = URL.createObjectURL(aBlob(a.datos));
+    urlsCreadas.set(id, url);
+    return url;
+  }
+  async function archivoAPapelera(id, { personaId = null } = {}) {
+    urlsCreadas.delete(id);
+    return enviarAPapelera(ALM, id, { personaId });
   }
 
   // modulos/equipos/modelo.js
@@ -1265,35 +1321,35 @@ Content-Type: ${mime}\r
   }
   var esDataURL = (v) => typeof v === "string" && v.startsWith("data:");
   var fechaCarpeta = (iso) => String(iso || (/* @__PURE__ */ new Date()).toISOString()).slice(0, 10);
-  async function guardarFoto(dataURL, { proyectoId, duenoTipo = "terreno_foto", duenoId = null, detalle = {}, personaId = persona2, nombreProyecto = "" } = {}) {
+  async function guardarFoto(dataURL, { proyectoId, duenoTipo = "terreno_foto", duenoId = null, detalle = {}, personaId = persona2, nombreProyecto: nombreProyecto2 = "" } = {}) {
     if (!esDataURL(dataURL)) throw new Error("La foto debe venir como dataURL.");
     const h = await huella(dataURL);
     const previa = (await archivosDeProyecto(proyectoId, "terreno")).find((a) => a.detalle && a.detalle.huella === h);
     if (previa) return previa.id;
     const tipo = detalle.tipo || "otra";
-    const carpeta = `Proyectos/${nombreProyecto || proyectoId}/Terreno/${fechaCarpeta(detalle.hora)}`;
+    const carpeta = `Proyectos/${nombreProyecto2 || proyectoId}/Terreno/${fechaCarpeta(detalle.hora)}`;
     const nombre = `${tipo}${detalle.punto ? "_" + detalle.punto : ""}_${String(detalle.hora || "").replace(/[^0-9]/g, "").slice(0, 14) || Date.now()}.jpg`;
     const reg = await guardarArchivoDatos(dataURL, nombre, { modulo: "terreno", duenoTipo, duenoId: duenoId || proyectoId, rol: "foto", proyectoId, carpeta, detalle: { ...detalle, tipo, huella: h } }, { personaId });
     return reg.id;
   }
-  async function guardarImagenesDe(m, { proyectoId, personaId = persona2, nombreProyecto = "" } = {}) {
+  async function guardarImagenesDe(m, { proyectoId, personaId = persona2, nombreProyecto: nombreProyecto2 = "" } = {}) {
     const copia = { ...m };
     const det = (tipo, extra = {}) => ({ tipo, monografiaId: m.id, punto: m.puntoMedido || "", hora: m.fechaMedicion || m.creado || "", autor: m.operadorNombre || "", ...extra });
     for (const k of IMAGENES) {
-      if (esDataURL(m[k])) copia[k] = { archivo: await guardarFoto(m[k], { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto, detalle: det(k === "croquisImg" ? "croquis" : k === "panoramicaImg" ? "panoramica" : "logo") }) };
+      if (esDataURL(m[k])) copia[k] = { archivo: await guardarFoto(m[k], { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto: nombreProyecto2, detalle: det(k === "croquisImg" ? "croquis" : k === "panoramicaImg" ? "panoramica" : "logo") }) };
     }
     copia.fotosExtra = [];
     for (const f of m.fotosExtra || []) {
       const g = { ...f };
-      if (esDataURL(f.img)) g.img = { archivo: await guardarFoto(f.img, { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto, detalle: det("detalle", { leyenda: f.leyenda || "" }) }) };
+      if (esDataURL(f.img)) g.img = { archivo: await guardarFoto(f.img, { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto: nombreProyecto2, detalle: det("detalle", { leyenda: f.leyenda || "" }) }) };
       copia.fotosExtra.push(g);
     }
     return copia;
   }
-  async function publicarMonografia(m, { proyectoId, personaId = persona2, nombreProyecto = "" } = {}) {
+  async function publicarMonografia(m, { proyectoId, personaId = persona2, nombreProyecto: nombreProyecto2 = "" } = {}) {
     if (!m || !m.id) throw new Error("La monografía no tiene id.");
     if (!proyectoId) throw new Error("Falta el proyecto del Sistema.");
-    const copia = await guardarImagenesDe(m, { proyectoId, personaId, nombreProyecto });
+    const copia = await guardarImagenesDe(m, { proyectoId, personaId, nombreProyecto: nombreProyecto2 });
     const previa = await obtener(ALM4.mono, m.id);
     const reg = sello3({ ...copia, id: m.id, proyectoId, origen: "app-terreno", publicadoEn: (/* @__PURE__ */ new Date()).toISOString(), publicadoPor: personaId, creadoEn: previa ? previa.creadoEn : void 0 }, personaId);
     await guardar(ALM4.mono, reg);
@@ -1336,7 +1392,7 @@ Content-Type: ${mime}\r
   async function estadoMonografias(proyectoId) {
     return (await monografiasDeProyecto(proyectoId)).filter((x) => x.terreno).map((x) => ({ id: x.id, punto: x.ficha.puntoMedido || "", estado: x.estado, observacion: x.observacion, revisadoPor: x.revisadoPor, fecha: x.fechaEstado }));
   }
-  async function publicarJornada(jornada, levantamientos, { proyectoId, personaId = persona2, nombreProyecto = "" } = {}) {
+  async function publicarJornada(jornada, levantamientos, { proyectoId, personaId = persona2, nombreProyecto: nombreProyecto2 = "" } = {}) {
     var _a, _b;
     if (!jornada || !jornada.id) throw new Error("La jornada no tiene id.");
     if (!proyectoId) throw new Error("Falta el proyecto del Sistema.");
@@ -1347,7 +1403,7 @@ Content-Type: ${mime}\r
       for (const p of l.puntos || []) {
         const q = { ...p };
         if (esDataURL(p.foto)) {
-          q.foto = { archivo: await guardarFoto(p.foto, { proyectoId, duenoTipo: "terreno_jornada", duenoId: jornada.id, personaId, nombreProyecto, detalle: { tipo: "punto", jornadaId: jornada.id, punto: p.valores && (p.valores.nombre || p.valores.punto || p.valores.id) || "", lat: (_a = p.lat) != null ? _a : null, lng: (_b = p.lng) != null ? _b : null, hora: p.timestamp || "", autor: jornada.operador || "" } }) };
+          q.foto = { archivo: await guardarFoto(p.foto, { proyectoId, duenoTipo: "terreno_jornada", duenoId: jornada.id, personaId, nombreProyecto: nombreProyecto2, detalle: { tipo: "punto", jornadaId: jornada.id, punto: p.valores && (p.valores.nombre || p.valores.punto || p.valores.id) || "", lat: (_a = p.lat) != null ? _a : null, lng: (_b = p.lng) != null ? _b : null, hora: p.timestamp || "", autor: jornada.operador || "" } }) };
           nFotos++;
         }
         puntos.push(q);
@@ -1356,7 +1412,7 @@ Content-Type: ${mime}\r
       for (const f of l.fotosReq || []) {
         const g = { ...f };
         if (esDataURL(f.foto)) {
-          g.foto = { archivo: await guardarFoto(f.foto, { proyectoId, duenoTipo: "terreno_jornada", duenoId: jornada.id, personaId, nombreProyecto, detalle: { tipo: "detalle", jornadaId: jornada.id, leyenda: f.nombre || f.texto || "", hora: f.hora || "", autor: jornada.operador || "" } }) };
+          g.foto = { archivo: await guardarFoto(f.foto, { proyectoId, duenoTipo: "terreno_jornada", duenoId: jornada.id, personaId, nombreProyecto: nombreProyecto2, detalle: { tipo: "detalle", jornadaId: jornada.id, leyenda: f.nombre || f.texto || "", hora: f.hora || "", autor: jornada.operador || "" } }) };
           nFotos++;
         }
         fotosReq.push(g);
@@ -1369,8 +1425,124 @@ Content-Type: ${mime}\r
     return { id: jornada.id, fotos: nFotos };
   }
 
+  // modulos/gastos/modelo.js
+  var CATEGORIAS2 = ["Combustible", "Alimentación", "Alojamiento", "Peajes", "Movilización", "Materiales", "Otros"];
+  var TIPOS_ESTADO = ["enviada", "devuelta", "pagada"];
+  var vivo4 = (r) => r && !r.eliminadoEn;
+  var cronologico = (a, b) => (a.creadoEn || "").localeCompare(b.creadoEn || "") || (a.orden || 0) - (b.orden || 0);
+  var suma = (gastos) => gastos.reduce((t, g) => t + (Number(g.monto) || 0), 0);
+  function posiblesDuplicados(gasto, existentes) {
+    return existentes.filter((g) => vivo4(g) && g.id !== gasto.id && g.personaId === gasto.personaId && g.fecha === gasto.fecha && Number(g.monto) === Number(gasto.monto));
+  }
+  function problemasGasto(g) {
+    const p = [];
+    if (!(Number(g.monto) > 0)) p.push("Falta el monto.");
+    if (!CATEGORIAS2.includes(g.categoria)) p.push("Elige una categoría.");
+    if (!g.fecha) p.push("Falta la fecha.");
+    if (!g.proyectoId) p.push("Elige el proyecto (u «Oficina»).");
+    if (!g.personaId) p.push("Elige quién eres arriba (persona).");
+    if (g.sinBoleta ? !String(g.motivoSinBoleta || "").trim() : !g.archivoId && !g.tieneBoletaNueva) p.push("Agrega la foto de la boleta o marca «No tengo boleta» con el motivo.");
+    return p;
+  }
+  var eventosDe = (eventos, rendicionId) => eventos.filter((e) => vivo4(e) && e.rendicionId === rendicionId).sort(cronologico);
+  function estadoRendicion(eventosR) {
+    const ult = eventosR.filter((e) => TIPOS_ESTADO.includes(e.tipo)).sort(cronologico).pop();
+    return ult ? ult.tipo : "borrador";
+  }
+  function ultimo(eventosR, tipo) {
+    return eventosR.filter((e) => e.tipo === tipo).sort(cronologico).pop() || null;
+  }
+  function gastoEditable(gasto, estadoDeSuRendicion) {
+    return !gasto.rendicionId || estadoDeSuRendicion === "devuelta" || estadoDeSuRendicion === "borrador";
+  }
+  function numeroSiguiente(rendiciones, personaId) {
+    return rendiciones.filter((r) => r.personaId === personaId).reduce((m, r) => Math.max(m, Number(r.numero) || 0), 0) + 1;
+  }
+  function libroCuenta({ rendiciones, gastos, eventos, personaId, proyectoId }) {
+    const rs = rendiciones.filter((r) => vivo4(r) && r.personaId === personaId && r.proyectoId === proyectoId).sort((a, b) => (a.numero || 0) - (b.numero || 0));
+    const gs = gastos.filter((g) => vivo4(g) && g.personaId === personaId && g.proyectoId === proyectoId);
+    const deps = eventos.filter((e) => vivo4(e) && e.tipo === "deposito" && e.personaId === personaId && e.proyectoId === proyectoId).sort(cronologico);
+    const info = rs.map((r) => {
+      const ev = eventosDe(eventos, r.id);
+      const env = ev.find((e) => e.tipo === "enviada");
+      return { r, ev, estado: estadoRendicion(ev), envio: env ? env.fecha || env.creadoEn.slice(0, 10) : null, pago: ultimo(ev, "pagada") };
+    });
+    const asignados = new Map(info.map((x) => [x.r.id, []]));
+    const delBorrador = [];
+    for (const d of deps) {
+      if (d.rendicionId && asignados.has(d.rendicionId)) {
+        asignados.get(d.rendicionId).push(d);
+        continue;
+      }
+      const destino = info.find((x) => x.envio && x.envio >= (d.fecha || "") && !(x.pago && (x.pago.creadoEn || "") < (d.creadoEn || "")));
+      (destino ? asignados.get(destino.r.id) : delBorrador).push(d);
+    }
+    let arrastre = 0;
+    const filas = {};
+    for (const x of info) {
+      const depositos = suma(asignados.get(x.r.id));
+      const gastado = suma(gs.filter((g) => g.rendicionId === x.r.id));
+      const fondo = arrastre + depositos;
+      const saldo = fondo - gastado;
+      const pagado = x.pago ? Number(x.pago.monto) || 0 : 0;
+      const reintegro = x.pago ? Number(x.pago.reintegro) || 0 : 0;
+      const despues = x.estado === "pagada" ? saldo + pagado - reintegro : Math.max(0, saldo);
+      filas[x.r.id] = { rendicion: x.r, estado: x.estado, envio: x.envio, anterior: arrastre, depositos, listaDepositos: asignados.get(x.r.id), fondo, gastado, saldo, pagado, reintegro, arrastra: despues };
+      arrastre = despues;
+    }
+    const gastosBorrador = gs.filter((g) => !g.rendicionId);
+    const depB = suma(delBorrador);
+    const gastadoB = suma(gastosBorrador);
+    const borrador = { anterior: arrastre, depositos: depB, listaDepositos: delBorrador, fondo: arrastre + depB, gastado: gastadoB, saldo: arrastre + depB - gastadoB, gastos: gastosBorrador };
+    return { filas, borrador, totalDepositos: suma(deps), totalGastado: suma(gs) };
+  }
+  var ordenGastos = (a, b) => (a.fecha || "").localeCompare(b.fecha || "") || (a.creadoEn || "").localeCompare(b.creadoEn || "");
+
+  // modulos/gastos/datos.js
+  var SCHEMA_VERSION4 = 1;
+  var ALM5 = { gastos: "gastos_gastos", rendiciones: "gastos_rendiciones", eventos: "gastos_eventos" };
+  var persona3 = null;
+  function iniciarDatos4({ personaId = null } = {}) {
+    registrarAlmacenes([
+      { nombre: ALM5.gastos, indices: [["proyectoId", "proyectoId"], ["personaId", "personaId"], ["rendicionId", "rendicionId"]] },
+      { nombre: ALM5.rendiciones, indices: [["proyectoId", "proyectoId"], ["personaId", "personaId"]] },
+      { nombre: ALM5.eventos, indices: [["rendicionId", "rendicionId"]] }
+    ]);
+    persona3 = personaId;
+  }
+  function fijarPersona3(p) {
+    persona3 = p;
+  }
+  var sello4 = (r) => sellar(r, { personaId: persona3, schemaVersion: SCHEMA_VERSION4 });
+  var vivo5 = (r) => r && !r.eliminadoEn;
+  async function cargarTodo() {
+    const [gastos, rendiciones, eventos] = await Promise.all([todos(ALM5.gastos), todos(ALM5.rendiciones), todos(ALM5.eventos)]);
+    return { gastos: gastos.filter(vivo5), rendiciones: rendiciones.filter(vivo5), eventos: eventos.filter(vivo5) };
+  }
+  async function guardarGasto(gasto, { archivo = null, carpeta = null } = {}) {
+    const g = sello4({ ...gasto });
+    delete g.tieneBoletaNueva;
+    if (archivo) {
+      const anterior = g.archivoId;
+      const a = await guardarArchivo(archivo, { modulo: "gastos", duenoTipo: "gasto", duenoId: g.id, rol: "boleta", proyectoId: g.proyectoId, carpeta }, { personaId: persona3 });
+      g.archivoId = a.id;
+      if (anterior) await archivoAPapelera(anterior, { personaId: persona3 });
+    }
+    if (g.sinBoleta && g.archivoId) {
+      await archivoAPapelera(g.archivoId, { personaId: persona3 });
+      g.archivoId = null;
+    }
+    return guardar(ALM5.gastos, g);
+  }
+  async function gastoAPapelera(id) {
+    return enviarAPapelera(ALM5.gastos, id, { personaId: persona3 });
+  }
+  async function restaurarGasto(id) {
+    return restaurar(ALM5.gastos, id, { personaId: persona3 });
+  }
+
   // app/conexion-terreno.js
-  var VERSION = "1.3 (Sistema v0.8.2)";
+  var VERSION = "1.4 (Sistema v0.14)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var CLAVE_CODIGO = "topoland_conexion_codigo";
@@ -1396,7 +1568,7 @@ Content-Type: ${mime}\r
   var oyentesVinculo = /* @__PURE__ */ new Set();
   var escuchando = false;
   async function intentarCodigoPendiente() {
-    if (!codigoPendiente || persona3()) return null;
+    if (!codigoPendiente || persona4()) return null;
     try {
       const p = await vincular(codigoPendiente);
       if (p) for (const fn of oyentesVinculo) {
@@ -1413,10 +1585,11 @@ Content-Type: ${mime}\r
     }
   }
   function iniciar4({ clienteId } = {}) {
-    const p = persona3();
+    const p = persona4();
     iniciar2({ personaId: p ? p.id : null });
     iniciar3({ personaId: p ? p.id : null });
     iniciarDatos3({ personaId: p ? p.id : null });
+    iniciarDatos4({ personaId: p ? p.id : null });
     configurar({ clienteId: clienteId || void 0 });
     iniciar();
     codigoPendiente = leer(CLAVE_CODIGO);
@@ -1452,7 +1625,7 @@ Content-Type: ${mime}\r
     else if (codigoPendiente) intentarCodigoPendiente();
     return { persona: p, codigoPendiente, carpetaPendiente: leer(CLAVE_CARPETA) && !estado().carpetaId ? leer(CLAVE_CARPETA) : null };
   }
-  function persona3() {
+  function persona4() {
     return leer(CLAVE_PERSONA);
   }
   async function vincular(codigo) {
@@ -1465,6 +1638,7 @@ Content-Type: ${mime}\r
     iniciar2({ personaId: p.id });
     iniciar3({ personaId: p.id });
     iniciarDatos3({ personaId: p.id });
+    fijarPersona3(p.id);
     fijarCodigo(null);
     return datos;
   }
@@ -1477,7 +1651,7 @@ Content-Type: ${mime}\r
     return () => oyentesVinculo.delete(fn);
   };
   async function explicarVinculo(codigo = codigoPendiente) {
-    if (persona3()) return "";
+    if (persona4()) return "";
     let n = 0;
     try {
       n = (await listarPersonas()).length;
@@ -1489,7 +1663,7 @@ Content-Type: ${mime}\r
     return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Personas → Vincular teléfono) y sincroniza de nuevo.`;
   }
   var yo = () => {
-    const p = persona3();
+    const p = persona4();
     if (!p) throw new Error("Primero vincula el teléfono a una persona.");
     return p;
   };
@@ -1531,12 +1705,137 @@ Content-Type: ${mime}\r
   }
   async function subirFoto(dataUrl, { proyectoId, tipo = "otra", monografiaId = null, puntoId = null, punto = "", lat = null, lng = null, hora = null, leyenda = "" } = {}) {
     const op = await opcionesProyecto(proyectoId);
-    const archivoId = await guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? "terreno_monografia" : "terreno_foto", duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || (/* @__PURE__ */ new Date()).toISOString(), leyenda, autor: persona3().nombre } });
+    const archivoId = await guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? "terreno_monografia" : "terreno_foto", duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || (/* @__PURE__ */ new Date()).toISOString(), leyenda, autor: persona4().nombre } });
     return { archivoId };
   }
   async function estadoMonografias2(proyectoId) {
     yo();
     return estadoMonografias(proyectoId);
+  }
+  var CATEGORIAS_GASTO = CATEGORIAS2;
+  var nombreProyecto = async (id) => id === OFICINA_ID ? "Oficina" : (await obtenerProyecto(id) || {}).nombre || "Proyecto";
+  var aArchivo = async (a) => {
+    if (!a) return null;
+    if (typeof a !== "string") return a;
+    const blob = await (await fetch(a)).blob();
+    return new File([blob], `boleta.${(blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg")}`, { type: blob.type });
+  };
+  var resumenGasto = (g) => ({
+    id: g.id,
+    fecha: g.fecha,
+    monto: g.monto,
+    categoria: g.categoria,
+    comercio: g.comercio || "",
+    nota: g.nota || "",
+    proyectoId: g.proyectoId,
+    rendicionId: g.rendicionId || null,
+    archivoId: g.archivoId || null,
+    sinBoleta: !!g.sinBoleta,
+    motivoSinBoleta: g.motivoSinBoleta || "",
+    creadoEn: g.creadoEn
+  });
+  async function proyectosGastos() {
+    const p = yo();
+    const lista = (await listarProyectos()).filter((x) => x.id !== OFICINA_ID && x.estado !== "cerrado").map((x) => ({ id: x.id, nombre: x.nombre, mio: x.encargadoId === p.id })).sort((a, b) => b.mio - a.mio || a.nombre.localeCompare(b.nombre, "es"));
+    return [...lista, { id: OFICINA_ID, nombre: "Oficina", mio: false }];
+  }
+  async function misGastos(proyectoId) {
+    const p = yo();
+    const d = await cargarTodo();
+    const lb = libroCuenta({ ...d, personaId: p.id, proyectoId });
+    const b = lb.borrador;
+    const nombres = /* @__PURE__ */ new Map();
+    const nom = async (id) => {
+      if (!nombres.has(id)) nombres.set(id, await nombreProyecto(id));
+      return nombres.get(id);
+    };
+    const mias = d.rendiciones.filter((r) => r.personaId === p.id).sort((a, c) => (c.numero || 0) - (a.numero || 0));
+    const rendiciones = [];
+    for (const r of mias) {
+      const ev = eventosDe(d.eventos, r.id), est2 = estadoRendicion(ev), gs = d.gastos.filter((g) => g.rendicionId === r.id);
+      const env = ev.find((e) => e.tipo === "enviada"), dev = ultimo(ev, "devuelta"), pag = ultimo(ev, "pagada");
+      rendiciones.push({
+        id: r.id,
+        numero: r.numero,
+        proyectoId: r.proyectoId,
+        proyecto: await nom(r.proyectoId),
+        estado: est2,
+        total: suma(gs),
+        n: gs.length,
+        fecha: env ? env.fecha : null,
+        motivo: est2 === "devuelta" && dev ? dev.motivo : "",
+        observados: est2 === "devuelta" && dev ? dev.observados || [] : [],
+        pagado: est2 === "pagada" && pag ? { fecha: pag.fecha, monto: pag.monto || 0, reintegro: pag.reintegro || 0 } : null
+      });
+    }
+    const devueltas = rendiciones.filter((r) => r.estado === "devuelta" && r.proyectoId === proyectoId).map((r) => ({ ...r, gastos: d.gastos.filter((g) => g.rendicionId === r.id).sort(ordenGastos).map(resumenGasto) }));
+    return {
+      proyectoId,
+      numeroSiguiente: numeroSiguiente(d.rendiciones, p.id),
+      borrador: { gastos: [...b.gastos].sort(ordenGastos).reverse().map(resumenGasto), fondo: b.fondo, gastado: b.gastado, saldo: b.saldo, anterior: b.anterior, depositos: b.depositos },
+      devueltas,
+      rendiciones
+    };
+  }
+  async function gastosDevueltos() {
+    const p = persona4();
+    if (!p) return [];
+    const d = await cargarTodo();
+    return d.rendiciones.filter((r) => r.personaId === p.id && estadoRendicion(eventosDe(d.eventos, r.id)) === "devuelta").map((r) => ({ id: r.id, numero: r.numero, proyectoId: r.proyectoId, motivo: (ultimo(eventosDe(d.eventos, r.id), "devuelta") || {}).motivo || "" }));
+  }
+  async function guardarGasto2(datos, { archivo = null, confirmarDuplicado = false } = {}) {
+    const p = yo();
+    const d = await cargarTodo();
+    const previo = datos.id ? d.gastos.find((g2) => g2.id === datos.id) : null;
+    if (datos.id && !previo) throw new Error("Ese gasto ya no existe.");
+    if (previo) {
+      if (previo.personaId !== p.id) throw new Error("Ese gasto es de otra persona.");
+      const est2 = previo.rendicionId ? estadoRendicion(eventosDe(d.eventos, previo.rendicionId)) : "borrador";
+      if (!gastoEditable(previo, est2)) throw new Error("Ese gasto ya está en una rendición enviada: no se puede cambiar.");
+    }
+    const g = {
+      ...previo || { personaId: p.id, rendicionId: null },
+      monto: Math.round(Number(datos.monto) || 0),
+      categoria: datos.categoria || "",
+      fecha: datos.fecha || "",
+      proyectoId: previo && previo.rendicionId ? previo.proyectoId : datos.proyectoId || "",
+      comercio: String(datos.comercio || "").trim(),
+      nota: String(datos.nota || "").trim(),
+      sinBoleta: false,
+      motivoSinBoleta: "",
+      tieneBoletaNueva: !!archivo
+    };
+    const probs = problemasGasto(g).map((t) => t.startsWith("Agrega la foto") ? "Agrega la foto de la boleta o del comprobante." : t);
+    if (probs.length) throw new Error(probs.join(" "));
+    if (!confirmarDuplicado) {
+      const dups = posiblesDuplicados(g, d.gastos);
+      if (dups.length) return { duplicados: dups.map(resumenGasto) };
+    }
+    fijarPersona3(p.id);
+    const carpeta = `Gastos/${await nombreProyecto(g.proyectoId)}/${p.nombre}`;
+    const guardado = await guardarGasto(g, { archivo: await aArchivo(archivo), carpeta });
+    return { gasto: resumenGasto(guardado || g) };
+  }
+  async function eliminarGasto(id) {
+    const p = yo();
+    const d = await cargarTodo();
+    const g = d.gastos.find((x) => x.id === id);
+    if (!g) return;
+    if (g.personaId !== p.id) throw new Error("Ese gasto es de otra persona.");
+    const est2 = g.rendicionId ? estadoRendicion(eventosDe(d.eventos, g.rendicionId)) : "borrador";
+    if (!gastoEditable(g, est2)) throw new Error("Ese gasto ya está en una rendición enviada: no se puede borrar.");
+    fijarPersona3(p.id);
+    await gastoAPapelera(id);
+  }
+  async function restaurarGasto2(id) {
+    yo();
+    return restaurarGasto(id);
+  }
+  async function boleta(archivoId) {
+    if (!archivoId) return null;
+    const info = await infoArchivo(archivoId);
+    const url = await urlArchivo(archivoId).catch(() => null);
+    return url ? { url, mime: info ? info.mime : "", nombre: info ? info.nombre : "boleta" } : null;
   }
   async function conectarNube() {
     await conectar();

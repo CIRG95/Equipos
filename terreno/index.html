@@ -10,6 +10,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="css/pronostico-vuelo.css">
+<link rel="stylesheet" href="css/gastos.css">
 <style>
 :root{
   --bg:#EEF2F0;
@@ -358,6 +359,9 @@ window.addEventListener("unhandledrejection", function (e) {
   <!-- ============ TAB: REPORTES ============ -->
   <section id="tab-reportes" class="tab-section"></section>
 
+  <!-- ============ TAB: GASTOS ============ -->
+  <section id="tab-gastos" class="tab-section"></section>
+
   <!-- ============ TAB: MONOGRAFÍAS ============ -->
   <section id="tab-monografias" class="tab-section"></section>
 
@@ -379,6 +383,10 @@ window.addEventListener("unhandledrejection", function (e) {
   <button data-tab="reportes">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
     Reportes
+  </button>
+  <button data-tab="gastos">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+    Gastos
   </button>
   <button data-tab="monografias">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/></svg>
@@ -587,6 +595,7 @@ window.addEventListener("unhandledrejection", function (e) {
 <script src="js/21-panel-web.js"></script>
 <script src="js/pronostico-vuelo.js"></script>
 <script src="js/22-sistema.js"></script>
+<script src="js/23-gastos.js"></script>
 <script src="js/99-inicio.js"></script>
 </body>
 </html>

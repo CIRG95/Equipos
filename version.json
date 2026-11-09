@@ -1,6 +1,6 @@
 {
- "version": "0.12",
- "armado": "2026-11-09T14:09:24.930Z",
+ "version": "0.13",
+ "armado": "2026-11-09T15:34:17.202Z",
  "archivos": [
   "./index.html",
   "./sistema-app.js",
@@ -10,6 +10,7 @@
   "./modulos/vuelos/vuelos.css",
   "./modulos/seguimiento/seguimiento.css",
   "./modulos/monografias/monografias.css",
+  "./modulos/gastos/gastos.css",
   "./iconos/icono-192.png",
   "./iconos/icono-512.png",
   "./iconos/icono-512-maskable.png",

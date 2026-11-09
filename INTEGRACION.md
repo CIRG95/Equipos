@@ -1,4 +1,12 @@
-# INTEGRACION.md — Sistema v0.12
+# INTEGRACION.md — Sistema v0.13
+
+## v0.13 · Gastos 0.1
+- Módulo nuevo `modulos/gastos/`: `gastos.js` (puerta: `iniciar`, `montar`, `resumenDeProyecto`, `avisos`), `datos.js` (almacenes y operaciones), `modelo.js` (reglas puras: montos, estados, libro de la cuenta, avisos; pruebas en `pruebas/gastos.test.mjs`), `pantallas.js`, `exportar.js` (Excel con SheetJS y PDF con jsPDF, ambos de `vendor/`), `gastos.css`.
+- Almacenes (también en `compartido/esquema.js`): `gastos_gastos` (índices `proyectoId`, `personaId`, `rendicionId`), `gastos_rendiciones` (`proyectoId`, `personaId`), `gastos_eventos` (`rendicionId`). Boleta en `compartido_archivos` con `modulo: 'gastos'`, `duenoTipo: 'gasto'`, `rol: 'boleta'`, carpeta `Gastos/<proyecto>/<persona>`.
+- Rutas: `#/gastos`, `#/gastos/proyecto/<id>`, `#/gastos/nuevo[/<proyectoId>]`, `#/gastos/gasto/<id>`, `#/gastos/rendicion/<id>`. El envoltorio pasa `vista`, `id` y `marcarVisto(id)`.
+- Campanita: `avisosPara()` suma `Gastos.avisos()`; `marcarAvisoVisto(ctx, id)` (nuevo en `app/vistas.js`) marca un aviso visto desde un módulo.
+- **Paquete de conexión:** cambia solo el esquema (3 almacenes nuevos). Copiado a `terreno/js/topoland-conexion.js` y caché de Terreno `terreno-topo-v45-0.5.8.2`. El paquete de pronóstico sale idéntico.
+
 
 ## v0.12 · Monografías paso a paso
 - Rutas: `#/monografias/<p>/comun` (paso 1), `#/monografias/<p>/<id>` (paso 2), `#/monografias/<p>/<id>/ubicacion` (paso 3), `#/monografias/<p>/revisar`. El envoltorio pasa `paso: partes[3]` a `Monografias.montar`.

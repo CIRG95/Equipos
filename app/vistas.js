@@ -12,6 +12,8 @@ import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import * as Monografias from '../modulos/monografias/monografias.js';
+import * as Gastos from '../modulos/gastos/gastos.js';
+import { clp, ESTADOS as ESTADOS_GASTOS } from '../modulos/gastos/modelo.js';
 import { vistaCalendario, mover as moverCalendario, eventosEntre } from './calendario.js';
 import { BASE_RECURRENTE, SEMANAS, DATOS, ciclosEntre, textoPeriodicidad, sumarDias, restarHabiles } from '../compartido/periodicidad.js';
 import { ESTADOS as ESTADOS_MONO } from '../modulos/monografias/datos.js';
@@ -317,6 +319,7 @@ async function proyecto(ctx, id) {
   const p = await obtenerProyecto(id);
   if (!p || p.eliminadoEn) return vacio('Este proyecto no existe o está en la papelera.', '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
   const [personas, equipos, certs, planes, seg, mono] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id), Vuelos.planesDeProyecto(id), Seguimiento.resumenDeProyecto(id), Monografias.resumenDeProyecto(id)]);
+  const gas = await Gastos.resumenDeProyecto(id).catch(() => null);
   const nomPers = pid => (personas.find(x => x.id === pid) || {}).nombre || '';
   const enProyecto = equipos.filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.proyectoId === id);
   const esOficina = id === OFICINA_ID;
@@ -384,7 +387,17 @@ async function proyecto(ctx, id) {
         <h2>Certificados para el mandante</h2>
         ${certsHtml}
       </section>
-      <section class="sis-tarjeta sis-pronto"><h2>Gastos del proyecto</h2><p>Cada gasto con su boleta, la rendición y el abono de RRHH. Llega con el módulo Gastos.</p></section>
+      <section class="sis-tarjeta">
+        <div class="sis-cab"><h2>Gastos del proyecto</h2><a class="sis-btn chico" href="#/gastos/proyecto/${esc(id)}">${ctx.rol === 'rrhh' ? 'Rendiciones' : 'Abrir'}</a></div>
+        ${gas && (gas.gastos || gas.depositos) ? `<div class="sis-datos">
+            <div class="sis-dato"><span>Gastado</span><b class="mono">${clp(gas.gastado)}</b></div>
+            <div class="sis-dato"><span>Fondo depositado</span><b class="mono">${clp(gas.depositos)}</b></div>
+            ${gas.sinEnviar ? `<div class="sis-dato"><span>Sin enviar</span><b class="mono">${clp(gas.sinEnviar)}</b></div>` : ''}
+            ${gas.porPagar ? `<div class="sis-dato"><span>Por pagar</span><b class="mono">${clp(gas.porPagar)}</b></div>` : ''}
+          </div>
+          <div class="sis-chips" style="margin-top:8px">${Object.entries(gas.porEstado).filter(([, n]) => n).map(([e, n]) => `<span class="sis-chip ${ESTADOS_GASTOS[e].color}">${n} ${e === 'borrador' ? 'con gastos sin enviar' : ESTADOS_GASTOS[e].texto.toLowerCase()}</span>`).join('')}</div>`
+          : `<div class="sis-vacio"><p>Sin gastos todavía. Cada gasto se registra con la foto de su boleta y se rinde a RRHH.</p>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/gastos/nuevo/${esc(id)}">+ Nuevo gasto</a>` : ''}</div>`}
+      </section>
     </aside></div>`;
 }
 
@@ -539,18 +552,32 @@ export async function avisosPara(ctx) {
     lista = alertas.filter(a => mios.has(a.proyectoId) || a.reportadaPor === ctx.personaId);
   }
   const vistos = leerVistos(ctx.personaId || ctx.rol);
-  return { lista, nuevos: lista.filter(a => !vistos.has(a.id)).length, vistos, proyectos };
+  const gastos = await Gastos.avisos({ rol: ctx.rol, personaId: ctx.personaId }).catch(() => []);
+  return { lista, gastos, nuevos: lista.filter(a => !vistos.has(a.id)).length + gastos.filter(a => !vistos.has(a.id)).length, vistos, proyectos };
+}
+
+/** v0.13: un módulo marca un aviso como visto (p. ej. Gastos al abrir la rendición). Devuelve true si era nuevo. */
+export function marcarAvisoVisto(ctx, id) {
+  const clave = ctx.personaId || ctx.rol, vistos = leerVistos(clave);
+  if (vistos.has(id)) return false;
+  vistos.add(id); guardarVistos(clave, vistos);
+  return true;
 }
 
 async function avisos(ctx) {
-  const { lista, vistos, proyectos } = await avisosPara(ctx);
+  const { lista, gastos, vistos, proyectos } = await avisosPara(ctx);
   const personas = await listarPersonas();
   const nomPers = id => (personas.find(x => x.id === id) || {}).nombre || 'Sin nombre';
-  const nomProy = id => (proyectos.find(x => x.id === id) || {}).nombre || 'Sin proyecto';
+  const nomProy = id => id === OFICINA_ID ? 'Oficina' : (proyectos.find(x => x.id === id) || {}).nombre || 'Sin proyecto';
   const ESTADO = { abierta: 'Abierta', mantencion: 'En mantención', recibida: 'Recibida' };
-  guardarVistos(ctx.personaId || ctx.rol, new Set([...vistos, ...lista.map(a => a.id)]));
-  return `<div class="sis-cab"><h1>Avisos de equipos</h1></div>
-    <p class="sis-tenue">${ctx.rol === 'rrhh' ? 'Problemas y avisos de todos los equipos.' : 'Problemas y avisos de equipos en tus proyectos (donde eres el encargado).'} Llegan desde la app de Terreno por la nube. Los estados se cambian en Equipos → Alertas.</p>
+  guardarVistos(ctx.personaId || ctx.rol, new Set([...vistos, ...lista.map(a => a.id), ...gastos.map(a => a.id)]));
+  const textoGasto = a => a.tipo === 'enviada' ? `Enviada por ${esc(nomPers(a.rendicion.personaId))} · ${clp(a.evento.total)}`
+    : a.tipo === 'devuelta' ? `Devuelta por RRHH: «${esc(a.evento.motivo)}»` : a.evento.monto ? `Pagada: ${clp(a.evento.monto)} el ${fechaLegible(a.evento.fecha)}` : `Cerrada el ${fechaLegible(a.evento.fecha)}`;
+  const seccionGastos = gastos.length ? `<h2 class="sis-sub">Rendiciones de gastos</h2><section class="sis-tarjeta"><div class="sis-lista">${gastos.map(a => `<a class="sis-fila${vistos.has(a.id) ? '' : ' sis-nuevo'}" href="#/gastos/rendicion/${esc(a.rendicion.id)}">
+        <span class="sis-fila-txt"><b>Rendición N° ${a.rendicion.numero} · ${esc(nomProy(a.rendicion.proyectoId))}</b><span>${textoGasto(a)}</span><span class="sis-tenue">${esc(fechaHoraLegible(a.evento.creadoEn))}</span></span>
+        <span class="sis-chips">${vistos.has(a.id) ? '' : '<span class="sis-chip azul">Nuevo</span>'}<span class="sis-chip ${ESTADOS_GASTOS[a.tipo].color}">${ESTADOS_GASTOS[a.tipo].texto}</span></span></a>`).join('')}</div></section>` : '';
+  return `<div class="sis-cab"><h1>Avisos</h1></div>${seccionGastos}
+    ${gastos.length ? '<h2 class="sis-sub">Equipos</h2>' : ''}<p class="sis-tenue">${ctx.rol === 'rrhh' ? 'Problemas y avisos de todos los equipos.' : 'Problemas y avisos de equipos en tus proyectos (donde eres el encargado).'} Llegan desde la app de Terreno por la nube. Los estados se cambian en Equipos → Alertas.</p>
     ${ctx.rol !== 'rrhh' && !ctx.personaId ? vacio('Elige quién eres arriba para ver los avisos de tus proyectos.') : ''}
     <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map(a => `<a class="sis-fila${vistos.has(a.id) ? '' : ' sis-nuevo'}" href="#/equipos/${esc(a.equipoId)}">
         <span class="sis-fila-txt"><b>${esc(a.equipo)}</b><span>${esc(a.descripcion || '')}</span>
@@ -562,7 +589,6 @@ async function avisos(ctx) {
 // ─────────────────────────── Próximamente ───────────────────────────
 
 const PRONTO = {
-  gastos: { titulo: 'Gastos', version: 'una próxima versión', texto: 'Cada gasto con la foto de su boleta, dentro de su proyecto (o en «Oficina»). La rendición pasa por borrador → emitida → devuelta → abonada, y RRHH registra el abono. Las boletas quedan respaldadas en la carpeta del proyecto.' },
   terreno: { titulo: 'Libreta de terreno', version: 'una próxima versión', texto: 'Terreno Topografía entra al Sistema: jornadas y levantamientos dentro de cada proyecto, con los equipos que salieron en el checklist. Mientras tanto, sigue usando la app de Terreno por separado.' },
 };
 

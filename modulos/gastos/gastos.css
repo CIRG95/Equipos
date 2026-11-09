@@ -1,0 +1,101 @@
+/* modulos/gastos/gastos.css — módulo Gastos. Mismo diseño que el resto del Sistema (clases sis-…).
+   Colores de saldo: azul petróleo = a favor de la persona (se le paga), naranjo = a favor de la empresa. */
+.mod-gastos{--gs-persona:#1D5C63; --gs-persona-bg:#E4F0EE; --gs-empresa:#8A3410; --gs-empresa-bg:#FFF4EC;}
+.mod-gastos .num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap;}
+.gs-c-persona{color:var(--gs-persona);} .gs-c-empresa{color:var(--gs-empresa);}
+.mod-gastos .num small{font-family:var(--sans); color:var(--muted); font-size:11px;}
+
+/* Cabecera con selector de proyecto */
+.gs-cab{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:10px 16px; margin-bottom:12px;}
+.gs-cab h1{margin:0;}
+.gs-proy{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); min-width:min(100%,280px);}
+.gs-proy select{font:inherit; font-size:15px; color:var(--ink); padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface); min-height:44px;}
+
+/* Borrador */
+.gs-tit{display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:4px 12px; margin-bottom:10px;}
+.gs-tit h2{margin:0;}
+.gs-kpis{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0 0 12px;}
+.gs-kpi{border:1px solid var(--borde); border-radius:var(--radius); padding:10px 12px; display:flex; flex-direction:column; gap:2px; background:var(--surface); min-width:0;}
+.gs-kpi small{font-size:12px; color:var(--muted);} .gs-kpi span{font-size:11px; color:var(--muted);}
+.gs-kpi b{font-family:var(--mono); font-size:20px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere;}
+.gs-kpi.persona{background:var(--gs-persona-bg); border-color:transparent;} .gs-kpi.persona b, .gs-kpi.persona small{color:var(--gs-persona);}
+.gs-kpi.empresa{background:var(--gs-empresa-bg); border-color:transparent;} .gs-kpi.empresa b, .gs-kpi.empresa small{color:var(--gs-empresa);}
+.gs-sug{margin:-4px 0 14px;}
+.gs-nuevo{width:100%; justify-content:center; min-height:52px; font-size:16px; gap:8px; margin:4px 0 6px;}
+.gs-nuevo svg{width:22px; height:22px;}
+.gs-enviar{margin-top:12px;} .gs-enviar .sis-btn{width:100%; justify-content:center; min-height:48px;}
+body[data-modo="pc"] .gs-enviar .sis-btn, body[data-modo="pc"] .gs-nuevo{width:auto;}
+
+/* Filas de gasto */
+.gs-lista{margin-top:6px;}
+.gs-gasto{flex-wrap:nowrap; align-items:center; min-height:56px;}
+.gs-gasto .sis-fila-txt{flex:1 1 auto;}
+.gs-gasto .sis-fila-txt b{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.gs-monto{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap;}
+.gs-mini{width:40px; height:40px; flex:none; border-radius:8px; background:var(--borde-suave); color:var(--muted); display:flex; align-items:center; justify-content:center; overflow:hidden;}
+.gs-mini svg{width:20px; height:20px;}
+.gs-mini img{width:100%; height:100%; object-fit:cover;}
+.gs-mini img:not([hidden]) ~ svg{display:none;}
+.gs-observado{background:var(--gs-empresa-bg); border-radius:8px; padding-left:6px; padding-right:6px;}
+.gs-ver{display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0; background:none; border:0; padding:0; font:inherit; color:inherit; text-align:left; cursor:pointer;}
+button.gs-ver:hover .gs-mini{outline:2px solid var(--marca);}
+.gs-obs{display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10px; color:var(--muted); flex:none; width:58px; cursor:pointer;}
+.gs-obs input{width:20px; height:20px; accent-color:var(--gs-empresa);}
+.gs-sub{font-size:14px; margin:16px 0 4px;}
+.gs-cats-total{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:13px; color:var(--muted); border-top:1px solid var(--borde-suave); padding-top:10px; margin-top:6px;}
+.gs-cats-total b{color:var(--ink); font-family:var(--mono); font-weight:500;}
+
+/* Avisos de devuelta */
+.gs-devuelta{display:flex; flex-direction:column; gap:2px; background:var(--gs-empresa-bg); color:var(--gs-empresa); border-radius:var(--radius); padding:12px 14px; margin-bottom:12px; text-decoration:none;}
+.gs-devuelta span{color:#5F2A0E; font-size:14px;}
+a.gs-devuelta:hover{box-shadow:inset 0 0 0 1px var(--gs-empresa);}
+
+/* Formulario del gasto */
+.gs-form{max-width:560px;}
+.gs-foto{display:flex; align-items:center; justify-content:center; min-height:150px; border:2px dashed var(--line); border-radius:var(--radius); background:var(--borde-suave); cursor:pointer; overflow:hidden; margin-bottom:14px; position:relative;}
+.gs-foto input{position:absolute; inset:0; opacity:0; cursor:pointer;}
+.gs-foto:focus-within{outline:2px solid var(--marca); outline-offset:2px;}
+.gs-foto img{max-width:100%; max-height:300px; display:block;}
+.gs-foto img:not([hidden]) ~ .gs-foto-txt{position:absolute; bottom:8px; right:8px; background:var(--surface); border-radius:999px; padding:4px 10px; flex-direction:row; font-size:12px;}
+.gs-foto img:not([hidden]) ~ .gs-foto-txt svg{width:16px; height:16px;}
+.gs-foto-txt{display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--muted); text-align:center; padding:12px;}
+.gs-foto-txt svg{width:34px; height:34px;} .gs-foto-txt b{color:var(--ink);} .gs-foto-txt small{font-size:12px;}
+.gs-pdf{display:flex; align-items:center; gap:8px; padding:16px; font-size:14px;} .gs-pdf svg{width:24px; height:24px;}
+.gs-form:has(input[name=sinBoleta]:checked) .gs-foto{opacity:.4; pointer-events:none;}
+.gs-motivo{display:none;} .gs-form:has(input[name=sinBoleta]:checked) .gs-motivo{display:block;}
+.gs-monto-in{font-family:var(--mono); font-size:22px !important; font-variant-numeric:tabular-nums;}
+.gs-cats{display:flex; flex-wrap:wrap; gap:6px;}
+.gs-cats .sis-opcion{min-height:40px;}
+.gs-mas{margin:4px 0 12px;} .gs-mas summary{cursor:pointer; color:var(--enlace); font-size:14px; padding:6px 0; min-height:32px;}
+.gs-mas[open] summary{margin-bottom:8px;}
+
+/* Rendición */
+.gs-dos > aside .sis-tarjeta h2{font-size:16px;}
+.gs-historial{list-style:none; margin:0; padding:0; display:flex; flex-direction:column;}
+.gs-historial li{display:grid; grid-template-columns:1fr auto; gap:2px 10px; align-items:center; padding:9px 0 9px 14px; border-left:3px solid var(--borde); margin-left:4px; font-size:14px;}
+.gs-historial li small{grid-column:1; color:var(--muted); font-size:12px;}
+.gs-historial li .sis-btn{grid-row:1 / span 2; grid-column:2;}
+.gs-h-enviada{border-left-color:#2F6FA3 !important;} .gs-h-devuelta{border-left-color:var(--gs-empresa) !important;}
+.gs-h-pagada{border-left-color:var(--ok) !important;} .gs-h-deposito{border-left-color:var(--marca) !important;}
+.gs-opciones{flex-direction:column; align-items:stretch;}
+
+/* RRHH: bandeja */
+.gs-kpis-rrhh{margin-bottom:12px;}
+.gs-pestanas{display:flex; gap:4px; border-bottom:1px solid var(--borde); margin:4px 0 12px; overflow-x:auto;}
+.gs-pestanas button{border:0; background:none; padding:10px 14px; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; font:inherit; white-space:nowrap; display:flex; gap:6px; align-items:center; min-height:44px;}
+.gs-pestanas button[aria-selected="true"]{color:var(--ink); font-weight:600; border-bottom-color:var(--marca);}
+.gs-tabla-caja{overflow-x:auto;}
+.gs-tabla{width:100%; border-collapse:collapse; font-size:14px;}
+.gs-tabla th{text-align:left; font-size:12px; color:var(--muted); font-weight:600; padding:8px; border-bottom:1px solid var(--borde); white-space:nowrap;}
+.gs-tabla th.num{text-align:right; font-family:var(--sans);}
+.gs-tabla td{padding:9px 8px; border-bottom:1px solid var(--borde-suave); vertical-align:middle;}
+.gs-tabla tbody tr[data-ir]{cursor:pointer;} .gs-tabla tbody tr[data-ir]:hover{background:#FAFAF8;}
+.gs-tabla a{color:var(--enlace); font-weight:600; text-decoration:none;}
+.gs-dep-campos{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0 12px;}
+
+body[data-modo="telefono"] .gs-kpis{grid-template-columns:1fr 1fr;}
+body[data-modo="telefono"] .gs-kpis .gs-kpi:last-child{grid-column:1 / -1;}
+body[data-modo="telefono"] .gs-kpi b{font-size:18px;}
+
+/* Ficha del proyecto (pantalla del Sistema): montos de la tarjeta «Gastos del proyecto» */
+.sis-dato b.mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}

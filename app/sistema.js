@@ -8,8 +8,9 @@ import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import * as Monografias from '../modulos/monografias/monografias.js';
+import * as Gastos from '../modulos/gastos/gastos.js';
 import { iniciarPanelNube } from './nube-panel.js';
-import { VISTAS, manejarEnvio, manejarClic, manejarCambio, avisosPara } from './vistas.js';
+import { VISTAS, manejarEnvio, manejarClic, manejarCambio, avisosPara, marcarAvisoVisto } from './vistas.js';
 import { ROLES } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
 import { revisarInstalacion, mostrarAvisoInstalacion } from './revision.js';
@@ -78,7 +79,7 @@ const MENU = [
   { ruta: 'equipos', texto: 'Equipos', roles: ['terreno', 'rrhh'], tambien: ['sensores'] },
   { ruta: 'herramientas', texto: 'Herramientas', roles: ['terreno'], tambien: ['monografias'] },
   { ruta: 'personas', texto: 'Personas', roles: ['rrhh', 'terreno'] },
-  { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'], pronto: true },
+  { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'] },
 ];
 // Sub-pestañas de cada sección: [enlace, texto, ¿activa?(ruta)]
 const SUBNAV = {
@@ -160,16 +161,16 @@ function leerRuta() {
   return { base: partes[0] || 'inicio', arg: partes[1] || null };
 }
 
-// ── Campanita de avisos de equipos (problemas reportados desde terreno) ──
+// ── Campanita: avisos de equipos (problemas reportados desde terreno) y de rendiciones de gastos (v0.13) ──
 async function pintarAvisos() {
   const b = $('sis-avisos');
   if (!b) return;
   try {
-    const { nuevos, lista } = await avisosPara(ctx());
-    b.hidden = !lista.length && selRol.value !== 'rrhh';
+    const { nuevos, lista, gastos } = await avisosPara(ctx());
+    b.hidden = !lista.length && !gastos.length && selRol.value !== 'rrhh';
     b.querySelector('b').textContent = nuevos || '';
     b.classList.toggle('con-nuevos', nuevos > 0);
-    b.setAttribute('aria-label', nuevos ? `${nuevos} aviso${nuevos > 1 ? 's' : ''} nuevo${nuevos > 1 ? 's' : ''} de equipos` : 'Avisos de equipos');
+    b.setAttribute('aria-label', nuevos ? `${nuevos} aviso${nuevos > 1 ? 's' : ''} nuevo${nuevos > 1 ? 's' : ''}` : 'Avisos');
   } catch (e) { console.warn(e); }
 }
 
@@ -229,6 +230,18 @@ async function mostrar() {
     return;
   }
 
+  if (base === 'gastos') {
+    // #/gastos · #/gastos/proyecto/<id> · #/gastos/nuevo[/<proyectoId>] · #/gastos/gasto/<id> · #/gastos/rendicion/<id>
+    const partes = location.hash.replace(/^#\/?/, '').split('/');
+    montado = Gastos.montar(lugarModulo(), {
+      rol: selRol.value, personaId: selPersona.value || null, vista: partes[1] || null, id: partes[2] || null,
+      marcarVisto: id => { if (marcarAvisoVisto(ctx(), id)) pintarAvisos(); },
+    });
+    rutaActual = clave;
+    window.scrollTo(0, 0);
+    return;
+  }
+
   if (base === 'equipos') {
     // El módulo trae su propia sub-barra de pestañas. Se vuelve a montar al cambiar de equipo, rol o persona.
     montado = Equipos.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, equipoInicial: arg });
@@ -244,7 +257,7 @@ async function mostrar() {
   if (cambioDePantalla) window.scrollTo(0, 0);
   try {
     let html;
-    if (base === 'gastos' || base === 'terreno') html = VISTAS.pronto(ctx(), base);
+    if (base === 'terreno') html = VISTAS.pronto(ctx(), base);
     else if (base === 'proyecto') html = await VISTAS.proyecto(ctx(), arg);
     else if (base === 'proyecto-editar') html = await VISTAS.proyectoEditar(ctx(), arg || 'nuevo');
     else if (base === 'proyectos') html = await VISTAS.proyectos(ctx(), arg);
@@ -296,6 +309,7 @@ async function arrancar() {
   Vuelos.iniciar({ personaId: selPersona.value || null });
   Seguimiento.iniciar({ personaId: selPersona.value || null });
   Monografias.iniciar({ personaId: selPersona.value || null });
+  Gastos.iniciar({ personaId: selPersona.value || null });
 
   selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; mostrar(); });
   selPersona.addEventListener('change', () => { escribir('env_persona', selPersona.value); rutaActual = ''; mostrar(); });

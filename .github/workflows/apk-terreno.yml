@@ -1,0 +1,95 @@
+name: APK Terreno Topografía
+
+# Compila el APK de Terreno (Capacitor) y lo publica en Releases.
+# Se ejecuta al cambiar la app de Terreno o el empaquetador, o a mano desde la pestaña Actions.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "terreno-apk*"]
+    paths:
+      - "terreno/**"
+      - "apk-terreno/**"
+      - "config.js"
+      - ".github/workflows/apk-terreno.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-terreno-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apk-terreno
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apk-terreno/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar Capacitor
+        run: npm ci
+
+      - name: Armar proyecto Android
+        run: bash preparar.sh
+
+      - name: Compilar
+        working-directory: apk-terreno/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Firmar
+        env:
+          LLAVE_B64: ${{ secrets.TERRENO_LLAVE_B64 }}
+          LLAVE_CLAVE: ${{ secrets.TERRENO_LLAVE_CLAVE }}
+          LLAVE_ALIAS: ${{ secrets.TERRENO_LLAVE_ALIAS }}
+        run: |
+          # Con los secrets definidos se usa la llave privada; si no, la llave de prueba del repo.
+          if [ -n "$LLAVE_B64" ]; then
+            echo "$LLAVE_B64" | base64 -d > llave.keystore
+            KS=llave.keystore; CLAVE="$LLAVE_CLAVE"; ALIAS="$LLAVE_ALIAS"
+            echo "Firmando con la llave privada (secrets)"
+          else
+            KS=prueba.keystore; CLAVE=terrenoprueba; ALIAS=terreno
+            echo "::warning::Firmando con la llave de PRUEBA del repositorio"
+          fi
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          VERSION=$(cat www/version-apk.txt)
+          NOMBRE="Terreno-Topografia-v${VERSION}-apk${GITHUB_RUN_NUMBER}.apk"
+          "$BT/zipalign" -p -f 4 android/app/build/outputs/apk/release/app-release-unsigned.apk alineado.apk
+          "$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$CLAVE" --ks-key-alias "$ALIAS" --out "$NOMBRE" alineado.apk
+          "$BT/apksigner" verify "$NOMBRE"
+          rm -f llave.keystore
+          echo "NOMBRE=$NOMBRE" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Guardar APK (Actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NOMBRE }}
+          path: apk-terreno/${{ env.NOMBRE }}
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RAMA="${GITHUB_REF_NAME}"
+          ETIQUETA="terreno-apk-${VERSION}-${GITHUB_RUN_NUMBER}"
+          NOTAS="APK de prueba de Terreno Topografía v${VERSION} (rama ${RAMA}, compilación ${GITHUB_RUN_NUMBER}). Instalar en Android: descargar el .apk y permitir instalar desde esta fuente."
+          gh release create "$ETIQUETA" "$NOMBRE" --target "$GITHUB_SHA" --prerelease \
+            --title "Terreno Topografía v${VERSION} · APK ${GITHUB_RUN_NUMBER}" --notes "$NOTAS"

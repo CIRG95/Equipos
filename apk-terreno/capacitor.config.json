@@ -1,0 +1,9 @@
+{
+  "appId": "cl.topoland.terreno",
+  "appName": "Terreno Topografía",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  }
+}

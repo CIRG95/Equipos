@@ -1,0 +1,14 @@
+{
+  "name": "terreno-topografia-apk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Empaquetador Android (Capacitor) de la app Terreno Topografía. La app web vive en ../terreno; aquí solo se arma el APK.",
+  "scripts": {
+    "preparar": "bash preparar.sh"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/core": "8.6.0"
+  }
+}

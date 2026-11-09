@@ -23,12 +23,6 @@ export function areaM2(pts) {
   return Math.abs(s) / 2;
 }
 
-export function perimetroM(pts) {
-  let s = 0;
-  for (let i = 0; i < pts.length; i++) s += Math.hypot(pts[(i + 1) % pts.length][0] - pts[i][0], pts[(i + 1) % pts.length][1] - pts[i][1]);
-  return s;
-}
-
 /** Rumbo (grados, 0 = norte, horario) del lado más largo: las líneas de vuelo van paralelas a él. */
 export function rumboLadoMasLargo(pts) {
   let mejor = 0, ang = 0;

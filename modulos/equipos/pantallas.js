@@ -3,7 +3,7 @@
 // Rol 'terreno': ver equipos, checklist de salida, regreso, reportar anomalías.
 // Rol 'rrhh': todo lo anterior + altas, edición, importar planilla, alertas, calibraciones, catálogos, respaldo.
 
-import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO } from '../../compartido/util.js';
+import { escapar as esc, fechaLegible, fechaHoraLegible } from '../../compartido/util.js';
 import {
   listarProyectos, listarPersonas, guardarProyecto, guardarPersona, mapaNombres, catalogosEditables, OFICINA_ID,
 } from '../../compartido/catalogos.js';

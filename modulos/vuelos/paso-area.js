@@ -4,11 +4,10 @@ import { escapar as esc } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { deslizador } from './ui.js';
 import { proyectar, areaM2 } from './calculo.js';
-import { totales, kmADm, kmEnEje, lineaEje, marcoDe, geometria, nombreSector } from './hoja.js';
+import { totales, kmADm, kmEnEje, lineaEje, marcoDe, geometria } from './hoja.js';
 import { largo } from './geom.js';
 import { FORMATOS_CAMINO } from './formatos.js';
 import { formaDe, metodoPropuesto, METODOS, METODOS_LINEALES, vistaPrevia, rumboCortesPropuesto, tramosVistaPrevia, generarCortes } from './cortes.js';
-import { textoUbicacion } from './ubicacion.js';
 import { revisarZonas, TIPOS_CAPA } from './capas.js';
 import { COLORES_SECTOR, UMBRAL_BATERIAS } from './ui.js';
 
@@ -126,7 +125,6 @@ export function crearPasoArea(v) {
     const a = st.hoja.area, au = a.auto || {}, f = g ? formaDe(st.hoja) : null;
     const propuesto = metodoPropuesto(f);
     const modo = au.modo || propuesto;
-    const opt = k => `<option value="${k}" ${modo === k ? 'selected' : ''}>${METODOS[k].texto}${k === propuesto ? ' (propuesto)' : ''}</option>`;
     const lineal = f && f.lineal;
     const num = (k, t, val, extra = '') => `<label class="sis-campo"><span>${t}</span><input type="number" data-auto="${k}" value="${esc(val)}" ${extra}></label>`;
     const sel = (k, t, val, ops) => `<label class="sis-campo"><span>${t}</span><select data-auto="${k}">${ops.map(([v, x]) => `<option value="${v}" ${val === v ? 'selected' : ''}>${x}</option>`).join('')}</select></label>`;

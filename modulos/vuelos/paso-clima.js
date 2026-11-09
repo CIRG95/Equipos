@@ -3,7 +3,7 @@
 
 import { escapar as esc, fechaLegible } from '../../compartido/util.js';
 import { fmt } from './calculo.js';
-import { chip, fila, fechaHora, dosD } from './ui.js';
+import { chip, fila, dosD } from './ui.js';
 import { pedirPronostico, pedirKp, ENLACES_CONSULTA } from './pronostico.js';
 import { cargarEstaciones } from './metar.js';
 import { htmlPanelMetar, resumenMetar } from './metar-ui.js';

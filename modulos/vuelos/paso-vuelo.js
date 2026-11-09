@@ -5,7 +5,7 @@ import { fmt, fmtDuracion } from './calculo.js';
 import { campo, deslizador, kpi, fila } from './ui.js';
 import { alturaParaGsd, gsdCm } from './calculo.js';
 import { calcularSector, totales, alturaDe, metaSector, nombreSector, ladosSector, opcionesDespegue, rumboMasCorto } from './hoja.js';
-import { COLORES_BATERIA, COLORES_SECTOR, GSD_TABLA } from './ui.js';
+import { COLORES_BATERIA, GSD_TABLA } from './ui.js';
 
 export function crearPasoVuelo(v) {
   const ref = n => (...a) => v[n](...a);

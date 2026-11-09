@@ -11,7 +11,8 @@ for f in app/*.js compartido/*.js modulos/*/*.js; do
 done
 node --test pruebas/*.test.mjs > /tmp/_pruebas.txt 2>&1 || { cat /tmp/_pruebas.txt; echo "Fallaron pruebas: no se arma."; exit 1; }
 grep -E "^# (pass|fail)" /tmp/_pruebas.txt
-npx --yes esbuild@0.24.0 app/sistema.js --bundle --format=iife --target=es2019 --charset=utf8 \
+# v0.11.4: sin espacios ni comentarios (los nombres se mantienen legibles para leer errores en el teléfono).
+npx --yes esbuild@0.24.0 app/sistema.js --bundle --format=iife --target=es2019 --charset=utf8 --minify-whitespace --minify-syntax \
   --banner:js="/* sistema-app.js — ARCHIVO GENERADO con construir.sh. No editar: los cambios van en app/, compartido/ o modulos/. */" \
   --outfile=sistema-app.js
 node --check sistema-app.js

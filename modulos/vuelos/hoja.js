@@ -285,8 +285,24 @@ export function baseCalculo(hoja, d, extra = {}) {
   };
 }
 
-/** Cálculo de vuelo de un sector. extra puede cambiar altura, velocidad, rumbo… (tabla de opciones, «Más corto»). */
+/**
+ * Cálculo de vuelo de un sector. extra puede cambiar altura, velocidad, rumbo… (tabla de opciones, «Más corto»).
+ * v0.11.4: con memoria por geometría (la geometría ya viene en caché y cambia de objeto cuando cambia el área),
+ * porque una pantalla pide el mismo sector varias veces (encabezado, totales, mapa, opciones). El resultado es de solo lectura.
+ */
+const memoCalculo = new WeakMap();
 export function calcularSector(hoja, d, geo, i, extra = {}) {
+  if (!geo || !geo.sectores[i]) return null;
+  let porGeo = memoCalculo.get(geo);
+  if (!porGeo) { porGeo = new Map(); memoCalculo.set(geo, porGeo); }
+  const clave = JSON.stringify([i, hoja.params, metaSector(hoja, i), d, extra]);
+  if (porGeo.has(clave)) return porGeo.get(clave);
+  const r = calcularSectorSinMemo(hoja, d, geo, i, extra);
+  if (porGeo.size > 400) porGeo.clear();
+  porGeo.set(clave, r);
+  return r;
+}
+function calcularSectorSinMemo(hoja, d, geo, i, extra) {
   const sec = geo.sectores[i];
   if (!sec) return null;
   const meta = metaSector(hoja, i);

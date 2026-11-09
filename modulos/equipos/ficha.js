@@ -4,8 +4,8 @@
 // También: editar especificaciones, editar accesorios, agregar certificado, etiqueta QR, certificados por proyecto.
 // Lo usa pantallas.js; recibe sus utilidades en `ctx` para no duplicarlas.
 
-import { fechaLegible, fechaHoraLegible, hoyISO, cargarScript } from '../../compartido/util.js';
-import { listarProyectos, OFICINA_ID } from '../../compartido/catalogos.js';
+import { fechaLegible, hoyISO, cargarScript } from '../../compartido/util.js';
+import { listarProyectos } from '../../compartido/catalogos.js';
 import { sensoresDe, textoSensor } from './sensores.js';
 import { archivosDe, urlArchivo, abrirArchivo, archivoAPapelera, tamanoLegible } from '../../compartido/archivos.js';
 import {

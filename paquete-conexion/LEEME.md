@@ -1,4 +1,16 @@
-# Paquete de conexión Terreno ↔ Sistema · TopolandConexion 1.3 (Sistema v0.8.2)
+# Paquete de conexión Terreno ↔ Sistema · TopolandConexion 1.4 (Sistema v0.14)
+
+## Qué cambia en 1.4 — Gastos desde Terreno (copiar el archivo en `terreno/js/` y subir el caché del service worker)
+Misma lógica y almacenes que el módulo Gastos 0.1 del Sistema. Terreno solo **agrega y corrige gastos propios** (borrador o rendición devuelta); enviar la rendición, depósitos y pagos se hacen en el Sistema. La foto de la boleta es obligatoria.
+- `TopolandConexion.CATEGORIAS_GASTO` → las categorías del Sistema.
+- `await proyectosGastos()` → `[{ id, nombre, mio }]`: proyectos activos (primero los propios) y al final «Oficina».
+- `await misGastos(proyectoId)` → `{ proyectoId, numeroSiguiente, borrador: { gastos, fondo, gastado, saldo, anterior, depositos }, devueltas: [{ id, numero, motivo, observados, gastos }], rendiciones: [{ id, numero, proyectoId, proyecto, estado, total, n, fecha, motivo, pagado }] }`.
+- `await guardarGasto({ id?, monto, categoria, fecha, proyectoId, comercio?, nota? }, { archivo, confirmarDuplicado })` → `{ gasto }` o `{ duplicados }` (misma persona, fecha y monto: volver a llamar con `confirmarDuplicado: true`). `archivo`: File, Blob o dataURL. Lanza error con el texto a mostrar si falta algo.
+- `await eliminarGasto(id)` / `await restaurarGasto(id)` (papelera, con Deshacer).
+- `await boleta(archivoId)` → `{ url, mime, nombre }` para mostrarla (se baja de la nube si hace falta).
+- `await gastosDevueltos()` → rendiciones devueltas de la persona, para un aviso.
+- Detectar el paquete: `typeof TopolandConexion.misGastos === 'function'`.
+
 
 ## Qué cambia en 1.3 (copiar el archivo en `terreno/js/` y subir el caché del service worker)
 - **Base completa:** el paquete crea la base común `topoland` con **todas** las partes del Sistema (esquema común), aunque Terreno no las use. Antes creaba solo las suyas y, al abrir el Sistema en el mismo teléfono, este tenía que agrandar la base y quedaba esperando a que Terreno (congelado en segundo plano) la soltara: «El Sistema no cargó». **Es lo más importante de esta versión.**

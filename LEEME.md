@@ -1,4 +1,11 @@
-# Topoland · Sistema de trabajo — v0.14 (paquete de conexión 1.4)
+# Topoland · Sistema de trabajo — v0.14a (eliminar rendiciones)
+
+**Sistema v0.14a = v0.14 + Gastos 0.1a: RRHH puede eliminar una rendición.** Versión de prueba pedida por Camilo (9-nov) para borrar las rendiciones de prueba; también sirve para errores reales.
+- En la rendición (RRHH), tarjeta **«Eliminar rendición»** con dos opciones: **los gastos vuelven al borrador** de la persona, o **eliminar con sus gastos y depósitos**. Siempre con confirmación y «Deshacer».
+- **Papelera de rendiciones** al final de la bandeja: **Restaurar** (vuelve tal como estaba; si su N° ya se usó, toma el siguiente libre) o **Eliminar definitivamente** (borra también sus registros y, si se eliminó con ellos, sus gastos y boletas, también en la nube).
+- El N° de la siguiente rendición de la persona se calcula sin las eliminadas.
+- La app de Terreno no cambia (paquete de conexión idéntico).
+
 
 **Sistema v0.14 = v0.13 + paquete de conexión 1.4.** La app de Terreno (0.5.9) ya registra gastos: foto de la boleta, monto y categoría en el momento. Esos gastos llegan al borrador de la misma cuenta persona × proyecto que se ve aquí en **Gastos**, y la rendición se sigue enviando desde el Sistema. El Sistema no cambia en lo que hace.
 

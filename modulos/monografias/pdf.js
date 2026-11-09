@@ -5,6 +5,7 @@ import { cargarScript } from '../../compartido/util.js';
 import { urlArchivo } from '../../compartido/archivos.js';
 import { configurarPieza, prepararImagenesMonografia, construirMonografiaPdf, ordenNatural } from './pieza-terreno.js';
 import { IMAGENES } from './datos.js';
+import { efectiva } from './comun.js';
 
 const CLAVE_LOGO = 'mono_logo_empresa';
 export function logoEmpresa() { try { return localStorage.getItem(CLAVE_LOGO) || null; } catch { return null; } }
@@ -19,8 +20,9 @@ export async function urlImagen(v) {
 }
 
 /** Copia de la monografía con las imágenes como URL (lo que espera el código de Terreno). */
-export async function materializar(m) {
-  const c = { ...m, modulos: { ...(m.modulos || {}) } };
+export async function materializar(m0) {
+  const m = efectiva(m0); // v0.12: «Solo croquis» y logo del cliente apagado
+  const c = { ...m, modulos: { ...m.modulos } };
   for (const k of IMAGENES) c[k] = await urlImagen(m[k]);
   c.fotosExtra = [];
   for (const f of (m.fotosExtra || [])) c.fotosExtra.push({ ...f, img: await urlImagen(f.img) });
@@ -39,10 +41,10 @@ async function jsPDFListo() { if (!(window.jspdf && window.jspdf.jsPDF)) await c
 /** PDF (Blob) de una o varias monografías, en el orden dado. */
 export async function pdfDe(lista, { alAvanzar } = {}) {
   await jsPDFListo();
-  configurarPieza({ logoEmpresa: logoEmpresa() });
   let doc = null, i = 0;
   for (const m0 of lista) {
     alAvanzar && alAvanzar(++i, lista.length);
+    configurarPieza({ logoEmpresa: m0.modulos && m0.modulos.logoEmpresa === false ? null : logoEmpresa() }); // v0.12
     const m = await materializar(m0);
     doc = construirMonografiaPdf(m, await prepararImagenesMonografia(m), doc);
   }

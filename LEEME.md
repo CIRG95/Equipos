@@ -1,6 +1,18 @@
-# Topoland · Sistema de trabajo — v0.11.4 (revisión de optimización)
+# Topoland · Sistema de trabajo — v0.12 (Monografías paso a paso e ícono nuevo)
 
 **Sistema v0.11 = v0.10 + navegación nueva + Vuelos 0.9 + Equipos 0.2 + Monografías 0.3.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
+
+## Qué cambia en v0.12
+- **Ícono nuevo** de la app (idea 1 del lienzo: nodos en azul petróleo con naranjo). Para verlo en un teléfono que ya tenía la app instalada, puede ser necesario quitarla y volver a instalarla.
+- **Monografías paso a paso (Monografías 0.4, según los bocetos del 9-nov):**
+  - **Paso 1 · Datos comunes** (una vez para todas las fichas): cliente y su logo, proyecto, título, tipo de medición (GNSS estático, GNSS RTK, estación total), equipo elegido desde Equipos (avisa calibración vencida; «Otro» para escribirlo), datum, huso, geoide, fechas, operador, cargo y revisó. Cada dato tiene la casilla «Todas las fichas»; si se desmarca, se pide en cada ficha. También qué incluye el PDF (logos, coordenadas, descripción, observación, croquis, panorámica, fotos, firma) y el formato de las geográficas.
+  - **Crear fichas** escribiendo «PR-1 a PR-12» o «PR-1, PR-2…», o **pegando desde Excel** Nombre | Este | Norte | Cota (crea las nuevas y actualiza las que ya existen).
+  - **Paso 2 · Coordenadas y croquis:** UTM y geográficas juntas; se escribe una y la otra se calcula (SIRGAS/WGS84). Croquis en el mapa con **fondo a elegir** (híbrido, calles, imagen) y **nombre que se arrastra unido al punto con una línea**. Panorámica, disposición (lado a lado, una bajo la otra o solo croquis) y alto de las imágenes.
+  - **Paso 3 · Ubicación y descripción:** sector, localidad, comuna y región estimadas con las coordenadas (marcadas «estimado» hasta confirmarlas), copiar de la ficha anterior, resumen de solo lectura de coordenadas y medición, frases frecuentes para la descripción (se guardan las propias), observación y fotos adicionales.
+  - **Chequeo** de cada ficha (al costado en PC, abajo en el teléfono): cuánto lleva, qué falta y en qué paso; estado de revisión; tocar un ítem lleva al paso.
+  - **Revisar:** todas las fichas con estado y avance; PDF de todas o solo de las listas.
+- **Eliminar monografías:** botón «Eliminar» en la lista del proyecto, en Revisar y en el chequeo de la ficha. Va a la **papelera del proyecto** (Restaurar, Eliminar definitivamente, Vaciar), siempre con confirmación. Si Terreno vuelve a enviar una ficha eliminada, reaparece.
+- Paquete de conexión con Terreno **sin cambios** (idéntico) y sin almacenes nuevos.
 
 ## Qué cambia en v0.11.4
 Revisión de optimización (cada 3 versiones), sin cambios en lo que hace la app:

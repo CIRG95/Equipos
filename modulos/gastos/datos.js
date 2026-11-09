@@ -6,11 +6,11 @@
 
 import { registrarAlmacenes, obtener, todos, guardar, guardarVarios } from '../../compartido/almacen.js';
 import { sellar, hoyISO } from '../../compartido/util.js';
-import { enviarAPapelera, restaurar } from '../../compartido/papelera.js';
+import { enviarAPapelera, restaurar, eliminarDefinitivo } from '../../compartido/papelera.js';
 import { guardarArchivo, archivoAPapelera, urlArchivo } from '../../compartido/archivos.js';
 import { numeroSiguiente, estadoRendicion, eventosDe } from './modelo.js';
 
-export const VERSION_MODULO = '0.1';
+export const VERSION_MODULO = '0.1a';
 export const SCHEMA_VERSION = 1;
 export const ALM = { gastos: 'gastos_gastos', rendiciones: 'gastos_rendiciones', eventos: 'gastos_eventos' };
 
@@ -50,6 +50,77 @@ export async function guardarGasto(gasto, { archivo = null, carpeta = null } = {
   }
   if (g.sinBoleta && g.archivoId) { await archivoAPapelera(g.archivoId, { personaId: persona }); g.archivoId = null; }
   return guardar(ALM.gastos, g);
+}
+
+/**
+ * v0.14a · RRHH elimina una rendición (va a la papelera de rendiciones, con Restaurar).
+ * modo 'borrador': sus gastos vuelven al borrador de la cuenta (persona × proyecto).
+ * modo 'todo': sus gastos y los depósitos ligados a ella también van a la papelera (para limpiar pruebas).
+ * Lo que se hizo queda anotado en la rendición (eliminacion) para poder restaurarla igual.
+ */
+export async function eliminarRendicion(id, { modo = 'borrador' } = {}) {
+  const r = await obtener(ALM.rendiciones, id);
+  if (!vivo(r)) return null;
+  const d = await cargarTodo();
+  const gastos = d.gastos.filter(g => g.rendicionId === id);
+  const deps = modo === 'todo' ? d.eventos.filter(e => e.tipo === 'deposito' && e.rendicionId === id) : [];
+  await guardar(ALM.rendiciones, sello({ ...r, eliminacion: { modo, gastoIds: gastos.map(g => g.id), depositoIds: deps.map(e => e.id) } }));
+  await enviarAPapelera(ALM.rendiciones, id, { personaId: persona });
+  if (modo === 'todo') {
+    for (const g of gastos) await enviarAPapelera(ALM.gastos, g.id, { personaId: persona });
+    for (const e of deps) await enviarAPapelera(ALM.eventos, e.id, { personaId: persona });
+  } else {
+    await guardarVarios(gastos.map(g => ({ almacen: ALM.gastos, registro: sello({ ...g, rendicionId: null }) })));
+  }
+  return r;
+}
+
+/** Restaura una rendición eliminada tal como estaba. Si su N° ya lo usa otra rendición de la persona, toma el siguiente libre. */
+export async function restaurarRendicion(id) {
+  const r = await obtener(ALM.rendiciones, id);
+  if (!r || r.purgadoEn) return null;
+  const el = r.eliminacion || { modo: 'borrador', gastoIds: [], depositoIds: [] };
+  await restaurar(ALM.rendiciones, id, { personaId: persona });
+  if (el.modo === 'todo') {
+    for (const gid of el.gastoIds) await restaurar(ALM.gastos, gid, { personaId: persona });
+    for (const eid of el.depositoIds) await restaurar(ALM.eventos, eid, { personaId: persona });
+  } else {
+    for (const gid of el.gastoIds) {
+      const g = await obtener(ALM.gastos, gid);
+      if (vivo(g) && !g.rendicionId) await guardar(ALM.gastos, sello({ ...g, rendicionId: id }));
+    }
+  }
+  const d = await cargarTodo();
+  const vuelta = await obtener(ALM.rendiciones, id);
+  delete vuelta.eliminacion;
+  const choca = d.rendiciones.some(x => x.id !== id && x.personaId === vuelta.personaId && x.numero === vuelta.numero);
+  if (choca) vuelta.numero = numeroSiguiente(d.rendiciones.filter(x => x.id !== id), vuelta.personaId);
+  await guardar(ALM.rendiciones, sello(vuelta));
+  return vuelta;
+}
+
+/** Rendiciones en la papelera (más recientes primero). */
+export async function rendicionesEliminadas() {
+  return (await todos(ALM.rendiciones)).filter(r => r.eliminadoEn && !r.purgadoEn).sort((a, b) => b.eliminadoEn.localeCompare(a.eliminadoEn));
+}
+
+/** Elimina definitivamente una rendición de la papelera, con sus eventos y, si se eliminó «con todo», sus gastos (y boletas) y depósitos. */
+export async function purgarRendicion(id) {
+  const r = await obtener(ALM.rendiciones, id);
+  if (!r || !r.eliminadoEn || r.purgadoEn) return null;
+  const el = r.eliminacion || { modo: 'borrador', gastoIds: [], depositoIds: [] };
+  const evs = (await todos(ALM.eventos)).filter(e => e.rendicionId === id && !e.purgadoEn && (e.tipo !== 'deposito' || el.depositoIds.includes(e.id)));
+  for (const e of evs) await eliminarDefinitivo(ALM.eventos, e.id, { personaId: persona });
+  for (const eid of el.depositoIds) await eliminarDefinitivo(ALM.eventos, eid, { personaId: persona });
+  if (el.modo === 'todo') {
+    const ids = new Set(el.gastoIds);
+    // Boletas (incluidas las reemplazadas que quedaron en la papelera) se borran también, ya que su gasto desaparece.
+    for (const a of await todos('compartido_archivos')) {
+      if (a.modulo === 'gastos' && ids.has(a.duenoId) && !a.purgadoEn) await eliminarDefinitivo('compartido_archivos', a.id, { personaId: persona });
+    }
+    for (const gid of el.gastoIds) await eliminarDefinitivo(ALM.gastos, gid, { personaId: persona });
+  }
+  return eliminarDefinitivo(ALM.rendiciones, id, { personaId: persona });
 }
 
 export async function gastoAPapelera(id) { return enviarAPapelera(ALM.gastos, id, { personaId: persona }); }

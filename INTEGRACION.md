@@ -1,4 +1,9 @@
-# INTEGRACION.md — Sistema v0.14
+# INTEGRACION.md — Sistema v0.14a
+
+## v0.14a · Gastos 0.1a: eliminar rendiciones (RRHH)
+- `modulos/gastos/datos.js`: `eliminarRendicion(id, { modo: 'borrador' | 'todo' })` (anota `eliminacion: { modo, gastoIds, depositoIds }` en la rendición y la manda a la papelera; 'borrador' deja `rendicionId: null` en sus gastos, 'todo' manda gastos y depósitos ligados a la papelera), `restaurarRendicion(id)` (deshace según `eliminacion`; renumera si el N° quedó ocupado), `rendicionesEliminadas()`, `purgarRendicion(id)` (`eliminarDefinitivo` de la rendición, sus eventos, depósitos y, en 'todo', gastos y boletas).
+- `pantallas.js`: `zonaEliminar` en la rendición (solo RRHH) y `vistaPapeleraRendiciones` en la bandeja; acciones `eliminar-rendicion`, `restaurar-rendicion`, `purgar-rendicion`. Estilos `gs-eliminar`, `gs-papelera`.
+- Sin almacenes nuevos. Paquete de conexión idéntico (esbuild deja fuera estas funciones): Terreno no cambia.
 
 ## v0.14 · Paquete de conexión 1.4 (Gastos desde Terreno)
 - `app/conexion-terreno.js`: sección «Gastos (v1.4)» que reutiliza `modulos/gastos/datos.js` y `modelo.js` (sin pantallas): `CATEGORIAS_GASTO`, `proyectosGastos`, `misGastos`, `gastosDevueltos`, `guardarGasto`, `eliminarGasto`, `restaurarGasto`, `boleta`. Ver `paquete-conexion/LEEME.md`.

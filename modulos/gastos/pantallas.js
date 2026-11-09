@@ -10,6 +10,7 @@ import { avisarConDeshacer } from '../../compartido/deshacer.js';
 import {
   fijarPersona, cargarTodo, obtenerGasto, guardarGasto, gastoAPapelera, restaurarGasto, enviarRendicion,
   devolverRendicion, pagarRendicion, registrarDeposito, quitarDeposito, restaurarDeposito,
+  eliminarRendicion, restaurarRendicion, rendicionesEliminadas, purgarRendicion,
 } from './datos.js';
 import {
   CATEGORIAS, ESTADOS, clp, leerMonto, suma, posiblesDuplicados, problemasGasto, eventosDe, estadoRendicion,
@@ -39,7 +40,7 @@ export function montarPantallas(contenedor, ctx) {
   const st = {
     vista: ctx.vista || null, id: ctx.id || null,
     d: { gastos: [], rendiciones: [], eventos: [] }, proyectos: [], personas: [],
-    archivo: null, previa: null, confirmarDup: false, obs: new Set(), filtro: leerLS('gastos_filtro_rrhh', 'enviada'),
+    archivo: null, previa: null, confirmarDup: false, obs: new Set(), eliminadas: [], filtro: leerLS('gastos_filtro_rrhh', 'enviada'),
   };
   const nomProy = id => id === OFICINA_ID ? 'Oficina' : ((st.proyectos.find(p => p.id === id) || {}).nombre || 'Proyecto sin nombre');
   const nomPers = id => (st.personas.find(p => p.id === id) || {}).nombre || 'Sin persona';
@@ -60,7 +61,7 @@ export function montarPantallas(contenedor, ctx) {
 
   // ─────────── Carga y render ───────────
   async function cargar() {
-    [st.proyectos, st.personas, st.d] = await Promise.all([listarProyectos(), listarPersonas(), cargarTodo()]);
+    [st.proyectos, st.personas, st.d, st.eliminadas] = await Promise.all([listarProyectos(), listarPersonas(), cargarTodo(), esRrhh ? rendicionesEliminadas() : []]);
   }
   async function recargar() { await cargar(); render(); }
 
@@ -269,8 +270,32 @@ export function montarPantallas(contenedor, ctx) {
             ${esRrhh && e.tipo === 'deposito' && est !== 'pagada' ? `<button type="button" class="sis-btn chico" data-accion="quitar-deposito" data-id="${esc(e.id)}">Quitar</button>` : ''}</li>`).join('')}</ol>
         </section>
       </div><aside>
-        ${esRrhh ? accionesRrhh(r, est, f, sug) : ''}
+        ${esRrhh ? accionesRrhh(r, est, f, sug) + zonaEliminar(r, est) : ''}
       </aside></div>`;
+  }
+
+  /** v0.14a · RRHH: eliminar la rendición (papelera con Restaurar). */
+  function zonaEliminar(r, est) {
+    return `<section class="sis-tarjeta gs-eliminar"><h2>Eliminar rendición</h2>
+        <p class="sis-tenue">Va a la papelera de rendiciones (abajo en la bandeja) y se puede restaurar.${est === 'pagada' ? ' Ojo: esta rendición ya está pagada.' : ''}</p>
+        <div class="gs-eliminar-acc">
+          <button type="button" class="sis-btn chico" data-accion="eliminar-rendicion" data-modo="borrador">Eliminar · los gastos vuelven al borrador</button>
+          <button type="button" class="sis-btn chico peligro" data-accion="eliminar-rendicion" data-modo="todo">Eliminar con sus gastos y depósitos</button>
+        </div></section>`;
+  }
+
+  /** v0.14a · Papelera de rendiciones (bandeja de RRHH). */
+  function vistaPapeleraRendiciones() {
+    if (!st.eliminadas.length) return '';
+    return `<section class="sis-tarjeta gs-papelera"><h2>Papelera de rendiciones <span class="sis-chip gris">${st.eliminadas.length}</span></h2>
+      <div class="sis-lista">${st.eliminadas.map(r => {
+        const el = r.eliminacion || {};
+        const que = el.modo === 'todo' ? `con ${plural((el.gastoIds || []).length, 'gasto', 'gastos')}` : 'gastos devueltos al borrador';
+        return `<div class="sis-fila gs-pap-fila"><div class="gs-pap-txt"><b>N° ${r.numero} · ${esc(nomPers(r.personaId))} · ${esc(nomProy(r.proyectoId))}</b>
+          <small>Eliminada ${fechaHoraLegible(r.eliminadoEn)}${r.eliminadoPor ? ` por ${esc(nomPers(r.eliminadoPor))}` : ''} · ${que}</small></div>
+          <div class="gs-pap-acc"><button type="button" class="sis-btn chico" data-accion="restaurar-rendicion" data-id="${esc(r.id)}">Restaurar</button>
+          <button type="button" class="sis-btn chico peligro" data-accion="purgar-rendicion" data-id="${esc(r.id)}" data-numero="${r.numero}">Eliminar definitivamente</button></div></div>`;
+      }).join('')}</div></section>`;
   }
 
   function accionesRrhh(r, est, f, sug) {
@@ -335,7 +360,8 @@ export function montarPantallas(contenedor, ctx) {
             <td>${gastosDe(r).length}</td><td class="num">${clp(f.gastado)}</td><td class="num ${f.saldo < 0 ? 'gs-c-persona' : f.saldo > 0 ? 'gs-c-empresa' : ''}">${f.saldo ? `${clp(Math.abs(f.saldo))} <small>${f.saldo < 0 ? 'a la persona' : 'a la empresa'}</small>` : '—'}</td>
             <td>${chip(est)}</td><td>${f.envio ? fechaLegible(f.envio) : '—'}</td></tr>`).join('')}</tbody></table></div>`
         : vacio(st.filtro === 'enviada' ? 'No hay rendiciones por revisar.' : 'No hay rendiciones en esta lista.')}</section>
-      ${vistaFondos(filtroProy)}`;
+      ${vistaFondos(filtroProy)}
+      ${vistaPapeleraRendiciones()}`;
   }
 
   /** Fondos por rendir: registrar depósitos (antes de gastar) y ver el saldo de cada cuenta persona × proyecto. */
@@ -412,6 +438,27 @@ export function montarPantallas(contenedor, ctx) {
         await quitarDeposito(id);
         await recargar();
         avisarConDeshacer('Depósito quitado', async () => { await restaurarDeposito(id); await recargar(); });
+      } else if (a === 'eliminar-rendicion') {
+        const r = rendicion(st.id), modo = b.dataset.modo, n = gastosDe(r).length;
+        const texto = modo === 'todo'
+          ? `¿Eliminar la rendición N° ${r.numero} de ${nomPers(r.personaId)} con sus ${plural(n, 'gasto', 'gastos')} y los depósitos ligados a ella?\n\nVa a la papelera de rendiciones y se puede restaurar.`
+          : `¿Eliminar la rendición N° ${r.numero} de ${nomPers(r.personaId)}?\n\nSus ${plural(n, 'gasto', 'gastos')} vuelven al borrador de la persona. Va a la papelera de rendiciones y se puede restaurar.`;
+        if (!confirm(texto)) return;
+        b.disabled = true;
+        await eliminarRendicion(r.id, { modo });
+        avisarConDeshacer(`Rendición N° ${r.numero} eliminada`, async () => { await restaurarRendicion(r.id); await recargar(); });
+        ir(`#/gastos/proyecto/${r.proyectoId}`);
+      } else if (a === 'restaurar-rendicion') {
+        b.disabled = true;
+        const r = await restaurarRendicion(b.dataset.id);
+        await recargar();
+        avisarConDeshacer(r ? `Rendición N° ${r.numero} restaurada` : 'No se pudo restaurar');
+      } else if (a === 'purgar-rendicion') {
+        if (!confirm(`¿Eliminar definitivamente la rendición N° ${b.dataset.numero}?\n\nSe borra con sus registros (y sus gastos y boletas, si se eliminó con ellos). No se puede deshacer.`)) return;
+        b.disabled = true;
+        await purgarRendicion(b.dataset.id);
+        await recargar();
+        avisarConDeshacer('Rendición eliminada definitivamente');
       } else if (a === 'excel') { await descargarExcel(datosSalida(rendicion(st.id))); }
       else if (a === 'pdf') {
         const texto = b.innerHTML; b.disabled = true;

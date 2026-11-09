@@ -99,3 +99,12 @@ body[data-modo="telefono"] .gs-kpi b{font-size:18px;}
 
 /* Ficha del proyecto (pantalla del Sistema): montos de la tarjeta «Gastos del proyecto» */
 .sis-dato b.mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+
+/* v0.14a · Eliminar rendición y papelera de rendiciones */
+.mod-gastos .gs-eliminar{border-color:#EED8D2;}
+.mod-gastos .gs-eliminar-acc{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
+.mod-gastos .gs-eliminar-acc .sis-btn{justify-content:center; white-space:normal; text-align:center;}
+.mod-gastos .gs-pap-fila{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;}
+.mod-gastos .gs-pap-txt{flex:1 1 260px; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.mod-gastos .gs-pap-txt small{color:var(--sis-tenue, #6b7280);}
+.mod-gastos .gs-pap-acc{display:flex; gap:6px; flex-wrap:wrap;}

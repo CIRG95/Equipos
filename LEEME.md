@@ -1,4 +1,27 @@
-# Topoland · Sistema de trabajo — v0.12 (Monografías paso a paso e ícono nuevo)
+# Topoland · Sistema de trabajo — v0.13 (Gastos 0.1)
+
+**Sistema v0.13 = v0.12 + Gastos 0.1.** El paquete de conexión cambia solo en el esquema (tres almacenes nuevos de Gastos) y ya va copiado en `terreno/js/` con el caché de Terreno subido (`terreno-topo-v45`): Terreno no cambia en lo que hace.
+
+## Qué cambia en v0.13
+- **Gastos en el menú** (antes «pronto»), para Encargado de terreno y Administración / RRHH. Funciona igual en teléfono y en PC.
+- **Encargado de terreno — «Gastos»:**
+  - Se elige el proyecto (queda recordado). Los gastos sin enviar de ese proyecto **son el borrador** de la rendición: no se arma a mano.
+  - **Nuevo gasto en 3 toques:** foto de la boleta (cámara o galería, también PDF), monto y categoría. La fecha es hoy y el proyecto el que está abierto; se cambian solo si hace falta. Comercio y nota son opcionales.
+  - **«No tengo boleta»** con motivo (peajes con TAG, estacionamientos): queda marcado para RRHH.
+  - **Aviso de posible duplicado** (mismo monto y fecha) antes de guardar.
+  - El borrador muestra **fondo recibido, gastado y saldo**. Sin fondo es un reembolso.
+  - **«Enviar rendición a RRHH»** la deja Enviada con su N° (por persona) y bloquea esos gastos.
+  - Si RRHH la **devuelve**, aparece arriba con el motivo; los gastos observados van marcados, se corrigen (o se agrega el que falta) y se **reenvía** con el mismo N°.
+  - «Mis rendiciones»: todas, con su estado (Borrador, Enviada, Devuelta, Pagada).
+- **Administración / RRHH — «Rendiciones»:**
+  - Bandeja con Por revisar, Devueltas, Pagadas y Todas; indicadores de por revisar, devueltas, pagadas este mes y monto por pagar.
+  - En cada rendición: boletas (tocar abre en grande), marcar **«Observado»**, **Devolver con motivo**, **Registrar depósito de fondo** y **Registrar pago del saldo**. Si el saldo es a favor de la empresa: «La persona devuelve» o «Pasa a la siguiente rendición».
+  - **Fondos por rendir:** depósito antes de gastar (persona, proyecto, monto, fecha), saldo por persona y proyecto, y los últimos depósitos con «Quitar» (con Deshacer).
+- **Excel** (detalle y hoja por categoría) y **PDF con las boletas** como anexo (dos por página), desde cada rendición.
+- **Campanita:** RRHH recibe las rendiciones enviadas; terreno, las devueltas y pagadas. Se marcan vistas al abrir la rendición.
+- **Ficha del proyecto:** la tarjeta «Gastos del proyecto» muestra gastado, fondo depositado, sin enviar, por pagar y rendiciones por estado.
+- Fuera de la 0.1: OCR, Gmail, cartola y otras monedas (siguen en la app personal Rendición Terreno). La cartola nunca va a la nube.
+
 
 **Sistema v0.11 = v0.10 + navegación nueva + Vuelos 0.9 + Equipos 0.2 + Monografías 0.3.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
 

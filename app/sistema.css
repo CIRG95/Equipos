@@ -28,7 +28,8 @@ a{color:var(--enlace);}
 .sis-marca{grid-area:marca; display:flex; align-items:center; gap:10px; min-width:0;}
 .sis-logo{width:34px; height:34px; border-radius:7px; background:var(--marca); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex:none;}
 .sis-marca b{display:block; font-size:15px; font-weight:600;}
-.sis-marca span{display:block; font-size:12px; color:var(--muted); white-space:nowrap;}
+.sis-marca > span, .sis-marca > div{min-width:0;}
+.sis-marca span{display:block; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .sis-marca span span{display:inline;}
 .sis-acciones-cab{grid-area:acciones; display:flex; gap:6px; align-items:center;}
 .sis-quien{grid-area:quien; display:flex; gap:6px; min-width:0;}

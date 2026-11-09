@@ -31,6 +31,10 @@ export const ESQUEMA = [
   { nombre: 'seguimiento_ciclos', indices: [['planId', 'planId']] },
   { nombre: 'seguimiento_eventos', indices: [['cicloId', 'cicloId']] },
   { nombre: 'seguimiento_entregas', indices: [['cicloId', 'cicloId']] },
+  // Gastos (v0.13)
+  { nombre: 'gastos_gastos', indices: [['proyectoId', 'proyectoId'], ['personaId', 'personaId'], ['rendicionId', 'rendicionId']] },
+  { nombre: 'gastos_rendiciones', indices: [['proyectoId', 'proyectoId'], ['personaId', 'personaId']] },
+  { nombre: 'gastos_eventos', indices: [['rendicionId', 'rendicionId']] },
   // Monografías (datos que llegan desde Terreno)
   { nombre: 'terreno_monografias', indices: porProyecto },
   { nombre: 'terreno_monografias_gabinete', indices: porProyecto },

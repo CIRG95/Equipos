@@ -20,12 +20,6 @@ export function crearPasoPermisos(v) {
   const ultimaConsulta = ref('ultimaConsulta');
 
   // ─────────── Paso 4 · Permisos y consultas ───────────
-  function fechaMenosHabiles(fecha, n) {
-    const d = new Date(fecha + 'T12:00:00');
-    while (n > 0) { d.setDate(d.getDate() - 1); const w = d.getDay(); if (w !== 0 && w !== 6) n--; }
-    return d.toISOString().slice(0, 10);
-  }
-
   const GUIA_ZONA = {
     no_poblada: 'Áreas no pobladas (DAN 91): solicitud de autorización ante el Subdepartamento de Operaciones (SDO) de la DGAC con el formulario DAN 91 Anexo D.',
     poblada: 'Áreas pobladas (DAN 151): autorización Apéndice A de la DAN 151 vigente y carpeta operativa con la credencial de operador, la tarjeta de registro del RPA y la resolución del seguro aprobado por la JAC.',

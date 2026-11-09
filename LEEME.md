@@ -1,6 +1,12 @@
-# Topoland · Sistema de trabajo — v0.11.3 (borrado definitivo, medir, Cortar → Aplicar, jornadas por batería y esquemas sobre imagen)
+# Topoland · Sistema de trabajo — v0.11.4 (revisión de optimización)
 
 **Sistema v0.11 = v0.10 + navegación nueva + Vuelos 0.9 + Equipos 0.2 + Monografías 0.3.** Paquete de conexión sin cambios (1.3) y sin almacenes nuevos: la app de Terreno no necesita actualizarse.
+
+## Qué cambia en v0.11.4
+Revisión de optimización (cada 3 versiones), sin cambios en lo que hace la app:
+- `sistema-app.js` más liviano (880 → 713 KB): se arma sin espacios ni comentarios, con nombres legibles.
+- Vuelos más ágil: el cálculo de cada sector se guarda mientras no cambien el área, los parámetros o el sector; la lista de vuelos se relee solo cuando cambian los datos.
+- Limpieza de código sin uso y funciones repetidas llevadas a `compartido/util.js`.
 
 ## Qué cambia en v0.11.3
 - **Borrado definitivo con confirmación** en las papeleras de Proyectos, Equipos (equipos, certificados, mantenciones, archivos) y la nueva **papelera de Vuelos** (debajo de la lista de vuelos). Cada elemento tiene «Restaurar» y «Eliminar definitivamente»; con más de uno, «Vaciar la papelera». Siempre pide confirmar. Se borran también sus archivos. Queda solo una marca vacía para que la sincronización no lo traiga de vuelta desde otro dispositivo.

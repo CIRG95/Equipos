@@ -1,4 +1,4 @@
-# INTEGRACION.md — Sistema v0.11.3
+# INTEGRACION.md — Sistema v0.11.4
 
 ## Qué contiene
 
@@ -136,6 +136,12 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Seguimiento 0.2: el ciclo guarda `entrega`, `terreno`, `diasEntrega` cuando sale de la periodicidad; `plazoCiclo` usa `ciclo.entrega` si existe.
 - Sin almacenes nuevos ni cambios en el paquete de conexión (Terreno no se actualiza).
 
+
+## Sistema v0.11.4 (optimización)
+- `construir.sh`: `sistema-app.js` con `--minify-whitespace --minify-syntax` (sin renombrar identificadores). Los paquetes para Terreno siguen igual.
+- `compartido/util.js`: `leerLS(k, d)` y `escribirLS(k, v)` (antes copiados en Vuelos y Seguimiento). El paquete de conexión no cambia (esbuild deja fuera lo que no usa).
+- Vuelos 0.9.4: `calcularSector` con memoria (`WeakMap` por geometría; el resultado no se debe modificar); `cargarBase` solo si hubo cambios (`alCambiar`) o `refrescar()`. Quitados `perimetroM` y `fechaMenosHabiles`.
+- Equipos: importaciones sin uso quitadas (sin cambios de comportamiento).
 
 ## Sistema v0.11.3
 - **`compartido/papelera.js`:** `eliminarDefinitivo(almacen, id, { personaId })` reemplaza el registro por una marca `{ id, eliminadoEn, eliminadoPor, purgadoEn, creadoEn, creadoPor, dispositivoId }` + sellos (gana en la sincronización) y hace lo mismo con los `compartido_archivos` cuyo `duenoId` es ese id. `estaPurgado(r)`; `enPapelera` ya no lista los purgados. Como la marca conserva `eliminadoEn`, todo lo que filtra eliminados (incluida la app de Terreno) la ignora sin cambios.

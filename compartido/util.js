@@ -114,3 +114,7 @@ export function cargarScript(url) {
   scriptsCargados.set(url, p);
   return p;
 }
+
+/** Preferencias de este navegador (localStorage), sin fallar si no hay almacenamiento (v0.11.4: antes repetido en cada módulo). */
+export const leerLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+export const escribirLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };

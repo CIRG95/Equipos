@@ -3,7 +3,8 @@
 // paso-clima.js (y Pronóstico rápido), paso-permisos.js (y la hoja para terreno), herramientas.js (KML, Drones), mapas.js.
 // Cada uno es una fábrica crearX(v) que recibe el contexto compartido v (estado st, listas base y funciones del núcleo).
 
-import { escapar as esc, descargar, cargarScript } from '../../compartido/util.js';
+import { escapar as esc, descargar, cargarScript, leerLS, escribirLS } from '../../compartido/util.js';
+import { alCambiar } from '../../compartido/almacen.js';
 import { listarProyectos, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
 import { guardarArchivo, abrirArchivo } from '../../compartido/archivos.js';
 import { fijarPersona, listarDrones, guardarDron, restablecerDron, listarPlanes, obtenerPlan, guardarPlan, eliminarPlan, planesEnPapelera, restaurarPlan, purgarPlan } from './datos.js';
@@ -30,8 +31,6 @@ import { ubicacionDe } from './ubicacion.js';
 
 const HERRAMIENTAS = [['hojas', 'Hojas de vuelo'], ['rapido', 'Pronóstico rápido'], ['kml', 'Limpiar KML'], ['drones', 'Drones']];
 
-const leerLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
-const escribirLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
 
 export function montarPantallas(contenedor, ctx) {
   fijarPersona(ctx.personaId || null);
@@ -65,7 +64,13 @@ export function montarPantallas(contenedor, ctx) {
   const secSel = () => { const g = geo(); return g ? Math.max(0, Math.min(st.hoja.area.sel || 0, g.sectores.length - 1)) : 0; };
   const capasActivas = () => st.capasActivas || (st.capas || []).map(c => c.id);
 
+  // v0.11.4: la base (drones, proyectos, personas, hojas) se relee solo si cambió algo, no en cada clic:
+  // con muchas hojas o caminos cargados, leerlas todas en cada repintado se notaba.
+  let baseSucia = true;
+  const quitarOyente = alCambiar(ns => { if (ns.some(n => n.startsWith('vuelos_') || n.startsWith('compartido_'))) baseSucia = true; });
   async function cargarBase() {
+    if (!baseSucia) return;
+    baseSucia = false;
     [base.drones, base.proyectos, base.personas, base.hojas, base.papelera] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes(), planesEnPapelera()]);
     base.hojas = base.hojas.map(migrarHoja);
   }
@@ -753,7 +758,7 @@ export function montarPantallas(contenedor, ctx) {
   })();
 
   return {
-    desmontar() { activo = false; guardarAhora(); for (const m of Object.values(mapas)) m.mapa.remove(); raiz.remove(); },
-    refrescar() { if (st.vista === 'hojas' || st.vista === 'drones') render(); },
+    desmontar() { activo = false; quitarOyente(); guardarAhora(); for (const m of Object.values(mapas)) m.mapa.remove(); raiz.remove(); },
+    refrescar() { baseSucia = true; if (st.vista === 'hojas' || st.vista === 'drones') render(); },
   };
 }

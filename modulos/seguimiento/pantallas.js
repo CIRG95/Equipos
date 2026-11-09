@@ -2,7 +2,7 @@
 // Lista de proyectos con seguimiento · ficha con pestañas Seguimiento (franjas terreno/gabinete) · Marcar avance · Configurar.
 // Usa las clases sis-… del Sistema, las sg-… de seguimiento.css y las piezas comunes tooltip, deshacer y columnas.
 
-import { escapar as esc, fechaLegible, hoyISO } from '../../compartido/util.js';
+import { escapar as esc, fechaLegible, hoyISO, leerLS, escribirLS } from '../../compartido/util.js';
 import { listarProyectos, listarPersonas, obtenerProyecto, OFICINA_ID } from '../../compartido/catalogos.js';
 import { ciclosEntre, cicloDelMes, sumarHabiles } from '../../compartido/periodicidad.js';
 import { activarTooltips, ocultarTooltip } from '../../compartido/tooltip.js';
@@ -25,8 +25,6 @@ const ICO = {
 };
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const corta = iso => { if (!iso || iso === 'si') return iso === 'si' ? 'volado' : ''; const d = new Date(iso + 'T12:00:00'); return `${DIAS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`; };
-const leerLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
-const escribirLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
 const extremos = nombre => { const p = String(nombre).split(' – '); return [p[0], p[p.length - 1]]; };
 
 export function montarPantallas(contenedor, ctx) {

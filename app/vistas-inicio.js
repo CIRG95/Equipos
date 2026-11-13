@@ -20,6 +20,39 @@ import { ESTADOS as ESTADOS_MONO } from '../modulos/monografias/datos.js';
 import { ROLES, COLORES_MARCA, CATEGORIAS_TRABAJO, NOMBRE_CATEGORIA, tiposDeProyecto, textosTipos, ROLES_PERSONA, NOMBRE_ROL_PERSONA, REGIONES, ETAPAS_PROYECTO, NOMBRE_ETAPA_PROYECTO, etapaProyecto } from './catalogo.js';
 import { VERSION_SISTEMA } from './version.js';
 import { ICONO, chipCal, filaEquipo, vacio, estadoAlerta, aFechaL, lunesDe, diaCorto } from './vistas-ui.js';
+import * as Administracion from '../modulos/administracion/administracion.js';
+import { ordenarPendientes } from '../compartido/vencimientos.js';
+
+// ─────────── Mis pendientes (v0.15): un solo listado con todo lo que requiere una acción, según el rol ───────────
+const NIVEL_PEND = { rojo: ['Vencido', 'rojo'], ambar: ['Por vencer', 'ambar'] };
+function tarjetaPendientes(items, ctx) {
+  const lista = ordenarPendientes(items);
+  const n = k => lista.filter(x => x.nivel === k).length;
+  return `<section class="sis-tarjeta" aria-labelledby="ini-pend-t"><div class="sis-cab"><div><h2 id="ini-pend-t">Mis pendientes</h2><span class="sis-tenue">Se muestran únicamente las tareas que requieren su gestión, ordenadas por urgencia. Utilice cada fila para abrir el registro correspondiente.</span></div>
+      <div class="sis-chips">${n('rojo') ? `<span class="sis-chip rojo">${n('rojo')} urgente${n('rojo') > 1 ? 's' : ''}</span>` : ''}${n('ambar') ? `<span class="sis-chip ambar">${n('ambar')} por atender</span>` : ''}</div></div>
+    ${lista.length ? `<div class="ini-pend">${lista.slice(0, 12).map(x => `<a class="ini-pend-fila" href="${esc(x.enlace)}"><span class="sis-chip ${NIVEL_PEND[x.nivel] ? NIVEL_PEND[x.nivel][1] : 'gris'}">${esc(x.etiqueta || (NIVEL_PEND[x.nivel] || ['Pendiente'])[0])}</span><span class="ini-pend-txt"><span class="ini-pend-cat">${esc(x.categoria || '')}</span><b>${esc(x.titulo)}</b><span>${esc(x.detalle || '')}</span></span></a>`).join('')}</div>${lista.length > 12 ? `<p class="sis-tenue">y ${lista.length - 12} más.</p>` : ''}`
+      : vacio(ctx.rol === 'terreno' && !ctx.personaId ? 'Seleccione su persona arriba para ver sus pendientes.' : 'Sin pendientes: todo al día.')}
+  </section>`;
+}
+
+/** Pendientes de equipos (calibraciones) y de Administración para el rol actual; `extra` suma los de cada pantalla. */
+async function misPendientes(ctx, { personas, proyectos, equipos, extra = [] }) {
+  const hoy = hoyISO();
+  const items = [...extra];
+  const nomProy = id => (proyectos.find(p => p.id === id) || {}).nombre || 'Oficina';
+  const eqs = ctx.rol === 'rrhh' ? equipos : ctx.rol === 'terreno' && ctx.personaId ? equipos.filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.personaId === ctx.personaId) : [];
+  for (const e of eqs) {
+    const c = e.calibracion, donde = e.ubicacion.lugar === 'terreno' ? ` · en terreno: ${nomProy(e.ubicacion.proyectoId)}` : '';
+    if (c.nivel === 'vencida') items.push({ nivel: 'rojo', categoria: 'Equipos', titulo: `Calibración vencida · ${e.nombre}`, detalle: `Venció el ${fechaLegible(c.proxima)}${donde}.`, enlace: `#/equipos/${e.id}`, fecha: c.proxima });
+    else if (c.nivel === 'por_vencer') items.push({ nivel: 'ambar', etiqueta: `En ${c.dias} días`, categoria: 'Equipos', titulo: `Calibración · ${e.nombre}`, detalle: `Vence el ${fechaLegible(c.proxima)}${donde}.`, enlace: `#/equipos/${e.id}`, fecha: c.proxima });
+    else if (c.nivel === 'sin_dato' && ctx.rol === 'rrhh') items.push({ nivel: 'ambar', etiqueta: 'Falta', categoria: 'Equipos', titulo: `Fecha de calibración · ${e.nombre}`, detalle: 'Registre el certificado de calibración.', enlace: `#/equipos/${e.id}`, fecha: null });
+  }
+  if (ctx.rol === 'direccion') {
+    for (const p of proyectos.filter(x => x.id !== OFICINA_ID && x.estado !== 'cerrado' && x.plazo && x.plazo < hoy && (!x.periodicidad || x.periodicidad.tipo !== 'recurrente'))) items.push({ nivel: 'rojo', etiqueta: 'Atrasado', categoria: 'Proyectos', titulo: `Plazo vencido · ${p.nombre}`, detalle: `Plazo de entrega: ${fechaLegible(p.plazo)}.`, enlace: `#/proyecto/${p.id}`, fecha: p.plazo });
+  }
+  for (const x of await Administracion.pendientes({ rol: ctx.rol, personaId: ctx.personaId, personas, proyectos, hoy }).catch(e => { console.warn(e); return []; })) items.push(x);
+  return items;
+}
 
 // ─────────────────────────── Inicio ───────────────────────────
 
@@ -57,7 +90,6 @@ export async function inicio(ctx) {
     const porProyecto = {};
     for (const e of enTerreno) (porProyecto[e.ubicacion.proyectoId] ||= []).push(e);
 
-    const revisar = [...vencidas, ...porVencer, ...sinDato];
     return `${saludo}${bienvenida}
       <div class="sis-kpis">
         <a class="sis-kpi ${vencidas.length ? 'rojo' : ''}" href="#/equipos"><span>${ICONO.calib}Calibraciones vencidas</span><b>${vencidas.length}</b></a>
@@ -66,11 +98,7 @@ export async function inicio(ctx) {
         <a class="sis-kpi" href="#/equipos"><span>${ICONO.equipo}En terreno</span><b>${enTerreno.length}<small> de ${vigentes.length}</small></b></a>
       </div>
       <div class="sis-dos"><div>
-        <section class="sis-tarjeta">
-          <h2>Calibraciones por revisar</h2>
-          ${revisar.length ? `<div class="sis-lista">${revisar.slice(0, 10).map(e => filaEquipo(e, { nombreProyecto: nomProy })).join('')}</div>${revisar.length > 10 ? `<p class="sis-tenue">y ${revisar.length - 10} más en Equipos → filtro «Calibración por revisar».</p>` : ''}`
-            : vacio(vigentes.length ? 'Todas las calibraciones están al día.' : 'Aún no hay equipos cargados. Ve a Equipos → Administrar → Importar planilla.')}
-        </section>
+        ${tarjetaPendientes(await misPendientes(ctx, { personas, proyectos, equipos }), ctx)}
         <section class="sis-tarjeta">
         <h2>Equipos en terreno, por proyecto</h2>
         ${Object.keys(porProyecto).length ? Object.entries(porProyecto).map(([pid, lista]) => `
@@ -87,6 +115,19 @@ export async function inicio(ctx) {
             : vacio('No hay alertas abiertas.')}
         </section>
       </aside></div>`;
+  }
+
+  if (ctx.rol === 'direccion') {
+    const atrasados = activos.filter(p => p.plazo && p.plazo < hoyISO() && (!p.periodicidad || p.periodicidad.tipo !== 'recurrente'));
+    return `${saludo}${bienvenida}
+      <div class="sis-kpis">
+        <a class="sis-kpi" href="#/proyectos"><span>${ICONO.proyecto}Proyectos activos</span><b>${activos.length}</b></a>
+        <a class="sis-kpi ${atrasados.length ? 'rojo' : ''}" href="#/comercial"><span>Con plazo vencido</span><b>${atrasados.length}</b></a>
+        <a class="sis-kpi" href="#/equipos"><span>${ICONO.equipo}Equipos en terreno</span><b>${equipos.filter(e => e.ubicacion.lugar === 'terreno').length}<small> de ${equipos.length}</small></b></a>
+        <a class="sis-kpi" href="#/comercial/cotizaciones"><span>Cotizaciones y licitaciones</span><b>›</b><small class="sis-tenue">ver el estado comercial</small></a>
+      </div>
+      ${tarjetaPendientes(await misPendientes(ctx, { personas, proyectos, equipos }), ctx)}
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Estado general de la empresa</h2><a class="sis-btn chico" href="#/comercial">Abrir</a></div><p class="sis-tenue">Rentabilidad por proyecto, cotizaciones ganadas y perdidas, ocupación de equipos y estimador de cotizaciones.</p></section>`;
   }
 
   return inicioTerreno(ctx, { personas, proyectos, equipos, yo, saludo, bienvenida, nomProy });
@@ -153,6 +194,11 @@ async function inicioTerreno(ctx, { personas, proyectos, equipos, yo, saludo, bi
       ${kpi('Entregas próximas (7 días)', entregas.length, entregas[0] ? `la más cercana: ${esc(diaCorto(entregas[0].fecha))}` : 'ninguna esta semana', entregas.length ? 'ambar' : '', '#/seguimiento')}
     </div>
     <div class="sis-dos ini-dos"><div>
+      ${tarjetaPendientes(await misPendientes(ctx, { personas, proyectos, equipos, extra: [
+        ...permisos.map(v => ({ nivel: v.limite < hoy ? 'rojo' : 'ambar', etiqueta: v.limite < hoy ? 'Plazo vencido' : `Hasta ${diaCorto(v.limite)}`, categoria: 'Permisos DGAC', titulo: `Solicitud DGAC sin registrar · ${v.nombre}`, detalle: `Vuelo el ${fechaLegible(v.fechas[0])}. ${v.limite < hoy ? `El plazo sugerido (7 días hábiles) venció el ${fechaLegible(v.limite)}.` : `Presentar a más tardar el ${fechaLegible(v.limite)}.`}${v.docsPendientes ? ` Faltan ${v.docsPendientes} documentos.` : ''}`, enlace: `#/vuelos/plan/${v.id}`, fecha: v.limite })),
+        ...logs.map(v => ({ nivel: 'rojo', etiqueta: 'Pendiente', categoria: 'Permisos DGAC', titulo: `Log de vuelo pendiente · ${v.nombre}`, detalle: `${v.proyectoId ? `${nomProy(v.proyectoId)} ya está en ${NOMBRE_ETAPA_PROYECTO[etapaDe(v.proyectoId)].toLowerCase()}. ` : ''}Cárguelo en el paso Permisos de la hoja de vuelo.`, enlace: `#/vuelos/plan/${v.id}`, fecha: null })),
+        ...entregas.filter(e => !yo || (proyectos.find(p => p.id === e.proyectoId) || {}).encargadoId === yo.id).map(e => ({ nivel: 'ambar', etiqueta: `En ${diasEntre(hoy, e.fecha)} días`, categoria: 'Entregas', titulo: e.texto, detalle: `Fecha de entrega: ${fechaLegible(e.fecha)}.`, enlace: e.enlace || '#/seguimiento', fecha: e.fecha })),
+      ] }), ctx)}
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Calendario · proyectos activos</h2><a class="sis-btn chico" href="#/proyectos/calendario">Ver mes completo</a></div>
         ${htmlFranjaProyectos(eventos, proyectos, lunes)}</section>
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Estado de los proyectos</h2><a class="sis-btn chico" href="#/proyectos">Ir a Proyectos</a></div>
@@ -164,12 +210,6 @@ async function inicioTerreno(ctx, { personas, proyectos, equipos, yo, saludo, bi
       <section class="sis-tarjeta"><h2>Alertas de equipos</h2>
         ${equiposAlerta.length ? `<div class="sis-lista">${equiposAlerta.slice(0, 8).map(e => filaEquipo(e, { nombreProyecto: nomProy })).join('')}</div>${equiposAlerta.length > 8 ? `<p class="sis-tenue">y ${equiposAlerta.length - 8} más en Equipos.</p>` : ''}`
           : vacio('Sin alertas: calibraciones al día y sin problemas reportados.')}
-      </section>
-      <section class="sis-tarjeta"><h2>Permisos</h2>
-        ${permisos.length || logs.length ? `<div class="ini-avisos">
-          ${permisos.map(v => `<a class="ini-aviso ${v.limite < hoy ? 'rojo' : 'ambar'}" href="#/vuelos/plan/${esc(v.id)}"><b>${esc(v.nombre)} · vuelo ${esc(diaCorto(v.fechas[0]))}</b><small>Solicitud DGAC sin registrar. ${v.limite < hoy ? `El plazo sugerido (7 días hábiles) venció el ${fechaLegible(v.limite)}.` : `Sugerido presentarla a más tardar el ${fechaLegible(v.limite)}.`}${v.docsPendientes ? ` Faltan ${v.docsPendientes} documentos.` : ''}</small></a>`).join('')}
-          ${logs.map(v => `<a class="ini-aviso rojo" href="#/vuelos/plan/${esc(v.id)}"><b>${esc(v.nombre)} · log de vuelo pendiente</b><small>${v.proyectoId ? `${esc(nomProy(v.proyectoId))} ya está en ${esc(NOMBRE_ETAPA_PROYECTO[etapaDe(v.proyectoId)].toLowerCase())}.` : 'Vuelo volado.'} Cárgalo en el paso Permisos.</small></a>`).join('')}
-        </div><p class="sis-tenue">Avisos informativos: no bloquean la programación.</p>` : vacio('Sin permisos pendientes para los vuelos del próximo mes.')}
       </section>
       ${yo ? `<section class="sis-tarjeta"><h2>Equipos a mi cargo</h2>${aMiCargo.length ? `<div class="sis-lista">${aMiCargo.map(e => filaEquipo(e, { nombreProyecto: nomProy })).join('')}</div>` : vacio('No tienes equipos a tu cargo. Se asignan con el checklist de salida en Equipos.')}</section>` : ''}
     </aside></div>`;

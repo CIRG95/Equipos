@@ -23,7 +23,7 @@ a{color:var(--enlace);}
   position:sticky; top:0; z-index:40; background:var(--surface); color:var(--ink);
   border-bottom:1px solid var(--borde);
   padding:10px 16px; padding-top:max(10px, env(safe-area-inset-top));
-  display:grid; grid-template-columns:1fr auto; grid-template-areas:"marca acciones" "quien quien"; gap:8px 10px; align-items:center;
+  display:grid; grid-template-columns:1fr auto; grid-template-areas:"marca acciones" "quien quien" "buscar buscar"; gap:8px 10px; align-items:center;
 }
 .sis-marca{grid-area:marca; display:flex; align-items:center; gap:10px; min-width:0;}
 .sis-logo{width:34px; height:34px; border-radius:7px; background:var(--marca); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex:none;}
@@ -177,11 +177,12 @@ body[data-modo="pc"] .sis-categorias{grid-template-columns:repeat(4, minmax(0,1f
 
 /* ---------- Modo PC (encabezado blanco con pestañas subrayadas, contenido ancho con columna lateral) ---------- */
 body[data-modo="pc"] .sis-header{
-  padding:12px 32px; grid-template-columns:auto minmax(0,1fr) auto auto; grid-template-areas:"marca menu quien acciones"; gap:20px;
+  padding:12px 32px 10px; grid-template-columns:auto minmax(0,1fr) auto auto; grid-template-areas:"marca menu menu menu" "buscar buscar quien acciones"; gap:8px 20px;
 }
 body[data-modo="pc"] .sis-marca span{font-size:12px;}
 body[data-modo="pc"] .sis-logo{width:40px; height:40px; border-radius:8px;}
-body[data-modo="pc"] .sis-menu{grid-area:menu; position:static; border:0; padding:0; background:none; gap:2px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; align-self:stretch; margin:-12px 0; min-width:0;}
+body[data-modo="pc"] .sis-menu{grid-area:menu; position:static; border:0; padding:0; background:none; gap:2px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; align-self:stretch; margin:-12px 0 0; min-width:0;}
+body[data-modo="pc"] .sis-buscador{max-width:420px;}
 body[data-modo="pc"] .sis-menu-item{flex:none; flex-direction:row; gap:6px; font-size:14px; padding:0 12px; min-height:64px; border-bottom:2px solid transparent; color:var(--muted);}
 body[data-modo="pc"] .sis-menu-item svg{display:none;}
 body[data-modo="pc"] .sis-menu-item.activo{color:var(--ink); border-bottom-color:var(--marca);}
@@ -318,6 +319,7 @@ body[data-modo="telefono"] .sis-vincular-cuerpo{grid-template-columns:1fr;}
 .cal-ev:hover{filter:brightness(.94); text-decoration:underline;}
 .cal-vuelo{background:#FCEBDD; color:#431407;} .cal-datos{background:#E4EEF6; color:#1D3F63;} .cal-entrega{background:var(--marca); color:#fff;}
 .cal-dgac{background:#FCEDE6; color:#8A3410; outline:1px solid #F1C9A8;} .cal-calib{background:#EFE9F7; color:#5B2C91;}
+.cal-venc{background:#FBEAEA; color:#8F1D17;} .cal-aus{background:#EEE9F7; color:#4B3480;}
 .cal-mas{border:0; background:none; color:var(--enlace); font:inherit; font-size:11px; text-align:left; padding:0 4px; cursor:pointer;}
 .cal-semana{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px;}
 .cal-col{background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px; min-height:280px; display:flex; flex-direction:column; gap:4px; min-width:0;}

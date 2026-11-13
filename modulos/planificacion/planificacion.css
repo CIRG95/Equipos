@@ -1,0 +1,19 @@
+/* modulos/planificacion/planificacion.css — Planificación (Sistema v0.15) */
+.pl-editor{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; margin-bottom:16px;}
+.pl-mapa-caja{flex:999 1 560px; min-width:0; padding:10px;}
+.pl-mapa{height:520px; border-radius:8px; background:#E8E9E3; position:relative; z-index:0; isolation:isolate;}
+.pl-panel{flex:1 1 340px; min-width:0; display:flex; flex-direction:column; gap:12px;}
+.pl-panel .sis-tarjeta{margin:0;}
+.pl-barra{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px;}
+.pl-ley{display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted);}
+.pl-ley i{display:inline-block; width:12px; height:12px; border-radius:50%; border:3px solid; background:#fff; vertical-align:middle;}
+.pl-ley i.ok{border-color:#0F766E;} .pl-ley i.aviso{border-color:#B7791F;} .pl-ley i.malo{border-color:#B42318;} .pl-ley i.control{border-color:#1D5C63; border-radius:2px;}
+.pl-ley i.gcp{border-color:#C2571A;} .pl-ley i.chequeo{border-color:#1D4ED8; border-radius:2px; transform:rotate(45deg);}
+.pl-pr, .pl-gcp{position:relative; width:18px; height:18px;}
+.pl-pr i, .pl-gcp i{position:absolute; inset:0; border-radius:50%; background:#fff; border:3px solid #0F766E; box-sizing:border-box;}
+.pl-pr.aviso i{border-color:#B7791F;} .pl-pr.malo i{border-color:#B42318;} .pl-pr.control i{border-color:#1D5C63; border-radius:3px; background:#E4F0EE;}
+.pl-pr.sel i{box-shadow:0 0 0 4px rgba(29,92,99,.35);}
+.pl-gcp i{border-color:#C2571A;} .pl-gcp.chequeo i{border-color:#1D4ED8; border-radius:2px; transform:rotate(45deg);}
+.pl-pr span, .pl-gcp span{position:absolute; left:20px; top:-4px; font:600 12px 'IBM Plex Sans', sans-serif; color:#1C1F23; background:rgba(255,255,255,.88); padding:1px 4px; border-radius:4px; white-space:nowrap;}
+.sis-btn.activo{background:var(--marca-suave); border-color:var(--marca); color:var(--enlace);}
+@media (max-width: 700px){ .pl-mapa{height:380px;} }

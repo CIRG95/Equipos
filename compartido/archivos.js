@@ -117,6 +117,19 @@ export async function urlArchivo(id) {
   return url;
 }
 
+/** v0.15 · Contenido del archivo (para armar un .zip): { nombre, mime, datos (dataURL) } o null. Lo baja de la nube si hace falta. */
+export async function contenidoArchivo(id) {
+  const a = id ? await obtener(ALM, id) : null;
+  if (!a || a.eliminadoEn) return null;
+  if (!a.datos) {
+    const blob = await descargarArchivo(a).catch(() => null);
+    if (!blob) return null;
+    a.datos = await leerComoDataURL(blob);
+    await guardar(ALM, a, { silencioso: true });
+  }
+  return { nombre: a.nombre, mime: a.mime, datos: a.datos };
+}
+
 /** Abre el archivo en otra pestaña (el PDF se ve con el visor del navegador). */
 export async function abrirArchivo(id) {
   const info = await infoArchivo(id);

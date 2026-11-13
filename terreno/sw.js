@@ -1,4 +1,4 @@
-const CACHE = 'terreno-topo-v46-0.5.9';
+const CACHE = 'terreno-topo-v47-0.5.9';
 const ASSETS = [
   './', './index.html', './js/01-config.js', './js/02-datos.js', './js/03-utilidades.js', './js/04-fotos-imagenes.js', './js/05-nube-y-calculos.js', './js/06-modales-y-navegacion.js', './js/07-jornada.js', './js/08-levantamiento.js', './js/09-catastro.js', './js/10-historial-y-reportes.js', './js/11-monografias-lista.js', './js/12-monografias-vista-previa.js', './js/13-monografias-importador.js', './js/14-monografias-editor.js', './js/15-pdf-y-excel.js', './js/16-sesiones.js', './js/17-respaldo.js', './js/18-normas.js', './js/19-planillas.js', './js/20-fotos-req.js', './js/21-panel-web.js', './js/pronostico-vuelo.js', './js/topoland-conexion.js', './js/22-sistema.js', './js/23-gastos.js', './css/pronostico-vuelo.css', './css/gastos.css', './js/99-inicio.js', './manifest.json', './icon-192.png', './icon-512.png',
   './vendor/jspdf.umd.min.js', './vendor/jspdf.plugin.autotable.min.js', './vendor/xlsx.full.min.js',

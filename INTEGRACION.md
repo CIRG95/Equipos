@@ -1,4 +1,41 @@
-# INTEGRACION.md — Sistema v0.14.1
+# INTEGRACION.md — Sistema v0.15
+
+## v0.15 · Administración 0.1 + Planificación 0.1 (paquete de conexión 1.4.1)
+### Compartido
+- `compartido/vencimientos.js` (nuevo): **motor único de vencimientos**. `DIAS_AVISO`, `ESTADOS_VENC` (falta, vencido, rechazado, pendiente, por_vencer, vigente, no_vence, opcional; color y orden), `diasHasta`, `estadoFecha`, `estadoDocumento(tipo, doc, { hoy, diasAviso, obligatorio, estadoPlataforma })`, `habilitacion(requisitos, docs, opc)` → `{ habilitado, nivel: 'ok'|'aviso'|'no', pendientes, avisos, filas }`, `ultimoDoc`, `textoDias`, `ordenarPendientes`. Lo usan personas, camionetas y la acreditación por mandante.
+- `compartido/zip.js` (nuevo): ZIP sin librerías (método store, CRC32, nombres UTF-8). `armarZip([{ nombre, datos }])` → Blob; `nombreSeguro`, `bytesDeDataURL`.
+- `compartido/archivos.js`: `contenidoArchivo(id)` → `{ nombre, mime, datos }` (baja de la nube si hace falta).
+- `compartido/esquema.js`: almacenes `compartido_mandantes`, `admin_tipos_doc`, `admin_documentos` (índice `dueno` [duenoTipo, duenoId]), `admin_fichas`, `admin_ausencias` (personaId), `admin_licitaciones`, `admin_vehiculos`, `admin_viajes` (proyectoId), `admin_guias` (proyectoId), `admin_cotizaciones`, `admin_seguridad` (proyectoId), `admin_biblioteca`, `admin_config`, `planif_redes` (proyectoId), `planif_marcas` (proyectoId). `VERSION_ESQUEMA` sigue en 1 (la base se agranda sola al faltar algo).
+- `compartido/nube.js`: PREFIJOS suma `admin_` y `planif_`.
+- `app/catalogo.js`: rol `direccion` («Dirección / comercial»).
+
+### Administración 0.1 (`modulos/administracion/`)
+- Puerta `administracion.js`: `iniciar`, `montar(contenedor, ctx)` (ctx.seccion = personal | administracion | comercial | conocimiento | seguridad; ctx.ruta), `datos()`, `pendientes({ rol, personaId, ... })`, `eventosCalendario`, `cuadrillaDeProyecto(p, { personas, hoy })`, `leccionesRelacionadas`, `mandanteDeProyecto`.
+- `datos.js`: `asegurarBase()` siembra una sola vez tipos de documento base, el mandante Codelco · SUCAL (`man-codelco`, 8 requisitos de vehículo) y la configuración (bandera `semilla`). Archivos de personas en la carpeta `RRHH/Personas/<nombre>`; de camionetas en `Vehiculos/<patente>`.
+- `modelo.js`: `TIPOS_BASE`, `MANDANTES_BASE`, `CONFIG_BASE`, listas (turnos, contratos, ausencias, estados de plataforma, cotización, guía, viaje, biblioteca, riesgos), `habilitacionPersona`, `acreditacion(mandante, duenoTipo, duenoId, base)`, `pendientesAdmin`, `eventosAdmin`, `estimar`, `resumenCotizaciones`, `cumplimientoLicitacion`.
+- Pantallas: `pantallas-personal.js` (resumen, ficha con 8 pestañas, licitaciones con ZIP por persona y CV en PDF con jsPDF), `pantallas-admin.js` (camionetas, acreditación matriz + detalle, viajes, fondos, guías, mandantes, configuración), `pantallas-comercial.js`, `pantallas-conocimiento.js` (mapa Leaflet + Esri con agrupación), `pantallas-seguridad.js`; enrutador `pantallas.js` con delegación `data-a` / `data-c` / `form[data-f]`.
+- Rutas: `#/personal`, `#/personal/<personaId>/<pestaña>`, `#/personal/licitaciones`, `#/personal/licitacion/<id>`, `#/administracion/<sección>/…`, `#/comercial/<sección>`, `#/conocimiento/<sección>`, `#/seguridad/<proyectoId>`.
+- Para el rol terreno, `pendientesAdmin` solo entrega habilitación (sin detalle de documentos) y acreditación de camionetas de sus proyectos.
+
+### Planificación 0.1 (`modulos/planificacion/`)
+- `modelo.js` (sin pantalla, probado en `pruebas/planificacion.test.mjs`): `marcoLocal`, `sugerirPR(poligono, { n, caminos, fijos })`, `delaunay` (Bowyer-Watson), `vectoresSugeridos`, `preAnalisis(puntos, vectores, { fijos, a, b })` (σ = a + b·L; radio 95 % = 2,4477σ; redundancia local; solo entran los puntos conectados a un fijo; si no hay control, se fija el primer PR), `invertir` (null si es singular), `evaluarPunto`, `reforzar`, `tiempoPara(km, tabla)`, `planificarSesiones` (R receptores, cada sesión comparte un punto con la anterior), `marcasArea`, `marcasCorredor`.
+- `datos.js`: `planif_redes`, `planif_marcas`; `PARAMS_RED { receptores: 3, a: 5, b: 1, tol: 20, nSugeridos: 6 }`. La tabla de tiempos se guarda en `admin_config` (`tablaTiempos: [{ hastaKm, minutos }]`).
+- Puerta `planificacion.js`: `montar`, `resumenDeProyecto(id)`, `puntosDeRedes()`.
+- Rutas: `#/planificacion`, `#/planificacion/proyecto/<id>`, `#/planificacion/red/<id>`, `#/planificacion/marcas/<id>`.
+
+### App
+- `app/buscador.js` (nuevo): `iniciarBuscador({ input, lista, rol })`; índice que se renueva cada minuto o al cambiar de rol.
+- `app/sistema.js`: menú nuevo (Planificación, Administración, Comercial, Conocimiento), subnavegación de Personas por rol, rutas nuevas; `index.html` con el buscador (`#sis-buscar`) y las hojas `administracion.css` y `planificacion.css` (también en `sw.js`).
+- `app/calendario.js`: tipos `vencimiento` y `ausencia`; `eventosEntre(desde, hasta, { rol })`.
+- `app/vistas-inicio.js`: `misPendientes` / `tarjetaPendientes`; Inicio de Dirección.
+- `app/vistas-proyectos.js` y `app/vistas.js`: ficha de encargo (campos nuevos del proyecto: `mandanteId`, `alcance`, `entregablesPedidos`, `montoCotizado`, `cuadrilla`, `vehiculoIds`; se suman a `solicitadoPor`, `fechaEncargo` y `plazo`), archivos del mandante (`duenoTipo: 'encargo'`, carpeta `Proyectos/<nombre>/Encargo`), entregables y cierre.
+
+### Paquete de conexión 1.4.1
+- Solo cambia el esquema (almacenes nuevos) y los prefijos de la nube; ninguna función. Copiado en `terreno/js/topoland-conexion.js`; `terreno/sw.js` CACHE = `terreno-topo-v47-0.5.9`. Paquete de pronóstico idéntico.
+
+### Límite
+- El acceso exclusivo de RRHH se controla en la app; la nube es una sola carpeta. Separarlo de verdad requiere Nextcloud con grupos o un servidor aparte.
+
 
 ## v0.14.1 · Revisión de optimización (sin cambios de funcionamiento)
 - `app/vistas.js` dividido en `vistas-inicio.js` (`inicio`, `htmlFranjaProyectos`), `vistas-proyectos.js` (`proyectos`, `proyecto`, `proyectoEditar`, `datosRegistro`) y `vistas-ui.js` (`ICONO`, `chipCal`, `filaEquipo`, `vacio`, `estadoAlerta`, `aFechaL`, `lunesDe`, `diaCorto`). `vistas.js` sigue exportando `VISTAS`, `manejarEnvio`, `manejarClic`, `manejarCambio`, `avisosPara`, `marcarAvisoVisto`, `htmlFranjaProyectos`, `nuevoCodigo`, `urlTerreno`.

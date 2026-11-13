@@ -23,6 +23,9 @@ import { ROLES, COLORES_MARCA, CATEGORIAS_TRABAJO, NOMBRE_CATEGORIA, tiposDeProy
 import { VERSION_SISTEMA } from './version.js';
 import { ICONO, chipCal, filaEquipo, vacio, estadoAlerta, aFechaL, lunesDe, diaCorto } from './vistas-ui.js';
 import { leerTexto as leerLS, escribirTexto as escribirLS } from '../compartido/util.js';
+import { guardarArchivo } from '../compartido/archivos.js';
+import * as Administracion from '../modulos/administracion/administracion.js';
+import { habilitacionPersona } from '../modulos/administracion/modelo.js';
 import { inicio, htmlFranjaProyectos } from './vistas-inicio.js';
 import { proyectos, proyecto, proyectoEditar, datosRegistro } from './vistas-proyectos.js';
 
@@ -32,6 +35,9 @@ export { htmlFranjaProyectos };
 
 async function personas(ctx) {
   const lista = await listarPersonas();
+  const adm = await Administracion.datos().catch(() => null);
+  const hab = id => (adm ? habilitacionPersona(id, { ...adm, hoy: hoyISO(), diasAviso: adm.config.diasAviso }) : null);
+  const chipH = h => (!h ? '' : h.nivel === 'no' ? '<span class="sis-chip rojo">No habilitado</span>' : '<span class="sis-chip verde">Habilitado</span>');
   const editable = ctx.rol === 'rrhh';
   const editando = ctx.estado.personaEditar;
   const p = editando === 'nueva' ? { roles: [] } : (editando ? lista.find(x => x.id === editando) : null);
@@ -46,12 +52,13 @@ async function personas(ctx) {
         <div class="sis-acciones"><button class="sis-btn primario">Guardar</button><button type="button" class="sis-btn" data-accion="cancelar-persona">Cancelar</button></div>
       </form></section>` : '';
   return `<div class="sis-cab"><h1>Personas</h1>${editable && !p ? '<button class="sis-btn primario" data-accion="nueva-persona">+ Persona</button>' : ''}</div>
-    <p class="sis-tenue">Quiénes usan el Sistema y qué rol cumplen. Una persona puede tener más de un rol. Los documentos del personal (licencias, exámenes) llegan más adelante, cuando el Sistema esté en el Nextcloud de la empresa.</p>
+    <p class="sis-tenue">Personas que usan el Sistema y su rol. Una persona puede tener más de un rol. La habilitación considera los documentos obligatorios; ${editable ? 'el detalle se administra en «Documentación».' : 'el detalle lo administra Recursos Humanos.'}</p>
     ${form}
     ${ctx.estado.vincular ? await tarjetaVincular(lista.find(x => x.id === ctx.estado.vincular)) : ''}
     <section class="sis-tarjeta">${lista.length ? `<div class="sis-lista">${lista.map(x => `<div class="sis-fila">
         <span class="sis-fila-txt"><b>${esc(x.nombre)}</b><span class="sis-tenue">${esc(x.cargo || 'Sin cargo')}</span></span>
-        <span class="sis-chips">${(x.roles || []).map(r => `<span class="sis-chip gris">${esc(NOMBRE_ROL_PERSONA[r] || r)}</span>`).join('')}
+        <span class="sis-chips">${chipH(hab(x.id))}${(x.roles || []).map(r => `<span class="sis-chip gris">${esc(NOMBRE_ROL_PERSONA[r] || r)}</span>`).join('')}
+        ${editable ? `<a class="sis-btn chico" href="#/personal/${esc(x.id)}">Ficha</a>` : ''}
         <button class="sis-btn chico" data-accion="vincular" data-id="${esc(x.id)}">Vincular teléfono</button>
         ${editable ? `<button class="sis-btn chico" data-accion="editar-persona" data-id="${esc(x.id)}">Editar</button>` : ''}</span></div>`).join('')}</div>`
       : vacio('Aún no hay personas.')}</section>
@@ -219,14 +226,29 @@ export async function manejarEnvio(form, ctx) {
         diasTerreno: Math.max(1, Number(datos.get('perDias')) || 1), datos: datos.get('perDatos') || 'lunes', diasEntrega: Math.max(0, Number(datos.get('perEntrega')) || 0), hasta: datos.get('perHasta') || '',
       } : { tipo: 'unico' },
       notas: (datos.get('notas') || '').trim(),
+      alcance: (datos.get('alcance') || '').trim(),
+      entregablesPedidos: (datos.get('entregablesPedidos') || '').trim(),
+      ...(datos.has('mandanteId') ? { mandanteId: datos.get('mandanteId') || null } : {}),
+      ...(datos.has('montoCotizado') ? { montoCotizado: datos.get('montoCotizado') === '' ? '' : Number(datos.get('montoCotizado')) } : {}),
+      ...(datos.has('conCuadrilla') ? { cuadrilla: datos.getAll('cuadrilla'), vehiculoIds: datos.getAll('vehiculoIds') } : {}),
     }, { personaId: ctx.personaId });
     ctx.avisar(id ? 'Proyecto guardado' : 'Proyecto creado');
     ctx.ir(`#/proyecto/${r.id}`);
     return false;
   }
+  if (form.dataset.form === 'entregable') {
+    const p = await obtenerProyecto(form.dataset.id);
+    const e = { id: nuevoCodigo() + Date.now().toString(36), nombre: (datos.get('nombre') || '').trim(), version: (datos.get('version') || '').trim(), revisoId: datos.get('revisoId') || null, enviado: datos.get('enviado') || '', estado: datos.get('enviado') ? 'enviado' : 'pendiente' };
+    await guardarProyecto({ id: p.id, entregables: [...(p.entregables || []), e] }, { personaId: ctx.personaId });
+    ctx.avisar('Entregable agregado'); return true;
+  }
+  if (form.dataset.form === 'cierre') {
+    const p = await obtenerProyecto(form.dataset.id);
+    await guardarProyecto({ id: p.id, cierre: { ...(p.cierre || {}), lecciones: (datos.get('lecciones') || '').trim(), fecha: hoyISO() } }, { personaId: ctx.personaId });
+    ctx.avisar('Lecciones guardadas'); return true;
+  }
   return false;
 }
-
 
 export async function manejarClic(boton, ctx) {
   const cal = () => (ctx.estado.cal = ctx.estado.cal || { modo: leerLS('env_cal_modo') || 'mes', ref: hoyISO(), proyecto: '' });
@@ -264,6 +286,12 @@ export async function manejarClic(boton, ctx) {
       ctx.estado.vincular = boton.dataset.id; return true;
     }
     case 'cerrar-vincular': ctx.estado.vincular = null; return true;
+    case 'entregable-quitar': {
+      const p = await obtenerProyecto(boton.dataset.id);
+      if (!confirm('¿Quitar este entregable?')) return false;
+      await guardarProyecto({ id: p.id, entregables: (p.entregables || []).filter(x => x.id !== boton.dataset.e) }, { personaId: ctx.personaId });
+      return true;
+    }
     case 'eliminar-proyecto': {
       const p = await obtenerProyecto(boton.dataset.id);
       if (!p || p.id === OFICINA_ID) return false;
@@ -307,6 +335,23 @@ export async function manejarClic(boton, ctx) {
 
 export async function manejarCambio(input, ctx) {
   if (input.dataset.accion === 'ver-cerrados') { ctx.estado.verCerrados = input.checked; return true; }
+  if (input.dataset.accion === 'entregable-estado') {
+    const p = await obtenerProyecto(input.dataset.id);
+    await guardarProyecto({ id: p.id, entregables: (p.entregables || []).map(x => (x.id === input.dataset.e ? { ...x, estado: input.value, enviado: input.value === 'enviado' && !x.enviado ? hoyISO() : x.enviado } : x)) }, { personaId: ctx.personaId });
+    return true;
+  }
+  if (input.dataset.accion === 'cierre-archivos') {
+    const p = await obtenerProyecto(input.dataset.id);
+    await guardarProyecto({ id: p.id, cierre: { ...(p.cierre || {}), archivos: input.checked } }, { personaId: ctx.personaId });
+    return true;
+  }
+  if (input.dataset.accion === 'encargo-archivo') {
+    const f = input.files && input.files[0];
+    if (!f) return false;
+    const p = await obtenerProyecto(input.dataset.id);
+    await guardarArchivo(f, { modulo: 'proyectos', duenoTipo: 'encargo', duenoId: p.id, rol: 'documento', proyectoId: p.id, carpeta: `Proyectos/${p.nombre.replace(/[\\/:*?"<>|]+/g, '_')}/Encargo` }, { personaId: ctx.personaId });
+    ctx.avisar('Archivo adjuntado'); return true;
+  }
   if (input.dataset.accion === 'cal-proyecto') { ctx.estado.cal = { ...(ctx.estado.cal || { modo: 'mes', ref: hoyISO() }), proyecto: input.value }; return true; }
   return false;
 }

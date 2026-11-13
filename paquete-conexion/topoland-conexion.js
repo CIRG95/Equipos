@@ -86,7 +86,24 @@ var TopolandConexion = (() => {
     { nombre: "terreno_monografias", indices: porProyecto },
     { nombre: "terreno_monografias_gabinete", indices: porProyecto },
     { nombre: "terreno_revisiones", indices: [["monografiaId", "monografiaId"], ["proyectoId", "proyectoId"]] },
-    { nombre: "terreno_jornadas", indices: porProyecto }
+    { nombre: "terreno_jornadas", indices: porProyecto },
+    // Administración (v0.15): personal, flota, acreditación por mandante, comercial, seguridad y biblioteca
+    { nombre: "compartido_mandantes" },
+    { nombre: "admin_tipos_doc" },
+    { nombre: "admin_documentos", indices: [["dueno", ["duenoTipo", "duenoId"]]] },
+    { nombre: "admin_fichas" },
+    { nombre: "admin_ausencias", indices: [["personaId", "personaId"]] },
+    { nombre: "admin_licitaciones" },
+    { nombre: "admin_vehiculos" },
+    { nombre: "admin_viajes", indices: porProyecto },
+    { nombre: "admin_guias", indices: porProyecto },
+    { nombre: "admin_cotizaciones" },
+    { nombre: "admin_seguridad", indices: porProyecto },
+    { nombre: "admin_biblioteca" },
+    { nombre: "admin_config" },
+    // Planificación (v0.15): redes geodésicas y marcas de vuelo
+    { nombre: "planif_redes", indices: porProyecto },
+    { nombre: "planif_marcas", indices: porProyecto }
   ];
 
   // compartido/almacen.js
@@ -543,7 +560,7 @@ Content-Type: ${mime}\r
 
   // compartido/nube.js
   var CLAVE = "topoland_nube";
-  var PREFIJOS = ["equipos_", "compartido_", "vuelos_", "seguimiento_", "terreno_", "gastos_"];
+  var PREFIJOS = ["equipos_", "compartido_", "vuelos_", "seguimiento_", "terreno_", "gastos_", "admin_", "planif_"];
   var ALM_ARCHIVOS = "compartido_archivos";
   var cfg = leerCfg();
   var adaptador = null;
@@ -1542,7 +1559,7 @@ Content-Type: ${mime}\r
   }
 
   // app/conexion-terreno.js
-  var VERSION = "1.4 (Sistema v0.14)";
+  var VERSION = "1.4.1 (Sistema v0.15)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var CLAVE_CODIGO = "topoland_conexion_codigo";

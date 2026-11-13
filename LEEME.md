@@ -1,4 +1,34 @@
-# Topoland · Sistema de trabajo — v0.14.1 (revisión de optimización)
+# Topoland · Sistema de trabajo — v0.15
+
+**Sistema v0.15 = v0.14.1 + Administración 0.1 + Planificación 0.1.** Es la versión que lleva a la app lo que se diseñó en el boceto (13-nov): RRHH, acreditación de camionetas por mandante, comercial, conocimiento, seguridad en terreno, planificación de redes geodésicas y marcas de vuelo, y el proyecto como eje. Nada de lo que existía cambia de lugar ni deja de funcionar. Todos los datos de prueba fueron ficticios.
+
+## Qué cambia en v0.15
+- **Nuevo rol «Dirección / comercial»** (además de Encargado de terreno y Administración / RRHH). Tiene su propio Inicio con proyectos, cotizaciones y alertas.
+- **Buscador en el encabezado:** proyectos, personas, equipos (también por N° de serie), camionetas por patente, mandantes, PR de las redes, monografías y, para RRHH y Dirección, cotizaciones. Se navega con las flechas y Enter.
+- **«Mis pendientes» en Inicio:** una sola lista ordenada por urgencia, según el rol (documentos por vencer, habilitaciones, acreditación de camionetas, calibraciones, permisos DGAC, entregas y proyectos atrasados).
+- **Calendario:** suma vencimientos de documentos y contratos (RRHH) y ausencias (todos).
+- **Personas → Documentación (solo RRHH):** resumen con indicadores y filtros, y ficha por persona con documentos y vencimientos, acreditación por mandante, contrato, vacaciones y turnos, EPP, CV (PDF), ingreso/salida y contacto de emergencia. Encargados de terreno y Dirección ven solo **Habilitado / No habilitado**, sin el detalle.
+- **Licitaciones (RRHH):** se eligen los documentos que pide la licitación y las personas; muestra quién cumple y **«Descargar todo»** arma un ZIP con una carpeta por persona, con su nombre y todos sus documentos dentro.
+- **Administración (RRHH y Dirección):** camionetas con sus documentos; **acreditación por mandante** (Codelco · SUCAL con sus 8 documentos) en matriz y detalle; viajes; fondos por rendir (lectura desde Gastos); guías de despacho; mandantes y sus requisitos; configuración de tipos de documento, días de aviso y tarifas.
+- **Comercial (Dirección):** tablero, cotizaciones con «Crear proyecto», rentabilidad cotizado vs gastado, ocupación de equipos y estimador.
+- **Conocimiento (todos):** mapa de puntos (monografías y PR de proyectos cerrados), biblioteca de plantillas y normas (vigente / histórica) y lecciones aprendidas, que aparecen en los proyectos parecidos.
+- **Seguridad en terreno** (`#/seguridad/<proyecto>`, se usa desde el teléfono): charla con asistentes de la cuadrilla, riesgos e incidencias; una incidencia de equipo crea el aviso en Equipos.
+- **Proyecto como eje:** ficha de encargo (mandante, quién encargó, plazo, alcance, entregables pedidos y archivos del mandante), cuadrilla y camionetas con su habilitación, tarjeta de planificación, entregables con estado y cierre con revisión y lecciones.
+- **Planificación (Encargado de terreno):**
+  - **Red geodésica:** se carga el área (KML/KMZ o la de una hoja de vuelo) y los caminos; el Sistema sugiere los PR cerca de los caminos y dentro del área, y se pueden arrastrar o agregar. Arma los vectores, hace el **pre-análisis por mínimos cuadrados** (radio al 95 %, redundancia, PR débiles, «Reforzar») y reparte las **sesiones** con los tiempos de la tabla del Manual de Carreteras Vol. 2. Exporta CSV de puntos, vectores y sesiones.
+  - **Marcas de vuelo (Agisoft / Pix4D):** modo área o corredor, espaciado sugerido, control y chequeo (tocar cambia el tipo) y CSV.
+
+## Lo que falta cargar (Camilo)
+- **Tabla de tiempos GNSS del Manual de Carreteras Vol. 2:** en Planificación → «Tabla de tiempos de ocupación GNSS» (distancia hasta km → minutos). Sin la tabla, las sesiones quedan sin tiempo.
+- **Requisitos de personas para Codelco / SUCAL:** el mandante viene con los 8 documentos de camionetas; los de personas quedan vacíos hasta definirlos en Administración → Mandantes.
+
+## Límite conocido
+- La restricción de las carpetas de RRHH es **dentro de la app**: la nube sigue siendo una sola carpeta de Google Drive. Para un acceso realmente separado hace falta Nextcloud con grupos o una carpeta / servidor aparte (pendiente).
+
+## App de Terreno
+- Sin cambios en lo que hace. El paquete de conexión pasa a **1.4.1** solo por el esquema (almacenes nuevos) y ya va copiado en `terreno/js/` con el caché subido a `terreno-topo-v47-0.5.9`.
+- 102 pruebas pasan.
+
 
 **Sistema v0.14.1 = v0.14a revisada (regla de cada 3 versiones: v0.12, v0.13 y v0.14).** La app hace exactamente lo mismo; cambia cómo está ordenado el código para seguir creciendo.
 - `app/vistas.js` (747 líneas) se dividió: **Inicio** en `app/vistas-inicio.js`, **Proyectos** (activos, registro, ficha y edición) en `app/vistas-proyectos.js` y las piezas comunes (íconos, filas de equipo, fechas cortas) en `app/vistas-ui.js`. `vistas.js` queda con Personas, Avisos y las acciones.

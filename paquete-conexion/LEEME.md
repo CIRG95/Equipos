@@ -1,4 +1,9 @@
-# Paquete de conexión Terreno ↔ Sistema · TopolandConexion 1.4 (Sistema v0.14)
+# Paquete de conexión Terreno ↔ Sistema · TopolandConexion 1.4.1 (Sistema v0.15)
+
+## Qué cambia en 1.4.1 — solo el esquema (ya copiado en `terreno/js/`, caché de Terreno subido a `terreno-topo-v47-0.5.9`)
+- La base común `topoland` suma los almacenes de Administración (`compartido_mandantes`, `admin_*`) y Planificación (`planif_*`). Terreno no los usa, pero el paquete los crea igual para que, abra quien abra primero la base, quede completa y el Sistema no tenga que esperar a que Terreno la suelte.
+- La nube también sincroniza los prefijos `admin_` y `planif_` (los mismos que el Sistema).
+- **Ninguna función cambia.** Terreno sigue igual: no hay que modificar su código.
 
 ## Qué cambia en 1.4 — Gastos desde Terreno (copiar el archivo en `terreno/js/` y subir el caché del service worker)
 Misma lógica y almacenes que el módulo Gastos 0.1 del Sistema. Terreno solo **agrega y corrige gastos propios** (borrador o rendición devuelta); enviar la rendición, depósitos y pagos se hacen en el Sistema. La foto de la boleta es obligatoria.

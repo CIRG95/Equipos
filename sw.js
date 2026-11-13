@@ -1,7 +1,7 @@
 // sw.js — service worker del Sistema. Guarda los archivos para usar la app sin conexión.
 // Al publicar una versión nueva, cambia CACHE para que los teléfonos tomen los archivos nuevos.
 // También borra la caché de la app de Equipos sola (equipos-…), porque el Sistema la reemplaza en el mismo repositorio.
-const CACHE = 'sistema-v0.14a';
+const CACHE = 'sistema-v0.14.1';
 const ARCHIVOS = [
   './', './index.html', './config.js', './sistema-app.js', './manifest.json',
   './app/sistema.css', './modulos/equipos/equipos.css', './modulos/vuelos/vuelos.css', './modulos/seguimiento/seguimiento.css', './modulos/monografias/monografias.css', './modulos/gastos/gastos.css',

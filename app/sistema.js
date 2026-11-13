@@ -4,6 +4,7 @@
 // Se empaqueta con esbuild en sistema-app.js (script clásico), igual que equipos-app.js.
 
 import { listarPersonas, guardarPersona } from '../compartido/catalogos.js';
+import { leerTexto as leer, escribirTexto as escribir } from '../compartido/util.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
@@ -27,8 +28,6 @@ let rutaActual = '';
 let timerAviso = null;
 const estado = { verCerrados: false, personaEditar: null }; // estado de pantallas del Sistema
 
-const leer = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
-const escribir = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
 
 // ── Modo de la pantalla (misma regla que Terreno y Equipos; comparte la preferencia env_modo) ──
 const MODOS = ['auto', 'telefono', 'pc'];

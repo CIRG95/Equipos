@@ -1,4 +1,11 @@
-# Topoland · Sistema de trabajo — v0.14a (eliminar rendiciones)
+# Topoland · Sistema de trabajo — v0.14.1 (revisión de optimización)
+
+**Sistema v0.14.1 = v0.14a revisada (regla de cada 3 versiones: v0.12, v0.13 y v0.14).** La app hace exactamente lo mismo; cambia cómo está ordenado el código para seguir creciendo.
+- `app/vistas.js` (747 líneas) se dividió: **Inicio** en `app/vistas-inicio.js`, **Proyectos** (activos, registro, ficha y edición) en `app/vistas-proyectos.js` y las piezas comunes (íconos, filas de equipo, fechas cortas) en `app/vistas-ui.js`. `vistas.js` queda con Personas, Avisos y las acciones.
+- Funciones repetidas unificadas: lectura de preferencias de texto (`leerTexto` / `escribirTexto` en `compartido/util.js`, antes en `sistema.js` y `vistas.js`) y fechas de pantalla (`aFechaL`, `lunesDe`, `diaCorto`, antes en `vistas.js` y `calendario.js`).
+- Funciones sin uso eliminadas: `registrarCalibracion` y `obtenerEquipoCrudo` (Equipos), `historialDe` (Monografías), `obtenerCiclo` (Seguimiento) y `DOCUMENTOS_DGAC` (Vuelos; la lista vigente es `DOCS_PERMISO`).
+- 90 pruebas pasan. Paquetes de conexión y de pronóstico **idénticos**: la app de Terreno no cambia.
+
 
 **Sistema v0.14a = v0.14 + Gastos 0.1a: RRHH puede eliminar una rendición.** Versión de prueba pedida por Camilo (9-nov) para borrar las rendiciones de prueba; también sirve para errores reales.
 - En la rendición (RRHH), tarjeta **«Eliminar rendición»** con dos opciones: **los gastos vuelven al borrador** de la persona, o **eliminar con sus gastos y depósitos**. Siempre con confirmación y «Deshacer».

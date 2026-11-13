@@ -1,4 +1,11 @@
-# INTEGRACION.md — Sistema v0.14a
+# INTEGRACION.md — Sistema v0.14.1
+
+## v0.14.1 · Revisión de optimización (sin cambios de funcionamiento)
+- `app/vistas.js` dividido en `vistas-inicio.js` (`inicio`, `htmlFranjaProyectos`), `vistas-proyectos.js` (`proyectos`, `proyecto`, `proyectoEditar`, `datosRegistro`) y `vistas-ui.js` (`ICONO`, `chipCal`, `filaEquipo`, `vacio`, `estadoAlerta`, `aFechaL`, `lunesDe`, `diaCorto`). `vistas.js` sigue exportando `VISTAS`, `manejarEnvio`, `manejarClic`, `manejarCambio`, `avisosPara`, `marcarAvisoVisto`, `htmlFranjaProyectos`, `nuevoCodigo`, `urlTerreno`.
+- `compartido/util.js`: `leerTexto(k, d)` / `escribirTexto(k, v)` (texto simple, sin JSON).
+- Eliminadas por no tener uso: `equipos/datos.js` `registrarCalibracion`, `obtenerEquipoCrudo`; `monografias/datos.js` `historialDe`; `seguimiento/datos.js` `obtenerCiclo`; `vuelos/hoja.js` `DOCUMENTOS_DGAC`.
+- Paquetes `paquete-conexion/` y `paquete-pronostico/` idénticos byte a byte.
+
 
 ## v0.14a · Gastos 0.1a: eliminar rendiciones (RRHH)
 - `modulos/gastos/datos.js`: `eliminarRendicion(id, { modo: 'borrador' | 'todo' })` (anota `eliminacion: { modo, gastoIds, depositoIds }` en la rendición y la manda a la papelera; 'borrador' deja `rendicionId: null` en sus gastos, 'todo' manda gastos y depósitos ligados a la papelera), `restaurarRendicion(id)` (deshace según `eliminacion`; renumera si el N° quedó ocupado), `rendicionesEliminadas()`, `purgarRendicion(id)` (`eliminarDefinitivo` de la rendición, sus eventos, depósitos y, en 'todo', gastos y boletas).

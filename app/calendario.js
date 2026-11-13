@@ -4,6 +4,7 @@
 // vencimientos de calibración de Equipos.
 
 import { escapar as esc, hoyISO, fechaLegible } from '../compartido/util.js';
+import { aFechaL as aFecha, lunesDe } from './vistas-ui.js';
 import { listarProyectos, listarPersonas, OFICINA_ID } from '../compartido/catalogos.js';
 import { ciclosEntre, restarHabiles, sumarDias, aISO, MESES } from '../compartido/periodicidad.js';
 import { listarPlanes } from '../modulos/vuelos/datos.js';
@@ -20,8 +21,6 @@ export const TIPOS = {
 const LEYENDA = [['vuelo', 'Vuelos y terreno'], ['datos', 'Llegada de datos'], ['entrega', 'Entregas'], ['dgac', 'Permisos DGAC'], ['calibracion', 'Calibraciones']];
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-const aFecha = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d, 12); };
-const lunesDe = iso => { const f = aFecha(iso); const w = (f.getDay() + 6) % 7; f.setDate(f.getDate() - w); return aISO(f); };
 
 /** Eventos entre dos fechas (incluidas): [{ fecha, tipo, texto, enlace, personaId, proyectoId }]. */
 export async function eventosEntre(desde, hasta) {

@@ -35,7 +35,6 @@ export async function guardarPlan(plan) { return guardar(ALM.planes, sello({ ...
 export async function eliminarPlan(id) { return enviarAPapelera(ALM.planes, id, { personaId: persona }); }
 
 export async function ciclosDePlan(planId) { return (await porIndice(ALM.ciclos, 'planId', planId)).filter(vivo).sort(recientes); }
-export async function obtenerCiclo(id) { const c = await obtener(ALM.ciclos, id); return c && vivo(c) ? c : null; }
 export async function guardarCiclo(ciclo) { return guardar(ALM.ciclos, sello({ ...ciclo })); }
 
 export async function eventosDeCiclo(cicloId) { return (await porIndice(ALM.eventos, 'cicloId', cicloId)).filter(vivo); }

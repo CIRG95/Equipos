@@ -23,7 +23,8 @@ import { CATEGORIAS, problemasGasto, posiblesDuplicados, libroCuenta, eventosDe,
 import { urlArchivo, infoArchivo } from '../compartido/archivos.js';
 
 // v1.4 (Sistema v0.14): gastos desde Terreno — misma lógica y almacenes que el módulo Gastos 0.1 del Sistema.
-export const VERSION = '1.4 (Sistema v0.14)';
+// v1.4.1 (Sistema v0.15): mismas funciones; solo el esquema de la base suma los almacenes de Administración y Planificación.
+export const VERSION = '1.4.1 (Sistema v0.15)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
 const CLAVE_CODIGO = 'topoland_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)

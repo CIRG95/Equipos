@@ -9,13 +9,15 @@ import * as Vuelos from '../modulos/vuelos/datos.js';
 import * as Seguimiento from '../modulos/seguimiento/datos.js';
 import * as Mono from '../modulos/monografias/datos.js';
 import * as Gastos from '../modulos/gastos/datos.js';
+import * as Admin from '../modulos/administracion/datos.js';
+import * as Planif from '../modulos/planificacion/datos.js';
 
 const normal = defs => Object.fromEntries(defs.map(d => [d.nombre, (d.indices || []).map(([n, r]) => `${n}=${JSON.stringify(r)}`).sort()]));
 
 test('el esquema común trae todo lo que registran los módulos (nada fuera del esquema)', () => {
   const antes = normal(definicionesRegistradas());
   assert.deepEqual(antes, normal(ESQUEMA), 'almacen.js registra el esquema completo al cargarse');
-  for (const m of [Equipos, Vuelos, Seguimiento, Mono, Gastos]) {
+  for (const m of [Equipos, Vuelos, Seguimiento, Mono, Gastos, Admin, Planif]) {
     const f = m.iniciarDatos || m.iniciar;
     if (typeof f === 'function') f({ personaId: null });
   }

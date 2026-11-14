@@ -1,0 +1,74 @@
+/* modulos/administracion/administracion.css — Administración, Personal, Comercial, Conocimiento y Seguridad (Sistema v0.15) */
+.ad-tabs{display:flex; gap:4px 18px; flex-wrap:wrap; border-bottom:1px solid var(--line); margin:4px 0 16px; overflow-x:auto;}
+.ad-tabs a{padding:10px 2px 9px; color:var(--muted); text-decoration:none; font-weight:500; border-bottom:3px solid transparent; white-space:nowrap;}
+.ad-tabs a:hover{color:var(--enlace);} .ad-tabs a.activo{color:var(--enlace); border-bottom-color:var(--marca);}
+.ad-tabs-btn{display:flex; gap:4px; flex-wrap:wrap;}
+.ad-tabs-btn button{min-height:40px; padding:0 12px; border:0; border-bottom:3px solid transparent; background:transparent; font:inherit; font-weight:500; color:var(--muted); cursor:pointer;}
+.ad-tabs-btn button.activo{color:var(--enlace); border-bottom-color:var(--marca);}
+.ad-kpis4{grid-template-columns:repeat(4, minmax(0,1fr));}
+@media (max-width: 760px){ .ad-kpis4{grid-template-columns:repeat(2, minmax(0,1fr));} }
+.ad-confidencial{display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:10px; background:#FFF8EC; border:1px solid #F0DDB5; color:#5C4200; font-size:13px; margin-bottom:14px;}
+.ad-confidencial svg{width:16px; height:16px; flex:none; margin-top:1px;}
+.ad-filtros{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+.ad-filtros .sis-btn.activo{background:var(--marca-suave); border-color:var(--marca); color:var(--enlace);}
+.ad-cab-persona{display:flex; gap:16px; align-items:center; flex-wrap:wrap;}
+.ad-cab-persona h1{margin:0; font-size:22px;}
+.ad-cab-txt{flex:1 1 260px; min-width:0;}
+.ad-avatar{width:52px; height:52px; border-radius:50%; background:var(--marca); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:17px; flex:none;}
+.ad-ficha{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;}
+.ad-lateral{flex:1 1 200px; min-width:0; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:6px 0;}
+.ad-lateral a{padding:11px 14px; color:var(--muted); text-decoration:none; font-weight:500; border-left:3px solid transparent;}
+.ad-lateral a:hover{background:var(--bg);} .ad-lateral a.activo{color:var(--enlace); border-left-color:var(--marca); background:var(--marca-suave);}
+.ad-ficha-cuerpo{flex:999 1 560px; min-width:0;}
+@media (max-width: 760px){ .ad-lateral{flex-direction:row; overflow-x:auto; padding:0;} .ad-lateral a{border-left:0; border-bottom:3px solid transparent; white-space:nowrap;} .ad-lateral a.activo{border-bottom-color:var(--marca);} }
+.ad-docs td{vertical-align:middle;}
+.ad-acciones-celda{white-space:nowrap;} .ad-acciones-celda .sis-btn{margin:2px;}
+.ad-acciones-celda svg, .sis-btn svg{width:14px; height:14px; vertical-align:-2px; margin-right:4px;}
+.ad-plat{display:inline-flex; flex-direction:column; gap:2px; margin-right:6px;} .ad-plat small{font-size:11px; color:var(--muted);}
+.ad-editando td{background:var(--marca-suave);} .ad-form-fila td{background:#FBFAF7;}
+.ad-form-doc{max-width:760px;} .ad-form-linea{margin-top:12px; border-top:1px solid var(--line); padding-top:12px;}
+.ad-firma{display:block; margin-top:10px; font-size:12px;}
+.ad-paso{display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--marca); color:#fff; align-items:center; justify-content:center; font-size:13px; font-weight:600; margin-right:10px; vertical-align:middle;}
+.ad-req{display:flex; gap:8px; flex-wrap:wrap;}
+.ad-req-btn{min-height:44px; padding:0 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface); font:inherit; font-size:14px; color:var(--muted); cursor:pointer;}
+.ad-req-btn.activo{border-color:var(--marca); background:var(--marca-suave); color:var(--enlace); font-weight:600;}
+.ad-paquete{display:flex; gap:20px; flex-wrap:wrap;} .ad-paquete > div{flex:999 1 420px; min-width:0;} .ad-paquete-acc{flex:1 1 260px !important;}
+.ad-arbol{font-size:13px; line-height:1.8; background:#FBFAF7; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:10px;}
+.ad-arbol-h{padding-left:16px;}
+.ad-oculto{position:absolute; left:-9999px;}
+.ad-lic td, .ad-matriz td{white-space:nowrap;}
+.ad-segmento{display:inline-flex; gap:4px; background:#F1EFEA; padding:4px; border-radius:10px; flex-wrap:wrap; margin-bottom:12px;}
+.ad-segmento a, .ad-segmento button{min-height:40px; display:inline-flex; align-items:center; padding:0 14px; border:0; border-radius:8px; background:transparent; font:inherit; font-size:14px; font-weight:600; color:var(--muted); text-decoration:none; cursor:pointer;}
+.ad-segmento .activo{background:#fff; color:var(--enlace); box-shadow:0 0 0 1px var(--line);}
+.ad-patente{font-family:'IBM Plex Mono', monospace; font-weight:600; padding:4px 8px; border-radius:6px; border:1px solid var(--line); text-decoration:none; color:var(--ink);}
+.ad-patente.activo{border-color:var(--marca); background:var(--marca-suave); color:var(--enlace);}
+.ad-resultado td{border-top:2px solid var(--line);}
+.ad-req-fila{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:4px 0; border-bottom:1px solid #EEECE6;}
+.ad-columnas{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:8px;}
+@media (max-width: 760px){ .ad-columnas{grid-template-columns:repeat(2, minmax(0,1fr));} }
+.ad-col{background:#FBFAF7; border:1px solid #EEECE6; border-radius:10px; padding:10px; font-size:13px; min-width:0;}
+.ad-col-item{background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px; margin-top:8px;} .ad-col-item small{display:block; color:var(--muted);}
+.ad-barra{height:10px; background:#ECEBE6; border-radius:5px; margin:4px 0 12px;} .ad-barra i{display:block; height:10px; background:var(--marca); border-radius:5px;}
+.ad-ocup span{font-size:13px;}
+.ad-resultado-est{display:grid; grid-template-columns:1fr auto; gap:8px; margin:0;} .ad-resultado-est dd{margin:0;}
+.ad-anio{width:46px; color:var(--muted); flex:none;}
+.ad-check{cursor:pointer;} .ad-check input{width:20px; height:20px; accent-color:var(--marca);}
+.ad-riesgos{display:flex; flex-direction:column; gap:6px;}
+.ad-asistentes .sis-opcion{min-height:44px;}
+.ad-filtro-lecciones{min-width:220px;}
+.co-grupo{border-radius:50%; background:rgba(29,92,99,.9); color:#fff; font:600 13px 'IBM Plex Sans', sans-serif; text-align:center; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3);}
+/* Buscador global y Mis pendientes (app) */
+.sis-buscador{grid-area:buscar; position:relative; min-width:0;}
+.sis-buscador input{width:100%; box-sizing:border-box; min-height:38px; border:1px solid var(--line); border-radius:10px; padding:0 12px 0 34px; font:inherit; font-size:14px; background:#FBFAF7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235B6168' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px center;}
+.sis-buscador-res{position:absolute; left:0; right:0; top:calc(100% + 6px); background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.12); z-index:1200; max-height:60vh; overflow:auto; padding:6px;}
+.sis-buscador-res a{display:flex; gap:10px; align-items:center; padding:9px 10px; border-radius:8px; color:var(--ink); text-decoration:none;}
+.sis-buscador-res a:hover, .sis-buscador-res a.activo{background:var(--marca-suave);}
+.sis-buscador-res small{font-size:11px; font-weight:600; color:var(--enlace); width:86px; flex:none; text-transform:uppercase;}
+.sis-buscador-res span{min-width:0;} .sis-buscador-res em{display:block; font-style:normal; font-size:12px; color:var(--muted);}
+.ini-pend{display:flex; flex-direction:column;}
+.ini-pend-fila{display:flex; gap:12px; align-items:center; padding:12px 0; border-top:1px solid #EEECE6; flex-wrap:wrap; text-decoration:none; color:inherit;}
+.ini-pend-fila:first-child{border-top:0;}
+.ini-pend-fila .sis-chip{min-width:92px; justify-content:center;}
+.ini-pend-txt{flex:1 1 260px; min-width:0;} .ini-pend-txt b{display:block; font-size:14px;} .ini-pend-txt span{font-size:13px; color:var(--muted);}
+.ini-pend-cat{font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase;}
+.ad-col-vacia{display:block; margin-top:8px;}

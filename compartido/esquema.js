@@ -40,4 +40,21 @@ export const ESQUEMA = [
   { nombre: 'terreno_monografias_gabinete', indices: porProyecto },
   { nombre: 'terreno_revisiones', indices: [['monografiaId', 'monografiaId'], ['proyectoId', 'proyectoId']] },
   { nombre: 'terreno_jornadas', indices: porProyecto },
+  // Administración (v0.15): personal, flota, acreditación por mandante, comercial, seguridad y biblioteca
+  { nombre: 'compartido_mandantes' },
+  { nombre: 'admin_tipos_doc' },
+  { nombre: 'admin_documentos', indices: [['dueno', ['duenoTipo', 'duenoId']]] },
+  { nombre: 'admin_fichas' },
+  { nombre: 'admin_ausencias', indices: [['personaId', 'personaId']] },
+  { nombre: 'admin_licitaciones' },
+  { nombre: 'admin_vehiculos' },
+  { nombre: 'admin_viajes', indices: porProyecto },
+  { nombre: 'admin_guias', indices: porProyecto },
+  { nombre: 'admin_cotizaciones' },
+  { nombre: 'admin_seguridad', indices: porProyecto },
+  { nombre: 'admin_biblioteca' },
+  { nombre: 'admin_config' },
+  // Planificación (v0.15): redes geodésicas y marcas de vuelo
+  { nombre: 'planif_redes', indices: porProyecto },
+  { nombre: 'planif_marcas', indices: porProyecto },
 ];

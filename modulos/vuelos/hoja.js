@@ -14,10 +14,6 @@ export const PARAMS_INICIALES = {
   velocidad: '', exposicion: 1000, reserva: 25, minDespegue: 3, minCambio: 5, segGiro: 8,
 };
 
-export const DOCUMENTOS_DGAC = [
-  ['kmz', 'KMZ de la zona'], ['carta', 'Carta o autorización del mandante'], ['seguro', 'Seguro aprobado por la JAC'],
-  ['credencial', 'Credencial del piloto vigente'], ['inscripcion', 'Inscripción del dron'],
-];
 // ─────────── Documentos de la solicitud según el tipo de zona (v0.11) ───────────
 export const ZONAS_VUELO = [
   ['no_poblada', 'Área no poblada · DAN 91'], ['poblada', 'Área poblada · DAN 151'], ['especial', 'Zona especial'],

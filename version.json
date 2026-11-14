@@ -1,6 +1,6 @@
 {
- "version": "0.14a",
- "armado": "2026-11-09T19:23:59.705Z",
+ "version": "0.15",
+ "armado": "2026-11-13T23:23:22.543Z",
  "archivos": [
   "./index.html",
   "./sistema-app.js",
@@ -11,6 +11,8 @@
   "./modulos/seguimiento/seguimiento.css",
   "./modulos/monografias/monografias.css",
   "./modulos/gastos/gastos.css",
+  "./modulos/administracion/administracion.css",
+  "./modulos/planificacion/planificacion.css",
   "./iconos/icono-192.png",
   "./iconos/icono-512.png",
   "./iconos/icono-512-maskable.png",

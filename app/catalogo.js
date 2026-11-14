@@ -3,6 +3,7 @@
 export const ROLES = {
   terreno: 'Encargado de terreno',
   rrhh: 'Administración / RRHH',
+  direccion: 'Dirección / comercial',
 };
 
 // Tipos de trabajo por categoría (Camilo, 29-oct). El proyecto lleva una o más categorías;

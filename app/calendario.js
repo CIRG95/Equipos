@@ -4,10 +4,12 @@
 // vencimientos de calibración de Equipos.
 
 import { escapar as esc, hoyISO, fechaLegible } from '../compartido/util.js';
+import { aFechaL as aFecha, lunesDe } from './vistas-ui.js';
 import { listarProyectos, listarPersonas, OFICINA_ID } from '../compartido/catalogos.js';
 import { ciclosEntre, restarHabiles, sumarDias, aISO, MESES } from '../compartido/periodicidad.js';
 import { listarPlanes } from '../modulos/vuelos/datos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
+import * as Administracion from '../modulos/administracion/administracion.js';
 
 export const TIPOS = {
   vuelo: { texto: 'Vuelos y terreno', clase: 'cal-vuelo' },
@@ -16,16 +18,19 @@ export const TIPOS = {
   entrega: { texto: 'Entregas', clase: 'cal-entrega' },
   dgac: { texto: 'Permisos DGAC', clase: 'cal-dgac' },
   calibracion: { texto: 'Calibraciones', clase: 'cal-calib' },
+  vencimiento: { texto: 'Vencimientos', clase: 'cal-venc' },
+  ausencia: { texto: 'Vacaciones y permisos', clase: 'cal-aus' },
 };
-const LEYENDA = [['vuelo', 'Vuelos y terreno'], ['datos', 'Llegada de datos'], ['entrega', 'Entregas'], ['dgac', 'Permisos DGAC'], ['calibracion', 'Calibraciones']];
+const LEYENDA = [['vuelo', 'Vuelos y terreno'], ['datos', 'Llegada de datos'], ['entrega', 'Entregas'], ['dgac', 'Permisos DGAC'], ['calibracion', 'Calibraciones'], ['vencimiento', 'Vencimientos'], ['ausencia', 'Vacaciones y permisos']];
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-const aFecha = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d, 12); };
-const lunesDe = iso => { const f = aFecha(iso); const w = (f.getDay() + 6) % 7; f.setDate(f.getDate() - w); return aISO(f); };
 
-/** Eventos entre dos fechas (incluidas): [{ fecha, tipo, texto, enlace, personaId, proyectoId }]. */
-export async function eventosEntre(desde, hasta) {
-  const [proyectos, hojas, equipos] = await Promise.all([listarProyectos(), listarPlanes().catch(() => []), Equipos.listarEquiposConEstado().catch(() => [])]);
+/**
+ * Eventos entre dos fechas (incluidas): [{ fecha, tipo, texto, enlace, personaId, proyectoId }].
+ * v0.15: suma vacaciones y permisos (todos los roles) y, para Recursos Humanos, vencimientos de documentos y contratos.
+ */
+export async function eventosEntre(desde, hasta, { rol = null } = {}) {
+  const [proyectos, hojas, equipos, personas] = await Promise.all([listarProyectos(), listarPlanes().catch(() => []), Equipos.listarEquiposConEstado().catch(() => []), listarPersonas()]);
   const nomProy = new Map(proyectos.map(p => [p.id, p.nombre]));
   const ev = [];
   const poner = (fecha, e) => { if (fecha && fecha >= desde && fecha <= hasta) ev.push({ fecha, ...e }); };
@@ -52,6 +57,7 @@ export async function eventosEntre(desde, hasta) {
     const c = e.calibracion || {};
     if (c.proxima) poner(String(c.proxima).slice(0, 10), { tipo: 'calibracion', texto: `${e.nombre || e.modelo || 'Equipo'}${e.numeroSerie ? ` ···${String(e.numeroSerie).slice(-4)}` : ''} · calibración vence`, corto: `Calibración · ${e.nombre || e.modelo || 'Equipo'}`, enlace: `#/equipos/${e.id}`, personaId: e.ubicacion && e.ubicacion.personaId, proyectoId: e.ubicacion && e.ubicacion.proyectoId });
   }
+  for (const e of await Administracion.eventosCalendario({ desde, hasta, rol, personas }).catch(() => [])) ev.push(e);
   ev.forEach(e => { e.proyecto = nomProy.get(e.proyectoId) || ''; });
   return ev.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.tipo.localeCompare(b.tipo));
 }
@@ -72,7 +78,7 @@ export async function vistaCalendario(estado) {
     desde = lunesDe(ref); hasta = sumarDias(desde, 6);
     titulo = `Semana del ${fechaLegible(desde)} al ${fechaLegible(hasta)}`;
   }
-  const [todos, proyectos, personas] = await Promise.all([eventosEntre(sumarDias(desde, 0), sumarDias(hasta, 14)), listarProyectos(), listarPersonas()]);
+  const [todos, proyectos, personas] = await Promise.all([eventosEntre(sumarDias(desde, 0), sumarDias(hasta, 14), { rol: estado.rol }), listarProyectos(), listarPersonas()]);
   const ev = todos.filter(e => !estado.proyecto || e.proyectoId === estado.proyecto);
   const delDia = iso => ev.filter(e => e.fecha === iso);
   const dias = n => Array.from({ length: n }, (_, k) => sumarDias(desde, k));
@@ -102,7 +108,7 @@ export async function vistaCalendario(estado) {
       <label class="cal-proy">Proyecto <select data-accion="cal-proyecto"><option value="">Todos</option>${proyectos.filter(p => p.id !== OFICINA_ID && p.estado !== 'cerrado').map(p => `<option value="${esc(p.id)}" ${estado.proyecto === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label></div>
     <div class="cal-dos"><div class="cal-principal">${cuerpo}</div>
       <aside class="sis-tarjeta cal-proximos"><h2>Próximos 14 días</h2>${proximos.length ? `<div class="cal-lista">${proximos.map(e => `<span class="cal-fecha">${e.fecha === hoy ? 'hoy' : esc(fechaCorta(e.fecha))}</span>${chip(e)}`).join('')}</div>` : '<p class="sis-tenue">Nada en las próximas dos semanas.</p>'}
-        <p class="sis-tenue">Se llena solo con las jornadas de las hojas de vuelo («Agregar al calendario» en su Resumen), la periodicidad de cada proyecto, el límite DGAC y las calibraciones que vencen.</p></aside></div>`;
+        <p class="sis-tenue">Se llena solo con las jornadas de las hojas de vuelo («Agregar al calendario» en su Resumen), la periodicidad de cada proyecto, el límite DGAC, las calibraciones que vencen, las vacaciones aprobadas y, para Recursos Humanos, los vencimientos de documentos.</p></aside></div>`;
 }
 const DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const fechaCorta = iso => { const f = aFecha(iso); return `${DS[f.getDay()]} ${f.getDate()}`; };

@@ -118,3 +118,6 @@ export function cargarScript(url) {
 /** Preferencias de este navegador (localStorage), sin fallar si no hay almacenamiento (v0.11.4: antes repetido en cada módulo). */
 export const leerLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 export const escribirLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
+/** Preferencias guardadas como texto simple (sin JSON), p. ej. 'mes' o 'tarjetas' (v0.14.1: antes repetido en sistema.js y vistas.js). */
+export const leerTexto = (k, d = '') => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+export const escribirTexto = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };

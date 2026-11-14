@@ -42,7 +42,6 @@ export async function listarEquipos({ incluirEliminados = false } = {}) {
   return incluirEliminados ? lista : lista.filter(vivo);
 }
 
-export function obtenerEquipoCrudo(id) { return leerEquipo(id); }
 
 /** Crea o actualiza un equipo. Al crearlo registra el evento «alta». */
 export async function guardarEquipo(datos) {
@@ -65,15 +64,6 @@ export async function cambiarBaja(equipoId, deBaja, nota = '') {
   await guardarVarios([{ almacen: ALM.equipos, registro: sello(eq) }, { almacen: ALM.eventos, registro: ev }]);
 }
 
-export async function registrarCalibracion(equipoId, { fecha, laboratorio = '', certificado = '', nota = '' }) {
-  const eq = await leerEquipo(equipoId);
-  eq.fechaUltimaCalibracion = fecha;
-  eq.calibracionNoAplica = false;
-  if (laboratorio) eq.laboratorio = laboratorio;
-  if (certificado) eq.certificado = certificado;
-  const ev = nuevoEvento({ equipoId, tipo: 'calibracion', nota: [`Calibrado el ${fechaLegible(fecha)}`, laboratorio, nota].filter(Boolean).join(' · ') });
-  await guardarVarios([{ almacen: ALM.equipos, registro: sello(eq) }, { almacen: ALM.eventos, registro: ev }]);
-}
 
 // ───────── Eventos y alertas ─────────
 

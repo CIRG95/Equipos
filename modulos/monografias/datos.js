@@ -107,7 +107,6 @@ export async function agregarRevision({ monografiaId, proyectoId, estado, observ
   if (!ESTADOS[estado]) throw new Error('Estado desconocido: ' + estado);
   return guardar(ALM.revisiones, sello({ id: uuid(), monografiaId, proyectoId, estado, observacion: String(observacion || '').trim(), por: personaId }, personaId));
 }
-export async function historialDe(monografiaId) { return revisionesDe(monografiaId); }
 export async function estadoDe(monografiaId) {
   const r = (await revisionesDe(monografiaId)).pop();
   return r ? { estado: r.estado, observacion: r.observacion, revisadoPor: r.por, fecha: r.creadoEn } : { estado: 'borrador', observacion: '', revisadoPor: null, fecha: null };

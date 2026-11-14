@@ -4,14 +4,18 @@
 // Se empaqueta con esbuild en sistema-app.js (script clásico), igual que equipos-app.js.
 
 import { listarPersonas, guardarPersona } from '../compartido/catalogos.js';
+import { leerTexto as leer, escribirTexto as escribir } from '../compartido/util.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import * as Monografias from '../modulos/monografias/monografias.js';
 import * as Gastos from '../modulos/gastos/gastos.js';
+import * as Administracion from '../modulos/administracion/administracion.js';
+import * as Planificacion from '../modulos/planificacion/planificacion.js';
+import { iniciarBuscador } from './buscador.js';
 import { iniciarPanelNube } from './nube-panel.js';
 import { VISTAS, manejarEnvio, manejarClic, manejarCambio, avisosPara, marcarAvisoVisto } from './vistas.js';
-import { ROLES } from './catalogo.js';
+import { ROLES, textosTipos } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
 import { revisarInstalacion, mostrarAvisoInstalacion } from './revision.js';
 
@@ -27,8 +31,6 @@ let rutaActual = '';
 let timerAviso = null;
 const estado = { verCerrados: false, personaEditar: null }; // estado de pantallas del Sistema
 
-const leer = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
-const escribir = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
 
 // ── Modo de la pantalla (misma regla que Terreno y Equipos; comparte la preferencia env_modo) ──
 const MODOS = ['auto', 'telefono', 'pc'];
@@ -67,19 +69,29 @@ const ICONOS_MENU = {
   gastos: ic('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
   terreno: ic('<path d="M4 20l5-14 5 9 3-5 3 10z"/>'),
   herramientas: ic('<path d="M14.7 6.3a4 4 0 00-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 005.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>'),
+  planificacion: ic('<circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><circle cx="12" cy="5" r="2.5"/><path d="M6.5 16 10.8 7.2M13.2 7.2 17.5 16M7.5 18h9"/>'),
+  administracion: ic('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M3 12h18"/>'),
+  comercial: ic('<path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/>'),
+  conocimiento: ic('<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>'),
   personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
   mas: ic('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'),
 };
 // v0.11: Inicio · Proyectos (Activos, Calendario, Entregas, Registro) · Vuelos · Equipos (Equipos, Catálogo de sensores) ·
 // Herramientas (Monografías, Limpieza de KMZ, Pronóstico rápido). Seguimiento pasa a «Proyectos › Entregas».
+// v0.15: Planificación (redes y marcas de vuelo), Administración (RRHH y flota), Comercial (Dirección) y Conocimiento.
+const TODOS = ['terreno', 'rrhh', 'direccion'];
 const MENU = [
-  { ruta: 'inicio', texto: 'Inicio', roles: ['terreno', 'rrhh'], tambien: ['avisos'] },
-  { ruta: 'proyectos', texto: 'Proyectos', roles: ['terreno', 'rrhh'], tambien: ['proyecto', 'proyecto-editar', 'seguimiento'] },
+  { ruta: 'inicio', texto: 'Inicio', roles: TODOS, tambien: ['avisos'] },
+  { ruta: 'proyectos', texto: 'Proyectos', roles: TODOS, tambien: ['proyecto', 'proyecto-editar', 'seguimiento', 'seguridad'] },
+  { ruta: 'planificacion', texto: 'Planificación', roles: ['terreno'] },
   { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
-  { ruta: 'equipos', texto: 'Equipos', roles: ['terreno', 'rrhh'], tambien: ['sensores'] },
-  { ruta: 'herramientas', texto: 'Herramientas', roles: ['terreno'], tambien: ['monografias'] },
-  { ruta: 'personas', texto: 'Personas', roles: ['rrhh', 'terreno'] },
+  { ruta: 'equipos', texto: 'Equipos', roles: TODOS, tambien: ['sensores'] },
+  { ruta: 'personas', texto: 'Personas', roles: TODOS, tambien: ['personal'] },
+  { ruta: 'administracion', texto: 'Administración', roles: ['rrhh', 'direccion'] },
   { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'] },
+  { ruta: 'comercial', texto: 'Comercial', roles: ['direccion'] },
+  { ruta: 'herramientas', texto: 'Herramientas', roles: ['terreno'], tambien: ['monografias'] },
+  { ruta: 'conocimiento', texto: 'Conocimiento', roles: TODOS },
 ];
 // Sub-pestañas de cada sección: [enlace, texto, ¿activa?(ruta)]
 const SUBNAV = {
@@ -93,6 +105,12 @@ const SUBNAV = {
     ['#/equipos', 'Equipos', r => r.base === 'equipos'],
     ['#/sensores', 'Catálogo de sensores', r => r.base === 'sensores'],
   ],
+  personas: [
+    ['#/personas', 'Personas', r => r.base === 'personas'],
+    ['#/personal', 'Documentación', r => r.base === 'personal' && !['licitaciones', 'licitacion'].includes(r.arg), ['rrhh']],
+    ['#/personal', 'Habilitación', r => r.base === 'personal', ['terreno', 'direccion']],
+    ['#/personal/licitaciones', 'Licitaciones', r => r.base === 'personal' && ['licitaciones', 'licitacion'].includes(r.arg), ['rrhh']],
+  ],
   herramientas: [
     ['#/monografias', 'Monografías', r => r.base === 'monografias'],
     ['#/herramientas/kml', 'Limpieza de KMZ', r => r.base === 'herramientas' && r.arg === 'kml'],
@@ -100,8 +118,8 @@ const SUBNAV = {
   ],
 };
 function htmlSubnav(item, ruta) {
-  const subs = SUBNAV[item.ruta];
-  if (!subs) return '';
+  const subs = (SUBNAV[item.ruta] || []).filter(x => !x[3] || x[3].includes(selRol.value));
+  if (!subs.length) return '';
   return `<nav class="sis-subnav" aria-label="${item.texto}">${subs.map(([href, t, act]) => `<a href="${href}" class="${act(ruta) ? 'activo' : ''}"${act(ruta) ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
 }
 const CABEN_ABAJO = 5; // en el teléfono, si hay más secciones, las últimas van en «Más»
@@ -151,6 +169,7 @@ const ctx = () => ({
   ir: r => { if (location.hash === r) mostrar(); else location.hash = r; },
   usarPersona: async id => { escribir('env_persona', id); await cargarPersonas(id); },
   recargarPersonas: () => cargarPersonas(selPersona.value),
+  textosTipos,
 });
 
 // ── Rutas: #/inicio, #/proyectos, #/proyecto/<id>, #/proyecto-editar/<id|nuevo>, #/equipos[/<equipoId>], #/personas, #/gastos, #/terreno ──
@@ -242,6 +261,28 @@ async function mostrar() {
     return;
   }
 
+  if (base === 'planificacion') {
+    // #/planificacion · #/planificacion/proyecto/<id> · #/planificacion/red/<id> · #/planificacion/marcas/<id>
+    const partes = location.hash.replace(/^#\/?/, '').split('/');
+    montado = Planificacion.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, vista: partes[1] || null, id: partes[2] || null, avisar });
+    rutaActual = clave;
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  if (['personal', 'administracion', 'comercial', 'conocimiento', 'seguridad'].includes(base)) {
+    // v0.15 · Módulo Administración: #/personal… · #/administracion… · #/comercial… · #/conocimiento… · #/seguridad/<proyectoId>
+    const partes = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+    const c = ctx();
+    montado = Administracion.montar(lugarModulo(), {
+      ...c, seccion: base, ruta: partes.slice(1),
+      equipos: () => Equipos.listarEquiposConEstado(), gastos: id => Gastos.resumenDeProyecto(id), reportarEquipo: d => Equipos.reportarProblema(d),
+    });
+    rutaActual = clave;
+    window.scrollTo(0, 0);
+    return;
+  }
+
   if (base === 'equipos') {
     // El módulo trae su propia sub-barra de pestañas. Se vuelve a montar al cambiar de equipo, rol o persona.
     montado = Equipos.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, equipoInicial: arg });
@@ -303,13 +344,16 @@ async function arrancar() {
   $('sis-version').title = `Sistema v${VERSION_SISTEMA} = ${MODULOS_INCLUIDOS}`;
   document.title = `${leerMarca().nombre} · Sistema v${VERSION_SISTEMA}`;
   selRol.innerHTML = Object.entries(ROLES).map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
-  selRol.value = leer('env_rol', 'terreno') === 'rrhh' ? 'rrhh' : 'terreno';
+  selRol.value = ROLES[leer('env_rol', 'terreno')] ? leer('env_rol', 'terreno') : 'terreno';
   await cargarPersonas(leer('env_persona', ''));
   Equipos.iniciar({ personaId: selPersona.value || null });
   Vuelos.iniciar({ personaId: selPersona.value || null });
   Seguimiento.iniciar({ personaId: selPersona.value || null });
   Monografias.iniciar({ personaId: selPersona.value || null });
   Gastos.iniciar({ personaId: selPersona.value || null });
+  Administracion.iniciar({ personaId: selPersona.value || null });
+  Planificacion.iniciar({ personaId: selPersona.value || null });
+  iniciarBuscador({ input: $('sis-buscar'), lista: $('sis-buscar-res'), rol: () => selRol.value });
 
   selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; mostrar(); });
   selPersona.addEventListener('change', () => { escribir('env_persona', selPersona.value); rutaActual = ''; mostrar(); });

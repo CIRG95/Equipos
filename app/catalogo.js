@@ -3,7 +3,7 @@
 export const ROLES = {
   terreno: 'Encargado de terreno',
   rrhh: 'Administración / RRHH',
-  direccion: 'Dirección / comercial',
+  direccion: 'Jefatura / Dirección',
 };
 
 // Tipos de trabajo por categoría (Camilo, 29-oct). El proyecto lleva una o más categorías;
@@ -54,7 +54,7 @@ export const ROLES_PERSONA = [
   ['ayudante', 'Ayudante'],
   ['rrhh', 'Administración / RRHH'],
   ['dibujo', 'Dibujo / gabinete'],
-  ['direccion', 'Dirección / comercial'],
+  ['direccion', 'Jefatura / Dirección'],
 ];
 export const NOMBRE_ROL_PERSONA = Object.fromEntries(ROLES_PERSONA);
 

@@ -1,60 +1,29 @@
-// modulos/administracion/pantallas-personal.js — Personal para Recursos Humanos (Sistema v0.15).
-// Resumen de habilitación, ficha completa por persona (documentos, acreditación, contrato, vacaciones y turnos, EPP,
-// CV, ingreso y salida, contacto de emergencia) y paquetes de documentación para licitaciones con «Descargar todo».
-// Rutas: #/personal · #/personal/<personaId>[/<pestaña>] · #/personal/licitaciones · #/personal/licitacion/<id>
+// modulos/administracion/pantallas-personal.js — ficha del trabajador y carpetas de documentación (Administración 0.2, Sistema v0.16).
+// Ficha completa por persona (datos personales, documentos, acreditación, contrato, vacaciones y turnos, EPP, CV,
+// ingreso y salida, contacto de emergencia) y carpetas de arranque o de licitación con «Descargar todo».
+// La dotación, la distribución y el monitor de vacaciones están en pantallas-gestion.js.
+// Acceso: Recursos Humanos y Jefatura. Rutas: #/personal/<personaId>[/<pestaña>] · #/personal/carpetas ·
+// #/personal/carpeta/<id> · #/personal/carpeta-proyecto/<proyectoId> (crea o abre la carpeta de arranque del proyecto).
 
 import { hoyISO, descargar, cargarScript } from '../../compartido/util.js';
+import { ROLES_PERSONA, NOMBRE_ROL_PERSONA } from '../../app/catalogo.js';
+import { gestiona, avisoConfidencial as aviso, iniciales, dotacion } from './pantallas-gestion.js';
 import { contenidoArchivo, abrirArchivo } from '../../compartido/archivos.js';
 import { armarZip, bytesDeDataURL, nombreSeguro } from '../../compartido/zip.js';
-import { ultimoDoc } from '../../compartido/vencimientos.js';
-import { ALM, guardarDocumento, guardarFicha, guardarRegistro, aPapelera } from './datos.js';
+import { ultimoDoc, ESTADOS_VENC } from '../../compartido/vencimientos.js';
+import { ALM, guardarDocumento, guardarFicha, guardarRegistro, aPapelera, personasDeBaja } from './datos.js';
 import {
   tiposDe, docsDe, habilitacionPersona, acreditacion, estadoDocumentos, avisoContrato, eppPorReponer, cumplimientoLicitacion,
   nombreEnPaquete, mandanteDeProyecto, TURNOS, TIPOS_CONTRATO, TIPOS_AUSENCIA, NOMBRE_AUSENCIA, NOMBRE_CONTRATO, ESTADOS_PLATAFORMA,
+  diasHabiles, resumenVacaciones, ubicacionPersona,
 } from './modelo.js';
+import { genteDeProyecto } from '../../compartido/cronograma.js';
 import { esc, fechaLegible, vacio, plural, chipVenc, chipHab, chipPlataforma, pestanas, campo, input, fecha, select, firmaCambio, ICO } from './ui.js';
 
 const PESTANAS_FICHA = [
-  ['documentos', 'Documentos'], ['acreditacion', 'Acreditación por mandante'], ['contrato', 'Contrato'], ['vacaciones', 'Vacaciones y turnos'],
+  ['datos', 'Datos personales'], ['documentos', 'Documentos'], ['acreditacion', 'Acreditación por mandante'], ['contrato', 'Contrato'], ['vacaciones', 'Vacaciones y turnos'],
   ['epp', 'EPP'], ['cv', 'CV para licitaciones'], ['ingreso', 'Ingreso y salida'], ['emergencia', 'Contacto de emergencia'],
 ];
-
-const aviso = `<div class="ad-confidencial">${ICO.candado}<span>Información confidencial. Los encargados de terreno solo visualizan si una persona está habilitada. Los documentos se muestran únicamente con el rol de Recursos Humanos.</span></div>`;
-
-// ─────────────────────────── Resumen ───────────────────────────
-export async function personalResumen(v) {
-  const { st } = v;
-  const hoy = hoyISO(), base = { ...st.d, hoy, diasAviso: st.d.config.diasAviso };
-  const filas = st.personas.map(p => {
-    const h = habilitacionPersona(p.id, base);
-    const docs = estadoDocumentos('persona', p.id, base);
-    const porVencer = docs.filter(f => f.e.estado === 'por_vencer').length;
-    const malos = docs.filter(f => (f.doc || f.tipo.obligatorio) && ['vencido', 'falta'].includes(f.e.estado)).length;
-    return { p, h, porVencer, malos };
-  });
-  if (v.ctx.rol !== 'rrhh') {
-    return `<div class="sis-cab"><h1>Habilitación del personal</h1></div>
-      <p class="sis-tenue">Indica si cada persona tiene su documentación obligatoria al día. El detalle de los documentos lo administra Recursos Humanos.</p>
-      <section class="sis-tarjeta">${filas.length ? `<div class="sis-lista">${filas.map(f => `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(f.p.nombre)}</b><span class="sis-tenue">${esc(f.p.cargo || 'Sin cargo')}</span></span><span class="sis-chips">${chipHab(f.h, { aviso: 'Habilitado' })}</span></div>`).join('')}</div>` : vacio('Aún no hay personas registradas.')}</section>`;
-  }
-  const filtro = st.filtroPersonal || 'todos';
-  const vis = filas.filter(f => filtro === 'todos' || (filtro === 'no' && f.h.nivel === 'no') || (filtro === 'aviso' && (f.porVencer || f.h.nivel === 'aviso')));
-  const n = k => filas.filter(k).length;
-  return `<div class="sis-cab"><div><h1>Personal</h1><span class="sis-tenue">Control de la documentación del personal. Seleccione una persona para revisar y actualizar su ficha.</span></div>
-      <a class="sis-btn primario" href="#/personal/licitaciones">Armar paquete de licitación</a></div>
-    ${aviso}
-    <div class="sis-kpis ad-kpis4">
-      <div class="sis-kpi"><span>Personas</span><b>${filas.length}</b></div>
-      <div class="sis-kpi"><span>Habilitadas</span><b>${n(f => f.h.habilitado)}</b></div>
-      <div class="sis-kpi ${n(f => f.porVencer) ? 'ambar' : ''}"><span>Con documentos por vencer (${st.d.config.diasAviso} días)</span><b>${n(f => f.porVencer)}</b></div>
-      <div class="sis-kpi ${n(f => f.malos) ? 'rojo' : ''}"><span>Con documentos vencidos o faltantes</span><b>${n(f => f.malos)}</b></div>
-    </div>
-    <div class="ad-filtros" role="group" aria-label="Filtro">${[['todos', 'Todas'], ['no', 'No habilitadas'], ['aviso', 'Con vencimientos próximos']].map(([k, t]) => `<button type="button" class="sis-btn chico${filtro === k ? ' activo' : ''}" aria-pressed="${filtro === k}" data-a="filtro-personal" data-k="${k}">${t}</button>`).join('')}</div>
-    <section class="sis-tarjeta">${vis.length ? `<div class="sis-lista">${vis.map(f => `<a class="sis-fila" href="#/personal/${esc(f.p.id)}">
-        <span class="sis-fila-txt"><b>${esc(f.p.nombre)}</b><span class="sis-tenue">${esc(f.p.cargo || 'Sin cargo')}${f.malos ? ` · ${plural(f.malos, 'documento vencido o faltante', 'documentos vencidos o faltantes')}` : ''}${f.porVencer ? ` · ${f.porVencer} por vencer` : ''}</span></span>
-        <span class="sis-chips">${chipHab(f.h)}</span></a>`).join('')}</div>` : vacio(filas.length ? 'Ninguna persona coincide con el filtro.' : 'Aún no hay personas. Agréguelas en Personas.')}</section>
-    <p class="sis-tenue">«Habilitado» considera los documentos marcados como obligatorios en Administración › Configuración. La acreditación ante cada mandante se revisa en la ficha de la persona.</p>`;
-}
 
 // ─────────────────────────── Tabla de documentos (personas y vehículos) ───────────────────────────
 export function tablaDocumentos(v, duenoTipo, duenoId, { titulo = 'Documentos' } = {}) {
@@ -97,22 +66,23 @@ function formDocumento(v, duenoTipo, duenoId, f, mandantes) {
 }
 
 // ─────────────────────────── Ficha de una persona ───────────────────────────
-export async function personalFicha(v, id, tab = 'documentos') {
+export async function personalFicha(v, id, tab = 'datos') {
   const { st } = v;
-  if (v.ctx.rol !== 'rrhh') return personalResumen(v);
-  const p = st.personas.find(x => x.id === id);
+  if (!gestiona(v)) return dotacion(v);
+  const deBaja = !st.personas.some(x => x.id === id);
+  const p = st.personas.find(x => x.id === id) || (await personasDeBaja()).find(x => x.id === id);
   if (!p) return vacio('Esta persona no existe.', '<a class="sis-btn" href="#/personal">Volver a Personal</a>');
-  if (!PESTANAS_FICHA.some(([k]) => k === tab)) tab = 'documentos';
+  if (!PESTANAS_FICHA.some(([k]) => k === tab)) tab = 'datos';
   const hoy = hoyISO(), base = { ...st.d, hoy, diasAviso: st.d.config.diasAviso };
   const fi = st.d.fichas.find(x => x.id === id) || { id };
   const h = habilitacionPersona(id, base);
-  const proyActual = st.proyectos.find(x => x.estado !== 'cerrado' && ((x.cuadrilla || []).includes(id) || x.encargadoId === id));
-  const contenido = await ({ documentos: tabDocumentos, acreditacion: tabAcreditacion, contrato: tabContrato, vacaciones: tabVacaciones, epp: tabEpp, cv: tabCv, ingreso: tabIngreso, emergencia: tabEmergencia }[tab])(v, p, fi, base);
+  const u = ubicacionPersona(id, { ausencias: st.d.ausencias, proyectos: st.proyectos, fecha: hoy });
+  const contenido = await ({ datos: tabDatos, documentos: tabDocumentos, acreditacion: tabAcreditacion, contrato: tabContrato, vacaciones: tabVacaciones, epp: tabEpp, cv: tabCv, ingreso: tabIngreso, emergencia: tabEmergencia }[tab])(v, p, fi, base);
   return `<div class="sis-miga"><a href="#/personal">Personal</a> / ${esc(p.nombre)}</div>
     <section class="sis-tarjeta ad-cab-persona">
       <span class="ad-avatar" aria-hidden="true">${esc(iniciales(p.nombre))}</span>
-      <div class="ad-cab-txt"><h1>${esc(p.nombre)}</h1><span class="sis-tenue">${esc(p.cargo || 'Sin cargo')}${proyActual ? ` · hoy en <a href="#/proyecto/${esc(proyActual.id)}">${esc(proyActual.nombre)}</a>` : ''}${fi.turno ? ` · turno ${esc(fi.turno)}` : ''}</span></div>
-      <div class="sis-chips">${chipHab(h)}<button type="button" class="sis-btn chico" data-a="zip-persona" data-id="${esc(p.id)}">${ICO.descargar}Descargar todo</button></div>
+      <div class="ad-cab-txt"><h1>${esc(p.nombre)}</h1><span class="sis-tenue">${esc(p.cargo || 'Sin cargo')}${u.estado === 'proyecto' ? ` · hoy en ${u.proyectos.map(q => `<a href="#/proyecto/${esc(q.id)}">${esc(q.nombre)}</a>`).join(', ')}` : u.estado === 'ausente' ? ` · ${esc((NOMBRE_AUSENCIA[u.ausencia.tipo] || 'ausente').toLowerCase())} hasta el ${fechaLegible(u.ausencia.hasta || u.ausencia.desde)}` : ' · disponible'}${fi.turno ? ` · turno ${esc(fi.turno)}` : ''}</span></div>
+      <div class="sis-chips">${deBaja ? '<span class="sis-chip gris">Dado de baja</span>' : ''}${chipHab(h)}<button type="button" class="sis-btn chico" data-a="zip-persona" data-id="${esc(p.id)}">${ICO.descargar}Descargar todo</button></div>
     </section>
     <div class="ad-ficha">
       <nav class="ad-lateral" aria-label="Partes de la ficha">${PESTANAS_FICHA.map(([k, t]) => `<a href="#/personal/${esc(id)}/${k}" class="${k === tab ? 'activo' : ''}"${k === tab ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
@@ -120,7 +90,22 @@ export async function personalFicha(v, id, tab = 'documentos') {
     </div>
     ${firmaCambio(fi.actualizadoEn ? fi : p, v.nomPers)}`;
 }
-const iniciales = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
+
+function tabDatos(v, p, fi) {
+  const d = fi.personal || {};
+  const activa = v.st.personas.some(x => x.id === p.id);
+  return `${aviso}<section class="sis-tarjeta"><h2>Datos personales</h2>
+    <form class="sis-form" data-f="datos-personales" data-id="${esc(p.id)}">
+      <div class="sis-par">${campo('Nombre completo *', input('nombre', p.nombre, 'required'))}${campo('Cargo', input('cargo', p.cargo, 'placeholder="Geomensor, topógrafo, piloto, dibujante…"'))}</div>
+      <div class="sis-par">${campo('RUT', input('rut', d.rut, 'placeholder="12.345.678-9"'))}${campo('Fecha de nacimiento', fecha('nacimiento', d.nacimiento))}</div>
+      <div class="sis-par">${campo('Teléfono', input('telefono', d.telefono, 'type="tel"'))}${campo('Correo', input('correo', d.correo, 'type="email"'))}</div>
+      ${campo('Dirección', input('direccion', d.direccion))}
+      <div class="sis-par">${campo('Previsión (AFP)', input('prevision', d.prevision))}${campo('Salud (Fonasa o isapre)', input('salud', d.salud))}</div>
+      <div class="sis-campo"><span>Roles en el Sistema</span><div class="sis-opciones">${ROLES_PERSONA.map(([k, t]) => `<label class="sis-opcion"><input type="checkbox" name="roles" value="${k}" ${(p.roles || []).includes(k) ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+        <small class="sis-tenue">Una persona puede tener más de un rol. La vinculación de su teléfono con la app de Terreno se hace en Configuración (botón de engranaje).</small></div>
+      <div class="sis-acciones"><button class="sis-btn primario">Guardar datos</button>${activa ? `<button type="button" class="sis-btn peligro" data-a="trabajador-baja" data-id="${esc(p.id)}">Dar de baja</button>` : `<button type="button" class="sis-btn" data-a="trabajador-reincorporar" data-id="${esc(p.id)}">Reincorporar</button>`}</div>
+    </form></section>`;
+}
 
 function tabDocumentos(v, p) {
   return `${aviso}${tablaDocumentos(v, 'persona', p.id)}
@@ -154,11 +139,12 @@ function tabContrato(v, p, fi, base) {
 
 function tabVacaciones(v, p, fi) {
   const aus = v.st.d.ausencias.filter(a => a.personaId === p.id).sort((a, b) => String(b.desde).localeCompare(String(a.desde)));
-  const usados = aus.filter(a => a.tipo === 'vacaciones' && a.estado === 'aprobada').reduce((s, a) => s + diasHabiles(a.desde, a.hasta || a.desde), 0);
+  const r = resumenVacaciones(p.id, { ...v.st.d, hoy: hoyISO() });
+  const usados = r.tomadas;
   const chipEst = e => ({ solicitada: '<span class="sis-chip ambar">Por aprobar</span>', aprobada: '<span class="sis-chip verde">Aprobada</span>', rechazada: '<span class="sis-chip gris">Rechazada</span>' }[e] || '');
   return `<section class="sis-tarjeta"><h2>Turno y saldo</h2>
     <form class="sis-form" data-f="turno" data-id="${esc(p.id)}">
-      <div class="sis-par">${campo('Sistema de turno', select('turno', TURNOS, fi.turno, { vacio: 'Sin turno' }))}${campo('Saldo de vacaciones (días hábiles)', input('saldo', fi.saldoVacaciones, 'type="number" min="0" step="0.5"'), { ayuda: `Aprobadas y registradas: ${usados} días hábiles.` })}</div>
+      <div class="sis-par">${campo('Sistema de turno', select('turno', TURNOS, fi.turno, { vacio: 'Sin turno' }))}${campo('Saldo de vacaciones (días hábiles)', input('saldo', fi.saldoVacaciones, 'type="number" min="0" step="0.5"'), { ayuda: `Tomadas: ${usados} días hábiles.${fi.contrato && fi.contrato.ingreso ? ` Devengadas según la fecha de ingreso: ${r.devengadas.toLocaleString('es-CL')} (saldo estimado ${(r.devengadas - usados).toLocaleString('es-CL')}). Deje el campo vacío para usar el estimado.` : ' Registre la fecha de ingreso en Contrato para estimar el saldo.'}` })}</div>
       <div class="sis-par">${campo('Próxima subida a faena', fecha('subida', fi.subida))}${campo('Próxima bajada', fecha('bajada', fi.bajada))}</div>
       <div class="sis-acciones"><button class="sis-btn primario">Guardar</button></div>
     </form></section>
@@ -173,7 +159,6 @@ function tabVacaciones(v, p, fi) {
       </form>
       <p class="sis-tenue">Las vacaciones aparecen en el calendario único, para no planificar terrenos con personas ausentes.</p></section>`;
 }
-function diasHabiles(a, b) { let n = 0; const f = new Date(`${a}T12:00:00`), fin = new Date(`${b}T12:00:00`); while (f <= fin) { const w = f.getDay(); if (w && w !== 6) n++; f.setDate(f.getDate() + 1); } return n; }
 
 function tabEpp(v, p, fi, base) {
   const t = fi.tallas || {};
@@ -215,7 +200,7 @@ async function tabIngreso(v, p, fi, base) {
     <p class="sis-tenue">Lista de verificación para los procesos de contratación y desvinculación. Los puntos automáticos se validan con los módulos Equipos y Personal.</p>
     <div class="sis-lista">
       ${auto(h.habilitado, 'Documentos obligatorios completos', h.habilitado ? 'Documentación obligatoria al día.' : `${h.pendientes.length} documento(s) pendiente(s) en la pestaña Documentos.`)}
-      ${auto(!!p.codigoVinculo, 'Teléfono vinculado a la aplicación de Terreno', p.codigoVinculo ? 'Código de vinculación generado.' : 'Genérelo en Personas › Vincular teléfono.')}
+      ${auto(!!p.codigoVinculo, 'Teléfono vinculado a la aplicación de Terreno', p.codigoVinculo ? 'Código de vinculación generado.' : 'Genérelo en Configuración › Vinculación con la app de Terreno.')}
       ${manual('correo', 'Cuenta de correo y acceso a la nube de la empresa', 'Alta al ingresar y baja al desvincular.')}
       ${manual('induccion', 'Inducción interna de seguridad', 'Charla de inducción al ingresar.')}
       ${manual('epp', 'Entrega inicial de EPP', 'Registre el detalle en la pestaña EPP.')}
@@ -234,24 +219,61 @@ function tabEmergencia(v, p, fi) {
     <p class="sis-tenue">Visible para el encargado del proyecto mientras la persona se encuentre en faena.</p></section>`;
 }
 
-// ─────────────────────────── Licitaciones ───────────────────────────
+// ─────────────────────────── Carpetas de arranque y de licitación ───────────────────────────
+// Una carpeta reúne los documentos exigidos y las personas elegidas, y se descarga ordenada (una carpeta por persona).
+//   · de arranque: nace de un proyecto; toma su mandante (requisitos de acreditación) y su equipo de trabajo;
+//   · de licitación: se arma a mano con los documentos que piden las bases.
+const esArranque = l => !!l.proyectoId;
+const nombreZip = l => nombreSeguro(`${esArranque(l) ? 'Arranque' : 'Licitacion'}_${l.nombre}`);
+
 export function licitaciones(v) {
   const { st } = v;
-  if (v.ctx.rol !== 'rrhh') return vacio('Esta sección es de Recursos Humanos.');
+  if (!gestiona(v)) return vacio('Esta sección es de Recursos Humanos y Jefatura.');
   const ls = st.d.licitaciones.slice().sort((a, b) => String(b.actualizadoEn).localeCompare(String(a.actualizadoEn)));
-  return `<div class="sis-miga"><a href="#/personal">Personal</a> / Licitaciones</div>
-    <div class="sis-cab"><div><h1>Paquetes de licitación</h1><span class="sis-tenue">Prepare la documentación del personal exigida en las bases de una licitación y descárguela ordenada por persona.</span></div></div>
-    <section class="sis-tarjeta"><h2>Nuevo paquete</h2>
-      <form class="sis-form ad-form-linea" data-f="licitacion-nueva"><div class="sis-par">${campo('Nombre de la licitación', input('nombre', '', 'required placeholder="Ej.: Red GNSS 2027"'))}${campo('Mandante', select('mandanteId', st.d.mandantes.map(m => [m.id, m.nombre]), '', { vacio: 'Sin mandante' }))}</div>
-      <div class="sis-acciones"><button class="sis-btn primario">Crear y continuar</button></div></form></section>
-    <section class="sis-tarjeta"><h2>Paquetes guardados</h2>${ls.length ? `<div class="sis-lista">${ls.map(l => `<a class="sis-fila" href="#/personal/licitacion/${esc(l.id)}"><span class="sis-fila-txt"><b>${esc(l.nombre)}</b><span class="sis-tenue">${esc((st.d.mandantes.find(m => m.id === l.mandanteId) || {}).nombre || 'Sin mandante')} · ${plural((l.requisitos || []).length, 'documento exigido', 'documentos exigidos')} · ${plural((l.personas || []).length, 'persona', 'personas')}</span></span></a>`).join('')}</div>` : vacio('Aún no hay paquetes.')}</section>`;
+  const conCarpeta = new Set(ls.filter(esArranque).map(l => l.proyectoId));
+  const activos = st.proyectos.filter(p => p.id !== 'oficina' && p.estado !== 'cerrado');
+  const nomMan = id => (st.d.mandantes.find(m => m.id === id) || {}).nombre || 'Sin mandante';
+  return `<div class="sis-cab"><div><h1>Carpetas de arranque y licitaciones</h1><span class="sis-tenue">Reúna la documentación del personal que exige un mandante y descárguela ordenada por persona, sin buscar papel por papel.</span></div></div>
+    ${aviso}
+    <div class="sis-columnas">
+      <section class="sis-tarjeta"><h2>Carpeta de arranque de un proyecto</h2>
+        <p class="sis-tenue">Toma el equipo de trabajo del proyecto y los documentos que exige su mandante.</p>
+        ${activos.length ? `<form class="sis-form" data-f="carpeta-proyecto">${campo('Proyecto', select('proyectoId', activos.map(p => [p.id, `${p.nombre}${conCarpeta.has(p.id) ? ' · ya tiene carpeta' : ''}`]), '', { vacio: 'Seleccione', extra: 'required' }))}
+          <div class="sis-acciones"><button class="sis-btn primario">Armar carpeta</button></div></form>` : vacio('No hay proyectos activos.')}</section>
+      <section class="sis-tarjeta"><h2>Carpeta para una licitación</h2>
+        <p class="sis-tenue">Indique los documentos que piden las bases y elija al personal que cumple.</p>
+        <form class="sis-form" data-f="licitacion-nueva"><div class="sis-par">${campo('Nombre de la licitación', input('nombre', '', 'required placeholder="Ej.: Red GNSS 2027"'))}${campo('Mandante', select('mandanteId', st.d.mandantes.map(m => [m.id, m.nombre]), '', { vacio: 'Sin mandante' }))}</div>
+        <div class="sis-acciones"><button class="sis-btn primario">Crear y continuar</button></div></form></section>
+    </div>
+    <section class="sis-tarjeta"><h2>Carpetas guardadas</h2>${ls.length ? `<div class="sis-lista">${ls.map(l => `<a class="sis-fila" href="#/personal/carpeta/${esc(l.id)}"><span class="sis-fila-txt"><b>${esc(l.nombre)}</b><span class="sis-tenue">${esc(nomMan(l.mandanteId))} · ${plural((l.requisitos || []).length, 'documento exigido', 'documentos exigidos')} · ${plural((l.personas || []).length, 'persona', 'personas')}${(l.descargas || []).length ? ` · descargada ${fechaLegible(String(l.descargas[l.descargas.length - 1].en).slice(0, 10))}` : ''}</span></span><span class="sis-chip ${esArranque(l) ? 'azul' : 'gris'}">${esArranque(l) ? 'Arranque' : 'Licitación'}</span></a>`).join('')}</div>` : vacio('Aún no hay carpetas.')}</section>`;
+}
+
+/** Datos de una carpeta de arranque a partir del proyecto: mandante, documentos exigidos y equipo de trabajo. */
+function carpetaDesdeProyecto(st, p) {
+  const man = mandanteDeProyecto(p, st.d.mandantes);
+  const delMandante = man ? (man.requisitosPersona || []).map(r => r.tipoId) : [];
+  const req = delMandante.length ? delMandante : tiposDe(st.d.tipos, 'persona').filter(t => t.obligatorio).map(t => t.id);
+  return { nombre: p.nombre, proyectoId: p.id, mandanteId: man ? man.id : null, requisitos: req, personas: genteDeProyecto(p).filter(id => st.personas.some(x => x.id === id)), incluirCV: false };
+}
+
+/** #/personal/carpeta-proyecto/<proyectoId>: abre la carpeta de arranque del proyecto o la crea. */
+export async function carpetaDeProyecto(v, proyectoId) {
+  const { st } = v;
+  if (!gestiona(v)) return vacio('Esta sección es de Recursos Humanos y Jefatura.');
+  const p = st.proyectos.find(x => x.id === proyectoId);
+  if (!p) return vacio('Este proyecto no existe.', '<a class="sis-btn" href="#/personal/carpetas">Volver</a>');
+  const l = st.d.licitaciones.find(x => x.proyectoId === proyectoId) || await guardarRegistro(ALM.licitaciones, carpetaDesdeProyecto(st, p));
+  location.replace(`#/personal/carpeta/${l.id}`);
+  return '<p class="sis-tenue">Abriendo la carpeta de arranque…</p>';
 }
 
 export function licitacion(v, id) {
   const { st } = v;
-  if (v.ctx.rol !== 'rrhh') return vacio('Esta sección es de Recursos Humanos.');
+  if (!gestiona(v)) return vacio('Esta sección es de Recursos Humanos y Jefatura.');
   const l = st.d.licitaciones.find(x => x.id === id);
-  if (!l) return vacio('Este paquete no existe.', '<a class="sis-btn" href="#/personal/licitaciones">Volver</a>');
+  if (!l) return vacio('Esta carpeta no existe.', '<a class="sis-btn" href="#/personal/carpetas">Volver</a>');
+  const proy = l.proyectoId ? st.proyectos.find(x => x.id === l.proyectoId) : null;
+  const delProyecto = proy ? new Set(genteDeProyecto(proy)) : null;
   const tipos = tiposDe(st.d.tipos, 'persona');
   const req = l.requisitos || [], sel = new Set(l.personas || []);
   const filas = cumplimientoLicitacion(req, st.personas, { ...st.d, hoy: hoyISO(), diasAviso: st.d.config.diasAviso });
@@ -259,21 +281,21 @@ export function licitacion(v, id) {
   const reqTipos = req.map(r => tipos.find(t => t.id === r)).filter(Boolean);
   const res = f => f.faltan ? `<span class="sis-chip rojo">No cumple · ${f.faltan}</span>` : f.avisos ? '<span class="sis-chip ambar">Cumple · revisar fechas</span>' : '<span class="sis-chip verde">Cumple todo</span>';
   const elegidas = filas.filter(f => sel.has(f.personaId));
-  return `<div class="sis-miga"><a href="#/personal">Personal</a> / <a href="#/personal/licitaciones">Licitaciones</a> / ${esc(l.nombre)}</div>
-    <div class="sis-cab"><div><h1>${esc(l.nombre)}</h1><span class="sis-tenue">Complete los tres pasos: indique los documentos exigidos en las bases, seleccione al personal y descargue el paquete ordenado.</span></div>
-      <button type="button" class="sis-btn chico peligro" data-a="lic-borrar" data-id="${esc(l.id)}">Eliminar paquete</button></div>
+  return `<div class="sis-miga"><a href="#/personal">Personal</a> / <a href="#/personal/carpetas">Carpetas</a> / ${esc(l.nombre)}</div>
+    <div class="sis-cab"><div><h1>${esArranque(l) ? 'Carpeta de arranque · ' : ''}${esc(l.nombre)}</h1><span class="sis-tenue">${proy ? `Proyecto <a href="#/proyecto/${esc(proy.id)}">${esc(proy.nombre)}</a>. ` : ''}Complete los tres pasos: confirme los documentos exigidos, seleccione al personal y descargue la carpeta ordenada.</span></div>
+      <div class="sis-acciones">${proy ? `<button type="button" class="sis-btn chico" data-a="lic-sincronizar" data-id="${esc(l.id)}">Actualizar desde el proyecto</button>` : ''}<button type="button" class="sis-btn chico peligro" data-a="lic-borrar" data-id="${esc(l.id)}">Eliminar carpeta</button></div></div>
     <section class="sis-tarjeta"><h2><span class="ad-paso">1</span>Seleccione los documentos exigidos</h2>
       <div class="ad-req">${tipos.map(t => `<button type="button" class="ad-req-btn${req.includes(t.id) ? ' activo' : ''}" aria-pressed="${req.includes(t.id)}" data-a="lic-req" data-id="${esc(l.id)}" data-tipo="${esc(t.id)}">${esc(t.nombre)}</button>`).join('')}</div></section>
     <section class="sis-tarjeta"><div class="sis-cab"><h2><span class="ad-paso">2</span>Revise el cumplimiento del personal</h2>
       <label class="sis-opcion"><input type="checkbox" data-c="lic-solo" data-id="${esc(l.id)}" ${l.soloCumplen ? 'checked' : ''}> Mostrar solo personal que cumple todos los requisitos</label></div>
       ${req.length ? `<div class="sis-tabla-scroll"><table class="sis-tabla ad-lic"><thead><tr><th><span class="ad-oculto">Seleccionar</span></th><th>Persona</th>${reqTipos.map(t => `<th>${esc(t.nombre)}</th>`).join('')}<th>Resultado</th></tr></thead>
-        <tbody>${vis.map(f => `<tr><td><input type="checkbox" aria-label="Seleccionar a ${esc(f.persona.nombre)}" data-c="lic-persona" data-id="${esc(l.id)}" data-p="${esc(f.personaId)}" ${sel.has(f.personaId) ? 'checked' : ''}></td><td><b>${esc(f.persona.nombre)}</b></td>${f.celdas.map(c => `<td>${chipVenc(c.e)}</td>`).join('')}<td>${res(f)}</td></tr>`).join('')}</tbody></table></div>` : vacio('Seleccione al menos un documento en el paso 1.')}
+        <tbody>${vis.map(f => `<tr><td><input type="checkbox" aria-label="Seleccionar a ${esc(f.persona.nombre)}" data-c="lic-persona" data-id="${esc(l.id)}" data-p="${esc(f.personaId)}" ${sel.has(f.personaId) ? 'checked' : ''}></td><td><b>${esc(f.persona.nombre)}</b>${delProyecto && delProyecto.has(f.personaId) ? '<small>En el equipo del proyecto</small>' : ''}</td>${f.celdas.map(c => `<td>${chipVenc(c.e)}</td>`).join('')}<td>${res(f)}</td></tr>`).join('')}</tbody></table></div>` : vacio('Seleccione al menos un documento en el paso 1.')}
     </section>
-    <section class="sis-tarjeta ad-paquete"><div><h2><span class="ad-paso">3</span>Revise y descargue el paquete</h2>
+    <section class="sis-tarjeta ad-paquete"><div><h2><span class="ad-paso">3</span>Revise y descargue la carpeta</h2>
       <label class="sis-opcion"><input type="checkbox" data-c="lic-cv" data-id="${esc(l.id)}" ${l.incluirCV ? 'checked' : ''}> Incluir el CV de cada persona (generado desde los proyectos del sistema)</label>
-      <div class="ad-arbol mono"><div><b>${esc(nombreSeguro(`Licitacion_${l.nombre}`))}.zip</b></div>${elegidas.length ? elegidas.map(f => `<div class="ad-arbol-h">└ ${esc(nombreSeguro(f.persona.nombre))}/ <span class="sis-tenue">(${f.celdas.filter(c => c.doc && c.doc.archivoId).length + (l.incluirCV ? 1 : 0)} archivos)</span></div>`).join('') : '<div class="ad-arbol-h sis-tenue">Seleccione al menos una persona en el paso 2.</div>'}</div></div>
+      <div class="ad-arbol mono"><div><b>${esc(nombreZip(l))}.zip</b></div><div class="ad-arbol-h">└ 00_Listado_de_documentos.csv</div>${elegidas.length ? elegidas.map(f => `<div class="ad-arbol-h">└ ${esc(nombreSeguro(f.persona.nombre))}/ <span class="sis-tenue">(${f.celdas.filter(c => c.doc && c.doc.archivoId).length + (l.incluirCV ? 1 : 0)} archivos)</span></div>`).join('') : '<div class="ad-arbol-h sis-tenue">Seleccione al menos una persona en el paso 2.</div>'}</div></div>
       <div class="ad-paquete-acc"><button type="button" class="sis-btn primario" data-a="lic-zip" data-id="${esc(l.id)}" ${elegidas.length ? '' : 'disabled'}>${ICO.descargar}Descargar todo · ${plural(elegidas.length, 'persona', 'personas')}</button>
-        <p class="sis-tenue">Cada carpeta lleva el nombre de la persona y los documentos siguen una nomenclatura estándar (por ejemplo, <span class="mono">02_Titulo_profesional.pdf</span>). Los documentos vencidos o faltantes no se incluyen; revise la columna «Resultado» antes de presentar.</p></div>
+        <p class="sis-tenue">Cada carpeta lleva el nombre de la persona y los documentos siguen una nomenclatura estándar (por ejemplo, <span class="mono">02_Titulo_profesional.pdf</span>). El listado inicial resume el estado de cada documento por persona. Los documentos faltantes no se incluyen; revise la columna «Resultado» antes de presentar.</p></div>
     </section>`;
 }
 
@@ -315,9 +337,17 @@ export async function zipLicitacion(v, id) {
     todas.push(...r.out); faltan += r.faltan;
   }
   if (!todas.length) { v.avisar('Las personas seleccionadas no tienen archivos de los documentos exigidos.'); return; }
-  descargar(`${nombreSeguro(`Licitacion_${l.nombre}`)}.zip`, new Blob([armarZip(todas)], { type: 'application/zip' }));
+  // Listado inicial: una fila por persona y una columna por documento exigido, con su estado y vencimiento.
+  const tipos = (l.requisitos || []).map(r => v.st.d.tipos.find(t => t.id === r)).filter(Boolean);
+  const sel = new Set(l.personas || []);
+  const c = x => `"${String(x ?? '').replace(/"/g, '""')}"`;
+  const filas = cumplimientoLicitacion(l.requisitos || [], v.st.personas, { ...v.st.d, hoy: hoyISO(), diasAviso: v.st.d.config.diasAviso }).filter(f => sel.has(f.personaId))
+    .map(f => [f.persona.nombre, f.persona.cargo || '', ...f.celdas.map(x => `${ESTADOS_VENC[x.e.estado] ? ESTADOS_VENC[x.e.estado].texto : x.e.estado}${x.doc && x.doc.vence ? ` (vence ${fechaLegible(x.doc.vence)})` : ''}`), f.faltan ? `No cumple (${f.faltan})` : 'Cumple']);
+  const csv = [['Persona', 'Cargo', ...tipos.map(t => t.nombre), 'Resultado'], ...filas].map(f => f.map(c).join(';')).join('\r\n');
+  todas.unshift({ nombre: '00_Listado_de_documentos.csv', datos: new TextEncoder().encode('\ufeff' + csv) });
+  descargar(`${nombreZip(l)}.zip`, new Blob([armarZip(todas)], { type: 'application/zip' }));
   await guardarRegistro(ALM.licitaciones, { id: l.id, descargas: [...(l.descargas || []), { por: v.ctx.personaId, en: new Date().toISOString() }].slice(-20) });
-  v.avisar(faltan ? `Paquete descargado. ${faltan} archivo(s) no se encontraron en este equipo.` : 'Paquete descargado');
+  v.avisar(faltan ? `Carpeta descargada. ${faltan} archivo(s) no se encontraron en este equipo: conecte la nube y vuelva a intentar.` : 'Carpeta descargada');
 }
 
 /** CV en PDF (jsPDF de vendor/): datos de la persona y proyectos del sistema. */
@@ -356,7 +386,14 @@ export const acciones = {
   'epp-quitar': async (b, v) => { const fi = v.st.d.fichas.find(x => x.id === b.dataset.id) || {}; const epp = (fi.epp || []).filter((_, k) => k !== Number(b.dataset.k)); await guardarFicha(b.dataset.id, { epp }); return true; },
   'lic-req': async (b, v) => { const l = v.st.d.licitaciones.find(x => x.id === b.dataset.id); const r = new Set(l.requisitos || []); r.has(b.dataset.tipo) ? r.delete(b.dataset.tipo) : r.add(b.dataset.tipo); const orden = tiposDe(v.st.d.tipos, 'persona').map(t => t.id); await guardarRegistro(ALM.licitaciones, { id: l.id, requisitos: orden.filter(t => r.has(t)) }); return true; },
   'lic-zip': async (b, v) => { await zipLicitacion(v, b.dataset.id); return true; },
-  'lic-borrar': async (b, v) => { if (!confirm('¿Eliminar este paquete de licitación? Los documentos del personal no se eliminan.')) return false; await aPapelera(ALM.licitaciones, b.dataset.id); v.ir('#/personal/licitaciones'); return false; },
+  'lic-borrar': async (b, v) => { if (!confirm('¿Eliminar esta carpeta? Los documentos del personal no se eliminan.')) return false; await aPapelera(ALM.licitaciones, b.dataset.id); v.ir('#/personal/carpetas'); return false; },
+  'lic-sincronizar': async (b, v) => {
+    const l = v.st.d.licitaciones.find(x => x.id === b.dataset.id), p = l && v.st.proyectos.find(x => x.id === l.proyectoId);
+    if (!p) return false;
+    const base = carpetaDesdeProyecto(v.st, p);
+    await guardarRegistro(ALM.licitaciones, { id: l.id, nombre: base.nombre, mandanteId: base.mandanteId, personas: base.personas, requisitos: (l.requisitos || []).length ? l.requisitos : base.requisitos });
+    v.avisar('Carpeta actualizada con el equipo del proyecto'); return true;
+  },
 };
 
 export const cambios = {
@@ -389,8 +426,11 @@ export const formularios = {
   ausencia: async (f, fd, v) => {
     const desde = fd.get('desde'), hasta = fd.get('hasta') || desde;
     if (hasta < desde) throw new Error('La fecha «hasta» es anterior a «desde».');
-    await guardarRegistro(ALM.ausencias, { personaId: f.dataset.id, tipo: fd.get('tipo'), estado: fd.get('estado'), desde, hasta, nota: txt(fd, 'nota') });
-    v.avisar('Ausencia registrada'); return true;
+    const personaId = f.dataset.id || fd.get('personaId');
+    if (!personaId) throw new Error('Seleccione al trabajador.');
+    const solicitud = f.dataset.solicitud === '1';
+    await guardarRegistro(ALM.ausencias, { personaId, tipo: fd.get('tipo'), estado: solicitud ? 'solicitada' : (fd.get('estado') || 'aprobada'), desde, hasta, nota: txt(fd, 'nota'), solicitadaPor: v.ctx.personaId || null });
+    v.avisar(solicitud ? 'Solicitud enviada: queda por aprobar' : 'Ausencia registrada'); return true;
   },
   tallas: async (f, fd, v) => { await guardarFicha(f.dataset.id, { tallas: { polera: txt(fd, 'polera'), pantalon: txt(fd, 'pantalon'), calzado: txt(fd, 'calzado') } }); v.avisar('Tallas guardadas'); return true; },
   epp: async (f, fd, v) => { const fi = v.st.d.fichas.find(x => x.id === f.dataset.id) || {}; await guardarFicha(f.dataset.id, { epp: [...(fi.epp || []), { item: txt(fd, 'item'), entregado: fd.get('entregado') || '', reponer: fd.get('reponer') || '', firmado: false }] }); v.avisar('Entrega registrada'); return true; },
@@ -399,8 +439,9 @@ export const formularios = {
     const m = v.st.d.mandantes.find(x => x.id === fd.get('mandanteId'));
     const req = m ? (m.requisitosPersona || []).map(r => r.tipoId) : [];
     const l = await guardarRegistro(ALM.licitaciones, { nombre: txt(fd, 'nombre'), mandanteId: fd.get('mandanteId') || null, requisitos: req, personas: [], incluirCV: true });
-    v.ir(`#/personal/licitacion/${l.id}`); return false;
+    v.ir(`#/personal/carpeta/${l.id}`); return false;
   },
+  'carpeta-proyecto': async (f, fd, v) => { v.ir(`#/personal/carpeta-proyecto/${fd.get('proyectoId')}`); return false; },
 };
 
 export { mandanteDeProyecto, NOMBRE_CONTRATO };

@@ -112,16 +112,19 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.5.9: pestaña «Gastos». Registra el gasto en el momento: foto de la boleta (o del comprobante del correo), monto y categoría. Queda en el borrador de tu cuenta del proyecto, el mismo que ves en el Sistema; la rendición se envía a RRHH desde el Sistema al cerrar el proyecto.",
-    "En la jornada en curso aparece la tarjeta «Gastos del proyecto» con el total sin rendir y el botón «Nuevo gasto».",
-    "Muestra fondo recibido, gastado y saldo si RRHH depositó fondo; aviso de posible gasto repetido (misma fecha y monto); rendiciones devueltas con el motivo y los gastos observados para corregirlos."
+    "Versión 0.6.0: trabajo sin conexión completo. La app abre y registra sin señal; lo pendiente de subir queda guardado en el teléfono aunque se cierre la app, y se sincroniza sola al recuperar la conexión.",
+    "Franja «Sin conexión» y pastilla de la nube con la cantidad de jornadas por subir. Al volver la señal avisa y sube lo pendiente (jornadas, monografías, gastos y avisos del Sistema).",
+    "Si la app se abrió sin señal, al recuperarla reconecta Nextcloud y Google sin reiniciar. Ya no vuelve a subir todas las jornadas en cada apertura: solo las que cambiaron.",
+    "Paquete de conexión 1.4.2: los mensajes de vinculación indican la nueva ubicación en el Sistema (Configuración, botón de engranaje)."
   ],
   probar: [
-    "Sin señal (modo avión): registrar un gasto con foto, cerrar y abrir la app, y ver que sigue ahí; al volver la señal debe subir solo («☁ Al día»).",
-    "Cámara desde «Tomar foto» y comprobante PDF o captura desde «Galería o PDF».",
-    "El gasto registrado en Terreno debe verse en el Sistema → Gastos del mismo proyecto."
+    "Modo avión: abrir la app instalada, iniciar una jornada, registrar puntos con foto y un gasto, cerrar la app y volver a abrirla: todo debe seguir ahí y la pastilla debe decir cuántas jornadas faltan por subir.",
+    "Quitar el modo avión: debe aparecer «Conexión recuperada» y la pastilla pasar a «Sincronizado». Si Google pide renovar la sesión, tocar la pastilla una vez.",
+    "Lo registrado sin señal debe verse en el Sistema del computador después de sincronizar."
   ],
   conocidos: [
+    "Google entrega sesiones de una hora: si la señal vuelve después, la subida a Google Drive puede pedir un toque en la pastilla de la nube para renovar la sesión. Nextcloud se reconecta solo.",
+    "La primera apertura (instalación) necesita internet; desde entonces la app funciona sin señal.",
     "Gastos necesita el teléfono vinculado con el Sistema (⚙ → Sistema). La foto de la boleta es obligatoria en Terreno.",
     "Enviar la rendición, depósitos y pagos se hacen en el Sistema.",
     "El mapa necesita internet; sin internet se ve el fondo liso y los puntos igual.",

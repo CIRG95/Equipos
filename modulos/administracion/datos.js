@@ -20,7 +20,7 @@ import { enviarAPapelera, restaurar } from '../../compartido/papelera.js';
 import { guardarArchivo, archivoAPapelera } from '../../compartido/archivos.js';
 import { TIPOS_BASE, MANDANTES_BASE, CONFIG_BASE } from './modelo.js';
 
-export const VERSION_MODULO = '0.1';
+export const VERSION_MODULO = '0.2';
 export const SCHEMA_VERSION = 1;
 export const ALM = {
   mandantes: 'compartido_mandantes', tipos: 'admin_tipos_doc', documentos: 'admin_documentos', fichas: 'admin_fichas',
@@ -84,6 +84,11 @@ export async function deshacerPapelera(almacen, id) { return restaurar(almacen, 
 export async function guardarConfig(cambios) {
   const actual = (await obtener(ALM.config, 'general')) || { ...CONFIG_BASE, id: 'general' };
   return guardar(ALM.config, sello({ ...actual, ...cambios, id: 'general' }));
+}
+
+/** Personas dadas de baja (activo = false): conservan su ficha y se pueden reincorporar. */
+export async function personasDeBaja() {
+  return (await todos('compartido_personas')).filter(p => !p.eliminadoEn && p.activo === false).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
 
 /** Ficha de RRHH de una persona (se crea vacía si no existe). */

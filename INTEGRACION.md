@@ -1,5 +1,15 @@
 # INTEGRACION.md — Sistema v0.15
 
+## v0.16 · Encargo de proyectos, gestión de personal, buscador lateral, Configuración y Terreno 0.6.0
+
+- **Sin almacenes nuevos.** El encargo vive en el registro del proyecto: `cronograma[]`, `encargo { info, prioridad, emitidoPor/En, recibidoPor/En }`, `bitacora[]`, `contactoTerreno`, `sistemaReferencia`, `fechaInicio`. Datos personales en `admin_fichas.personal`; baja de una persona = `activo: false` + `bajaEn`; carpeta de arranque = `admin_licitaciones` con `proyectoId`; marca en `admin_config.general.marca`.
+- **Archivos nuevos:** `app/encargo.js` (reglas puras), `app/vistas-encargo.js` (asistente; `AL_PINTAR.encargo` inicia el comportamiento en vivo), `app/vistas-config.js`, `compartido/cronograma.js` (fechas del cronograma; no lo importa el paquete de conexión), `modulos/administracion/pantallas-gestion.js` (dotación, distribución, vacaciones).
+- **Rutas:** `#/encargo/<id|nuevo>`, `#/configuracion`, `#/personal` (Dotación) · `/distribucion` · `/vacaciones` · `/carpetas` · `/carpeta/<id>` · `/carpeta-proyecto/<proyectoId>`. `#/personas` y `#/proyecto-editar/…` redirigen.
+- **Buscador:** `iniciarBuscador({ panel, boton, rol, seccion })` devuelve `{ alNavegar }`; los ámbitos por sección están en `AMBITOS` (`app/buscador.js`). Para que una sección nueva tenga búsqueda propia, agregar su ámbito y poner sus registros en `armarIndice`.
+- **Acceso:** `gestiona(v)` = rol `rrhh` o `direccion` (Recursos Humanos y Jefatura).
+- **Paquete de conexión 1.4.2:** solo cambian textos de `explicarVinculo`. Copiado a `terreno/js/`.
+- **Terreno 0.6.0:** `colaSync` en localStorage, `reconectarNubes(motivo)`, `hayConexion()`, `pendientesDeSubida()`; `sw.js` guarda `../config.js` y responde las navegaciones sin señal con `index.html`.
+
 ## v0.15 · Administración 0.1 + Planificación 0.1 (paquete de conexión 1.4.1)
 ### Compartido
 - `compartido/vencimientos.js` (nuevo): **motor único de vencimientos**. `DIAS_AVISO`, `ESTADOS_VENC` (falta, vencido, rechazado, pendiente, por_vencer, vigente, no_vence, opcional; color y orden), `diasHasta`, `estadoFecha`, `estadoDocumento(tipo, doc, { hoy, diasAviso, obligatorio, estadoPlataforma })`, `habilitacion(requisitos, docs, opc)` → `{ habilitado, nivel: 'ok'|'aviso'|'no', pendientes, avisos, filas }`, `ultimoDoc`, `textoDias`, `ordenarPendientes`. Lo usan personas, camionetas y la acreditación por mandante.

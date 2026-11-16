@@ -14,7 +14,7 @@ import * as Administracion from '../modulos/administracion/administracion.js';
 import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { iniciarBuscador } from './buscador.js';
 import { iniciarPanelNube } from './nube-panel.js';
-import { VISTAS, manejarEnvio, manejarClic, manejarCambio, avisosPara, marcarAvisoVisto } from './vistas.js';
+import { VISTAS, AL_PINTAR, manejarEnvio, manejarClic, manejarCambio, avisosPara, marcarAvisoVisto } from './vistas.js';
 import { ROLES, textosTipos } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
 import { revisarInstalacion, mostrarAvisoInstalacion } from './revision.js';
@@ -29,7 +29,10 @@ const menu = $('sis-menu');
 let montado = null;          // módulo montado ({ desmontar, refrescar }) o null si es una pantalla del Sistema
 let rutaActual = '';
 let timerAviso = null;
-const estado = { verCerrados: false, personaEditar: null }; // estado de pantallas del Sistema
+const estado = { verCerrados: false, vincular: null }; // estado de pantallas del Sistema
+let buscador = { alNavegar() {} };
+let seccionActual = 'inicio';
+let ultimaPantalla = '';
 
 
 // ── Modo de la pantalla (misma regla que Terreno y Equipos; comparte la preferencia env_modo) ──
@@ -41,12 +44,13 @@ function modoApp() {
   try { return matchMedia('(min-width: 900px) and (pointer: fine)').matches ? 'pc' : 'telefono'; } catch { return 'telefono'; }
 }
 function aplicarModo() { document.body.dataset.modo = modoApp(); }
-$('sis-modo').addEventListener('click', () => {
-  const sig = MODOS[(MODOS.indexOf(leer('env_modo', 'auto')) + 1) % MODOS.length];
-  escribir('env_modo', sig);
+// v0.16: el modo se elige en Configuración (botón de engranaje), ya no con un botón del encabezado.
+function fijarModo(m) {
+  if (!MODOS.includes(m)) return;
+  escribir('env_modo', m);
   aplicarModo();
-  avisar(`Modo ${NOMBRE_MODO[sig]}`);
-});
+  avisar(`Modo ${NOMBRE_MODO[m]}`);
+}
 addEventListener('resize', aplicarModo);
 
 function avisar(texto) {
@@ -73,20 +77,23 @@ const ICONOS_MENU = {
   administracion: ic('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M3 12h18"/>'),
   comercial: ic('<path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/>'),
   conocimiento: ic('<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 21V5M9 7h6M9 11h6"/>'),
-  personas: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
+  personal: ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/>'),
   mas: ic('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'),
 };
 // v0.11: Inicio · Proyectos (Activos, Calendario, Entregas, Registro) · Vuelos · Equipos (Equipos, Catálogo de sensores) ·
 // Herramientas (Monografías, Limpieza de KMZ, Pronóstico rápido). Seguimiento pasa a «Proyectos › Entregas».
 // v0.15: Planificación (redes y marcas de vuelo), Administración (RRHH y flota), Comercial (Dirección) y Conocimiento.
 const TODOS = ['terreno', 'rrhh', 'direccion'];
+const GESTION = ['rrhh', 'direccion']; // Recursos Humanos y Jefatura
+// Pantallas sin pestaña propia en el menú (se abren desde el encabezado).
+const FUERA_DE_MENU = { configuracion: { ruta: 'configuracion', texto: 'Configuración', roles: TODOS } };
 const MENU = [
   { ruta: 'inicio', texto: 'Inicio', roles: TODOS, tambien: ['avisos'] },
-  { ruta: 'proyectos', texto: 'Proyectos', roles: TODOS, tambien: ['proyecto', 'proyecto-editar', 'seguimiento', 'seguridad'] },
+  { ruta: 'proyectos', texto: 'Proyectos', roles: TODOS, tambien: ['proyecto', 'encargo', 'seguimiento', 'seguridad'] },
   { ruta: 'planificacion', texto: 'Planificación', roles: ['terreno'] },
   { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
   { ruta: 'equipos', texto: 'Equipos', roles: TODOS, tambien: ['sensores'] },
-  { ruta: 'personas', texto: 'Personas', roles: TODOS, tambien: ['personal'] },
+  { ruta: 'personal', texto: 'Personas', roles: TODOS },
   { ruta: 'administracion', texto: 'Administración', roles: ['rrhh', 'direccion'] },
   { ruta: 'gastos', texto: 'Gastos', roles: ['terreno', 'rrhh'] },
   { ruta: 'comercial', texto: 'Comercial', roles: ['direccion'] },
@@ -96,7 +103,7 @@ const MENU = [
 // Sub-pestañas de cada sección: [enlace, texto, ¿activa?(ruta)]
 const SUBNAV = {
   proyectos: [
-    ['#/proyectos', 'Activos', r => ['proyectos', 'proyecto', 'proyecto-editar'].includes(r.base) && !['calendario', 'registro'].includes(r.arg)],
+    ['#/proyectos', 'Activos', r => ['proyectos', 'proyecto', 'encargo'].includes(r.base) && !['calendario', 'registro'].includes(r.arg)],
     ['#/proyectos/calendario', 'Calendario', r => r.base === 'proyectos' && r.arg === 'calendario'],
     ['#/seguimiento', 'Entregas', r => r.base === 'seguimiento'],
     ['#/proyectos/registro', 'Registro por mandante', r => r.base === 'proyectos' && r.arg === 'registro'],
@@ -105,11 +112,14 @@ const SUBNAV = {
     ['#/equipos', 'Equipos', r => r.base === 'equipos'],
     ['#/sensores', 'Catálogo de sensores', r => r.base === 'sensores'],
   ],
-  personas: [
-    ['#/personas', 'Personas', r => r.base === 'personas'],
-    ['#/personal', 'Documentación', r => r.base === 'personal' && !['licitaciones', 'licitacion'].includes(r.arg), ['rrhh']],
-    ['#/personal', 'Habilitación', r => r.base === 'personal', ['terreno', 'direccion']],
-    ['#/personal/licitaciones', 'Licitaciones', r => r.base === 'personal' && ['licitaciones', 'licitacion'].includes(r.arg), ['rrhh']],
+  // v0.16 · Personas es la gestión de personal: Recursos Humanos y Jefatura ven todo; terreno, la habilitación y sus vacaciones.
+  personal: [
+    ['#/personal', 'Dotación', r => !['distribucion', 'vacaciones', 'carpetas', 'carpeta', 'carpeta-proyecto', 'licitaciones', 'licitacion'].includes(r.arg), GESTION],
+    ['#/personal', 'Habilitación', r => r.arg !== 'vacaciones', ['terreno']],
+    ['#/personal/distribucion', 'Distribución en proyectos', r => r.arg === 'distribucion', GESTION],
+    ['#/personal/vacaciones', 'Vacaciones y ausencias', r => r.arg === 'vacaciones', GESTION],
+    ['#/personal/vacaciones', 'Mis vacaciones', r => r.arg === 'vacaciones', ['terreno']],
+    ['#/personal/carpetas', 'Carpetas de arranque', r => ['carpetas', 'carpeta', 'carpeta-proyecto', 'licitaciones', 'licitacion'].includes(r.arg), GESTION],
   ],
   herramientas: [
     ['#/monografias', 'Monografías', r => r.base === 'monografias'],
@@ -159,9 +169,20 @@ function aplicarMarca() {
   document.querySelector('.sis-logo').textContent = (m.nombre.trim()[0] || 'T').toUpperCase();
 }
 
+/** La marca guardada en la nube (admin_config) manda sobre la de este equipo: así todos ven el mismo nombre y color. */
+async function traerMarca() {
+  try {
+    const m = (await Administracion.datos()).config.marca;
+    if (m && m.nombre && (m.nombre !== leerMarca().nombre || m.color !== leerMarca().color)) { escribir('env_marca', JSON.stringify({ nombre: m.nombre, color: m.color })); aplicarMarca(); }
+  } catch (e) { console.warn(e); }
+}
+
 const ctx = () => ({
   marca: leerMarca(),
-  cambiarMarca: m => { escribir('env_marca', JSON.stringify(m)); aplicarMarca(); },
+  cambiarMarca: async m => { escribir('env_marca', JSON.stringify(m)); aplicarMarca(); document.title = `${m.nombre} · Sistema v${VERSION_SISTEMA}`; await Administracion.guardarMarca(m).catch(e => console.warn(e)); },
+  fijarModo,
+  abrirNube: () => $('sis-nube').click(),
+  nombreRol: ROLES[selRol.value],
   rol: selRol.value,
   personaId: selPersona.value || null,
   estado,
@@ -172,7 +193,7 @@ const ctx = () => ({
   textosTipos,
 });
 
-// ── Rutas: #/inicio, #/proyectos, #/proyecto/<id>, #/proyecto-editar/<id|nuevo>, #/equipos[/<equipoId>], #/personas, #/gastos, #/terreno ──
+// ── Rutas: #/inicio, #/proyectos, #/proyecto/<id>, #/encargo/<id|nuevo>, #/equipos[/<equipoId>], #/personal…, #/gastos, #/configuracion ──
 function leerRuta() {
   const qr = location.hash.match(/^#equipo=([\w-]+)/); // enlace de la etiqueta QR de Equipos
   if (qr) { history.replaceState(null, '', `#/equipos/${qr[1]}`); }
@@ -195,16 +216,23 @@ async function pintarAvisos() {
 
 async function mostrar() {
   const { base, arg } = leerRuta();
-  const item = MENU.find(m => m.ruta === base || (m.tambien || []).includes(base));
+  // Rutas anteriores a la v0.16 (marcadores y enlaces guardados): Personas y el formulario antiguo de proyecto.
+  if (base === 'personas') { location.replace('#/personal'); return; }
+  if (base === 'proyecto-editar') { location.replace(`#/encargo/${arg || 'nuevo'}`); return; }
+  const item = MENU.find(m => m.ruta === base || (m.tambien || []).includes(base)) || FUERA_DE_MENU[base];
   if (!item || !item.roles.includes(selRol.value)) { location.hash = '#/inicio'; return; }
   if (base === 'herramientas' && !arg) { location.hash = '#/monografias'; return; }
   pintarMenu(base);
   pintarAvisos();
+  $('sis-config').classList.toggle('activo', base === 'configuracion');
+  seccionActual = item.ruta;
+  buscador.alNavegar();
   const clave = `${base}/${arg || ''}/${selRol.value}/${selPersona.value}`;
   const subnav = htmlSubnav(item, { base, arg });
   // Módulos: la sub-barra de la sección va arriba y el módulo se monta debajo.
   const lugarModulo = () => {
     desmontar();
+    ultimaPantalla = '';
     contenedor.innerHTML = `${subnav}<div class="sis-modulo"></div>`;
     contenedor.dataset.vista = 'modulo';
     return contenedor.querySelector('.sis-modulo');
@@ -275,7 +303,7 @@ async function mostrar() {
     const partes = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
     const c = ctx();
     montado = Administracion.montar(lugarModulo(), {
-      ...c, seccion: base, ruta: partes.slice(1),
+      ...c, seccion: base, ruta: partes.slice(1), recargarPersonas: () => cargarPersonas(selPersona.value),
       equipos: () => Equipos.listarEquiposConEstado(), gastos: id => Gastos.resumenDeProyecto(id), reportarEquipo: d => Equipos.reportarProblema(d),
     });
     rutaActual = clave;
@@ -292,19 +320,24 @@ async function mostrar() {
   }
 
   desmontar();
-  const cambioDePantalla = !rutaActual.startsWith(`${base}/${arg || ''}/`);
+  // Solo se vuelve arriba al cambiar de pantalla; una acción dentro de la misma (marcar, agregar) conserva la posición.
+  const cambioDePantalla = ultimaPantalla !== `${base}/${arg || ''}`;
+  ultimaPantalla = `${base}/${arg || ''}`;
   rutaActual = clave;
   contenedor.dataset.vista = 'sistema';
   if (cambioDePantalla) window.scrollTo(0, 0);
   try {
     let html;
-    if (base === 'terreno') html = VISTAS.pronto(ctx(), base);
-    else if (base === 'proyecto') html = await VISTAS.proyecto(ctx(), arg);
-    else if (base === 'proyecto-editar') html = await VISTAS.proyectoEditar(ctx(), arg || 'nuevo');
+    if (base === 'proyecto') html = await VISTAS.proyecto(ctx(), arg);
+    else if (base === 'encargo') html = await VISTAS.encargo(ctx(), arg || 'nuevo');
     else if (base === 'proyectos') html = await VISTAS.proyectos(ctx(), arg);
     else html = await VISTAS[base](ctx());
     if (rutaActual !== clave) return; // el usuario ya se fue a otra pantalla
+    // No se repinta sobre un formulario a medio llenar (p. ej. al llegar datos de la nube mientras se arma un encargo).
+    const y = cambioDePantalla ? 0 : window.scrollY;
     contenedor.innerHTML = `${subnav}<div class="sis-vista">${html}</div>`;
+    if (AL_PINTAR[base]) AL_PINTAR[base](contenedor, ctx());
+    if (!cambioDePantalla) window.scrollTo(0, y);
   } catch (err) {
     console.error(err);
     contenedor.innerHTML = `<div class="sis-error"><b>Algo falló al cargar.</b><br>${String(err.message || err).replace(/</g, '&lt;')}</div>`;
@@ -353,7 +386,7 @@ async function arrancar() {
   Gastos.iniciar({ personaId: selPersona.value || null });
   Administracion.iniciar({ personaId: selPersona.value || null });
   Planificacion.iniciar({ personaId: selPersona.value || null });
-  iniciarBuscador({ input: $('sis-buscar'), lista: $('sis-buscar-res'), rol: () => selRol.value });
+  buscador = iniciarBuscador({ panel: $('sis-busqueda'), boton: $('sis-buscar-btn'), rol: () => selRol.value, seccion: () => seccionActual });
 
   selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; mostrar(); });
   selPersona.addEventListener('change', () => { escribir('env_persona', selPersona.value); rutaActual = ''; mostrar(); });
@@ -364,17 +397,20 @@ async function arrancar() {
     const mas = ev.target.closest('.sis-menu-mas');
     if (mas) { const abierto = menu.classList.toggle('abierto'); mas.setAttribute('aria-expanded', String(abierto)); return; }
     const a = ev.target.closest('a[href]');
-    if (a && a.getAttribute('href') === location.hash) { ev.preventDefault(); estado.personaEditar = null; rutaActual = ''; mostrar(); }
+    if (a && a.getAttribute('href') === location.hash) { ev.preventDefault(); rutaActual = ''; mostrar(); }
   });
   await mostrar();
+  traerMarca();
 
   iniciarPanelNube({
     pastilla: $('sis-nube'),
     alLlegarDatos: async () => {
       await cargarPersonas(selPersona.value || leer('env_persona', ''));
+      await traerMarca();
       pintarAvisos();
       if (montado && montado.refrescar) montado.refrescar();
-      else if (!contenedor.querySelector('form')) { rutaActual = ''; mostrar(); } // no borrar lo que se está escribiendo
+      // No se borra lo que se está escribiendo: ni un encargo a medio armar ni un campo con el cursor dentro.
+      else if (!contenedor.querySelector('form.enc') && !(document.activeElement && document.activeElement.closest('#sis-contenido form'))) { rutaActual = ''; mostrar(); }
     },
   });
   window.__sistemaCargado = true;

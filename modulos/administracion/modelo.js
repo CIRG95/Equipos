@@ -3,6 +3,7 @@
 // Sin base de datos ni pantalla: se prueba en pruebas/administracion.test.mjs.
 
 import { habilitacion, estadoFecha, estadoDocumento, textoDias, ultimoDoc, DIAS_AVISO } from '../../compartido/vencimientos.js';
+import { rangoProyecto, seCruzan, genteDeProyecto } from '../../compartido/cronograma.js';
 
 // ───────── Catálogos de base (ids fijos: si dos equipos los crean a la vez, no se duplican) ─────────
 export const TIPOS_BASE = [
@@ -43,7 +44,7 @@ export const CONFIG_BASE = {
 
 export const TURNOS = [['5x2', '5×2 (lunes a viernes)'], ['4x3', '4×3'], ['7x7', '7×7'], ['10x10', '10×10'], ['14x14', '14×14'], ['otro', 'Otro']];
 export const TIPOS_CONTRATO = [['indefinido', 'Indefinido'], ['plazo_fijo', 'Plazo fijo'], ['obra', 'Por obra o faena'], ['honorarios', 'Honorarios']];
-export const TIPOS_AUSENCIA = [['vacaciones', 'Vacaciones'], ['permiso', 'Permiso'], ['otro', 'Otro']];
+export const TIPOS_AUSENCIA = [['vacaciones', 'Vacaciones'], ['permiso', 'Permiso'], ['licencia', 'Licencia médica'], ['descanso', 'Descanso de turno'], ['otro', 'Otro']];
 export const ESTADOS_PLATAFORMA = [['aprobado', 'Aprobado', 'verde'], ['borrador', 'Borrador', 'ambar'], ['rechazado', 'Rechazado', 'rojo']];
 export const ESTADOS_COTIZACION = [['preparacion', 'En preparación', 'gris'], ['enviada', 'Enviada', 'azul'], ['ganada', 'Ganada', 'verde'], ['perdida', 'Perdida', 'rojo']];
 export const ESTADOS_GUIA = [['borrador', 'Borrador', 'gris'], ['solicitada', 'Solicitada', 'ambar'], ['emitida', 'Emitida', 'verde']];
@@ -117,6 +118,81 @@ export function eppPorReponer(ficha, { hoy, diasAviso = DIAS_AVISO }) {
 /** ¿La persona está ausente (vacaciones aprobadas) en esa fecha? */
 export const ausenteEn = (ausencias, personaId, fecha) => ausencias.some(a => a.personaId === personaId && a.estado === 'aprobada' && a.desde <= fecha && fecha <= (a.hasta || a.desde));
 
+// ───────── Vacaciones, ubicación y distribución del personal (v0.16) ─────────
+
+/** Días hábiles (lunes a viernes) entre dos fechas, ambas incluidas. */
+export function diasHabiles(a, b) {
+  if (!a || !b || b < a) return 0;
+  let n = 0; const f = new Date(`${a}T12:00:00`), fin = new Date(`${b}T12:00:00`);
+  while (f <= fin) { const w = f.getDay(); if (w && w !== 6) n++; f.setDate(f.getDate() + 1); }
+  return n;
+}
+
+/** Feriado legal devengado: 15 días hábiles por año trabajado (1,25 por mes completo desde el ingreso). */
+export function vacacionesDevengadas(ingreso, hoy) {
+  if (!ingreso || !hoy || hoy < ingreso) return 0;
+  const [y1, m1, d1] = ingreso.split('-').map(Number), [y2, m2, d2] = hoy.split('-').map(Number);
+  const meses = (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0);
+  return Math.max(0, meses) * 1.25;
+}
+
+/**
+ * Vacaciones de una persona: { devengadas, tomadas, saldo, saldoManual, porAprobar, proximas: [ausencia] }.
+ * El saldo es el registrado a mano por Recursos Humanos; si no hay, el estimado (devengadas − tomadas).
+ */
+export function resumenVacaciones(personaId, { ausencias, fichas, hoy }) {
+  const fi = fichas.find(x => x.id === personaId) || {};
+  const mias = ausencias.filter(a => a.personaId === personaId);
+  const vac = mias.filter(a => a.tipo === 'vacaciones');
+  const tomadas = vac.filter(a => a.estado === 'aprobada').reduce((s, a) => s + diasHabiles(a.desde, a.hasta || a.desde), 0);
+  const ingreso = fi.contrato && fi.contrato.ingreso;
+  const devengadas = vacacionesDevengadas(ingreso, hoy);
+  const manual = fi.saldoVacaciones !== '' && fi.saldoVacaciones != null ? Number(fi.saldoVacaciones) : null;
+  return {
+    devengadas, tomadas, saldoManual: manual, saldo: manual != null ? manual : (ingreso ? Math.round((devengadas - tomadas) * 100) / 100 : null), estimado: manual == null && !!ingreso,
+    porAprobar: mias.filter(a => a.estado === 'solicitada').length,
+    proximas: mias.filter(a => a.estado !== 'rechazada' && (a.hasta || a.desde) >= hoy).sort((a, b) => String(a.desde).localeCompare(String(b.desde))),
+  };
+}
+
+const proyectoActivo = p => p && p.id !== 'oficina' && p.estado !== 'cerrado' && !p.eliminadoEn;
+
+/** Proyectos activos en que participa la persona (encargado o equipo de trabajo). */
+export const proyectosActivosDe = (personaId, proyectos) => proyectos.filter(p => proyectoActivo(p) && genteDeProyecto(p).includes(personaId));
+
+/**
+ * Dónde está una persona en una fecha: { estado: 'ausente' | 'proyecto' | 'disponible', ausencia, proyectos }.
+ * «En proyecto» considera los proyectos activos cuyo rango de fechas incluye el día (o que no tienen fechas).
+ */
+export function ubicacionPersona(personaId, { ausencias, proyectos, fecha }) {
+  const ausencia = ausencias.find(a => a.personaId === personaId && a.estado === 'aprobada' && a.desde <= fecha && fecha <= (a.hasta || a.desde)) || null;
+  const ps = proyectosActivosDe(personaId, proyectos).filter(p => { const r = rangoProyecto(p); return !r || (r.desde <= fecha && fecha <= r.hasta); });
+  return { estado: ausencia ? 'ausente' : ps.length ? 'proyecto' : 'disponible', ausencia, proyectos: ps };
+}
+
+/** Proyectos activos de la persona que se cruzan con una ausencia (para advertir antes de aprobarla). */
+export function crucesAusencia(a, proyectos) {
+  const r = { desde: a.desde, hasta: a.hasta || a.desde };
+  return proyectosActivosDe(a.personaId, proyectos).filter(p => { const x = rangoProyecto(p); return x && seCruzan(x, r); });
+}
+
+/**
+ * Ocupación por semana para la vista de distribución: semanas = [lunes ISO]; devuelve por persona
+ * [{ lunes, proyectos: [p], ausencia }] (una ausencia cuenta si toca algún día hábil de la semana).
+ */
+export function ocupacionSemanal(personaId, semanas, { ausencias, proyectos }) {
+  const mas = (iso, n) => { const f = new Date(`${iso}T12:00:00`); f.setDate(f.getDate() + n); return f.toISOString().slice(0, 10); };
+  const mios = proyectosActivosDe(personaId, proyectos);
+  return semanas.map(lunes => {
+    const sem = { desde: lunes, hasta: mas(lunes, 4) };
+    return {
+      lunes,
+      proyectos: mios.filter(p => { const r = rangoProyecto(p); return !r || seCruzan(r, sem); }),
+      ausencia: ausencias.find(a => a.personaId === personaId && a.estado !== 'rechazada' && seCruzan({ desde: a.desde, hasta: a.hasta || a.desde }, sem)) || null,
+    };
+  });
+}
+
 // ───────── Licitaciones ─────────
 /**
  * Cumplimiento de cada persona con los documentos exigidos por la licitación.
@@ -167,6 +243,13 @@ export function pendientesAdmin({ rol, personaId, d, personas, proyectos, hoy })
       }
     }
     for (const g of d.guias.filter(x => x.estado === 'borrador')) out.push({ nivel: 'ambar', etiqueta: 'Borrador', categoria: 'Guías', titulo: `Guía de despacho por solicitar · ${nomProy(g.proyectoId)}`, detalle: `${(g.equipoIds || []).length} equipos en el borrador.`, enlace: '#/administracion/guias', fecha: g.fecha });
+  }
+  if (rol === 'rrhh' || rol === 'direccion') {
+    const nomPer = id => (personas.find(p => p.id === id) || {}).nombre || 'Persona';
+    for (const a of d.ausencias.filter(x => x.estado === 'solicitada')) {
+      const cr = crucesAusencia(a, proyectos);
+      out.push({ nivel: 'ambar', etiqueta: 'Por aprobar', categoria: 'Personal', titulo: `${NOMBRE_AUSENCIA[a.tipo] || 'Ausencia'} · ${nomPer(a.personaId)}`, detalle: `Del ${fechaCorta(a.desde)} al ${fechaCorta(a.hasta || a.desde)}${cr.length ? ` · coincide con ${cr.map(p => p.nombre).join(', ')}` : ''}.`, enlace: '#/personal/vacaciones', fecha: a.desde });
+    }
   }
   if (rol === 'terreno' && personaId) {
     const mios = proyectos.filter(p => p.encargadoId === personaId && p.estado !== 'cerrado');

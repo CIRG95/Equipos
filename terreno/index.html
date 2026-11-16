@@ -67,6 +67,9 @@ header.app-header .subtitle{font-size:12px; opacity:0.85; margin-top:2px;}
   white-space:nowrap;
 }
 .pill.pill-live{background:var(--accent); border-color:var(--accent); color:#fff;}
+.pill.pill-sin{background:#FFF6D9; border-color:#E5C76B; color:#6B5200;}
+.franja-sin{background:#FFF6D9; color:#6B5200; border-bottom:1px solid #E5C76B; padding:7px 14px; font-size:12.5px; text-align:center; position:relative; z-index:5;}
+.franja-sin.hidden{display:none;}
 
 /* ---------- Layout ---------- */
 main{max-width:640px; margin:0 auto; padding:16px;}
@@ -344,6 +347,7 @@ window.addEventListener("unhandledrejection", function (e) {
     <div class="pill" id="nubePill" title="Toca para configurar la sincronización en la nube">☁ Conectar nube</div>
   </div>
 </header>
+<div class="franja-sin hidden" id="franjaSinConexion" role="status"></div>
 
 <main>
 

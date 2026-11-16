@@ -1559,7 +1559,7 @@ Content-Type: ${mime}\r
   }
 
   // app/conexion-terreno.js
-  var VERSION = "1.4.1 (Sistema v0.15)";
+  var VERSION = "1.4.2 (Sistema v0.16)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var CLAVE_CODIGO = "topoland_conexion_codigo";
@@ -1676,8 +1676,8 @@ Content-Type: ${mime}\r
     }
     const c = String(codigo || "").trim().toUpperCase();
     if (!n) return estado().conectado ? "Todavía no llegan las personas del Sistema. Espera a que termine la sincronización; el teléfono se vincula solo." : "Conecta la nube del Sistema (Google) para terminar de vincular: las personas vienen desde ahí.";
-    if (!c) return "Escribe el código de 6 letras que muestra el Sistema en Personas → Vincular teléfono.";
-    return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Personas → Vincular teléfono) y sincroniza de nuevo.`;
+    if (!c) return "Escribe el código de 6 letras que muestra el Sistema en Configuración (botón de engranaje) → Vinculación con la app de Terreno.";
+    return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Configuración → Vinculación con la app de Terreno) y sincroniza de nuevo.`;
   }
   var yo = () => {
     const p = persona4();

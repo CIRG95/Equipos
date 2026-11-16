@@ -1,29 +1,25 @@
 // app/vistas-proyectos.js — Proyectos: activos, registro por mandante, ficha y edición (v0.14.1: separada de vistas.js).
 
 
-import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre, cargarScript, descargar } from '../compartido/util.js';
-import { resolverUrlTerreno } from './url-terreno.js';
-import { estado as estadoNube } from '../compartido/nube.js';
-import { enviarAPapelera, enPapelera, restaurar, eliminarDefinitivo } from '../compartido/papelera.js';
-import {
-  listarProyectos, obtenerProyecto, guardarProyecto, listarPersonas, obtenerPersona, guardarPersona, OFICINA_ID,
-} from '../compartido/catalogos.js';
+import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre } from '../compartido/util.js';
+import { enPapelera } from '../compartido/papelera.js';
+import { listarProyectos, obtenerProyecto, listarPersonas, OFICINA_ID } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import * as Monografias from '../modulos/monografias/monografias.js';
 import * as Gastos from '../modulos/gastos/gastos.js';
 import { clp, ESTADOS as ESTADOS_GASTOS } from '../modulos/gastos/modelo.js';
-import { vistaCalendario, mover as moverCalendario, eventosEntre } from './calendario.js';
-import { BASE_RECURRENTE, SEMANAS, DATOS, ciclosEntre, textoPeriodicidad, sumarDias, restarHabiles } from '../compartido/periodicidad.js';
+import { vistaCalendario, eventosEntre } from './calendario.js';
+import { ciclosEntre, textoPeriodicidad, sumarDias } from '../compartido/periodicidad.js';
 import { ESTADOS as ESTADOS_MONO } from '../modulos/monografias/datos.js';
-import { ROLES, COLORES_MARCA, CATEGORIAS_TRABAJO, NOMBRE_CATEGORIA, tiposDeProyecto, textosTipos, ROLES_PERSONA, NOMBRE_ROL_PERSONA, REGIONES, ETAPAS_PROYECTO, NOMBRE_ETAPA_PROYECTO, etapaProyecto } from './catalogo.js';
-import { VERSION_SISTEMA } from './version.js';
-import { ICONO, chipCal, filaEquipo, vacio, estadoAlerta, aFechaL, lunesDe, diaCorto } from './vistas-ui.js';
+import { NOMBRE_CATEGORIA, tiposDeProyecto, textosTipos, ETAPAS_PROYECTO, NOMBRE_ETAPA_PROYECTO, etapaProyecto } from './catalogo.js';
+import { ICONO, filaEquipo, vacio, diaCorto } from './vistas-ui.js';
 import { leerTexto as leerLS } from '../compartido/util.js';
 import * as Administracion from '../modulos/administracion/administracion.js';
 import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { archivosDe } from '../compartido/archivos.js';
+import { INFO_ENCARGO, TIPOS_BITACORA, calidadEncargo, resumenCronograma, barraActividad, sinAcuse, entradasAbiertas } from './encargo.js';
 
 // v0.15 · Entregables del proyecto (versiones, revisión y envío al mandante)
 export const ESTADOS_ENTREGABLE = [['pendiente', 'Pendiente', 'gris'], ['revision', 'En revisión', 'ambar'], ['enviado', 'Enviado', 'azul'], ['observado', 'Observado', 'rojo'], ['aprobado', 'Aprobado', 'verde']];
@@ -35,7 +31,7 @@ const chipHab = (h, si = 'Habilitado', no = 'No habilitado') => (!h ? '<span cla
 export async function proyectos(ctx, sub = null) {
   if (sub === 'calendario') {
     ctx.estado.cal = ctx.estado.cal || { modo: leerLS('env_cal_modo') || 'mes', ref: hoyISO(), proyecto: '' };
-    return `<div class="sis-cab"><h1>Calendario</h1><a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>${await vistaCalendario({ ...ctx.estado.cal, rol: ctx.rol })}`;
+    return `<div class="sis-cab"><h1>Calendario</h1><a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a></div>${await vistaCalendario({ ...ctx.estado.cal, rol: ctx.rol })}`;
   }
   if (sub === 'registro') return registroMandantes(ctx);
   const [lista, personas, equipos, vuelos, eventos] = await Promise.all([listarProyectos(), listarPersonas(), Equipos.listarEquiposConEstado(), Vuelos.listarVuelos().catch(() => []), eventosEntre(hoyISO(), sumarDias(hoyISO(), 90)).catch(() => [])]);
@@ -70,8 +66,8 @@ export async function proyectos(ctx, sub = null) {
     ? `<div class="sis-columnas-etapa">${ETAPAS_PROYECTO.filter(([k]) => k !== 'completado').map(([k, t]) => { const ps = activos.filter(p => etapaProyecto(p) === k); return `<div class="sis-col-etapa"><h2>${t} <span class="sis-tenue">${ps.length}</span></h2>${ps.map(tarjeta).join('') || '<p class="sis-tenue">Sin proyectos.</p>'}</div>`; }).join('')}</div>`
     : `<div class="sis-proy-cards">${activos.map(tarjeta).join('')}</div>`;
   const oficina = lista.find(p => p.id === OFICINA_ID);
-  return `<div class="sis-cab"><div><h1>Proyectos activos</h1><span class="sis-tenue">${activos.length} proyecto${activos.length === 1 ? '' : 's'} · terreno → gabinete → entregables → completado</span></div>${selector}<a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a></div>
-    ${activos.length ? cuerpo : vacio('Aún no hay proyectos activos. Crea el primero con el encargo que te llegó.')}
+  return `<div class="sis-cab"><div><h1>Proyectos activos</h1><span class="sis-tenue">${activos.length} proyecto${activos.length === 1 ? '' : 's'} · terreno → gabinete → entregables → completado</span></div>${selector}<a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a></div>
+    ${activos.length ? cuerpo : vacio('Aún no hay proyectos activos. Use «Encargar proyecto» para registrar el primero.')}
     ${oficina ? `<p class="sis-tenue">Trabajo que no es de un contrato: <a href="#/proyecto/${OFICINA_ID}">Oficina</a>. Los completados quedan en <a href="#/proyectos/registro">Registro por mandante</a>.</p>` : ''}
     ${eliminados.length ? `<details class="sis-papelera"><summary>Papelera de proyectos (${eliminados.length})</summary>
       <section class="sis-tarjeta"><div class="sis-lista">${eliminados.map(p => `<div class="sis-fila">
@@ -132,6 +128,66 @@ async function registroMandantes(ctx) {
     </div>`}`;
 }
 
+// ─────────── v0.16 · Encargo: acuse de recibo, calidad, cronograma y bitácora ───────────
+function htmlAcuse(p, ctx, nomPers) {
+  const e = p.encargo || {};
+  if (!e.emitidoEn) return '';
+  if (sinAcuse(p)) {
+    const mio = ctx.personaId && ctx.personaId === p.encargadoId;
+    return `<section class="sis-tarjeta enc-acuse pendiente"><div><b>${mio ? 'Tiene un encargo nuevo' : 'Encargo sin acuse de recibo'}</b>
+      <span>Encargado por ${esc(nomPers(e.emitidoPor) || 'Jefatura')} el ${esc(fechaHoraLegible(e.emitidoEn))}${e.prioridad === 'urgente' ? ' · <b>urgente</b>' : ''}. ${mio ? 'Revise la información y confirme la recepción; si falta algo, regístrelo como consulta en la bitácora.' : `${esc(nomPers(p.encargadoId) || 'El encargado')} aún no confirma la recepción.`}</span></div>
+      ${mio ? `<button type="button" class="sis-btn primario" data-accion="acusar-recibo" data-id="${esc(p.id)}">Acusar recibo</button>` : ''}</section>`;
+  }
+  return e.recibidoEn && e.recibidoPor !== e.emitidoPor ? `<p class="sis-tenue enc-acuse-ok">✓ Encargo recibido por ${esc(nomPers(e.recibidoPor) || 'el encargado')} el ${esc(fechaHoraLegible(e.recibidoEn))}.</p>` : '';
+}
+
+function htmlCalidad(p) {
+  const c = calidadEncargo(p), info = (p.encargo && p.encargo.info) || {};
+  const ct = p.contactoTerreno || {};
+  const ESTADO = { si: ['Entregada', 'verde'], na: ['No aplica', 'gris'], pend: ['Pendiente', 'ambar'] };
+  return `<div class="enc-medidor"><div class="enc-medidor-barra"><i class="${c.pct >= 85 ? 'alto' : c.pct >= 55 ? 'medio' : 'bajo'}" style="width:${c.pct}%"></i></div><b>${c.pct} %</b></div>
+    <p class="sis-tenue">Calidad del encargo: ${c.puntos} de ${c.total} antecedentes. ${c.faltan.length ? `Falta: ${esc(c.faltan.slice(0, 4).join(' · '))}${c.faltan.length > 4 ? ` y ${c.faltan.length - 4} más` : ''}.` : 'Completo.'}</p>
+    <div class="sis-lista enc-info-lista">${INFO_ENCARGO.map(([k, t]) => { const e = ESTADO[info[k]] || ['Sin indicar', 'rojo']; return `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(t)}</b></span><span class="sis-chips"><span class="sis-chip ${e[1]}">${e[0]}</span>${info[k] !== 'si' && info[k] !== 'na' ? `<button type="button" class="sis-btn chico" data-accion="info-entregada" data-id="${esc(p.id)}" data-k="${k}">Marcar entregada</button>` : ''}</span></div>`; }).join('')}</div>
+    ${ct.nombre || ct.telefono ? `<p><b>Contacto en terreno:</b> ${esc(ct.nombre || '')}${ct.telefono ? ` · <a href="tel:${esc(ct.telefono)}">${esc(ct.telefono)}</a>` : ''}</p>` : ''}
+    ${p.sistemaReferencia ? `<p><b>Sistema de referencia:</b> ${esc(p.sistemaReferencia)}</p>` : ''}`;
+}
+
+function htmlCronograma(p, nomPers, hoy) {
+  const acts = (p.cronograma || []).filter(a => a.nombre && a.desde && a.hasta);
+  if (!acts.length) return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Cronograma</h2><a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Definir</a></div>
+    <div class="sis-vacio"><p>Sin cronograma. Defina las actividades y sus fechas estimadas para dar seguimiento al avance.</p></div></section>`;
+  const r = resumenCronograma(acts, hoy);
+  const bHoy = hoy >= r.desde && hoy <= r.hasta ? barraActividad({ desde: hoy, hasta: hoy }, r.desde, r.hasta) : null;
+  return `<section class="sis-tarjeta"><div class="sis-cab"><div><h2>Cronograma</h2><span class="sis-tenue">${r.hechas} de ${r.total} actividades realizadas · ${fechaLegible(r.desde)} al ${fechaLegible(r.hasta)}${r.atrasadas.length ? ` · <b class="enc-rojo">${r.atrasadas.length} atrasada${r.atrasadas.length > 1 ? 's' : ''}</b>` : ''}</span></div><a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Editar</a></div>
+    <div class="sg-mini enc-avance"><i style="width:${r.pct}%"></i></div>
+    <div class="enc-gantt ficha">${acts.map((a, i) => { const b = barraActividad(a, r.desde, r.hasta), tarde = !a.hecho && a.hasta < hoy;
+      return `<label class="enc-gantt-fila${a.hecho ? ' hecho' : ''}${tarde ? ' tarde' : ''}"><span class="enc-gantt-nombre"><input type="checkbox" data-accion="crono-hecho" data-id="${esc(p.id)}" data-a="${esc(a.id)}" ${a.hecho ? 'checked' : ''} aria-label="Realizada: ${esc(a.nombre)}"><span><b>${esc(a.nombre)}</b><small>${fechaLegible(a.desde)}${a.hasta !== a.desde ? ` al ${fechaLegible(a.hasta)}` : ''}${a.responsableId ? ` · ${esc(nomPers(a.responsableId))}` : ''}${tarde ? ' · atrasada' : ''}</small></span></span>
+        <span class="enc-gantt-pista">${bHoy ? `<em class="enc-hoy" style="left:${bHoy.izq.toFixed(2)}%" title="Hoy"></em>` : ''}<i class="c${i % 5}" style="margin-left:${b.izq.toFixed(2)}%;width:${b.ancho.toFixed(2)}%"></i></span></label>`; }).join('')}</div>
+    <p class="sis-tenue">Marque cada actividad al terminarla. Las atrasadas aparecen en «Mis pendientes» del encargado.</p></section>`;
+}
+
+function htmlBitacora(p, ctx, nomPers) {
+  const entradas = (p.bitacora || []).slice().sort((a, b) => String(b.en).localeCompare(String(a.en)));
+  const abiertas = entradasAbiertas(p).length;
+  const jefatura = ctx.rol !== 'terreno';
+  const tipos = jefatura ? [['instruccion', 'Instrucción al equipo'], ['acuerdo', 'Acuerdo'], ['consulta', 'Consulta']] : [['consulta', 'Consulta a Jefatura'], ['llamada', 'Instrucción recibida por teléfono'], ['acuerdo', 'Acuerdo']];
+  return `<section class="sis-tarjeta" id="bitacora"><div class="sis-cab"><div><h2>Bitácora del proyecto</h2><span class="sis-tenue">Consultas, instrucciones y acuerdos por escrito, con fecha y autor.</span></div>${abiertas ? `<span class="sis-chip ambar">${abiertas} por resolver</span>` : ''}</div>
+    <form class="sis-form enc-bit-form" data-form="bitacora" data-id="${esc(p.id)}">
+      <div class="sis-opciones">${tipos.map(([k, t], i) => `<label class="sis-opcion chico"><input type="radio" name="tipo" value="${k}" ${i === 0 ? 'checked' : ''}> ${t}</label>`).join('')}</div>
+      <textarea name="texto" rows="2" required placeholder="${jefatura ? 'Escriba la instrucción o el acuerdo. El encargado la recibe como pendiente.' : 'Escriba la consulta, o lo que se le indicó por teléfono para que Jefatura lo confirme.'}" aria-label="Texto"></textarea>
+      <div class="sis-acciones"><button class="sis-btn chico primario">Registrar</button></div></form>
+    ${entradas.length ? `<div class="enc-bit">${entradas.map(b => { const t = TIPOS_BITACORA[b.tipo] || TIPOS_BITACORA.acuerdo; const abierta = (b.tipo === 'consulta' && !b.respuesta) || (b.tipo === 'llamada' && !b.confirmadoEn);
+      return `<article class="enc-bit-item${abierta ? ' abierta' : ''}"><header><span class="sis-chip ${abierta ? t.color : 'gris'}">${t.texto}</span><b>${esc(nomPers(b.por) || 'Sin persona')}</b><small>${esc(fechaHoraLegible(b.en))}</small></header>
+        <p>${esc(b.texto)}</p>
+        ${b.respuesta ? `<div class="enc-bit-resp"><b>${esc(nomPers(b.respondidoPor) || 'Respuesta')}</b> <small>${esc(fechaHoraLegible(b.respondidoEn))}</small><p>${esc(b.respuesta)}</p></div>` : ''}
+        ${b.confirmadoEn ? `<small class="enc-bit-conf">✓ Confirmada por ${esc(nomPers(b.confirmadoPor) || 'Jefatura')} · ${esc(fechaHoraLegible(b.confirmadoEn))}</small>` : ''}
+        ${b.tipo === 'consulta' && !b.respuesta ? `<form class="enc-bit-responder" data-form="bitacora-responder" data-id="${esc(p.id)}" data-b="${esc(b.id)}"><input name="respuesta" required placeholder="Responder…" aria-label="Respuesta"><button class="sis-btn chico">Responder</button></form>` : ''}
+        ${b.tipo === 'llamada' && !b.confirmadoEn && b.por !== ctx.personaId ? `<div class="sis-acciones"><button type="button" class="sis-btn chico primario" data-accion="bitacora-confirmar" data-id="${esc(p.id)}" data-b="${esc(b.id)}">Confirmar instrucción</button></div>` : ''}
+      </article>`; }).join('')}</div>` : '<p class="sis-tenue">Sin registros. Lo que se acuerde por teléfono puede anotarse aquí para que quede constancia y la otra parte lo confirme.</p>'}
+  </section>`;
+}
+
+
 export async function proyecto(ctx, id) {
   const p = await obtenerProyecto(id);
   if (!p || p.eliminadoEn) return vacio('Este proyecto no existe o está en la papelera.', '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
@@ -169,23 +225,27 @@ export async function proyecto(ctx, id) {
         ${textosTipos(p).length ? `<div class="sis-chips" style="margin-top:10px">${textosTipos(p).map(t => `<span class="sis-chip gris">${esc(t)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="sis-acciones">${esOficina ? '<span class="sis-chip gris">Especial</span>' : `<span class="sis-chip ${p.estado === 'cerrado' ? 'gris' : 'verde'}">${p.estado === 'cerrado' ? 'Cerrado' : 'Activo'}</span>
-        <a class="sis-btn chico" href="#/proyecto-editar/${esc(p.id)}">Editar</a>`}</div>
+        <a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Editar</a>`}</div>
     </div>
     ${esOficina ? '' : (() => { const et = etapaProyecto(p), iEt = ETAPAS_PROYECTO.findIndex(([k]) => k === et); return `<section class="sis-tarjeta sis-etapa-ficha"><div class="sis-etapas-pasos">${ETAPAS_PROYECTO.map(([k, t], i) => `<button type="button" class="sis-etapa-paso${i < iEt ? ' hecho' : i === iEt ? ' actual' : ''}" data-accion="etapa-proyecto" data-id="${esc(p.id)}" data-e="${k}" ${i === iEt ? 'aria-current="step"' : ''}><span>${i < iEt ? '✓' : i + 1}</span>${t}${p.etapas && p.etapas[k] ? `<small>${fechaLegible(p.etapas[k])}</small>` : ''}</button>`).join('')}</div></section>`; })()}
+    ${esOficina ? '' : htmlAcuse(p, ctx, nomPers)}
     ${p.notas ? `<p class="sis-notas">${esc(p.notas)}</p>` : ''}
     <div class="sis-dos"><div>
       ${esOficina ? '' : `<section class="sis-tarjeta">
-        <div class="sis-cab"><h2>Ficha de encargo</h2><a class="sis-btn chico" href="#/proyecto-editar/${esc(id)}">Editar</a></div>
+        <div class="sis-cab"><h2>Ficha de encargo</h2><a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a></div>
         <div class="sis-datos ad-encargo">
           <div class="sis-dato"><span>Mandante</span><b>${esc(cua && cua.mandante ? `${cua.mandante.nombre}${cua.mandante.plataforma ? ` · ${cua.mandante.plataforma}` : ''}` : (p.mandante || '—'))}</b></div>
           <div class="sis-dato"><span>Encargó</span><b>${esc([p.solicitadoPor, p.fechaEncargo && fechaLegible(p.fechaEncargo)].filter(Boolean).join(' · ') || '—')}</b></div>
           <div class="sis-dato"><span>Plazo</span><b>${esc(plazo || '—')}</b></div>
         </div>
-        ${p.alcance ? `<p><b>Alcance:</b> ${esc(p.alcance)}</p>` : ''}${p.entregablesPedidos ? `<p><b>Entregables pedidos:</b> ${esc(p.entregablesPedidos)}</p>` : ''}
-        ${!p.alcance && !p.entregablesPedidos ? '<p class="sis-tenue">Registre el alcance y los entregables pedidos en «Editar». Se ingresan una sola vez y quedan disponibles para todo el proyecto.</p>' : ''}
+        ${p.alcance ? `<p><b>Alcance:</b> ${esc(p.alcance)}</p>` : ''}${p.entregablesPedidos ? `<p><b>Entregables solicitados:</b> ${esc(p.entregablesPedidos)}</p>` : ''}
+        ${!p.alcance && !p.entregablesPedidos ? '<p class="sis-tenue">Registre el alcance y los entregables solicitados en «Editar». Se ingresan una sola vez y quedan disponibles para todo el proyecto.</p>' : ''}
+        ${htmlCalidad(p)}
         <div class="sis-cab" style="margin-top:8px"><h3 class="sis-sub">Archivos del mandante</h3><label class="sis-btn chico">+ Adjuntar<input type="file" data-accion="encargo-archivo" data-id="${esc(id)}" hidden></label></div>
         ${archEnc.length ? `<div class="sis-chips">${archEnc.map(a => `<button type="button" class="sis-btn chico" data-accion="abrir-pdf" data-id="${esc(a.id)}">${ICONO.pdf}${esc(a.nombre)}</button>`).join('')}</div>` : '<p class="sis-tenue">Bases técnicas, KMZ del área, planos o correos del encargo.</p>'}
       </section>
+      ${htmlCronograma(p, nomPers, hoy)}
+      ${htmlBitacora(p, ctx, nomPers)}
       `}
       ${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? (() => { const cs = ciclosEntre(p.periodicidad, hoyISO(), sumarDias(hoyISO(), 120)).slice(0, 3);
         return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Próximos ciclos</h2><button class="sis-btn chico" data-accion="ver-calendario">▦ Calendario</button></div>
@@ -250,11 +310,11 @@ export async function proyecto(ctx, id) {
       })() : ''}`}
     </div><aside>
       ${esOficina || !cua ? '' : `<section class="sis-tarjeta">
-        <div class="sis-cab"><h2>Cuadrilla y vehículos</h2><a class="sis-btn chico" href="#/proyecto-editar/${esc(id)}">Editar</a></div>
+        <div class="sis-cab"><h2>Cuadrilla y vehículos</h2><a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a></div>
         ${cua.mandante ? `<p class="sis-tenue">Acreditación según ${esc(cua.mandante.nombre)}${cua.mandante.plataforma ? ` (${esc(cua.mandante.plataforma)})` : ''}.</p>` : '<p class="sis-tenue">Sin mandante con requisitos: se muestra la habilitación general.</p>'}
         ${cua.gente.length ? `<div class="sis-lista">${cua.gente.map(g => `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(g.persona.nombre)}</b><span class="sis-tenue">${esc(g.persona.cargo || '')}${(ctx.rol !== 'direccion') && g.emergencia && g.emergencia.telefono ? ` · emergencia: ${esc(g.emergencia.nombre || '')} ${esc(g.emergencia.telefono)}` : ''}</span></span><span class="sis-chips">${g.ausente ? '<span class="sis-chip ambar">Ausente hoy</span>' : ''}${chipHab(g.h, cua.mandante && (cua.mandante.requisitosPersona || []).length ? 'Acreditado' : 'Habilitado', cua.mandante && (cua.mandante.requisitosPersona || []).length ? 'No acreditado' : 'No habilitado')}</span></div>`).join('')}</div>` : '<p class="sis-tenue">Sin cuadrilla asignada.</p>'}
         ${cua.vehiculos.length ? `<div class="sis-lista">${cua.vehiculos.map(x => `<div class="sis-fila"><span class="sis-fila-txt"><b class="mono">${esc(x.vehiculo.patente)}</b><span class="sis-tenue">${esc([x.vehiculo.marca, x.vehiculo.modelo].filter(Boolean).join(' '))}</span></span><span class="sis-chips">${chipHab(x.h, 'Acreditada', 'No acreditada')}</span></div>`).join('')}</div>` : ''}
-        <p class="sis-tenue">El detalle de los documentos lo administra Recursos Humanos.</p>
+        ${ctx.rol === 'terreno' ? '<p class="sis-tenue">El detalle de los documentos lo administra Recursos Humanos.</p>' : `<div class="sis-acciones"><a class="sis-btn chico" href="#/personal/carpeta-proyecto/${esc(id)}">Armar carpeta de arranque</a></div>`}
       </section>
       <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Seguridad en terreno</h2><a class="sis-btn chico" href="#/seguridad/${esc(id)}">Abrir</a></div>
@@ -282,73 +342,4 @@ export async function proyecto(ctx, id) {
           : `<div class="sis-vacio"><p>Sin gastos todavía. Cada gasto se registra con la foto de su boleta y se rinde a RRHH.</p>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/gastos/nuevo/${esc(id)}">+ Nuevo gasto</a>` : ''}</div>`}
       </section>
     </aside></div>`;
-}
-
-export async function proyectoEditar(ctx, id) {
-  const nuevo = id === 'nuevo';
-  const p = nuevo ? { estado: 'activo', tiposTrabajo: [], encargadoId: ctx.personaId || '', fechaEncargo: hoyISO() } : await obtenerProyecto(id);
-  if (!p) return vacio('Este proyecto no existe.');
-  if (p.id === OFICINA_ID) return vacio('«Oficina» es un proyecto especial y no se edita.', '<a class="sis-btn" href="#/proyectos">Volver</a>');
-  const [personas, adm] = await Promise.all([listarPersonas(), Administracion.datos().catch(() => null)]);
-  const val = k => esc(p[k] ?? '');
-  const tipos = tiposDeProyecto(p);
-  const mandantes = adm ? adm.mandantes : [], vehiculos = adm ? adm.vehiculos : [];
-  return `<a class="sis-volver" href="${nuevo ? '#/proyectos' : `#/proyecto/${esc(p.id)}`}">← Volver</a>
-    <h1>${nuevo ? 'Nuevo proyecto' : 'Editar proyecto'}</h1>
-    <form class="sis-form" data-form="proyecto" data-id="${nuevo ? '' : esc(p.id)}">
-      <fieldset><legend>Proyecto</legend>
-        <label class="sis-campo"><span>Nombre *</span><input name="nombre" required value="${val('nombre')}" placeholder="Canal Norte — levantamiento y batimetría"></label>
-        ${mandantes.length ? `<label class="sis-campo"><span>Mandante registrado (define la acreditación)</span><select name="mandanteId"><option value="">Según el nombre escrito</option>${mandantes.map(m => `<option value="${esc(m.id)}" ${p.mandanteId === m.id ? 'selected' : ''}>${esc(m.nombre)}${m.plataforma ? ` · ${esc(m.plataforma)}` : ''}</option>`).join('')}</select></label>` : ''}
-        <label class="sis-campo"><span>Mandante</span><input name="mandante" value="${val('mandante')}" placeholder="Empresa que encarga el trabajo"></label>
-        <div class="sis-campo"><span>Tipos de trabajo (uno o más; el detalle es opcional)</span>
-          <div class="sis-categorias">${CATEGORIAS_TRABAJO.map(c => `<label class="sis-opcion sis-cat"><input type="checkbox" name="tipos" value="${c.k}" ${tipos.categorias.includes(c.k) ? 'checked' : ''}> ${c.t}</label>`).join('')}</div>
-          <div class="sis-detalles">${CATEGORIAS_TRABAJO.map(c => `<div class="sis-detalle" data-cat="${c.k}"><b>${c.t}</b>
-            ${c.det.map(([d, t]) => `<label class="sis-opcion chico"><input type="checkbox" name="detalle" value="${c.k}:${d}" ${tipos.detalles.includes(`${c.k}:${d}`) ? 'checked' : ''}> ${t}</label>`).join('')}
-            ${c.texto ? `<input name="tipoOtro" class="sis-detalle-texto" value="${val('tipoOtro')}" placeholder="¿Cuál?" aria-label="Otro tipo de trabajo">` : ''}</div>`).join('')}</div></div>
-        <div class="sis-par">
-          <label class="sis-campo"><span>Comuna</span><input name="comuna" value="${val('comuna')}"></label>
-          <label class="sis-campo"><span>Región</span><select name="region"><option value=""></option>${REGIONES.map(r => `<option ${p.region === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
-        </div>
-        <div class="sis-par">
-          <label class="sis-campo"><span>Encargado</span><select name="encargadoId"><option value="">—</option>${personas.map(x => `<option value="${esc(x.id)}" ${p.encargadoId === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
-          <label class="sis-campo"><span>Estado</span><select name="estado"><option value="activo">Activo</option><option value="cerrado" ${p.estado === 'cerrado' ? 'selected' : ''}>Cerrado</option></select></label>
-        </div>
-      </fieldset>
-      <fieldset><legend>Cuadrilla y vehículos</legend>
-        <p class="sis-tenue">Personas y vehículos asignados al proyecto. Su habilitación ante el mandante se muestra en la ficha del proyecto y en Mis pendientes del encargado.</p>
-        <div class="sis-opciones">${personas.map(x => `<label class="sis-opcion"><input type="checkbox" name="cuadrilla" value="${esc(x.id)}" ${(p.cuadrilla || []).includes(x.id) ? 'checked' : ''}> ${esc(x.nombre)}</label>`).join('') || '<span class="sis-tenue">Aún no hay personas.</span>'}</div>
-        ${vehiculos.length ? `<div class="sis-opciones">${vehiculos.map(v => `<label class="sis-opcion"><input type="checkbox" name="vehiculoIds" value="${esc(v.id)}" ${(p.vehiculoIds || []).includes(v.id) ? 'checked' : ''}> <span class="mono">${esc(v.patente)}</span></label>`).join('')}</div>` : '<p class="sis-tenue">Los vehículos se registran en Administración.</p>'}
-        <input type="hidden" name="conCuadrilla" value="1">
-      </fieldset>
-      <fieldset><legend>Encargo</legend>
-        <p class="sis-tenue">Registre aquí la información del encargo. Se ingresa una sola vez y queda disponible para todos los módulos del proyecto.</p>
-        <label class="sis-campo"><span>Alcance</span><textarea name="alcance" rows="2" placeholder="Ej.: red de 12 PR amarrada a SIRGAS, ortofoto y MDS del área">${val('alcance')}</textarea></label>
-        <label class="sis-campo"><span>Entregables pedidos</span><input name="entregablesPedidos" value="${val('entregablesPedidos')}" placeholder="Monografías, informe de red, ortofoto…"></label>
-        ${ctx.rol !== 'terreno' ? `<label class="sis-campo"><span>Monto cotizado ($)</span><input type="number" min="0" name="montoCotizado" value="${val('montoCotizado')}"></label>` : ''}
-        <label class="sis-campo"><span>Encargado por</span><input name="solicitadoPor" value="${val('solicitadoPor')}" placeholder="Quién lo pidió (persona o área)"></label>
-        <div class="sis-par">
-          <label class="sis-campo"><span>Fecha del encargo</span><input type="date" name="fechaEncargo" value="${val('fechaEncargo')}"></label>
-          <label class="sis-campo"><span>Plazo de entrega</span><input type="date" name="plazo" value="${val('plazo')}"></label>
-        </div>
-        ${(() => { const per = { ...BASE_RECURRENTE, ...(p.periodicidad || {}), tipo: (p.periodicidad && p.periodicidad.tipo) || 'unico' }; const v = k => esc(per[k] ?? '');
-          return `<fieldset class="sis-periodicidad"><legend>Periodicidad</legend>
-          <div class="sis-opciones"><label class="sis-opcion"><input type="radio" name="perTipo" value="unico" ${per.tipo !== 'recurrente' ? 'checked' : ''}> Único (una entrega)</label><label class="sis-opcion"><input type="radio" name="perTipo" value="recurrente" ${per.tipo === 'recurrente' ? 'checked' : ''}> Recurrente (servicio que se repite)</label></div>
-          <div class="sis-per-rec">
-            <div class="sis-par"><label class="sis-campo"><span>Se repite cada</span><span class="sis-en-linea"><input type="number" name="perCada" min="1" max="12" value="${v('cada')}"><select name="perUnidad"><option value="mes" ${per.unidad !== 'semana' ? 'selected' : ''}>mes(es)</option><option value="semana" ${per.unidad === 'semana' ? 'selected' : ''}>semana(s)</option></select></span></label>
-              <label class="sis-campo"><span>Primer ciclo (mes o lunes de inicio)</span><input name="perDesde" value="${v('desde')}" placeholder="2025-10 o 2026-11-02"></label></div>
-            <div class="sis-par"><label class="sis-campo"><span>N° de mes del contrato del primer ciclo</span><input type="number" name="perMesInicial" min="1" value="${v('mesInicial')}"></label>
-              <label class="sis-campo"><span>Terreno (servicio mensual): parte en la</span><select name="perSemana">${SEMANAS.map(([k, t]) => `<option value="${k}" ${per.semana === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
-            <div class="sis-par"><label class="sis-campo"><span>Días de terreno (hábiles)</span><input type="number" name="perDias" min="1" max="20" value="${v('diasTerreno')}"></label>
-              <label class="sis-campo"><span>Los datos llegan</span><select name="perDatos">${DATOS.map(([k, t]) => `<option value="${k}" ${per.datos === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
-            <div class="sis-par"><label class="sis-campo"><span>Entrega: días hábiles después de los datos</span><input type="number" name="perEntrega" min="0" max="60" value="${v('diasEntrega')}"></label>
-              <label class="sis-campo"><span>Hasta (vacío: sin término)</span><input type="date" name="perHasta" value="${v('hasta')}"></label></div>
-            <p class="sis-tenue">Cada ciclo aparece en el Calendario (terreno, llegada de datos y entrega) y, al crear el mes en Seguimiento, toma su nombre, N° de mes y fecha de llegada de los datos. Días hábiles = lunes a viernes.</p>
-          </div></fieldset>`; })()}
-        <label class="sis-campo"><span>Notas</span><textarea name="notas" rows="3" placeholder="Alcance, contacto en terreno, adjuntos recibidos…">${val('notas')}</textarea></label>
-      </fieldset>
-      <div class="sis-acciones"><button class="sis-btn primario">${nuevo ? 'Crear proyecto' : 'Guardar cambios'}</button>
-        ${nuevo ? '' : `<button type="button" class="sis-btn" data-accion="cerrar-proyecto" data-id="${esc(p.id)}">${p.estado === 'cerrado' ? 'Reabrir' : 'Cerrar proyecto'}</button>
-        <button type="button" class="sis-btn peligro" data-accion="eliminar-proyecto" data-id="${esc(p.id)}">Eliminar</button>`}</div>
-      ${nuevo ? '' : '<p class="sis-tenue">«Cerrar» es para un trabajo terminado: queda en el historial. «Eliminar» es para un proyecto creado por error: va a la papelera y se puede restaurar desde Proyectos.</p>'}
-    </form>`;
 }

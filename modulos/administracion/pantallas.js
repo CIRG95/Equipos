@@ -5,14 +5,15 @@ import { listarProyectos, listarPersonas } from '../../compartido/catalogos.js';
 import { escapar as esc } from '../../compartido/util.js';
 import { fijarPersona, cargarTodo } from './datos.js';
 import * as Personal from './pantallas-personal.js';
+import * as Gestion from './pantallas-gestion.js';
 import * as Admin from './pantallas-admin.js';
 import * as Comercial from './pantallas-comercial.js';
 import * as Conocimiento from './pantallas-conocimiento.js';
 import * as Seguridad from './pantallas-seguridad.js';
 
-const ACCIONES = { ...Personal.acciones, ...Admin.acciones, ...Comercial.acciones, ...Conocimiento.acciones, ...Seguridad.acciones };
-const CAMBIOS = { ...Personal.cambios, ...Admin.cambios, ...Comercial.cambios, ...Conocimiento.cambios };
-const FORMULARIOS = { ...Personal.formularios, ...Admin.formularios, ...Comercial.formularios, ...Conocimiento.formularios, ...Seguridad.formularios };
+const ACCIONES = { ...Personal.acciones, ...Gestion.acciones, ...Admin.acciones, ...Comercial.acciones, ...Conocimiento.acciones, ...Seguridad.acciones };
+const CAMBIOS = { ...Personal.cambios, ...Gestion.cambios, ...Admin.cambios, ...Comercial.cambios, ...Conocimiento.cambios };
+const FORMULARIOS = { ...Personal.formularios, ...Gestion.formularios, ...Admin.formularios, ...Comercial.formularios, ...Conocimiento.formularios, ...Seguridad.formularios };
 
 /**
  * ctx: { rol, personaId, seccion, ruta: [partes después de la sección], avisar, ir, marca, textosTipos,
@@ -38,10 +39,13 @@ export function montarPantallas(contenedor, ctx) {
     const [a, b, c] = ctx.ruta || [];
     switch (ctx.seccion) {
       case 'personal':
-        if (a === 'licitaciones') return Personal.licitaciones(v);
-        if (a === 'licitacion') return Personal.licitacion(v, b);
+        if (a === 'distribucion') return Gestion.distribucion(v);
+        if (a === 'vacaciones') return Gestion.vacaciones(v);
+        if (a === 'carpetas' || a === 'licitaciones') return Personal.licitaciones(v);
+        if (a === 'carpeta' || a === 'licitacion') return Personal.licitacion(v, b);
+        if (a === 'carpeta-proyecto') return Personal.carpetaDeProyecto(v, b);
         if (a) return Personal.personalFicha(v, a, b);
-        return Personal.personalResumen(v);
+        return Gestion.dotacion(v);
       case 'administracion':
         if (a === 'vehiculo') return Admin.vehiculo(v, b);
         if (a === 'acreditacion') return Admin.acreditacionVehiculos(v, b, c);
@@ -100,6 +104,7 @@ export function montarPantallas(contenedor, ctx) {
     try { if (await FORMULARIOS[f.dataset.f](f, new FormData(f), v)) await recargar(); } catch (e) { fallo(e); if (boton) boton.disabled = false; }
   });
 
+  Gestion.iniciarArrastre(v, raiz, recargar);
   recargar().catch(e => { console.error(e); raiz.innerHTML = `<div class="sis-error">No se pudo cargar: ${esc(e.message)}</div>`; });
   return {
     desmontar() { activo = false; if (mapa) { try { mapa.remove(); } catch { /* */ } } raiz.remove(); },

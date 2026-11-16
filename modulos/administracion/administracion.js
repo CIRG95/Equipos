@@ -2,7 +2,7 @@
 // Personal para Recursos Humanos (documentos, acreditación, contrato, vacaciones, EPP, CV, licitaciones), vehículos con su
 // acreditación por mandante (SUCAL), viajes, fondos, guías de despacho, mandantes, área comercial, conocimiento y seguridad.
 
-import { iniciarDatos, fijarPersona, cargarTodo, VERSION_MODULO, ALM } from './datos.js';
+import { iniciarDatos, fijarPersona, cargarTodo, guardarConfig, VERSION_MODULO, ALM } from './datos.js';
 import { pendientesAdmin, eventosAdmin, habilitacionPersona, acreditacion, mandanteDeProyecto } from './modelo.js';
 import { leccionesRelacionadas } from './pantallas-conocimiento.js';
 import { montarPantallas } from './pantallas.js';
@@ -24,6 +24,9 @@ export function montar(contenedor, contexto) {
 
 /** Todo lo de Administración (para Inicio, la ficha del proyecto, el calendario y el buscador). */
 export async function datos() { iniciar(); return cargarTodo(); }
+
+/** Nombre y color de la empresa, comunes a todos los equipos que sincronizan (v0.16). */
+export async function guardarMarca({ nombre, color }) { iniciar(); return guardarConfig({ marca: { nombre, color } }); }
 
 /** Pendientes de Administración para «Mis pendientes» según el rol. */
 export async function pendientes({ rol, personaId, personas, proyectos, hoy }) {

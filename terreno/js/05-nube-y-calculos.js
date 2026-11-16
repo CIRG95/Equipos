@@ -16,11 +16,41 @@ async function dataUrlToBlob(dataUrl) {
   return res.blob();
 }
 
+/* v0.6.0 — Cola de subida persistente. Antes vivía solo en memoria: si se cerraba la app sin señal, se perdía
+   qué jornadas faltaba subir (y al abrir se volvían a subir todas). Ahora se guarda en el teléfono y se retoma
+   sola al recuperar la conexión, aunque la app se haya cerrado entre medio. */
+const CLAVE_COLA_SYNC = "colaSync";
+function guardarColaSync() {
+  try {
+    localStorage.setItem(CLAVE_COLA_SYNC, JSON.stringify({ drive: Array.from(state.drive.pendientes), nextcloud: Array.from(state.nextcloud.pendientes) }));
+  } catch (_) {}
+}
+/** Devuelve true si había una cola guardada (false la primera vez: se sube todo una vez, como antes). */
+function cargarColaSync() {
+  let c = null;
+  try { c = JSON.parse(localStorage.getItem(CLAVE_COLA_SYNC) || "null"); } catch (_) {}
+  if (!c) return false;
+  const vivas = new Set(state.jornadas.map((j) => j.id));
+  (c.drive || []).forEach((id) => { if (vivas.has(id)) state.drive.pendientes.add(id); });
+  (c.nextcloud || []).forEach((id) => { if (vivas.has(id)) state.nextcloud.pendientes.add(id); });
+  return true;
+}
+function hayConexion() { return navigator.onLine !== false; }
+/** Jornadas por subir en los proveedores configurados (aunque ahora no haya sesión o señal). */
+function pendientesDeSubida() {
+  const ids = new Set();
+  if (localStorage.getItem("driveConectado") === "1") state.drive.pendientes.forEach((id) => ids.add(id));
+  if (localStorage.getItem("nextcloudConfig")) state.nextcloud.pendientes.forEach((id) => ids.add(id));
+  return ids.size;
+}
+
 function marcarPendienteSync(jornadaId) {
   if (!jornadaId) return;
   state.drive.pendientes.add(jornadaId);
   state.nextcloud.pendientes.add(jornadaId);
+  guardarColaSync();
   actualizarEstadoNube();
+  if (!hayConexion()) return; // sin señal no se intenta: queda en la cola y sube al volver la conexión
   clearTimeout(state.drive._syncTimer);
   state.drive._syncTimer = setTimeout(sincronizarPendientesDrive, 4000);
   clearTimeout(state.nextcloud._syncTimer);
@@ -47,8 +77,18 @@ function actualizarEstadoNube() {
   const conectados = provs.filter((p) => p.conectado).length;
   const sincronizando = provs.some((p) => p.sincronizando);
   const pendientes = provs.some((p) => p.conectado && p.pendientes.size > 0);
+  const enCola = pendientesDeSubida();
+  const franja = document.getElementById("franjaSinConexion");
+  if (franja) {
+    const sin = !hayConexion();
+    franja.classList.toggle("hidden", !sin);
+    if (sin) franja.textContent = "Sin conexión: todo se guarda en el teléfono" + (enCola ? " · " + enCola + (enCola === 1 ? " jornada por subir" : " jornadas por subir") : "") + ". Se sincroniza sola al volver la señal.";
+  }
   if (pill) {
-    if (sincronizando) { pill.textContent = "☁ Sincronizando…"; pill.classList.add("pill-live"); }
+    pill.classList.toggle("pill-sin", !hayConexion());
+    if (!hayConexion()) { pill.textContent = enCola ? "☁ Sin conexión · " + enCola + " por subir" : "☁ Sin conexión"; pill.classList.remove("pill-live"); }
+    else if (sincronizando) { pill.textContent = "☁ Sincronizando…"; pill.classList.add("pill-live"); }
+    else if (conectados === 0 && enCola) { pill.textContent = "☁ " + enCola + " por subir · toca para conectar"; pill.classList.add("pill-live"); }
     else if (conectados === 0) { pill.textContent = "☁ Conectar nube"; pill.classList.remove("pill-live"); }
     else if (pendientes) { pill.textContent = "☁ Pendiente"; pill.classList.add("pill-live"); }
     else { pill.textContent = "☁ Sincronizado (" + conectados + ")"; pill.classList.remove("pill-live"); }
@@ -68,6 +108,13 @@ let tokenResolvers = [];
 function esperarGIS() {
   return new Promise((resolve) => {
     if (window.google && google.accounts && google.accounts.oauth2) return resolve();
+    // v0.6.0: si la app abrió sin señal, el script de Google no llegó a cargar; se vuelve a pedir con conexión.
+    if (hayConexion() && !document.getElementById("gisTardio") && !(window.google && google.accounts)) {
+      const sc = document.createElement("script");
+      sc.id = "gisTardio"; sc.src = "https://accounts.google.com/gsi/client"; sc.async = true;
+      sc.onerror = () => sc.remove();
+      document.head.appendChild(sc);
+    }
     const iv = setInterval(() => {
       if (window.google && google.accounts && google.accounts.oauth2) {
         clearInterval(iv);
@@ -176,7 +223,7 @@ async function subirArchivo(opts) {
 }
 
 async function sincronizarPendientesDrive() {
-  if (!state.drive.conectado || state.drive.pendientes.size === 0 || state.drive.sincronizando) {
+  if (!hayConexion() || !state.drive.conectado || state.drive.pendientes.size === 0 || state.drive.sincronizando) {
     actualizarEstadoNube();
     return;
   }
@@ -188,6 +235,7 @@ async function sincronizarPendientesDrive() {
     try {
       await sincronizarJornadaDrive(jornadaId);
       state.drive.pendientes.delete(jornadaId);
+      guardarColaSync();
     } catch (err) {
       console.warn("Drive pendiente jornada " + jornadaId + ":", err.message);
     }
@@ -302,7 +350,7 @@ function desconectarNextcloud() {
 }
 
 async function sincronizarPendientesNextcloud() {
-  if (!state.nextcloud.conectado || state.nextcloud.pendientes.size === 0 || state.nextcloud.sincronizando) {
+  if (!hayConexion() || !state.nextcloud.conectado || state.nextcloud.pendientes.size === 0 || state.nextcloud.sincronizando) {
     actualizarEstadoNube();
     return;
   }
@@ -312,6 +360,7 @@ async function sincronizarPendientesNextcloud() {
     try {
       await sincronizarJornadaNextcloud(jornadaId);
       state.nextcloud.pendientes.delete(jornadaId);
+      guardarColaSync();
     } catch (err) {
       console.warn("Nextcloud pendiente jornada " + jornadaId + ":", err.message);
     }

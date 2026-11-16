@@ -27,10 +27,6 @@
       <div><b>Topoland</b><span>Sistema de trabajo · <span id="sis-version"></span></span></div>
     </div>
     <nav class="sis-menu" id="sis-menu" aria-label="Secciones"></nav>
-    <div class="sis-buscador" role="search">
-      <input id="sis-buscar" type="search" autocomplete="off" placeholder="Buscar PR, N° de serie, patente, persona…" aria-label="Buscar en todo el Sistema" aria-controls="sis-buscar-res" aria-expanded="false">
-      <div class="sis-buscador-res" id="sis-buscar-res" role="listbox" hidden></div>
-    </div>
     <div class="sis-quien">
       <select id="sis-persona" class="pill" aria-label="Persona"></select>
       <select id="sis-rol" class="pill" aria-label="Rol"></select>
@@ -38,10 +34,12 @@
     <div class="sis-acciones-cab">
       <a id="sis-avisos" class="sis-campana" href="#/avisos" hidden title="Avisos" aria-label="Avisos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 20a2 2 0 004 0"/></svg><b></b></a>
       <button id="sis-nube" class="pill pill-nube" type="button" title="Sincronizar con Google Drive">Conectar nube</button>
-      <button id="sis-modo" class="redondo" type="button" title="Cambiar modo teléfono / computador" aria-label="Cambiar modo de pantalla">⇄</button>
+      <button id="sis-buscar-btn" class="redondo" type="button" title="Buscar (tecla /)" aria-label="Buscar" aria-expanded="false" aria-controls="sis-busqueda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+      <a id="sis-config" class="redondo" href="#/configuracion" title="Configuración" aria-label="Configuración"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></a>
     </div>
   </header>
   <div id="sis-contenido"></div>
+  <aside id="sis-busqueda" class="sis-busqueda" role="search" aria-label="Búsqueda" hidden></aside>
   <div id="sis-aviso" class="sis-aviso-flotante" role="status" hidden></div>
   <!-- sistema-app.js = compartido/ + modulos/ + app/ empaquetados en un script clásico (abre con doble clic y sin internet). -->
   <script src="config.js"></script>

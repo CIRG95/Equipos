@@ -1,27 +1,18 @@
 // app/vistas-inicio.js — pantalla Inicio del Sistema (v0.14.1: separada de vistas.js).
 
 
-import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre, cargarScript, descargar } from '../compartido/util.js';
-import { resolverUrlTerreno } from './url-terreno.js';
-import { estado as estadoNube } from '../compartido/nube.js';
-import { enviarAPapelera, enPapelera, restaurar, eliminarDefinitivo } from '../compartido/papelera.js';
-import {
-  listarProyectos, obtenerProyecto, guardarProyecto, listarPersonas, obtenerPersona, guardarPersona, OFICINA_ID,
-} from '../compartido/catalogos.js';
+import { escapar as esc, fechaLegible, hoyISO, diasEntre } from '../compartido/util.js';
+import { listarProyectos, listarPersonas, OFICINA_ID } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
-import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
-import * as Monografias from '../modulos/monografias/monografias.js';
-import * as Gastos from '../modulos/gastos/gastos.js';
-import { clp, ESTADOS as ESTADOS_GASTOS } from '../modulos/gastos/modelo.js';
-import { vistaCalendario, mover as moverCalendario, eventosEntre } from './calendario.js';
-import { BASE_RECURRENTE, SEMANAS, DATOS, ciclosEntre, textoPeriodicidad, sumarDias, restarHabiles } from '../compartido/periodicidad.js';
-import { ESTADOS as ESTADOS_MONO } from '../modulos/monografias/datos.js';
-import { ROLES, COLORES_MARCA, CATEGORIAS_TRABAJO, NOMBRE_CATEGORIA, tiposDeProyecto, textosTipos, ROLES_PERSONA, NOMBRE_ROL_PERSONA, REGIONES, ETAPAS_PROYECTO, NOMBRE_ETAPA_PROYECTO, etapaProyecto } from './catalogo.js';
+import { eventosEntre } from './calendario.js';
+import { sumarDias, restarHabiles } from '../compartido/periodicidad.js';
+import { ROLES, ETAPAS_PROYECTO, NOMBRE_ETAPA_PROYECTO, etapaProyecto } from './catalogo.js';
 import { VERSION_SISTEMA } from './version.js';
-import { ICONO, chipCal, filaEquipo, vacio, estadoAlerta, aFechaL, lunesDe, diaCorto } from './vistas-ui.js';
+import { ICONO, filaEquipo, vacio, estadoAlerta, aFechaL, lunesDe, diaCorto } from './vistas-ui.js';
 import * as Administracion from '../modulos/administracion/administracion.js';
 import { ordenarPendientes } from '../compartido/vencimientos.js';
+import { pendientesEncargo, calidadEncargo, sinAcuse, entradasAbiertas, resumenCronograma } from './encargo.js';
 
 // ─────────── Mis pendientes (v0.15): un solo listado con todo lo que requiere una acción, según el rol ───────────
 const NIVEL_PEND = { rojo: ['Vencido', 'rojo'], ambar: ['Por vencer', 'ambar'] };
@@ -50,6 +41,8 @@ async function misPendientes(ctx, { personas, proyectos, equipos, extra = [] }) 
   if (ctx.rol === 'direccion') {
     for (const p of proyectos.filter(x => x.id !== OFICINA_ID && x.estado !== 'cerrado' && x.plazo && x.plazo < hoy && (!x.periodicidad || x.periodicidad.tipo !== 'recurrente'))) items.push({ nivel: 'rojo', etiqueta: 'Atrasado', categoria: 'Proyectos', titulo: `Plazo vencido · ${p.nombre}`, detalle: `Plazo de entrega: ${fechaLegible(p.plazo)}.`, enlace: `#/proyecto/${p.id}`, fecha: p.plazo });
   }
+  const nomPers = id => (personas.find(x => x.id === id) || {}).nombre || '';
+  items.push(...pendientesEncargo({ rol: ctx.rol, personaId: ctx.personaId, proyectos, hoy, nombre: nomPers }));
   for (const x of await Administracion.pendientes({ rol: ctx.rol, personaId: ctx.personaId, personas, proyectos, hoy }).catch(e => { console.warn(e); return []; })) items.push(x);
   return items;
 }
@@ -65,7 +58,7 @@ export async function inicio(ctx) {
   if (!personas.length || !yo) {
     bienvenida = `<section class="sis-tarjeta sis-destacada">
       <h2>${personas.length ? 'Elige quién eres' : 'Primero, crea tu persona'}</h2>
-      <p>El Sistema anota quién hace cada cosa (salidas, alertas, abonos). ${personas.length ? 'Elígete arriba, en la lista de personas, o crea tu ficha aquí.' : 'Crea tu ficha para empezar; después RRHH puede agregar al resto del equipo en «Personas».'}</p>
+      <p>El Sistema anota quién hace cada cosa (salidas, alertas, abonos). ${personas.length ? 'Elígete arriba, en la lista de personas, o crea tu ficha aquí.' : 'Crea tu ficha para empezar; después Recursos Humanos agrega al resto del equipo en «Personas».'}</p>
       <form class="sis-form-linea" data-form="persona-rapida">
         <input name="nombre" placeholder="Tu nombre" required aria-label="Nombre">
         <input name="cargo" placeholder="Cargo (geomensor, RRHH…)" aria-label="Cargo">
@@ -118,16 +111,35 @@ export async function inicio(ctx) {
   }
 
   if (ctx.rol === 'direccion') {
-    const atrasados = activos.filter(p => p.plazo && p.plazo < hoyISO() && (!p.periodicidad || p.periodicidad.tipo !== 'recurrente'));
+    const hoy = hoyISO();
+    const atrasados = activos.filter(p => p.plazo && p.plazo < hoy && (!p.periodicidad || p.periodicidad.tipo !== 'recurrente'));
+    const sinAcusar = activos.filter(sinAcuse), porResolver = activos.reduce((n, p) => n + entradasAbiertas(p).length, 0);
+    const nomPers = id => (personas.find(x => x.id === id) || {}).nombre || '';
+    const fila = p => {
+      const c = calidadEncargo(p), r = resumenCronograma(p.cronograma, hoy), ab = entradasAbiertas(p).length;
+      return `<a class="sis-fila" href="#/proyecto/${esc(p.id)}"><span class="sis-fila-txt"><b>${esc(p.nombre)}</b><span class="sis-tenue">${esc(p.mandante || 'Sin mandante')} · ${p.encargadoId ? `encargado: ${esc(nomPers(p.encargadoId))}` : 'sin encargado'}${p.plazo ? ` · plazo ${fechaLegible(p.plazo)}` : ''}</span>
+          ${r.total ? `<span class="sg-mini ini-avance" title="Avance del cronograma"><i style="width:${r.pct}%"></i></span>` : ''}</span>
+        <span class="sis-chips">${sinAcuse(p) ? '<span class="sis-chip ambar">Sin acuse</span>' : ''}${ab ? `<span class="sis-chip rojo">${ab} por resolver</span>` : ''}${r.atrasadas.length ? `<span class="sis-chip ambar">${r.atrasadas.length} atrasada${r.atrasadas.length > 1 ? 's' : ''}</span>` : ''}${r.total ? `<span class="sis-chip gris">${r.hechas}/${r.total} actividades</span>` : ''}<span class="sis-chip ${c.pct >= 85 ? 'verde' : c.pct >= 55 ? 'ambar' : 'rojo'}">Encargo ${c.pct} %</span><span class="sis-chip etapa-${etapaProyecto(p)}">${esc(NOMBRE_ETAPA_PROYECTO[etapaProyecto(p)])}</span></span></a>`;
+    };
     return `${saludo}${bienvenida}
+      <section class="sis-tarjeta ini-encargar"><div><h2>Encargar un proyecto</h2><p class="sis-tenue">Registre el encargo en cinco pasos: datos básicos, cronograma, información y equipo de trabajo. El encargado lo recibe por escrito y confirma la recepción.</p></div>
+        <a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a></section>
       <div class="sis-kpis">
         <a class="sis-kpi" href="#/proyectos"><span>${ICONO.proyecto}Proyectos activos</span><b>${activos.length}</b></a>
-        <a class="sis-kpi ${atrasados.length ? 'rojo' : ''}" href="#/comercial"><span>Con plazo vencido</span><b>${atrasados.length}</b></a>
-        <a class="sis-kpi" href="#/equipos"><span>${ICONO.equipo}Equipos en terreno</span><b>${equipos.filter(e => e.ubicacion.lugar === 'terreno').length}<small> de ${equipos.length}</small></b></a>
-        <a class="sis-kpi" href="#/comercial/cotizaciones"><span>Cotizaciones y licitaciones</span><b>›</b><small class="sis-tenue">ver el estado comercial</small></a>
+        <a class="sis-kpi ${atrasados.length ? 'rojo' : ''}" href="#/proyectos"><span>Con plazo vencido</span><b>${atrasados.length}</b></a>
+        <a class="sis-kpi ${sinAcusar.length ? 'ambar' : ''}" href="#/proyectos"><span>Encargos sin acuse de recibo</span><b>${sinAcusar.length}</b></a>
+        <a class="sis-kpi ${porResolver ? 'rojo' : ''}" href="#/proyectos"><span>Consultas e instrucciones por resolver</span><b>${porResolver}</b></a>
       </div>
-      ${tarjetaPendientes(await misPendientes(ctx, { personas, proyectos, equipos }), ctx)}
-      <section class="sis-tarjeta"><div class="sis-cab"><h2>Estado general de la empresa</h2><a class="sis-btn chico" href="#/comercial">Abrir</a></div><p class="sis-tenue">Rentabilidad por proyecto, cotizaciones ganadas y perdidas, ocupación de equipos y estimador de cotizaciones.</p></section>`;
+      <div class="sis-dos"><div>
+        ${tarjetaPendientes(await misPendientes(ctx, { personas, proyectos, equipos }), ctx)}
+        <section class="sis-tarjeta"><div class="sis-cab"><h2>Proyectos en curso</h2><a class="sis-btn chico" href="#/proyectos">Ver todos</a></div>
+          ${activos.length ? `<div class="sis-lista">${activos.slice().sort((a, b) => String(a.plazo || '9999').localeCompare(String(b.plazo || '9999'))).map(fila).join('')}</div>` : vacio('Aún no hay proyectos activos.')}
+        </section>
+      </div><aside>
+        <section class="sis-tarjeta"><div class="sis-cab"><h2>Personal</h2><a class="sis-btn chico" href="#/personal/distribucion">Distribución</a></div><p class="sis-tenue">Ubicación de cada trabajador en los proyectos, vacaciones y habilitación.</p></section>
+        <section class="sis-tarjeta"><div class="sis-cab"><h2>Estado comercial</h2><a class="sis-btn chico" href="#/comercial">Abrir</a></div><p class="sis-tenue">Rentabilidad por proyecto, cotizaciones, ocupación de equipos y estimador.</p></section>
+        <section class="sis-tarjeta"><div class="sis-cab"><h2>Equipos</h2><a class="sis-btn chico" href="#/equipos">Abrir</a></div><p class="sis-tenue">${equipos.filter(e => e.ubicacion.lugar === 'terreno').length} de ${equipos.length} en terreno.</p></section>
+      </aside></div>`;
   }
 
   return inicioTerreno(ctx, { personas, proyectos, equipos, yo, saludo, bienvenida, nomProy });
@@ -204,7 +216,7 @@ async function inicioTerreno(ctx, { personas, proyectos, equipos, yo, saludo, bi
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Estado de los proyectos</h2><a class="sis-btn chico" href="#/proyectos">Ir a Proyectos</a></div>
         <div class="ini-etapas">${caja('terreno', 'Terreno')}${caja('gabinete', 'Proceso en gabinete')}${caja('entregables', 'Entregables')}
           <a class="ini-etapa completado" href="#/proyectos/registro"><small>Completados (mes)</small><b>${completadosMes.length}</b><span>pasan al registro por mandante</span></a></div>
-        ${!activos.length ? vacio('Aún no hay proyectos activos. Crea el primero con el encargo que te llegó.', '<a class="sis-btn primario" href="#/proyecto-editar/nuevo">+ Proyecto</a>') : ''}
+        ${!activos.length ? vacio('Aún no hay proyectos activos. Registre el primero con «Encargar proyecto».', '<a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a>') : ''}
       </section>
     </div><aside>
       <section class="sis-tarjeta"><h2>Alertas de equipos</h2>

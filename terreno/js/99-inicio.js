@@ -39,41 +39,64 @@ async function init() {
   // v0.2.1: OneDrive se quitó; se borran sus restos guardados en este navegador
   ["onedriveClientId", "onedriveRefreshToken", "onedriveConectado"].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
 
-  const nextcloudCfg = JSON.parse(localStorage.getItem("nextcloudConfig") || "null");
+  // v0.6.0: la cola de subida se retoma desde el teléfono. Solo la primera vez (sin cola guardada) se sube todo.
+  const habiaCola = cargarColaSync();
+  if (!habiaCola) { state.jornadas.forEach((j) => { state.drive.pendientes.add(j.id); state.nextcloud.pendientes.add(j.id); }); guardarColaSync(); }
+
+  let nextcloudCfg = null;
+  try { nextcloudCfg = JSON.parse(localStorage.getItem("nextcloudConfig") || "null"); } catch (_) {}
   if (nextcloudCfg) {
     state.nextcloud.url = nextcloudCfg.url;
     state.nextcloud.usuario = nextcloudCfg.usuario;
     state.nextcloud.appPassword = nextcloudCfg.appPassword;
-    probarConexionNextcloud().then((ok) => {
-      state.nextcloud.conectado = ok;
-      actualizarEstadoNube();
-      if (ok) {
-        state.jornadas.forEach((j) => state.nextcloud.pendientes.add(j.id));
-        sincronizarPendientesNextcloud();
-      }
-    });
-  }
-
-  if (localStorage.getItem("driveConectado") === "1" && state.drive.clientId) {
-    esperarGIS().then(() => asegurarToken(false)).then((t) => {
-      if (t) {
-        state.jornadas.forEach((j) => state.drive.pendientes.add(j.id));
-        sincronizarPendientesDrive();
-      }
-      actualizarEstadoNube();
-    });
   }
 
   actualizarEstadoNube();
+  reconectarNubes("inicio");
 
+  // Al volver la señal se reconecta y sube lo pendiente, también si la app se abrió sin conexión.
   window.addEventListener("online", () => {
-    sincronizarPendientesDrive();
-    sincronizarPendientesNextcloud();
+    actualizarEstadoNube();
+    const n = pendientesDeSubida();
+    toast(n ? "Conexión recuperada: subiendo " + n + (n === 1 ? " jornada" : " jornadas") + "…" : "Conexión recuperada");
+    reconectarNubes("online");
   });
-  setInterval(() => {
-    if (state.drive.conectado) sincronizarPendientesDrive();
-    if (state.nextcloud.conectado) sincronizarPendientesNextcloud();
-  }, 120000);
+  window.addEventListener("offline", () => { actualizarEstadoNube(); toast("Sin conexión: se sigue guardando en el teléfono"); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { actualizarEstadoNube(); reconectarNubes("visible"); } });
+  setInterval(() => { reconectarNubes("reloj"); }, 120000);
+
+  // Pide al navegador que no borre los datos de la app si falta espacio (importante con días de terreno sin subir).
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (_) {}
+}
+
+/* v0.6.0 — Reconexión de las nubes. Se llama al abrir, al volver la señal, al volver a la app y cada 2 minutos.
+   No hace nada sin conexión. Nextcloud se reconecta solo (usuario y clave de aplicación guardados). Google entrega
+   sesiones de una hora: si sigue vigente o Google la renueva en silencio, sube sola; si pide confirmación, queda
+   «por subir» y basta tocar la pastilla de la nube. La nube del Sistema (paquete de conexión) sigue la misma regla. */
+let reconectando = false;
+async function reconectarNubes(motivo) {
+  if (!hayConexion() || reconectando) return;
+  reconectando = true;
+  try {
+    if (state.nextcloud.url && state.nextcloud.usuario) {
+      if (!state.nextcloud.conectado) { try { state.nextcloud.conectado = await probarConexionNextcloud(); } catch (_) { state.nextcloud.conectado = false; } }
+      if (state.nextcloud.conectado) sincronizarPendientesNextcloud();
+    }
+    if (localStorage.getItem("driveConectado") === "1" && state.drive.clientId) {
+      const vigente = state.drive.accessToken && Date.now() < state.drive.tokenExpiry;
+      // La renovación silenciosa se intenta al abrir y al volver la señal; no cada 2 minutos (Google podría abrir una ventana).
+      if (vigente || motivo !== "reloj") {
+        const gis = await Promise.race([esperarGIS().then(() => true), new Promise((r) => setTimeout(() => r(false), 8000))]);
+        if (gis) { const t = await Promise.race([asegurarToken(false), new Promise((r) => setTimeout(() => r(null), 15000))]); if (t) sincronizarPendientesDrive(); }
+      }
+    }
+    try {
+      if (SIS.listo && motivo !== "reloj") { const e = TopolandConexion.estadoNube() || {}; if (e.conectado && e.carpetaId && !e.sincronizando && e.pendiente) TopolandConexion.sincronizar().catch(() => {}); }
+    } catch (_) {}
+  } finally {
+    reconectando = false;
+    actualizarEstadoNube();
+  }
 }
 
 init();

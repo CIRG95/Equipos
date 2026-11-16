@@ -24,7 +24,8 @@ import { urlArchivo, infoArchivo } from '../compartido/archivos.js';
 
 // v1.4 (Sistema v0.14): gastos desde Terreno — misma lógica y almacenes que el módulo Gastos 0.1 del Sistema.
 // v1.4.1 (Sistema v0.15): mismas funciones; solo el esquema de la base suma los almacenes de Administración y Planificación.
-export const VERSION = '1.4.1 (Sistema v0.15)';
+// v1.4.2 (Sistema v0.16): mismas funciones; los mensajes de vinculación apuntan a Configuración (botón de engranaje del Sistema).
+export const VERSION = '1.4.2 (Sistema v0.16)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
 const CLAVE_CODIGO = 'topoland_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)
@@ -86,7 +87,7 @@ export function iniciar({ clienteId } = {}) {
 export function persona() { return leer(CLAVE_PERSONA); }
 
 /**
- * Vincula este teléfono a la persona que tiene ese código (Sistema → Personas → Vincular teléfono).
+ * Vincula este teléfono a la persona que tiene ese código (Sistema → Configuración → Vinculación con la app de Terreno).
  * Devuelve la persona, o null si el código no está entre los datos de este teléfono
  * (en un teléfono nuevo primero hay que conectar la nube para traer las personas).
  */
@@ -121,8 +122,8 @@ export async function explicarVinculo(codigo = codigoPendiente) {
   if (!n) return nube.estado().conectado
     ? 'Todavía no llegan las personas del Sistema. Espera a que termine la sincronización; el teléfono se vincula solo.'
     : 'Conecta la nube del Sistema (Google) para terminar de vincular: las personas vienen desde ahí.';
-  if (!c) return 'Escribe el código de 6 letras que muestra el Sistema en Personas → Vincular teléfono.';
-  return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Personas → Vincular teléfono) y sincroniza de nuevo.`;
+  if (!c) return 'Escribe el código de 6 letras que muestra el Sistema en Configuración (botón de engranaje) → Vinculación con la app de Terreno.';
+  return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Configuración → Vinculación con la app de Terreno) y sincroniza de nuevo.`;
 }
 
 // ───────── Lo de la persona ─────────

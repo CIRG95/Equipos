@@ -1,5 +1,11 @@
 # INTEGRACION.md — Sistema v0.15
 
+## v0.17 · Roles en proyectos, trabajos ordenables, capas del proyecto y Vuelos 0.10
+
+- **Sin almacenes nuevos; paquete de conexión idéntico.** En el proyecto: `trabajos: [{ cat, dias, paralelo }]`, `capas: { archivos, caminos: [{ nombre, linea }], prs: [{ id, nombre, lon, lat, usar }], actualizadoEn }`, actividades del cronograma con `origen: 'trabajos'`. En la hoja de vuelo: `area.amarre { radioKm, asignado: { [i]: prId } }`, `params.jornada { modo, baterias, recarga, minCarga, minAlmuerzo, minIdaVuelta, minBase }`, `programa[].bases`, `resumen.amarre { bases, nuevos, nombres }`.
+- **Archivos nuevos:** `modulos/vuelos/amarre.js` (puro: `calcularAmarre`, `jornadasPorBaterias`, `diametro`), `modulos/vuelos/capas-proyecto.js` (`leerCapasDeArchivos`, `fusionarCapas`, `prsActivos`, `resumenCapas`), `modulos/vuelos/vista-amarre.js` (fábrica del Resumen), `app/trabajos.js` (puro: `trabajosDeProyecto`, `cronogramaDeTrabajos`, `avisosOrden`, `moverTrabajo`), `app/vistas-tecnico.js` (`#/proyecto-tecnico/<id|nuevo>`).
+- **Rutas por rol:** terreno en `#/encargo/…` va a `#/proyecto-tecnico/…`; los demás roles al revés. `ctx.repintar()` nuevo en el envoltorio. `AL_PINTAR.proyecto` inicia el arrastre de trabajos.
+
 ## v0.16 · Encargo de proyectos, gestión de personal, buscador lateral, Configuración y Terreno 0.6.0
 
 - **Sin almacenes nuevos.** El encargo vive en el registro del proyecto: `cronograma[]`, `encargo { info, prioridad, emitidoPor/En, recibidoPor/En }`, `bitacora[]`, `contactoTerreno`, `sistemaReferencia`, `fechaInicio`. Datos personales en `admin_fichas.personal`; baja de una persona = `activo: false` + `bajaEn`; carpeta de arranque = `admin_licitaciones` con `proyectoId`; marca en `admin_config.general.marca`.

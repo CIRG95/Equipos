@@ -17,6 +17,11 @@ import { inicio, htmlFranjaProyectos } from './vistas-inicio.js';
 import { proyectos, proyecto, datosRegistro } from './vistas-proyectos.js';
 import { encargo, iniciarEncargo, leerEncargo } from './vistas-encargo.js';
 import { configuracion, nuevoCodigo } from './vistas-config.js';
+import { proyectoTecnico, leerTecnico } from './vistas-tecnico.js';
+import { trabajosDeProyecto, moverTrabajo, cronogramaDeTrabajos, POR_BATERIAS } from './trabajos.js';
+import { leerCapasDeArchivos, fusionarCapas, resumenCapas } from '../modulos/vuelos/capas-proyecto.js';
+import * as Vuelos from '../modulos/vuelos/vuelos.js';
+import { NOMBRE_CATEGORIA } from './catalogo.js';
 
 export { htmlFranjaProyectos, nuevoCodigo };
 
@@ -76,9 +81,38 @@ async function avisos(ctx) {
       : vacio('No hay avisos abiertos.')}</section>`;
 }
 
-export const VISTAS = { inicio, proyectos, proyecto, encargo, configuracion, avisos };
+export const VISTAS = { inicio, proyectos, proyecto, encargo, proyectoTecnico, configuracion, avisos };
 /** Comportamiento en vivo que algunas pantallas inician después de pintarse. */
-export const AL_PINTAR = { encargo: iniciarEncargo };
+export const AL_PINTAR = { encargo: iniciarEncargo, proyecto: iniciarArrastreTrabajos };
+
+/** v0.17 · Trabajos del proyecto: arrastrar una fila para cambiar el orden (computador). */
+function iniciarArrastreTrabajos(raiz, ctx) {
+  const lista = raiz.querySelector('.tr-lista');
+  if (!lista) return;
+  let desde = null;
+  lista.addEventListener('dragstart', ev => { const f = ev.target.closest('[data-trabajo-i]'); if (!f) return; desde = Number(f.dataset.trabajoI); ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', String(desde)); f.classList.add('llevando'); });
+  lista.addEventListener('dragend', () => { desde = null; lista.querySelectorAll('.llevando, .sobre').forEach(x => x.classList.remove('llevando', 'sobre')); });
+  lista.addEventListener('dragover', ev => { const f = ev.target.closest('[data-trabajo-i]'); if (!f || desde == null) return; ev.preventDefault(); lista.querySelectorAll('.sobre').forEach(x => x !== f && x.classList.remove('sobre')); f.classList.add('sobre'); });
+  lista.addEventListener('drop', async ev => {
+    const f = ev.target.closest('[data-trabajo-i]');
+    if (!f || desde == null) return;
+    ev.preventDefault();
+    const a = desde, b = Number(f.dataset.trabajoI);
+    desde = null;
+    if (a === b) return;
+    await guardarTrabajos(f.dataset.id, ts => moverTrabajo(ts, a, b), ctx);
+    ctx.avisar('Orden de los trabajos actualizado');
+    ctx.repintar();
+  });
+}
+
+async function guardarTrabajos(id, cambiar, ctx) {
+  const p = await obtenerProyecto(id);
+  if (!p) return null;
+  const ts = cambiar(trabajosDeProyecto(p));
+  await guardarProyecto({ id: p.id, trabajos: ts.map(({ cat, dias, paralelo }) => ({ cat, dias, paralelo: !!paralelo })) }, { personaId: ctx.personaId });
+  return ts;
+}
 
 // ─────────────────────────── Acciones ───────────────────────────
 
@@ -122,6 +156,24 @@ export async function manejarEnvio(form, ctx) {
     const archivos = [...(form.querySelector('[name="archivos"]').files || [])];
     for (const f of archivos) await guardarArchivo(f, { modulo: 'proyectos', duenoTipo: 'encargo', duenoId: r.id, rol: 'documento', proyectoId: r.id, carpeta: `${carpetaProyecto(r)}/Encargo` }, { personaId: ctx.personaId });
     ctx.avisar(id ? 'Encargo guardado' : (enc.recibidoEn ? 'Proyecto creado' : 'Proyecto encargado: el encargado recibirá el aviso'));
+    ctx.ir(`#/proyecto/${r.id}`);
+    return false;
+  }
+  if (form.dataset.form === 'proyecto-tecnico') {
+    const id = form.dataset.id || undefined;
+    const previo = id ? await obtenerProyecto(id) : null;
+    const deJefatura = !!(previo && previo.encargo && previo.encargo.emitidoPor && previo.encargo.emitidoPor !== ctx.personaId);
+    const d = leerTecnico(form, { deJefatura });
+    if (!deJefatura && !d.nombre) throw new Error('Indique el nombre del proyecto.');
+    const ahora = ahoraISO();
+    const extra = previo ? {} : {
+      estado: 'activo', fechaEncargo: hoyISO(), encargadoId: ctx.personaId || null, cuadrilla: ctx.personaId ? [ctx.personaId] : [],
+      encargo: { info: {}, prioridad: 'normal', emitidoPor: ctx.personaId || null, emitidoEn: ahora, recibidoPor: ctx.personaId || null, recibidoEn: ahora },
+    };
+    const archivos = [...(form.querySelector('[name="capas"]').files || [])];
+    if (archivos.length) { const leidas = await leerCapasDeArchivos(archivos); extra.capas = fusionarCapas(previo && previo.capas, leidas); }
+    const r = await guardarProyecto({ id, ...d, ...extra }, { personaId: ctx.personaId });
+    ctx.avisar(previo ? 'Datos técnicos guardados' : `Proyecto creado${extra.capas ? ` · capas: ${resumenCapas(extra.capas)}` : ''}`);
     ctx.ir(`#/proyecto/${r.id}`);
     return false;
   }
@@ -188,6 +240,30 @@ export async function manejarClic(boton, ctx) {
     }
     case 'cerrar-vincular': ctx.estado.vincular = null; return true;
     case 'modo-pantalla': ctx.fijarModo(boton.dataset.m); return true;
+    case 'trabajo-mover': {
+      const i = Number(boton.dataset.i), a = Number(boton.dataset.a);
+      await guardarTrabajos(boton.dataset.id, ts => moverTrabajo(ts, i, i + a), ctx);
+      return true;
+    }
+    case 'aplicar-trabajos': {
+      const p = await obtenerProyecto(boton.dataset.id);
+      if (!p) return false;
+      const planes = await Vuelos.planesDeProyecto(p.id).catch(() => []);
+      const dv = planes.reduce((s, v) => s + (v.programadas || 0), 0);
+      const nuevo = cronogramaDeTrabajos(trabajosDeProyecto(p), p.fechaInicio || p.fechaEncargo, { diasDe: t => (POR_BATERIAS.has(t.cat) && dv ? dv : t.dias), nombre: c => NOMBRE_CATEGORIA[c] || c, plazo: p.plazo });
+      if (!nuevo.length) return false;
+      const previas = p.cronograma || [];
+      // Se conservan las actividades ya realizadas; las pendientes se reemplazan por el orden de los trabajos.
+      if (previas.some(a => !a.hecho) && !confirm('¿Reemplazar las actividades pendientes del cronograma por las de los trabajos ordenados? Las ya realizadas se conservan.')) return false;
+      const hechas = previas.filter(a => a.hecho);
+      await guardarProyecto({ id: p.id, cronograma: [...hechas, ...nuevo.filter(n => !hechas.some(h => h.id === n.id))] }, { personaId: ctx.personaId });
+      ctx.avisar('Cronograma actualizado con el orden de los trabajos'); return true;
+    }
+    case 'capas-quitar': {
+      if (!confirm('¿Quitar las capas del proyecto (caminos y PR)? Las hojas de vuelo dejan de proponer bases de amarre.')) return false;
+      await guardarProyecto({ id: boton.dataset.id, capas: null }, { personaId: ctx.personaId });
+      ctx.avisar('Capas quitadas'); return true;
+    }
     case 'abrir-nube': ctx.abrirNube(); return false;
     case 'acusar-recibo': {
       const p = await obtenerProyecto(boton.dataset.id);
@@ -257,6 +333,26 @@ export async function manejarClic(boton, ctx) {
 
 export async function manejarCambio(input, ctx) {
   if (input.dataset.accion === 'ver-cerrados') { ctx.estado.verCerrados = input.checked; return true; }
+  if (input.dataset.accion === 'trabajo-dias' || input.dataset.accion === 'trabajo-paralelo') {
+    const i = Number(input.dataset.i);
+    await guardarTrabajos(input.dataset.id, ts => ts.map((t, k) => (k !== i ? t : input.dataset.accion === 'trabajo-dias' ? { ...t, dias: Math.max(1, Math.round(Number(input.value) || 1)) } : { ...t, paralelo: input.checked })), ctx);
+    return true;
+  }
+  if (input.dataset.accion === 'capa-pr-usar') {
+    const p = await obtenerProyecto(input.dataset.id);
+    if (!p || !p.capas) return false;
+    await guardarProyecto({ id: p.id, capas: { ...p.capas, prs: p.capas.prs.map(x => (x.id === input.dataset.pr ? { ...x, usar: input.checked } : x)) } }, { personaId: ctx.personaId });
+    return true;
+  }
+  if (input.dataset.accion === 'capas-cargar' && input.files && input.files.length) {
+    const p = await obtenerProyecto(input.dataset.id);
+    if (!p) return false;
+    const leidas = await leerCapasDeArchivos(input.files);
+    if (!leidas.prs.length && !leidas.caminos.length) { ctx.avisar('El archivo no trae líneas ni puntos.'); return false; }
+    const capas = fusionarCapas(p.capas, leidas);
+    await guardarProyecto({ id: p.id, capas }, { personaId: ctx.personaId });
+    ctx.avisar(`Capas del proyecto: ${resumenCapas(capas)}`); return true;
+  }
   if (input.dataset.accion === 'crono-hecho') {
     const p = await obtenerProyecto(input.dataset.id);
     if (!p) return false;

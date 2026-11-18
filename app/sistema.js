@@ -89,7 +89,7 @@ const GESTION = ['rrhh', 'direccion']; // Recursos Humanos y Jefatura
 const FUERA_DE_MENU = { configuracion: { ruta: 'configuracion', texto: 'Configuración', roles: TODOS } };
 const MENU = [
   { ruta: 'inicio', texto: 'Inicio', roles: TODOS, tambien: ['avisos'] },
-  { ruta: 'proyectos', texto: 'Proyectos', roles: TODOS, tambien: ['proyecto', 'encargo', 'seguimiento', 'seguridad'] },
+  { ruta: 'proyectos', texto: 'Proyectos', roles: TODOS, tambien: ['proyecto', 'encargo', 'proyecto-tecnico', 'seguimiento', 'seguridad'] },
   { ruta: 'planificacion', texto: 'Planificación', roles: ['terreno'] },
   { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
   { ruta: 'equipos', texto: 'Equipos', roles: TODOS, tambien: ['sensores'] },
@@ -103,7 +103,7 @@ const MENU = [
 // Sub-pestañas de cada sección: [enlace, texto, ¿activa?(ruta)]
 const SUBNAV = {
   proyectos: [
-    ['#/proyectos', 'Activos', r => ['proyectos', 'proyecto', 'encargo'].includes(r.base) && !['calendario', 'registro'].includes(r.arg)],
+    ['#/proyectos', 'Activos', r => ['proyectos', 'proyecto', 'encargo', 'proyecto-tecnico'].includes(r.base) && !['calendario', 'registro'].includes(r.arg)],
     ['#/proyectos/calendario', 'Calendario', r => r.base === 'proyectos' && r.arg === 'calendario'],
     ['#/seguimiento', 'Entregas', r => r.base === 'seguimiento'],
     ['#/proyectos/registro', 'Registro por mandante', r => r.base === 'proyectos' && r.arg === 'registro'],
@@ -188,6 +188,7 @@ const ctx = () => ({
   estado,
   avisar,
   ir: r => { if (location.hash === r) mostrar(); else location.hash = r; },
+  repintar: () => { rutaActual = ''; return mostrar(); },
   usarPersona: async id => { escribir('env_persona', id); await cargarPersonas(id); },
   recargarPersonas: () => cargarPersonas(selPersona.value),
   textosTipos,
@@ -219,6 +220,9 @@ async function mostrar() {
   // Rutas anteriores a la v0.16 (marcadores y enlaces guardados): Personas y el formulario antiguo de proyecto.
   if (base === 'personas') { location.replace('#/personal'); return; }
   if (base === 'proyecto-editar') { location.replace(`#/encargo/${arg || 'nuevo'}`); return; }
+  // v0.17: el encargado de terreno no usa el asistente de Jefatura; crea o ajusta lo técnico en su propio formulario.
+  if (base === 'encargo' && selRol.value === 'terreno') { location.replace(`#/proyecto-tecnico/${arg || 'nuevo'}`); return; }
+  if (base === 'proyecto-tecnico' && selRol.value !== 'terreno') { location.replace(`#/encargo/${arg || 'nuevo'}`); return; }
   const item = MENU.find(m => m.ruta === base || (m.tambien || []).includes(base)) || FUERA_DE_MENU[base];
   if (!item || !item.roles.includes(selRol.value)) { location.hash = '#/inicio'; return; }
   if (base === 'herramientas' && !arg) { location.hash = '#/monografias'; return; }
@@ -321,6 +325,7 @@ async function mostrar() {
 
   desmontar();
   // Solo se vuelve arriba al cambiar de pantalla; una acción dentro de la misma (marcar, agregar) conserva la posición.
+  const yAntes = window.scrollY; // se lee antes de cargar: mientras se cargan los datos, el navegador puede mover la página
   const cambioDePantalla = ultimaPantalla !== `${base}/${arg || ''}`;
   ultimaPantalla = `${base}/${arg || ''}`;
   rutaActual = clave;
@@ -330,11 +335,12 @@ async function mostrar() {
     let html;
     if (base === 'proyecto') html = await VISTAS.proyecto(ctx(), arg);
     else if (base === 'encargo') html = await VISTAS.encargo(ctx(), arg || 'nuevo');
+    else if (base === 'proyecto-tecnico') html = await VISTAS.proyectoTecnico(ctx(), arg || 'nuevo');
     else if (base === 'proyectos') html = await VISTAS.proyectos(ctx(), arg);
     else html = await VISTAS[base](ctx());
     if (rutaActual !== clave) return; // el usuario ya se fue a otra pantalla
     // No se repinta sobre un formulario a medio llenar (p. ej. al llegar datos de la nube mientras se arma un encargo).
-    const y = cambioDePantalla ? 0 : window.scrollY;
+    const y = cambioDePantalla ? 0 : yAntes;
     contenedor.innerHTML = `${subnav}<div class="sis-vista">${html}</div>`;
     if (AL_PINTAR[base]) AL_PINTAR[base](contenedor, ctx());
     if (!cambioDePantalla) window.scrollTo(0, y);
@@ -410,7 +416,7 @@ async function arrancar() {
       pintarAvisos();
       if (montado && montado.refrescar) montado.refrescar();
       // No se borra lo que se está escribiendo: ni un encargo a medio armar ni un campo con el cursor dentro.
-      else if (!contenedor.querySelector('form.enc') && !(document.activeElement && document.activeElement.closest('#sis-contenido form'))) { rutaActual = ''; mostrar(); }
+      else if (!contenedor.querySelector('form.enc, form.tec') && !(document.activeElement && document.activeElement.closest('#sis-contenido form'))) { rutaActual = ''; mostrar(); }
     },
   });
   window.__sistemaCargado = true;

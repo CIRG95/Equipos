@@ -5,14 +5,14 @@
 
 import { escapar as esc, descargar, cargarScript, leerLS, escribirLS } from '../../compartido/util.js';
 import { alCambiar } from '../../compartido/almacen.js';
-import { listarProyectos, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
+import { listarProyectos, listarPersonas, OFICINA_ID, guardarProyecto, obtenerProyecto } from '../../compartido/catalogos.js';
 import { guardarArchivo, abrirArchivo } from '../../compartido/archivos.js';
 import { fijarPersona, listarDrones, guardarDron, restablecerDron, listarPlanes, obtenerPlan, guardarPlan, eliminarPlan, planesEnPapelera, restaurarPlan, purgarPlan } from './datos.js';
 import { CAMPOS_DRON } from './drones.js';
 import { alturaParaGsd, gsdCm, fmt, fmtDuracion, proyectar, areaM2 } from './calculo.js';
 import { leerArchivo, analizarKml, limpiarParaDji, kmlDePoligono, kmlDeLinea, limpiarEje, nombreArchivoSeguro, limpiarAnillo, autoInterseccion } from './kml.js';
 import { listarCapas, cargarCapaDesdeArchivo, quitarCapa } from './capas.js';
-import { HORARIO_INICIAL, jornadasNecesarias } from './hoja.js';
+import { HORARIO_INICIAL } from './hoja.js';
 import { nuevaHoja, migrarHoja, geometria, metaSector, nombreSector, calcularSector, alturaDe, resumenHoja, rumboMasCorto, dmAKm, kmADm, totales } from './hoja.js';
 import * as Seguimiento from '../seguimiento/seguimiento.js';
 import { diasHabilesDesde } from '../../compartido/periodicidad.js';
@@ -27,6 +27,8 @@ import { crearPasoClima } from './paso-clima.js';
 import { crearPasoPermisos } from './paso-permisos.js';
 import { crearHerramientas } from './herramientas.js';
 import { crearMapas } from './mapas.js';
+import { crearVistaAmarre } from './vista-amarre.js';
+import { leerCapasDeArchivos, fusionarCapas, resumenCapas } from './capas-proyecto.js';
 import { ubicacionDe } from './ubicacion.js';
 
 const HERRAMIENTAS = [['hojas', 'Hojas de vuelo'], ['rapido', 'Pronóstico rápido'], ['kml', 'Limpiar KML'], ['drones', 'Drones']];
@@ -86,7 +88,8 @@ export function montarPantallas(contenedor, ctx) {
     const g = geometria(h), d = dron();
     const nombre = h.nombre || (h.area.original && h.area.original.nombre) || (h.area.eje && h.area.eje.nombre) || 'Hoja de vuelo';
     const { problemas, ...area } = h.area;
-    const r = await guardarPlan({ ...h, area: { ...area, problemas }, nombre, dronId: h.dronId, schemaVersion: 2, resumen: g && d ? resumenHoja(h, d, g) : null });
+    const am = g ? v.amarreDeHoja(h, g) : null; // v0.10: bases de amarre en el resumen (la ficha del proyecto avisa si faltan PR nuevos)
+    const r = await guardarPlan({ ...h, area: { ...area, problemas }, nombre, dronId: h.dronId, schemaVersion: 2, resumen: g && d ? { ...resumenHoja(h, d, g), amarre: am ? { bases: am.bases.length, nuevos: am.nuevos, nombres: am.bases.map(b => b.nombre) } : null } : null });
     const nueva = !h.id;
     h.id = r.id; h.creadoEn = r.creadoEn; if (!h.nombre) h.nombre = nombre;
     if (nueva && activo) try { history.replaceState(null, '', `#/vuelos/plan/${r.id}`); } catch { /* sin historial */ }
@@ -106,7 +109,7 @@ export function montarPantallas(contenedor, ctx) {
 
   // ─────────── Contexto compartido y vistas por paso ───────────
   const v = { st, base, ctx, raiz, mapas, geo, dron, familias, nomProy, nomPers, secSel, capasActivas, avisar, cambio, render, guardarAhora, refrescarArea, refrescarVuelo };
-  Object.assign(v, crearVistaHojas(v), crearPasoArea(v), crearPasoVuelo(v), crearPasoClima(v), crearPasoPermisos(v), crearHerramientas(v), crearMapas(v));
+  Object.assign(v, crearVistaAmarre(v), crearVistaHojas(v), crearPasoArea(v), crearPasoVuelo(v), crearPasoClima(v), crearPasoPermisos(v), crearHerramientas(v), crearMapas(v));
   const {
     vistaHojas, encabezadoHoja, vistaResumen, vistaIdentificacion, pieDePaso, vistaArea, textoCorredor, htmlSectores, htmlZonas, barraDibujo, htmlVistaPrevia,
     vistaVuelo, htmlLados, htmlDespegue, htmlTotalHoja, pieVelocidad, htmlKpis, htmlBarraRumbo, htmlLeyenda, htmlDetalle, opcionesGsd, htmlTablaGsd,
@@ -322,6 +325,19 @@ export function montarPantallas(contenedor, ctx) {
       h.permisos.consultas.push({ id: reg.id, tipo: t.dataset.tipo, fecha: new Date().toISOString(), personaId: ctx.personaId, archivoId: reg.id });
       avisar('Captura guardada'); cambio(); return;
     }
+    if (tipo === 'capas-proyecto') {
+      // v0.10: caminos y PR del proyecto (se guardan en el proyecto y los usan todas sus hojas y Planificación).
+      const h = st.hoja;
+      if (!h.proyectoId) { avisar('Asigna primero la hoja a un proyecto.', 'error'); return; }
+      const p = await obtenerProyecto(h.proyectoId);
+      const leidas = await leerCapasDeArchivos(t.files);
+      if (!leidas.prs.length && !leidas.caminos.length) { avisar('El archivo no trae líneas ni puntos.', 'error'); return; }
+      const capas = fusionarCapas(p.capas, leidas);
+      await guardarProyecto({ id: p.id, capas }, { personaId: ctx.personaId });
+      baseSucia = true;
+      avisar(`Capas del proyecto: ${resumenCapas(capas)}.${leidas.prs.some(x => /marcador|sin t/i.test(x.nombre) || !x.nombre) ? ' Los puntos sin nombre quedaron desactivados: revísalos en la ficha del proyecto.' : ''}`);
+      return;
+    }
     if (tipo === 'docpermiso' || tipo === 'log') {
       const h = st.hoja;
       if (!h.id) await guardarAhora();
@@ -445,6 +461,17 @@ export function montarPantallas(contenedor, ctx) {
       if (!st.hoja || st.vista !== 'hoja') return;
       const h = st.hoja;
       if (t.hasAttribute('data-clima-dia')) { if (t.value) { st.dia = t.value; guardarResumenClima(); } await render(); return; }
+      if (t.dataset.jornada) {
+        const k = t.dataset.jornada, val = t.type === 'checkbox' ? t.checked : t.type === 'number' ? Math.max(0, Number(t.value) || 0) : t.value;
+        h.params.jornada = { ...(h.params.jornada || {}), [k]: k === 'baterias' ? Math.max(1, Math.round(val) || 1) : val };
+        cambio(); await render(); return;
+      }
+      if (t.dataset.amarre) { h.area.amarre = { ...(h.area.amarre || {}), [t.dataset.amarre]: Math.max(0.5, Number(t.value) || 5) }; cambio(); await render(); return; }
+      if (t.hasAttribute('data-amarre-sector')) {
+        const am = h.area.amarre || {};
+        h.area.amarre = { ...am, asignado: { ...(am.asignado || {}), [t.dataset.amarreSector]: t.value } };
+        cambio(); await render(); return;
+      }
       if (t.dataset.horario) {
         h.params.horario = { ...HORARIO_INICIAL, ...(h.params.horario || {}), [t.dataset.horario]: t.type === 'number' ? (Number(t.value) || 0) : t.value };
         cambio(); await render(); return;
@@ -653,14 +680,15 @@ export function montarPantallas(contenedor, ctx) {
       else if (a === 'elegir-metodo') await elegirMetodo(h, b.dataset.m);
       else if (a === 'detectar-ubicacion') { await detectarUbicacion(true); return; }
       else if (a === 'programar') {
-        const g = geo(), jor = jornadasNecesarias(h, dron(), g);
+        const g = geo(), d = dron(), jor = g && d ? v.jornadasDeHoja(h, d, g, totales(h, d, g)) : null;
         if (!jor || !jor.dias.length || !h.fecha) { avisar('Falta el área o el primer día de vuelo.', 'error'); }
         else {
           const fechas = diasHabilesDesde(h.fecha, jor.dias.length), n = g.sectores.length;
-          h.programa = jor.dias.map((di, k) => ({ fecha: fechas[k], dia: k + 1, de: jor.dias.length, sectores: di.sectores.map(i => nombreSector(h, i, n)), min: Math.round(di.min), baterias: di.baterias }));
+          h.programa = jor.dias.map((di, k) => ({ fecha: fechas[k], dia: k + 1, de: jor.dias.length, sectores: di.sectores.map(i => nombreSector(h, i, n)), min: Math.round(di.min), baterias: di.baterias, bases: jor.amarre && di.bases ? di.bases.map(x => jor.amarre.bases[x] && jor.amarre.bases[x].nombre).filter(Boolean) : [] }));
           avisar(`Listo: ${h.programa.length} jornada${h.programa.length === 1 ? '' : 's'} en el calendario (Proyectos → Calendario).`); cambio();
         }
       }
+      else if (a === 'amarre-auto') { h.area.amarre = { ...(h.area.amarre || {}), asignado: {} }; avisar('Bases según la propuesta del Sistema'); cambio(); }
       else if (a === 'desprogramar') { h.programa = []; avisar('Se quitaron las jornadas del calendario.'); cambio(); }
       else if (a === 'deshacer-corte') { if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes)), sel: h.area.sel || 0, aplicado: h.area.aplicado || null }; h.area.cortes.pop(); cambio(); }
       else if (a === 'quitar-cortes') { if (!st.respaldoCortes) st.respaldoCortes = { cortes: JSON.parse(JSON.stringify(h.area.cortes)), sel: h.area.sel || 0, aplicado: h.area.aplicado || null }; h.area.cortes = []; h.area.sel = 0; cambio(); }

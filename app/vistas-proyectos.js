@@ -20,6 +20,8 @@ import * as Administracion from '../modulos/administracion/administracion.js';
 import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { archivosDe } from '../compartido/archivos.js';
 import { INFO_ENCARGO, TIPOS_BITACORA, calidadEncargo, resumenCronograma, barraActividad, sinAcuse, entradasAbiertas } from './encargo.js';
+import { trabajosDeProyecto, cronogramaDeTrabajos, avisosOrden, POR_BATERIAS } from './trabajos.js';
+import { resumenCapas } from '../modulos/vuelos/capas-proyecto.js';
 
 // v0.15 · Entregables del proyecto (versiones, revisión y envío al mandante)
 export const ESTADOS_ENTREGABLE = [['pendiente', 'Pendiente', 'gris'], ['revision', 'En revisión', 'ambar'], ['enviado', 'Enviado', 'azul'], ['observado', 'Observado', 'rojo'], ['aprobado', 'Aprobado', 'verde']];
@@ -31,7 +33,7 @@ const chipHab = (h, si = 'Habilitado', no = 'No habilitado') => (!h ? '<span cla
 export async function proyectos(ctx, sub = null) {
   if (sub === 'calendario') {
     ctx.estado.cal = ctx.estado.cal || { modo: leerLS('env_cal_modo') || 'mes', ref: hoyISO(), proyecto: '' };
-    return `<div class="sis-cab"><h1>Calendario</h1><a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a></div>${await vistaCalendario({ ...ctx.estado.cal, rol: ctx.rol })}`;
+    return `<div class="sis-cab"><h1>Calendario</h1>${botonNuevo(ctx)}</div>${await vistaCalendario({ ...ctx.estado.cal, rol: ctx.rol })}`;
   }
   if (sub === 'registro') return registroMandantes(ctx);
   const [lista, personas, equipos, vuelos, eventos] = await Promise.all([listarProyectos(), listarPersonas(), Equipos.listarEquiposConEstado(), Vuelos.listarVuelos().catch(() => []), eventosEntre(hoyISO(), sumarDias(hoyISO(), 90)).catch(() => [])]);
@@ -66,7 +68,7 @@ export async function proyectos(ctx, sub = null) {
     ? `<div class="sis-columnas-etapa">${ETAPAS_PROYECTO.filter(([k]) => k !== 'completado').map(([k, t]) => { const ps = activos.filter(p => etapaProyecto(p) === k); return `<div class="sis-col-etapa"><h2>${t} <span class="sis-tenue">${ps.length}</span></h2>${ps.map(tarjeta).join('') || '<p class="sis-tenue">Sin proyectos.</p>'}</div>`; }).join('')}</div>`
     : `<div class="sis-proy-cards">${activos.map(tarjeta).join('')}</div>`;
   const oficina = lista.find(p => p.id === OFICINA_ID);
-  return `<div class="sis-cab"><div><h1>Proyectos activos</h1><span class="sis-tenue">${activos.length} proyecto${activos.length === 1 ? '' : 's'} · terreno → gabinete → entregables → completado</span></div>${selector}<a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a></div>
+  return `<div class="sis-cab"><div><h1>Proyectos activos</h1><span class="sis-tenue">${activos.length} proyecto${activos.length === 1 ? '' : 's'} · terreno → gabinete → entregables → completado</span></div>${selector}${botonNuevo(ctx)}</div>
     ${activos.length ? cuerpo : vacio('Aún no hay proyectos activos. Use «Encargar proyecto» para registrar el primero.')}
     ${oficina ? `<p class="sis-tenue">Trabajo que no es de un contrato: <a href="#/proyecto/${OFICINA_ID}">Oficina</a>. Los completados quedan en <a href="#/proyectos/registro">Registro por mandante</a>.</p>` : ''}
     ${eliminados.length ? `<details class="sis-papelera"><summary>Papelera de proyectos (${eliminados.length})</summary>
@@ -126,6 +128,57 @@ async function registroMandantes(ctx) {
         </table></div>
       </section>
     </div>`}`;
+}
+
+/** Jefatura encarga; el encargado de terreno crea un proyecto propio con su formulario técnico. */
+export const botonNuevo = ctx => (ctx.rol === 'terreno' ? '<a class="sis-btn primario" href="#/proyecto-tecnico/nuevo">+ Nuevo proyecto</a>' : '<a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a>');
+
+// ─────────── v0.17 · Planificación técnica: trabajos ordenados y capas del proyecto ───────────
+const ENLACE_TRABAJO = { dron: id => `#/vuelos/proyecto/${id}`, gnss: id => `#/planificacion/proyecto/${id}`, nivelacion: id => `#/monografias/${id}`, estacion: id => `#/monografias/${id}` };
+const TEXTO_ENLACE = { dron: 'Hojas de vuelo', gnss: 'Red de PR', nivelacion: 'Monografías', estacion: 'Monografías' };
+
+/** Días de vuelo según las hojas programadas del proyecto (0 si ninguna está programada). */
+const diasDeVuelo = planes => planes.reduce((s, v) => s + (v.programadas || 0), 0);
+
+function htmlTrabajos(p, ctx, planes) {
+  const ts = trabajosDeProyecto(p);
+  if (!ts.length) return '';
+  const edita = ctx.rol === 'terreno' || ctx.rol === 'direccion';
+  const dv = diasDeVuelo(planes);
+  const nuevos = planes.reduce((s, v) => s + ((v.resumen && v.resumen.amarre && v.resumen.amarre.nuevos) || 0), 0);
+  const avisos = avisosOrden(ts, { prsNuevos: nuevos });
+  const desde = p.fechaInicio || p.fechaEncargo || '';
+  const filas = ts.map((t, k) => {
+    const vuelo = POR_BATERIAS.has(t.cat);
+    const enlace = ENLACE_TRABAJO[t.cat];
+    return `<li class="tr-fila${t.paralelo ? ' paralelo' : ''}" ${edita ? `draggable="true" data-trabajo-i="${k}" data-id="${esc(p.id)}"` : ''}>
+      ${edita ? '<span class="tr-asa" aria-hidden="true">⠿</span>' : ''}<span class="tr-n">${k + 1}</span>
+      <span class="tr-txt"><b>${esc(NOMBRE_CATEGORIA[t.cat] || t.cat)}</b><small>${vuelo ? (dv ? `Por baterías · ${dv} jornada${dv === 1 ? '' : 's'} según las hojas programadas` : 'Por baterías · programe la hoja de vuelo para calcular las jornadas') : 'Por horario de trabajo'}</small></span>
+      <label class="tr-dias">${vuelo && dv ? `<b>${dv}</b>` : `<input type="number" min="1" max="60" value="${esc(t.dias)}" data-accion="trabajo-dias" data-id="${esc(p.id)}" data-i="${k}" aria-label="Días de ${esc(NOMBRE_CATEGORIA[t.cat] || t.cat)}" ${edita ? '' : 'disabled'}>`} días</label>
+      ${k ? `<label class="tr-par"><input type="checkbox" data-accion="trabajo-paralelo" data-id="${esc(p.id)}" data-i="${k}" ${t.paralelo ? 'checked' : ''} ${edita ? '' : 'disabled'}> En paralelo con el anterior</label>` : '<span class="tr-par"></span>'}
+      <span class="tr-acc">${enlace ? `<a class="sis-btn chico" href="${enlace(p.id)}">${TEXTO_ENLACE[t.cat]}</a>` : ''}
+        ${edita ? `<button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="-1" ${k ? '' : 'disabled'} aria-label="Subir">↑</button><button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="1" ${k < ts.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button>` : ''}</span></li>`;
+  }).join('');
+  const crono = desde ? cronogramaDeTrabajos(ts, desde, { diasDe: t => (POR_BATERIAS.has(t.cat) && dv ? dv : t.dias), nombre: c => NOMBRE_CATEGORIA[c] || c, plazo: p.plazo }) : [];
+  return `<section class="sis-tarjeta" id="trabajos"><div class="sis-cab"><div><h2>Trabajos del proyecto</h2><span class="sis-tenue">${edita ? 'Ordénelos arrastrando o con las flechas: el cronograma de terreno sigue este orden.' : 'Orden de ejecución definido por el encargado.'}</span></div></div>
+    <ol class="tr-lista">${filas}</ol>
+    ${avisos.map(a => `<p class="sis-aviso-linea">${esc(a)}</p>`).join('')}
+    ${crono.length ? `<p class="sis-tenue">Desde el ${fechaLegible(desde)}: terreno hasta el ${fechaLegible(crono.filter(a => a.cat !== 'gabinete').reduce((m, a) => (a.hasta > m ? a.hasta : m), crono[0].hasta))}${p.plazo ? `, plazo de entrega ${fechaLegible(p.plazo)}` : ''}.${crono.some(a => a.cat !== 'gabinete' && p.plazo && a.hasta > p.plazo) ? ' <b class="enc-rojo">El terreno termina después del plazo.</b>' : ''}</p>
+      ${edita ? `<div class="sis-acciones"><button type="button" class="sis-btn chico primario" data-accion="aplicar-trabajos" data-id="${esc(p.id)}">Llevar al cronograma</button></div>` : ''}`
+      : `<p class="sis-tenue">${edita ? `Indique la fecha de inicio de terreno en <a href="#/proyecto-tecnico/${esc(p.id)}">Datos técnicos</a> para armar el cronograma.` : 'Sin fecha de inicio todavía.'}</p>`}
+  </section>`;
+}
+
+function htmlCapas(p, ctx) {
+  const c = p.capas;
+  const edita = ctx.rol === 'terreno' || ctx.rol === 'direccion';
+  const cargar = edita ? `<label class="sis-btn chico">${c ? '+ Agregar KMZ' : 'Cargar KMZ'}<input type="file" accept=".kml,.kmz" multiple data-accion="capas-cargar" data-id="${esc(p.id)}" hidden></label>` : '';
+  if (!c) return edita ? `<section class="sis-tarjeta" id="capas"><div class="sis-cab"><h2>Capas del proyecto</h2>${cargar}</div><p class="sis-tenue">Caminos y PR ya instalados (KMZ o KML). Las hojas de vuelo los usan para elegir las bases de amarre con la menor cantidad de instalaciones.</p></section>` : '';
+  const prs = c.prs || [];
+  return `<section class="sis-tarjeta" id="capas"><div class="sis-cab"><div><h2>Capas del proyecto</h2><span class="sis-tenue">${esc(resumenCapas(c) || 'Sin PR activos')} · ${esc((c.archivos || []).join(', '))}</span></div><span class="sis-acciones">${cargar}${edita ? `<button type="button" class="sis-btn chico" data-accion="capas-quitar" data-id="${esc(p.id)}">Quitar</button>` : ''}</span></div>
+    ${prs.length ? `<div class="cap-prs">${prs.map(x => `<label class="cap-pr${x.usar === false ? ' off' : ''}"><input type="checkbox" data-accion="capa-pr-usar" data-id="${esc(p.id)}" data-pr="${esc(x.id)}" ${x.usar !== false ? 'checked' : ''} ${edita ? '' : 'disabled'}><span>${esc(x.nombre)}</span></label>`).join('')}</div>
+      <p class="sis-tenue">Solo los puntos marcados se usan como PR para el amarre de los vuelos. Los puntos sin nombre útil («Marcador sin título») se cargan desmarcados.</p>` : '<p class="sis-tenue">La capa no trae puntos (PR).</p>'}
+  </section>`;
 }
 
 // ─────────── v0.16 · Encargo: acuse de recibo, calidad, cronograma y bitácora ───────────
@@ -203,6 +256,8 @@ export async function proyecto(ctx, id) {
   const nomPers = pid => (personas.find(x => x.id === pid) || {}).nombre || '';
   const enProyecto = equipos.filter(e => e.ubicacion.lugar === 'terreno' && e.ubicacion.proyectoId === id);
   const esOficina = id === OFICINA_ID;
+  // v0.17: proyecto propio del encargado (no lo encargó Jefatura): no aplica la calidad del encargo.
+  const propio = !!(p.encargo && p.encargo.emitidoPor && p.encargo.emitidoPor === p.encargadoId);
   const plazo = p.plazo ? (() => { const d = diasEntre(hoyISO(), p.plazo); return `${fechaLegible(p.plazo)}${d >= 0 ? ` · faltan ${d} d` : ` · vencido hace ${-d} d`}`; })() : '';
 
   const meta = (t, v) => v ? `<span>${t}: <b>${v}</b></span>` : '';
@@ -225,26 +280,28 @@ export async function proyecto(ctx, id) {
         ${textosTipos(p).length ? `<div class="sis-chips" style="margin-top:10px">${textosTipos(p).map(t => `<span class="sis-chip gris">${esc(t)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="sis-acciones">${esOficina ? '<span class="sis-chip gris">Especial</span>' : `<span class="sis-chip ${p.estado === 'cerrado' ? 'gris' : 'verde'}">${p.estado === 'cerrado' ? 'Cerrado' : 'Activo'}</span>
-        <a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Editar</a>`}</div>
+        <a class="sis-btn chico" href="${ctx.rol === 'terreno' ? '#/proyecto-tecnico/' : '#/encargo/'}${esc(p.id)}">${ctx.rol === 'terreno' ? 'Datos técnicos' : 'Editar'}</a>`}</div>
     </div>
     ${esOficina ? '' : (() => { const et = etapaProyecto(p), iEt = ETAPAS_PROYECTO.findIndex(([k]) => k === et); return `<section class="sis-tarjeta sis-etapa-ficha"><div class="sis-etapas-pasos">${ETAPAS_PROYECTO.map(([k, t], i) => `<button type="button" class="sis-etapa-paso${i < iEt ? ' hecho' : i === iEt ? ' actual' : ''}" data-accion="etapa-proyecto" data-id="${esc(p.id)}" data-e="${k}" ${i === iEt ? 'aria-current="step"' : ''}><span>${i < iEt ? '✓' : i + 1}</span>${t}${p.etapas && p.etapas[k] ? `<small>${fechaLegible(p.etapas[k])}</small>` : ''}</button>`).join('')}</div></section>`; })()}
     ${esOficina ? '' : htmlAcuse(p, ctx, nomPers)}
     ${p.notas ? `<p class="sis-notas">${esc(p.notas)}</p>` : ''}
+    ${!esOficina && ctx.rol === 'terreno' ? `<div class="tec-plan"><h2 class="tec-plan-tit">Planificación técnica</h2>${htmlTrabajos(p, ctx, planes)}${htmlCapas(p, ctx)}</div>` : ''}
     <div class="sis-dos"><div>
       ${esOficina ? '' : `<section class="sis-tarjeta">
-        <div class="sis-cab"><h2>Ficha de encargo</h2><a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a></div>
+        <div class="sis-cab"><h2>${propio ? 'Datos del proyecto' : 'Ficha de encargo'}</h2>${ctx.rol === 'terreno' ? '' : `<a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a>`}</div>
         <div class="sis-datos ad-encargo">
           <div class="sis-dato"><span>Mandante</span><b>${esc(cua && cua.mandante ? `${cua.mandante.nombre}${cua.mandante.plataforma ? ` · ${cua.mandante.plataforma}` : ''}` : (p.mandante || '—'))}</b></div>
           <div class="sis-dato"><span>Encargó</span><b>${esc([p.solicitadoPor, p.fechaEncargo && fechaLegible(p.fechaEncargo)].filter(Boolean).join(' · ') || '—')}</b></div>
           <div class="sis-dato"><span>Plazo</span><b>${esc(plazo || '—')}</b></div>
         </div>
         ${p.alcance ? `<p><b>Alcance:</b> ${esc(p.alcance)}</p>` : ''}${p.entregablesPedidos ? `<p><b>Entregables solicitados:</b> ${esc(p.entregablesPedidos)}</p>` : ''}
-        ${!p.alcance && !p.entregablesPedidos ? '<p class="sis-tenue">Registre el alcance y los entregables solicitados en «Editar». Se ingresan una sola vez y quedan disponibles para todo el proyecto.</p>' : ''}
-        ${htmlCalidad(p)}
+        ${!p.alcance && !p.entregablesPedidos ? `<p class="sis-tenue">Registre el alcance${ctx.rol === 'terreno' ? ' en «Datos técnicos»' : ' y los entregables solicitados en «Editar»'}. Se ingresa una sola vez y queda disponible para todo el proyecto.</p>` : ''}
+        ${propio ? '' : htmlCalidad(p)}
         <div class="sis-cab" style="margin-top:8px"><h3 class="sis-sub">Archivos del mandante</h3><label class="sis-btn chico">+ Adjuntar<input type="file" data-accion="encargo-archivo" data-id="${esc(id)}" hidden></label></div>
         ${archEnc.length ? `<div class="sis-chips">${archEnc.map(a => `<button type="button" class="sis-btn chico" data-accion="abrir-pdf" data-id="${esc(a.id)}">${ICONO.pdf}${esc(a.nombre)}</button>`).join('')}</div>` : '<p class="sis-tenue">Bases técnicas, KMZ del área, planos o correos del encargo.</p>'}
       </section>
       ${htmlCronograma(p, nomPers, hoy)}
+      ${ctx.rol === 'terreno' ? '' : htmlTrabajos(p, ctx, planes)}
       ${htmlBitacora(p, ctx, nomPers)}
       `}
       ${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? (() => { const cs = ciclosEntre(p.periodicidad, hoyISO(), sumarDias(hoyISO(), 120)).slice(0, 3);
@@ -310,7 +367,7 @@ export async function proyecto(ctx, id) {
       })() : ''}`}
     </div><aside>
       ${esOficina || !cua ? '' : `<section class="sis-tarjeta">
-        <div class="sis-cab"><h2>Cuadrilla y vehículos</h2><a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a></div>
+        <div class="sis-cab"><h2>Cuadrilla y vehículos</h2>${ctx.rol === 'terreno' ? '' : `<a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a>`}</div>
         ${cua.mandante ? `<p class="sis-tenue">Acreditación según ${esc(cua.mandante.nombre)}${cua.mandante.plataforma ? ` (${esc(cua.mandante.plataforma)})` : ''}.</p>` : '<p class="sis-tenue">Sin mandante con requisitos: se muestra la habilitación general.</p>'}
         ${cua.gente.length ? `<div class="sis-lista">${cua.gente.map(g => `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(g.persona.nombre)}</b><span class="sis-tenue">${esc(g.persona.cargo || '')}${(ctx.rol !== 'direccion') && g.emergencia && g.emergencia.telefono ? ` · emergencia: ${esc(g.emergencia.nombre || '')} ${esc(g.emergencia.telefono)}` : ''}</span></span><span class="sis-chips">${g.ausente ? '<span class="sis-chip ambar">Ausente hoy</span>' : ''}${chipHab(g.h, cua.mandante && (cua.mandante.requisitosPersona || []).length ? 'Acreditado' : 'Habilitado', cua.mandante && (cua.mandante.requisitosPersona || []).length ? 'No acreditado' : 'No habilitado')}</span></div>`).join('')}</div>` : '<p class="sis-tenue">Sin cuadrilla asignada.</p>'}
         ${cua.vehiculos.length ? `<div class="sis-lista">${cua.vehiculos.map(x => `<div class="sis-fila"><span class="sis-fila-txt"><b class="mono">${esc(x.vehiculo.patente)}</b><span class="sis-tenue">${esc([x.vehiculo.marca, x.vehiculo.modelo].filter(Boolean).join(' '))}</span></span><span class="sis-chips">${chipHab(x.h, 'Acreditada', 'No acreditada')}</span></div>`).join('')}</div>` : ''}

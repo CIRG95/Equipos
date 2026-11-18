@@ -573,3 +573,26 @@ a.sis-kpi:hover{border-color:var(--marca);}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important; scroll-behavior:auto !important;} }
 
 .sis-registro > *{min-width:0;} .sis-mandantes{max-width:100%;}
+
+/* ================= Sistema v0.17 · Planificación técnica en la ficha del proyecto ================= */
+.tec-plan{margin-bottom:6px;}
+.tec-plan-tit{font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:6px 0 8px; font-weight:600;}
+.tr-lista{list-style:none; margin:8px 0 10px; padding:0; display:flex; flex-direction:column; gap:6px;}
+.tr-fila{display:grid; grid-template-columns:auto auto minmax(0,1fr) auto auto auto; gap:10px; align-items:center; border:1px solid var(--borde); border-radius:10px; padding:8px 10px; background:#fff;}
+.tr-fila.paralelo{margin-left:26px; border-style:dashed;}
+.tr-fila[draggable="true"]{cursor:grab;} .tr-fila.llevando{opacity:.45;} .tr-fila.sobre{border-color:var(--marca); background:var(--marca-suave);}
+.tr-asa{color:#A8A49B; font-size:16px; line-height:1;}
+.tr-n{width:24px; height:24px; border-radius:50%; background:var(--marca); color:#fff; display:grid; place-items:center; font-size:12px; font-weight:700;}
+.tr-txt{min-width:0;} .tr-txt b{display:block;} .tr-txt small{display:block; color:var(--muted); font-size:12.5px;}
+.tr-dias{display:inline-flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); white-space:nowrap;}
+.tr-dias input{width:58px; min-height:34px; border:1px solid var(--line); border-radius:8px; padding:4px 6px; font:inherit;}
+.tr-par{display:inline-flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); white-space:nowrap;}
+.tr-par input{accent-color:var(--marca); width:16px; height:16px;}
+.tr-acc{display:inline-flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;}
+body[data-modo="telefono"] .tr-fila{grid-template-columns:auto minmax(0,1fr) auto; }
+body[data-modo="telefono"] .tr-asa{display:none;}
+body[data-modo="telefono"] .tr-dias, body[data-modo="telefono"] .tr-par{grid-column:2 / 4;}
+body[data-modo="telefono"] .tr-acc{grid-column:1 / 4; justify-content:flex-start;}
+.cap-prs{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0;}
+.cap-pr{display:inline-flex; gap:6px; align-items:center; border:1px solid var(--borde); border-radius:999px; padding:4px 10px 4px 8px; font-size:13px; background:#fff; cursor:pointer;}
+.cap-pr input{accent-color:var(--marca);} .cap-pr.off{color:var(--muted); background:#F4F3EF; border-style:dashed;}

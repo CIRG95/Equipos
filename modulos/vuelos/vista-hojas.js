@@ -6,7 +6,7 @@ import { escapar as esc, fechaLegible } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { chip, kpi, fechaHora, dosD } from './ui.js';
 import { OFICINA_ID } from '../../compartido/catalogos.js';
-import { totales, estadoPermiso, nombreSector, CONSULTAS, jornadasNecesarias, HORARIO_INICIAL, kmADm, etapaVuelo, ETAPAS_VUELO, NOMBRE_ETAPA_VUELO, documentosPermiso } from './hoja.js';
+import { totales, estadoPermiso, nombreSector, CONSULTAS, kmADm, etapaVuelo, ETAPAS_VUELO, NOMBRE_ETAPA_VUELO, documentosPermiso } from './hoja.js';
 import { pedirPronostico, pedirKp } from './pronostico.js';
 import { analizarDia as analizarDiaPron } from './pronostico-widget.js';
 import { textoUbicacion } from './ubicacion.js';
@@ -183,7 +183,7 @@ export function crearVistaHojas(v) {
   const colorDia = k => COLORES_DIA[k % COLORES_DIA.length];
 
   /** Miniatura SVG del área con cada sector pintado según la jornada en que se vuela. */
-  function miniatura(g, diaDe) {
+  function miniatura(g, diaDe, marcas = []) {
     const todos = g.sectores.flatMap(s => s.poligono);
     if (!todos.length) return '';
     // v0.11.3: sobre imagen híbrida fija (Esri), sin mover ni hacer zoom. Sin internet queda el esquema sobre gris.
@@ -192,7 +192,8 @@ export function crearVistaHojas(v) {
     const pt = p => f.xy(aLL(p)).map(x => x.toFixed(1)).join(',');
     const poli = (s, i) => { const paso = Math.max(1, Math.ceil(s.poligono.length / 400)); return `<polygon points="${s.poligono.filter((_, j) => j % paso === 0).map(pt).join(' ')}" fill="${colorDia(diaDe[i] ?? 0)}" fill-opacity=".35" stroke="${colorDia(diaDe[i] ?? 0)}" stroke-width="3" stroke-linejoin="round"><title>${esc(nombreSector(st.hoja, i, g.sectores.length))}</title></polygon>`; };
     return `<div class="vu-mapa-fijo" style="aspect-ratio: ${W} / ${H}"><div class="vu-mapa-fijo-teselas" aria-hidden="true">${f.html}</div>
-      <svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del área con sus sectores sobre imagen satelital">${g.sectores.map(poli).join('')}</svg>
+      <svg class="vu-res-mapa" viewBox="0 0 ${W} ${H}" role="img" aria-label="Esquema del área con sus sectores sobre imagen satelital">${g.sectores.map(poli).join('')}${marcas.map(m => { const [x, y] = f.xy(m.ll); if (x < -20 || y < -20 || x > W + 20 || y > H + 20) return ''; const r = m.base ? 7 : 4.5;
+        return `<g><polygon points="${x},${y - r} ${x - r},${y + r * 0.8} ${x + r},${y + r * 0.8}" fill="${m.nuevo ? '#fff' : m.color}" stroke="${m.base ? (m.nuevo ? m.color : '#fff') : '#fff'}" stroke-width="${m.nuevo ? 2.5 : 1.5}"/>${m.base ? `<text x="${x + r + 3}" y="${y + 4}" font-size="12" font-weight="600" fill="#fff" stroke="#1C1F23" stroke-width="3" paint-order="stroke">${esc(m.nombre)}</text>` : ''}</g>`; }).join('')}</svg>
       <small class="vu-mapa-fijo-atr">Imagen © Esri, Maxar</small></div>`;
   }
 
@@ -200,10 +201,12 @@ export function crearVistaHojas(v) {
   function htmlBateriasDia(h, g, t, di) {
     const filas = [];
     let n = 0;
+    // v0.10: por baterías, el día trae su lista exacta (un sector puede repartirse entre días).
+    const delDia = di.lista ? new Set(di.lista.map(x => `${x.i}:${x.b}`)) : null;
     for (const i of di.sectores) {
       const r = t.sectores[i];
       if (!r || !r.baterias) continue;
-      r.baterias.forEach((b, k) => { n++; filas.push(`<li><b>B${n}</b><span>${esc(nombreSector(h, i, g.sectores.length))}${r.baterias.length > 1 ? ` · ${k + 1}/${r.baterias.length}` : ''}</span><span class="vu-mono">${fmtDuracion(b.seg / 60)}</span><small>${b.traslado ? `incluye ${fmtDuracion(b.traslado / 60)} de ida y vuelta` : ''}${b.excede ? ' · <b class="vu-rojo">no alcanza</b>' : ''}</small></li>`); });
+      r.baterias.forEach((b, k) => { if (delDia && !delDia.has(`${i}:${k}`)) return; n++; filas.push(`<li><b>B${n}</b><span>${esc(nombreSector(h, i, g.sectores.length))}${r.baterias.length > 1 ? ` · ${k + 1}/${r.baterias.length}` : ''}</span><span class="vu-mono">${fmtDuracion(b.seg / 60)}</span><small>${b.traslado ? `incluye ${fmtDuracion(b.traslado / 60)} de ida y vuelta` : ''}${b.excede ? ' · <b class="vu-rojo">no alcanza</b>' : ''}</small></li>`); });
     }
     return filas.length ? `<details class="vu-bat-dia"><summary>Ver las ${filas.length} batería${filas.length === 1 ? '' : 's'}</summary><ol>${filas.join('')}</ol></details>` : '<span></span>';
   }
@@ -223,10 +226,9 @@ export function crearVistaHojas(v) {
     const h = st.hoja, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null, c = h.clima, perm = estadoPermiso(h);
     const zonas = g ? zonasDeHoja() : [];
     const climaObs = c && c.checklist && c.checklist.some(x => !x.cumple);
-    const jor = t ? jornadasNecesarias(h, d, g, t) : null;
+    const jor = t ? v.jornadasDeHoja(h, d, g, t) : null;
     const diaDe = {};
     if (jor) jor.dias.forEach((di, k) => di.sectores.forEach(i => { diaDe[i] = k; }));
-    const hor = { ...HORARIO_INICIAL, ...(h.params.horario || {}) };
     const fechas = jor && h.fecha ? diasHabilesDesde(h.fecha, jor.dias.length) : [];
     const programado = Array.isArray(h.programa) && h.programa.length;
     const limiteDgac = h.fecha ? restarHabiles((h.programa && h.programa[0] && h.programa[0].fecha) || h.fecha, 7) : null;
@@ -254,7 +256,7 @@ export function crearVistaHojas(v) {
       <div class="vu-res-dos">
         <section class="sis-tarjeta vu-res-card">
           <div class="vu-res-tit"><h2>1 · Área</h2><button class="vu-link" data-accion="paso" data-paso="area">${g ? 'Editar área' : 'Cargar área'} →</button></div>
-          ${g ? `${miniatura(g, diaDe)}
+          ${g ? `${miniatura(g, diaDe, v.marcasAmarre(h, g))}
             <div class="vu-res-datos">
               <div><small>Origen</small><b>${esc(h.area.archivo || '—')}</b></div>
               <div><small>${g.tipo === 'corredor' ? 'Corredor' : 'Superficie'}</small><b>${g.tipo === 'corredor' ? `${fmt(g.sectores.reduce((s, x) => s + x.largo, 0) / 1000, 2)} km · ${fmt(g.izq + g.der, 0)} m` : `${fmt(g.areaVuelo / 10000, 1)} ha${Number(h.area.margen) ? ` · +${h.area.margen} m` : ''}`}</b></div>
@@ -269,21 +271,19 @@ export function crearVistaHojas(v) {
           ${t ? `<div class="vu-mini-kpis">${kpi('GSD', h.params.modo === 'lidar' ? '—' : `${fmt(t.gsd, 2)} cm`)}${kpi('Altura', `${fmt(t.altura, 0)} m`)}${kpi('Baterías', t.baterias)}${kpi('Fotos', fmt(t.fotos))}</div>
             <p class="vu-res-linea"><span>Traslapes ${h.params.traslapeFrontal}/${h.params.traslapeLateral} % · ${t.sectores[0] ? fmt(t.sectores[0].velocidad, 1) : '—'} m/s</span><span>En el aire ${fmtDuracion(t.minVuelo)} · jornada ${fmtDuracion(t.minJornada)}</span></p>
             <div class="vu-jornadas">
-              <div class="vu-jornadas-cab"><b>Jornadas necesarias: ${jor ? jor.dias.length : '—'}</b>
-                <span class="vu-horario">Horario <input type="time" data-horario="inicio" value="${esc(hor.inicio)}" aria-label="Hora de inicio">–<input type="time" data-horario="fin" value="${esc(hor.fin)}" aria-label="Hora de término">
-                  · pausa <input type="number" min="0" max="240" step="5" data-horario="pausa" value="${esc(hor.pausa)}" aria-label="Pausa en minutos"> min
-                  · traslado entre sectores <input type="number" min="0" max="240" step="5" data-horario="traslado" value="${esc(hor.traslado)}" aria-label="Traslado entre sectores en minutos"> min</span></div>
+              <div class="vu-jornadas-cab">${v.htmlControlesJornada(h, jor)}</div>
               ${jor && jor.util ? `<div class="vu-dias">${jor.dias.map((di, k) => { const a = di.sectores[0], b = di.sectores[di.sectores.length - 1], n = g.sectores.length;
                 const rango = n > 1 ? (a === b ? nombreSector(h, a, n) : g.sectores[a].dm && g.sectores[b].dm ? `${kmADm(Math.min(...g.sectores[a].dm, ...g.sectores[b].dm))} – ${kmADm(Math.max(...g.sectores[a].dm, ...g.sectores[b].dm))}` : `${nombreSector(h, a, n)} a ${nombreSector(h, b, n)}`) : 'Área completa';
                 return `<b>Día ${k + 1}${fechas[k] ? `<small>${esc(diaCorto(fechas[k]))}</small>` : ''}</b><div class="vu-dia-barra"><i style="width: ${Math.min(100, 100 * di.min / jor.util).toFixed(1)}%; background: ${colorDia(k)}"></i></div><span class="vu-dia-min${di.excede ? ' vu-rojo' : ''}">${fmtDuracion(di.min)}</span>
-                  <span></span><small class="vu-dia-det">${esc(rango)} · ${di.sectores.length} sector${di.sectores.length === 1 ? '' : 'es'} · ${di.baterias} batería${di.baterias === 1 ? '' : 's'}${di.excede ? ' · <b>no cabe en el horario: divide el sector</b>' : ''}</small><span></span>
+                  <span></span><small class="vu-dia-det">${esc(rango)} · ${di.sectores.length} sector${di.sectores.length === 1 ? '' : 'es'} · ${jor.modo === 'baterias' ? v.detalleDia(h, g, jor, di) : `${di.baterias} batería${di.baterias === 1 ? '' : 's'}`}${di.excede ? ' · <b>no cabe en el horario: divide el sector</b>' : ''}</small><span></span>
                   <span></span>${htmlBateriasDia(h, g, t, di)}<span></span>`; }).join('')}</div>
-                <p class="sis-tenue vu-res-nota">Cada día toma sectores completos, en orden${g.sectores.some(s => s.dm) ? ' (sentido del eje)' : ''}, hasta llenar ${fmtDuracion(jor.util)} útiles. ${h.fecha ? 'Días hábiles desde el primer día de vuelo.' : 'Pon el primer día de vuelo para ver las fechas.'}</p>
+                <p class="sis-tenue vu-res-nota">${jor.modo === 'baterias' ? `Cada día usa ${jor.cfg.baterias} baterías${jor.cfg.recarga ? ' por bloque (dos bloques con recarga)' : ''}, ${jor.amarre ? 'volando cada grupo desde su base' : 'en el orden de los sectores'}; un grupo que no alcanza sigue al día siguiente con la misma base.` : `Cada día toma sectores completos, en orden${g.sectores.some(s => s.dm) ? ' (sentido del eje)' : ''}, hasta llenar ${fmtDuracion(jor.util)} útiles.`} ${h.fecha ? 'Días hábiles desde el primer día de vuelo.' : 'Pon el primer día de vuelo para ver las fechas.'}</p>
                 <div class="sis-acciones"><button class="sis-btn chico${programado ? '' : ' primario'}" data-accion="programar" ${h.fecha ? '' : 'disabled'}>${programado ? `Actualizar el calendario (${h.programa.length} días)` : `Agregar ${jor.dias.length === 1 ? 'la jornada' : `las ${jor.dias.length} jornadas`} al calendario`}</button>${programado ? '<button class="sis-btn chico" data-accion="desprogramar">Quitar del calendario</button>' : ''}</div>`
                 : '<p class="vu-rojo">Revisa el horario: el término debe ser después del inicio.</p>'}
             </div>` : '<p class="sis-tenue">Cuando cargues el área, aquí aparece el plan de vuelo.</p>'}
         </section>
       </div>
+      ${g ? v.htmlAmarre(h, g) : ''}
       <div class="vu-res-dos">
         <section class="sis-tarjeta vu-res-card">
           <div class="vu-res-tit"><h2>3 · Clima</h2><button class="vu-link" data-accion="paso" data-paso="clima">${c ? 'Ver pronóstico' : 'Consultar'} →</button></div>

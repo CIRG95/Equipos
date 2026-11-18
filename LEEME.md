@@ -1,4 +1,32 @@
-# Topoland · Sistema de trabajo — v0.16
+# Topoland · Sistema de trabajo — v0.17
+
+**Sistema v0.17 = v0.16 + roles separados en proyectos + Vuelos 0.10 (bases de amarre y jornadas por baterías) + trabajos ordenables.** Pedido por Camilo el 17-nov-2026.
+
+## Qué cambia en v0.17
+- **Roles separados.** Jefatura encarga con «Encargar proyecto» (datos, cronograma, información y equipo). El encargado de terreno ya no ve ese asistente: tiene **«Nuevo proyecto»** (formulario corto para un trabajo que llegó por correo) y **«Datos técnicos»** para ajustar tipos, fechas, sistema de referencia y capas de un proyecto recibido. Si el proyecto lo encargó Jefatura, el nombre, mandante, plazo y alcance quedan a cargo de quien encargó.
+- **Ficha del proyecto para el encargado:** sección «Planificación técnica» arriba, con:
+  - **Trabajos del proyecto:** GNSS, vuelos, estación total, etc., ordenables arrastrando o con flechas, con días por trabajo y «en paralelo con el anterior». Los vuelos toman sus días de las hojas programadas (por baterías); el resto, por horario de trabajo. «Llevar al cronograma» arma las actividades en ese orden (conserva las ya realizadas). Avisa si los vuelos necesitan PR nuevos y van antes de la red GNSS.
+  - **Capas del proyecto:** KMZ/KML con caminos (líneas) y PR instalados (puntos). Los puntos sin nombre («Marcador sin título») se cargan desmarcados.
+- **Inicio del encargado:** tarjeta «Mis proyectos» (encargos de Jefatura y propios, acuse pendiente, actividades atrasadas).
+- **Vuelos 0.10 · Bases de amarre (PR):** en el Resumen de la hoja, el Sistema elige la **menor cantidad de PR base** que deja cada sector dentro del radio de amarre (5 km por defecto, ajustable), prefiriendo bases centradas y cerca de un camino. Si un sector no lo alcanza ningún PR, sugiere PR nuevos sobre los caminos; si el sector es más grande que el radio, avisa que hay que dividirlo. Cada sector puede cambiar de base a mano («Volver a la propuesta» deshace). Las bases se ven en el esquema del área.
+- **Vuelos 0.10 · Jornadas por baterías:** las jornadas de vuelo se calculan con las baterías disponibles (4 por defecto), agrupadas por base; un grupo que no cabe sigue al día siguiente con la misma base. Opción «Volver a cargar baterías a mediodía» (ida y vuelta, carga y almuerzo) con comparación sin/con recarga. Se mantiene el cálculo «Por horario». Al programar, cada día guarda su base.
+- **Corrección:** al marcar algo dentro de una pantalla, la posición se toma antes de cargar los datos (evita saltos).
+
+## Pendiente de calibrar (Camilo, vuelos del 18-nov)
+- Autonomía real por batería, % al aterrizar, tiempos de instalación de base, traslado y carga de las 4 baterías: con esos datos se ajustan los valores por defecto.
+
+## Límites conocidos
+- Las capas y los trabajos se guardan dentro del proyecto (sin almacenes nuevos): si dos personas los editan sin conexión al mismo tiempo, prevalece el último guardado.
+- Planificación (red de PR) todavía no usa los PR de las capas del proyecto como puntos existentes.
+- El paquete de conexión y la app de Terreno no cambian.
+
+## Pruebas
+- 146 pruebas (`node --test pruebas/*.test.mjs`): nuevas `amarre` (13) y `trabajos` (6).
+- Navegador (Playwright, datos ficticios): flujo del encargado con capas de 11 PR y 3 caminos, orden de trabajos, hoja de vuelo con bases y jornadas, recarga, radio y cambio manual; recorrido de todas las pantallas con los 3 roles; flujos de la v0.16; Terreno sin señal.
+
+---
+
+## Versión anterior: v0.16
 
 **Sistema v0.16 = v0.15 + Encargo de proyectos + Administración 0.2 (gestión de personal) + buscador lateral + Configuración + Terreno 0.6.0 (sin conexión).** Pedido por Camilo el 16-nov-2026.
 

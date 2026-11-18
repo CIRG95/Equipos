@@ -12,7 +12,7 @@ import { VERSION_SISTEMA } from './version.js';
 import { ICONO, filaEquipo, vacio, estadoAlerta, aFechaL, lunesDe, diaCorto } from './vistas-ui.js';
 import * as Administracion from '../modulos/administracion/administracion.js';
 import { ordenarPendientes } from '../compartido/vencimientos.js';
-import { pendientesEncargo, calidadEncargo, sinAcuse, entradasAbiertas, resumenCronograma } from './encargo.js';
+import { pendientesEncargo, calidadEncargo, sinAcuse, entradasAbiertas, resumenCronograma, genteDeProyecto } from './encargo.js';
 
 // ─────────── Mis pendientes (v0.15): un solo listado con todo lo que requiere una acción, según el rol ───────────
 const NIVEL_PEND = { rojo: ['Vencido', 'rojo'], ambar: ['Por vencer', 'ambar'] };
@@ -211,12 +211,19 @@ async function inicioTerreno(ctx, { personas, proyectos, equipos, yo, saludo, bi
         ...logs.map(v => ({ nivel: 'rojo', etiqueta: 'Pendiente', categoria: 'Permisos DGAC', titulo: `Log de vuelo pendiente · ${v.nombre}`, detalle: `${v.proyectoId ? `${nomProy(v.proyectoId)} ya está en ${NOMBRE_ETAPA_PROYECTO[etapaDe(v.proyectoId)].toLowerCase()}. ` : ''}Cárguelo en el paso Permisos de la hoja de vuelo.`, enlace: `#/vuelos/plan/${v.id}`, fecha: null })),
         ...entregas.filter(e => !yo || (proyectos.find(p => p.id === e.proyectoId) || {}).encargadoId === yo.id).map(e => ({ nivel: 'ambar', etiqueta: `En ${diasEntre(hoy, e.fecha)} días`, categoria: 'Entregas', titulo: e.texto, detalle: `Fecha de entrega: ${fechaLegible(e.fecha)}.`, enlace: e.enlace || '#/seguimiento', fecha: e.fecha })),
       ] }), ctx)}
+      ${(() => { // v0.17 · Mis proyectos: lo encargado por Jefatura y lo propio, con su avance técnico
+        const mios = activos.filter(p => yo && genteDeProyecto(p).includes(yo.id));
+        const fila = p => { const deJ = p.encargo && p.encargo.emitidoPor && p.encargo.emitidoPor !== (yo && yo.id); const r = resumenCronograma(p.cronograma, hoy);
+          return `<a class="sis-fila" href="#/proyecto/${esc(p.id)}"><span class="sis-fila-txt"><b>${esc(p.nombre)}</b><span class="sis-tenue">${esc(p.mandante || 'Sin mandante')}${p.plazo ? ` · plazo ${fechaLegible(p.plazo)}` : ''}${r.total ? ` · ${r.hechas}/${r.total} actividades` : ''}</span></span>
+            <span class="sis-chips">${sinAcuse(p) && p.encargadoId === (yo && yo.id) ? '<span class="sis-chip rojo">Acusar recibo</span>' : ''}${r.atrasadas.length ? `<span class="sis-chip ambar">${r.atrasadas.length} atrasada${r.atrasadas.length > 1 ? 's' : ''}</span>` : ''}<span class="sis-chip ${deJ ? 'azul' : 'gris'}">${deJ ? 'Encargo de Jefatura' : 'Propio'}</span>${p.capas ? '<span class="sis-chip gris">Capas</span>' : ''}</span></a>`; };
+        return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Mis proyectos</h2><a class="sis-btn chico primario" href="#/proyecto-tecnico/nuevo">+ Nuevo proyecto</a></div>
+          ${mios.length ? `<div class="sis-lista">${mios.map(fila).join('')}</div>` : '<p class="sis-tenue">No tiene proyectos activos a su cargo. Los encargos de Jefatura llegan aquí; si un trabajo llegó por correo, créelo con «Nuevo proyecto».</p>'}</section>`; })()}
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Calendario · proyectos activos</h2><a class="sis-btn chico" href="#/proyectos/calendario">Ver mes completo</a></div>
         ${htmlFranjaProyectos(eventos, proyectos, lunes)}</section>
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Estado de los proyectos</h2><a class="sis-btn chico" href="#/proyectos">Ir a Proyectos</a></div>
         <div class="ini-etapas">${caja('terreno', 'Terreno')}${caja('gabinete', 'Proceso en gabinete')}${caja('entregables', 'Entregables')}
           <a class="ini-etapa completado" href="#/proyectos/registro"><small>Completados (mes)</small><b>${completadosMes.length}</b><span>pasan al registro por mandante</span></a></div>
-        ${!activos.length ? vacio('Aún no hay proyectos activos. Registre el primero con «Encargar proyecto».', '<a class="sis-btn primario" href="#/encargo/nuevo">+ Encargar proyecto</a>') : ''}
+        ${!activos.length ? vacio('Aún no hay proyectos activos. Los encargos de Jefatura aparecen aquí; si el trabajo llegó por correo, créelo con «Nuevo proyecto».', '<a class="sis-btn primario" href="#/proyecto-tecnico/nuevo">+ Nuevo proyecto</a>') : ''}
       </section>
     </div><aside>
       <section class="sis-tarjeta"><h2>Alertas de equipos</h2>

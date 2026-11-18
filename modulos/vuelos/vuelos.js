@@ -30,7 +30,7 @@ export async function planesDeProyecto(proyectoId) {
   const [planes, drones] = await Promise.all([planesCrudos(proyectoId), listarDrones()]);
   return planes.map(p => {
     const d = drones.find(x => x.id === p.dronId);
-    return { id: p.id, nombre: p.nombre, dronId: p.dronId, dron: (d || {}).nombre || p.dronId, resumen: p.resumen || {}, ...jornadasYMapa(p, d) };
+    return { id: p.id, nombre: p.nombre, programadas: Array.isArray(p.programa) ? p.programa.length : 0, dronId: p.dronId, dron: (d || {}).nombre || p.dronId, resumen: p.resumen || {}, ...jornadasYMapa(p, d) };
   });
 }
 
@@ -42,10 +42,14 @@ function jornadasYMapa(plan, d) {
   try {
     const h = migrarHoja(plan), g = geometria(h);
     if (!g || !d) return { jornadas: [], mapa: '' };
-    const t = totales(h, d, g), jor = jornadasNecesarias(h, d, g, t);
+    const t = totales(h, d, g);
+    // v0.10: si la hoja ya está programada (por baterías o por horario), se muestran esas jornadas tal cual.
+    const prog = Array.isArray(h.programa) && h.programa.length ? h.programa : null;
+    const jor = prog ? { dias: prog.map(x => ({ sectores: [], baterias: x.baterias, min: x.min, excede: false, nombres: x.sectores, bases: x.bases || [] })) } : jornadasNecesarias(h, d, g, t);
     const fechas = Array.isArray(h.programa) && h.programa.length ? h.programa.map(x => x.fecha) : (jor && h.fecha ? diasHabilesDesde(h.fecha, jor.dias.length) : []);
     const n = g.sectores.length, diaDe = {};
     const jornadas = jor ? jor.dias.map((di, k) => {
+      if (di.nombres) { di.nombres.forEach(nom => { const i = g.sectores.findIndex((_, j) => nombreSector(h, j, n) === nom); if (i >= 0 && diaDe[i] == null) diaDe[i] = k; }); return { dia: k + 1, fecha: fechas[k] || null, baterias: di.baterias, min: di.min, excede: false, sectores: `${di.nombres.join(', ')}${di.bases.length ? ` · base ${di.bases.join(' y ')}` : ''}` }; }
       di.sectores.forEach(i => { diaDe[i] = k; });
       const a = di.sectores[0], b = di.sectores[di.sectores.length - 1];
       return { dia: k + 1, fecha: fechas[k] || null, baterias: di.baterias, min: di.min, excede: di.excede,

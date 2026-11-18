@@ -21,7 +21,7 @@
 - El paquete de conexión y la app de Terreno no cambian.
 
 ## Pruebas
-- 146 pruebas (`node --test pruebas/*.test.mjs`): nuevas `amarre` (13) y `trabajos` (6).
+- 144 pruebas (`node --test pruebas/*.test.mjs`): nuevas `amarre` (13) y `trabajos` (6).
 - Navegador (Playwright, datos ficticios): flujo del encargado con capas de 11 PR y 3 caminos, orden de trabajos, hoja de vuelo con bases y jornadas, recarga, radio y cambio manual; recorrido de todas las pantallas con los 3 roles; flujos de la v0.16; Terreno sin señal.
 
 ---

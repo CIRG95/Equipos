@@ -274,3 +274,7 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - **Equipos 0.2:** `sensores.js` (datos de cámara desde el catálogo de Vuelos), vista tarjetas/lista (`localStorage['eq_vista_lista']`), filtro por categoría y vista `alta` paso a paso. Sin cambios en `datos.js` ni en la puerta.
 - **Monografías 0.3:** `coordenadas.js` (datums, zonas, geoides, formato DD/DMS), `croquis.js` (mapa Esri → imagen), pestañas por ficha, campos `observacionPdf`, `modulos.observacion`, `paisUTM`, `formatoGeo`, `decimalesGeo`, `firmaPropia`. Logos de clientes en `compartido_archivos` con `duenoTipo: 'cliente_logo'` y `duenoId` = nombre normalizado. Grupos «para todas las fichas» en `localStorage['mono_comun_<proyectoId>']`. `pieza-terreno.js` no cambia: la Observación se agrega al texto de la descripción al armar el PDF.
 - **Sin almacenes ni índices nuevos:** `compartido/esquema.js` y el paquete de conexión 1.3 no cambian (se verificó que `paquete-conexion/topoland-conexion.js` queda idéntico). El paquete de pronóstico solo cambia en el dato de focal de la Matrice 4E; la copia de Terreno no necesita actualizarse.
+
+## v0.17b
+- Rutas nuevas: `#/proyecto/<id>/{planificacion|encargo|entregas|recursos}` (sin sufijo = Resumen). Sin cambios en IndexedDB ni en `compartido/esquema.js`.
+- Paquete de conexión sin cambios (cmp con `terreno/js/topoland-conexion.js` idéntico).

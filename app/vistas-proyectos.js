@@ -160,7 +160,7 @@ function htmlTrabajos(p, ctx, planes) {
         ${edita ? `<button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="-1" ${k ? '' : 'disabled'} aria-label="Subir">↑</button><button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="1" ${k < ts.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button>` : ''}</span></li>`;
   }).join('');
   const crono = desde ? cronogramaDeTrabajos(ts, desde, { diasDe: t => (POR_BATERIAS.has(t.cat) && dv ? dv : t.dias), nombre: c => NOMBRE_CATEGORIA[c] || c, plazo: p.plazo }) : [];
-  return `<section class="sis-tarjeta" id="trabajos"><div class="sis-cab"><div><h2>Trabajos del proyecto</h2><span class="sis-tenue">${edita ? 'Ordénelos arrastrando o con las flechas: el cronograma de terreno sigue este orden.' : 'Orden de ejecución definido por el encargado.'}</span></div></div>
+  return `<section class="sis-tarjeta" id="trabajos"><div class="sis-cab"><div><h2>Trabajos del proyecto</h2><span class="sis-tenue">${edita ? 'Ordénelos con las flechas<span data-solo-pc> o arrastrando</span>: el cronograma de terreno sigue este orden.' : 'Orden de ejecución definido por el encargado.'}</span></div></div>
     <ol class="tr-lista">${filas}</ol>
     ${avisos.map(a => `<p class="sis-aviso-linea">${esc(a)}</p>`).join('')}
     ${crono.length ? `<p class="sis-tenue">Desde el ${fechaLegible(desde)}: terreno hasta el ${fechaLegible(crono.filter(a => a.cat !== 'gabinete').reduce((m, a) => (a.hasta > m ? a.hasta : m), crono[0].hasta))}${p.plazo ? `, plazo de entrega ${fechaLegible(p.plazo)}` : ''}.${crono.some(a => a.cat !== 'gabinete' && p.plazo && a.hasta > p.plazo) ? ' <b class="enc-rojo">El terreno termina después del plazo.</b>' : ''}</p>
@@ -268,26 +268,9 @@ export async function proyecto(ctx, id) {
           <p class="sis-tenue">Para entregar al mandante los certificados de los equipos que están en este proyecto.</p>`
     : vacio('Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.');
 
-  return `<div class="sis-encabezado">
-      <div>
-        <div class="sis-miga"><a href="#/proyectos">Proyectos</a> / ${esc(p.nombre)}</div>
-        <h1>${esc(p.nombre)}</h1>
-        <div class="sis-meta">
-          <span>Mandante: <b>${esc(p.mandante || (esOficina ? 'Trabajo que no es de un contrato' : '—'))}</b></span>
-          ${esOficina ? '' : `${meta('Encargado', esc(nomPers(p.encargadoId)))}${meta('Ubicación', esc([p.comuna, p.region].filter(Boolean).join(', ')))}
-          ${meta('Encargado por', esc(p.solicitadoPor || ''))}${meta('Encargo', p.fechaEncargo ? fechaLegible(p.fechaEncargo) : '')}${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? meta('Periodicidad', esc(textoPeriodicidad(p.periodicidad).replace('Recurrente · ', ''))) : meta('Plazo', plazo)}`}
-        </div>
-        ${textosTipos(p).length ? `<div class="sis-chips" style="margin-top:10px">${textosTipos(p).map(t => `<span class="sis-chip gris">${esc(t)}</span>`).join('')}</div>` : ''}
-      </div>
-      <div class="sis-acciones">${esOficina ? '<span class="sis-chip gris">Especial</span>' : `<span class="sis-chip ${p.estado === 'cerrado' ? 'gris' : 'verde'}">${p.estado === 'cerrado' ? 'Cerrado' : 'Activo'}</span>
-        <a class="sis-btn chico" href="${ctx.rol === 'terreno' ? '#/proyecto-tecnico/' : '#/encargo/'}${esc(p.id)}">${ctx.rol === 'terreno' ? 'Datos técnicos' : 'Editar'}</a>`}</div>
-    </div>
-    ${esOficina ? '' : (() => { const et = etapaProyecto(p), iEt = ETAPAS_PROYECTO.findIndex(([k]) => k === et); return `<section class="sis-tarjeta sis-etapa-ficha"><div class="sis-etapas-pasos">${ETAPAS_PROYECTO.map(([k, t], i) => `<button type="button" class="sis-etapa-paso${i < iEt ? ' hecho' : i === iEt ? ' actual' : ''}" data-accion="etapa-proyecto" data-id="${esc(p.id)}" data-e="${k}" ${i === iEt ? 'aria-current="step"' : ''}><span>${i < iEt ? '✓' : i + 1}</span>${t}${p.etapas && p.etapas[k] ? `<small>${fechaLegible(p.etapas[k])}</small>` : ''}</button>`).join('')}</div></section>`; })()}
-    ${esOficina ? '' : htmlAcuse(p, ctx, nomPers)}
-    ${p.notas ? `<p class="sis-notas">${esc(p.notas)}</p>` : ''}
-    ${!esOficina && ctx.rol === 'terreno' ? `<div class="tec-plan"><h2 class="tec-plan-tit">Planificación técnica</h2>${htmlTrabajos(p, ctx, planes)}${htmlCapas(p, ctx)}</div>` : ''}
-    <div class="sis-dos"><div>
-      ${esOficina ? '' : `<section class="sis-tarjeta">
+  // v0.17b · Pestañas: cada tema en su vista, sin bajar tanto. #/proyecto/<id>/<pestaña>
+  const B = {
+    encargo: `      ${esOficina ? '' : `<section class="sis-tarjeta">
         <div class="sis-cab"><h2>${propio ? 'Datos del proyecto' : 'Ficha de encargo'}</h2>${ctx.rol === 'terreno' ? '' : `<a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a>`}</div>
         <div class="sis-datos ad-encargo">
           <div class="sis-dato"><span>Mandante</span><b>${esc(cua && cua.mandante ? `${cua.mandante.nombre}${cua.mandante.plataforma ? ` · ${cua.mandante.plataforma}` : ''}` : (p.mandante || '—'))}</b></div>
@@ -300,43 +283,34 @@ export async function proyecto(ctx, id) {
         <div class="sis-cab" style="margin-top:8px"><h3 class="sis-sub">Archivos del mandante</h3><label class="sis-btn chico">+ Adjuntar<input type="file" data-accion="encargo-archivo" data-id="${esc(id)}" hidden></label></div>
         ${archEnc.length ? `<div class="sis-chips">${archEnc.map(a => `<button type="button" class="sis-btn chico" data-accion="abrir-pdf" data-id="${esc(a.id)}">${ICONO.pdf}${esc(a.nombre)}</button>`).join('')}</div>` : '<p class="sis-tenue">Bases técnicas, KMZ del área, planos o correos del encargo.</p>'}
       </section>
-      ${htmlCronograma(p, nomPers, hoy)}
-      ${ctx.rol === 'terreno' ? '' : htmlTrabajos(p, ctx, planes)}
-      ${htmlBitacora(p, ctx, nomPers)}
-      `}
-      ${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? (() => { const cs = ciclosEntre(p.periodicidad, hoyISO(), sumarDias(hoyISO(), 120)).slice(0, 3);
+      `}`, ciclos: `      ${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? (() => { const cs = ciclosEntre(p.periodicidad, hoyISO(), sumarDias(hoyISO(), 120)).slice(0, 3);
         return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Próximos ciclos</h2><button class="sis-btn chico" data-accion="ver-calendario">▦ Calendario</button></div>
           ${cs.length ? `<div class="sis-lista">${cs.map(c => `<div class="sis-fila"><span class="sis-fila-txt"><b><span class="mono">${esc(c.numero)}</span> ${esc(c.nombre)}</b><span class="sis-tenue">Terreno ${fechaLegible(c.terreno[0])}${c.terreno[1] !== c.terreno[0] ? ` – ${fechaLegible(c.terreno[1])}` : ''} · datos ${fechaLegible(c.datos)} · entrega ${fechaLegible(c.entrega)}</span></span></div>`).join('')}</div>`
-            : '<p class="sis-tenue">Sin ciclos en los próximos 4 meses: revisa la periodicidad (primer ciclo y término).</p>'}</section>`; })() : ''}
-      <section class="sis-tarjeta">
+            : '<p class="sis-tenue">Sin ciclos en los próximos 4 meses: revisa la periodicidad (primer ciclo y término).</p>'}</section>`; })() : ''}`, vuelos: `      <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Vuelos</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">Planificación</a>` : ''}</div>
         ${planes.length ? `<div class="sis-vuelos-proy">${planes.map(v => `<article class="sis-vuelo-proy">
             <a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
             <span class="sis-fila-txt"><b>${esc(v.nombre)}</b><span class="sis-tenue">${esc(v.dron)}</span></span>
             <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} batería${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>
             ${v.mapa || v.jornadas.length ? `<div class="sis-vuelo-proy-det">${v.mapa || ''}
-              ${v.jornadas.length ? `<ol class="sis-jornadas">${v.jornadas.map((j, k) => `<li><i style="background: ${v.coloresDia[k]}"></i><span><b>Día ${j.dia}</b>${j.fecha ? ` <small>${esc(diaCorto(j.fecha))}</small>` : ''} · ${j.baterias} batería${j.baterias === 1 ? '' : 's'} · ${duracion(j.min)}<small>${esc(j.sectores)}${j.excede ? ' · no cabe en el horario' : ''}</small></span></li>`).join('')}</ol>` : ''}</div>` : ''}
+              ${v.jornadas.length ? `<ol class="sis-jornadas">${v.jornadas.slice(0, 6).map((j, k) => `<li><i style="background: ${v.coloresDia[k]}"></i><span><b>Día ${j.dia}</b>${j.fecha ? ` <small>${esc(diaCorto(j.fecha))}</small>` : ''} · ${j.baterias} batería${j.baterias === 1 ? '' : 's'} · ${duracion(j.min)}<small>${esc(j.sectores)}${j.excede ? ' · no cabe en el horario' : ''}</small></span></li>`).join('')}${v.jornadas.length > 6 ? `<li class="sis-jornadas-mas"><a href="#/vuelos/plan/${esc(v.id)}">y ${v.jornadas.length - 6} jornadas más · abrir la hoja</a></li>` : ''}</ol>` : ''}</div>` : ''}
           </article>`).join('')}</div>`
           : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
-      </section>
-      <section class="sis-tarjeta">
+      </section>`, entregas: `      <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Entregas</h2>${seg ? `<a class="sis-btn chico" href="#/seguimiento/${esc(id)}">Abrir</a>` : (ctx.rol === 'terreno' && !esOficina ? `<a class="sis-btn chico" href="#/seguimiento/${esc(id)}">+ Seguimiento</a>` : '')}</div>
         ${seg ? (() => { const c = seg.cuenta, pct = c.productos ? Math.round(100 * c.productosListos / c.productos) : 0; return `<p class="sis-tenue">${seg.ciclo ? esc(seg.ciclo.nombre || '') + ' · ' : ''}${c.total - c.sinvolar}/${c.total} tramos volados · ${c.productosListos}/${c.productos} productos · ${c.ok}/${c.total} entregados</p>
           <div class="sg-mini" style="margin-top:6px"><i style="width:${pct}%"></i></div>${seg.plazo ? `<p class="sis-tenue" style="margin-top:6px">Entrega: ${fechaLegible(seg.plazo.vence)}${seg.plazo.quedan >= 0 ? ` · quedan ${seg.plazo.quedan} días hábiles` : ` · vencida hace ${-seg.plazo.quedan} días hábiles`}</p>` : ''}`; })()
           : '<div class="sis-vacio"><p>Sin seguimiento. Sirve para llevar qué tramos están volados, procesados y entregados.</p></div>'}
-      </section>
-      ${esOficina ? '' : `<section class="sis-tarjeta">
+      </section>`, mono: `      ${esOficina ? '' : `<section class="sis-tarjeta">
         <div class="sis-cab"><h2>Monografías y terreno</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/monografias/${esc(id)}">Abrir</a>` : ''}</div>
         ${mono.total || mono.jornadas.length ? `<div class="sis-chips">${Object.entries(mono.porEstado).map(([e, n]) => `<span class="sis-chip ${ESTADOS_MONO[e].color}">${n} ${esc(ESTADOS_MONO[e].texto.toLowerCase())}</span>`).join('')}</div>
           <p class="sis-tenue" style="margin-top:6px">${mono.total} monografía${mono.total === 1 ? '' : 's'} · ${mono.jornadas.length} jornada${mono.jornadas.length === 1 ? '' : 's'} de terreno${mono.jornadas[0] && mono.jornadas[0].fechaInicio ? ` · última ${fechaLegible(String(mono.jornadas[0].fechaInicio).slice(0, 10))}` : ''}</p>`
           : '<div class="sis-vacio"><p>Llegan desde la app de Terreno: jornadas, fotos y monografías del proyecto (botón «Enviar al Sistema»).</p></div>'}
-      </section>`}
-      ${esOficina ? '' : `      <section class="sis-tarjeta">
+      </section>`}`, planif: `      ${esOficina ? '' : `      <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Planificación</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/planificacion/proyecto/${esc(id)}">Abrir</a>` : ''}</div>
         ${pla.redes.length || pla.marcas.length ? `<div class="sis-lista">${pla.redes.map(r => `<a class="sis-fila" href="#/planificacion/red/${esc(r.id)}"><span class="sis-fila-txt"><b>${esc(r.nombre || 'Red geodésica')}</b><span class="sis-tenue">${(r.puntos || []).filter(x => x.tipo !== 'control').length} PR · ${(r.vectores || []).length} vectores</span></span><span class="sis-chip gris">Red GNSS</span></a>`).join('')}${pla.marcas.map(r => `<a class="sis-fila" href="#/planificacion/marcas/${esc(r.id)}"><span class="sis-fila-txt"><b>${esc(r.nombre || 'Marcas de vuelo')}</b><span class="sis-tenue">${(r.marcas || []).length} marcas · ${r.modo === 'corredor' ? 'corredor' : 'área'}</span></span><span class="sis-chip gris">Marcas de vuelo</span></a>`).join('')}</div>`
           : '<div class="sis-vacio"><p>Sin planificación técnica. Desde Planificación se diseña la red de PR y la distribución de marcas de vuelo del proyecto.</p></div>'}
-      </section>
-      <section class="sis-tarjeta">
+      </section>`}`, entregables: `      ${esOficina ? '' : `      <section class="sis-tarjeta">
         <h2>Entregables</h2>
         ${ents.length ? `<div class="sis-tabla-scroll"><table class="sis-tabla"><thead><tr><th>Entregable</th><th>Versión</th><th>Revisó</th><th>Enviado al mandante</th><th>Estado</th><th></th></tr></thead><tbody>${ents.map(x => `<tr><td>${esc(x.nombre)}</td><td class="mono">${esc(x.version || '—')}</td><td>${esc(nomPers(x.revisoId) || '—')}</td><td class="mono">${x.enviado ? fechaLegible(x.enviado) : '—'}</td>
           <td><select data-accion="entregable-estado" data-id="${esc(id)}" data-e="${esc(x.id)}" aria-label="Estado de ${esc(x.nombre)}">${ESTADOS_ENTREGABLE.map(([k, t]) => `<option value="${k}" ${x.estado === k ? 'selected' : ''}>${t}</option>`).join('')}</select> ${chipEntregable(x.estado)}</td>
@@ -364,30 +338,24 @@ export async function proyecto(ctx, id) {
           <form class="sis-form" data-form="cierre" data-id="${esc(id)}">
             <label class="sis-campo"><span>Lecciones aprendidas</span><textarea name="lecciones" rows="3" placeholder="Describa los problemas encontrados y las buenas prácticas a repetir. Esta información se mostrará al planificar proyectos en la misma zona o con el mismo mandante.">${esc(ci.lecciones || '')}</textarea></label>
             <div class="sis-acciones"><button class="sis-btn chico">Guardar lecciones</button></div></form></section>`;
-      })() : ''}`}
-    </div><aside>
-      ${esOficina || !cua ? '' : `<section class="sis-tarjeta">
+      })() : ''}`}`,
+    cuad: `      ${esOficina || !cua ? '' : `<section class="sis-tarjeta">
         <div class="sis-cab"><h2>Cuadrilla y vehículos</h2>${ctx.rol === 'terreno' ? '' : `<a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a>`}</div>
         ${cua.mandante ? `<p class="sis-tenue">Acreditación según ${esc(cua.mandante.nombre)}${cua.mandante.plataforma ? ` (${esc(cua.mandante.plataforma)})` : ''}.</p>` : '<p class="sis-tenue">Sin mandante con requisitos: se muestra la habilitación general.</p>'}
         ${cua.gente.length ? `<div class="sis-lista">${cua.gente.map(g => `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(g.persona.nombre)}</b><span class="sis-tenue">${esc(g.persona.cargo || '')}${(ctx.rol !== 'direccion') && g.emergencia && g.emergencia.telefono ? ` · emergencia: ${esc(g.emergencia.nombre || '')} ${esc(g.emergencia.telefono)}` : ''}</span></span><span class="sis-chips">${g.ausente ? '<span class="sis-chip ambar">Ausente hoy</span>' : ''}${chipHab(g.h, cua.mandante && (cua.mandante.requisitosPersona || []).length ? 'Acreditado' : 'Habilitado', cua.mandante && (cua.mandante.requisitosPersona || []).length ? 'No acreditado' : 'No habilitado')}</span></div>`).join('')}</div>` : '<p class="sis-tenue">Sin cuadrilla asignada.</p>'}
         ${cua.vehiculos.length ? `<div class="sis-lista">${cua.vehiculos.map(x => `<div class="sis-fila"><span class="sis-fila-txt"><b class="mono">${esc(x.vehiculo.patente)}</b><span class="sis-tenue">${esc([x.vehiculo.marca, x.vehiculo.modelo].filter(Boolean).join(' '))}</span></span><span class="sis-chips">${chipHab(x.h, 'Acreditada', 'No acreditada')}</span></div>`).join('')}</div>` : ''}
         ${ctx.rol === 'terreno' ? '<p class="sis-tenue">El detalle de los documentos lo administra Recursos Humanos.</p>' : `<div class="sis-acciones"><a class="sis-btn chico" href="#/personal/carpeta-proyecto/${esc(id)}">Armar carpeta de arranque</a></div>`}
-      </section>
-      <section class="sis-tarjeta">
+      </section>`}`, segur: `      ${esOficina ? '' : `      <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Seguridad en terreno</h2><a class="sis-btn chico" href="#/seguridad/${esc(id)}">Abrir</a></div>
         ${(() => { const s = cua.seguridad, deHoy = s.filter(x => String(x.creadoEn || '').slice(0, 10) === hoy); return `<div class="sis-chips">${deHoy.some(x => x.tipo === 'charla') ? '<span class="sis-chip verde">Charla de hoy registrada</span>' : '<span class="sis-chip gris">Sin charla hoy</span>'}<span class="sis-chip gris">${s.filter(x => x.tipo === 'incidencia').length} incidencia(s)</span></div><p class="sis-tenue">Charla de 5 minutos, riesgos del día e incidencias, desde el teléfono o el computador.</p>`; })()}
-      </section>`}
-      ${lecc.length ? `<section class="sis-tarjeta"><h2>Lecciones de proyectos relacionados</h2><div class="sis-lista">${lecc.slice(0, 5).map(x => `<a class="sis-fila" href="#/proyecto/${esc(x.id)}"><span class="sis-fila-txt"><b>${esc(x.nombre)}</b><span>${esc(x.cierre.lecciones)}</span></span></a>`).join('')}</div></section>` : ''}
-      <section class="sis-tarjeta">
+      </section>`}`, lecc: `      ${lecc.length ? `<section class="sis-tarjeta"><h2>Lecciones de proyectos relacionados</h2><div class="sis-lista">${lecc.slice(0, 5).map(x => `<a class="sis-fila" href="#/proyecto/${esc(x.id)}"><span class="sis-fila-txt"><b>${esc(x.nombre)}</b><span>${esc(x.cierre.lecciones)}</span></span></a>`).join('')}</div></section>` : ''}`, equip: `      <section class="sis-tarjeta">
         <h2>Equipos ${esOficina ? 'asignados' : 'en el proyecto'}</h2>
         ${enProyecto.length ? `<div class="sis-lista">${enProyecto.map(e => filaEquipo(e)).join('')}</div>`
           : vacio('No hay equipos asignados. Se asignan con el checklist de salida en Equipos.', '<a class="sis-btn chico" href="#/equipos">Ir a Equipos</a>')}
-      </section>
-      <section class="sis-tarjeta">
+      </section>`, certs: `      <section class="sis-tarjeta">
         <h2>Certificados para el mandante</h2>
         ${certsHtml}
-      </section>
-      <section class="sis-tarjeta">
+      </section>`, gastos: `      <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Gastos del proyecto</h2><a class="sis-btn chico" href="#/gastos/proyecto/${esc(id)}">${ctx.rol === 'rrhh' ? 'Rendiciones' : 'Abrir'}</a></div>
         ${gas && (gas.gastos || gas.depositos) ? `<div class="sis-datos">
             <div class="sis-dato"><span>Gastado</span><b class="mono">${clp(gas.gastado)}</b></div>
@@ -397,6 +365,40 @@ export async function proyecto(ctx, id) {
           </div>
           <div class="sis-chips" style="margin-top:8px">${Object.entries(gas.porEstado).filter(([, n]) => n).map(([e, n]) => `<span class="sis-chip ${ESTADOS_GASTOS[e].color}">${n} ${e === 'borrador' ? 'con gastos sin enviar' : ESTADOS_GASTOS[e].texto.toLowerCase()}</span>`).join('')}</div>`
           : `<div class="sis-vacio"><p>Sin gastos todavía. Cada gasto se registra con la foto de su boleta y se rinde a RRHH.</p>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/gastos/nuevo/${esc(id)}">+ Nuevo gasto</a>` : ''}</div>`}
-      </section>
-    </aside></div>`;
+      </section>`,
+  };
+  const abiertas = esOficina ? 0 : entradasAbiertas(p).length;
+  const PESTANAS = esOficina
+    ? [['resumen', 'Resumen'], ['recursos', 'Equipos y gastos']]
+    : [['resumen', 'Resumen'], ['planificacion', 'Planificación'], ['encargo', propio ? 'Datos y bitácora' : 'Encargo y bitácora', abiertas], ['entregas', 'Entregas'], ['recursos', 'Equipos y gastos']];
+  const pedida = String(location.hash.split('/')[3] || '');
+  const tab = PESTANAS.some(([k]) => k === pedida) ? pedida : 'resumen';
+  const dos = (main, aside) => `<div class="sis-dos"><div>${main}</div><aside>${aside}</aside></div>`;
+  const tecnico = !esOficina ? `${htmlTrabajos(p, ctx, planes)}${ctx.rol === 'terreno' || p.capas ? htmlCapas(p, ctx) : ''}` : '';
+  const cuerpo = {
+    resumen: dos(`${esOficina ? '' : htmlCronograma(p, nomPers, hoy)}${B.ciclos}${esOficina ? B.vuelos : ''}`, `${B.cuad}${B.segur}${B.gastos}`),
+    planificacion: dos(`${tecnico}${B.vuelos}`, `${B.planif}${B.mono}`),
+    encargo: dos(`${B.encargo}${htmlBitacora(p, ctx, nomPers)}`, `${B.lecc}`),
+    entregas: dos(`${B.entregas}${B.entregables}`, `${B.certs}`),
+    recursos: dos(`${B.equip}${esOficina ? B.gastos : ''}`, `${B.certs}`),
+  }[tab];
+  return `  <div class="sis-encabezado">
+      <div>
+        <div class="sis-miga"><a href="#/proyectos">Proyectos</a> / ${esc(p.nombre)}</div>
+        <h1>${esc(p.nombre)}</h1>
+        <div class="sis-meta">
+          <span>Mandante: <b>${esc(p.mandante || (esOficina ? 'Trabajo que no es de un contrato' : '—'))}</b></span>
+          ${esOficina ? '' : `${meta('Encargado', esc(nomPers(p.encargadoId)))}${meta('Ubicación', esc([p.comuna, p.region].filter(Boolean).join(', ')))}
+          ${meta('Encargado por', esc(p.solicitadoPor || ''))}${meta('Encargo', p.fechaEncargo ? fechaLegible(p.fechaEncargo) : '')}${p.periodicidad && p.periodicidad.tipo === 'recurrente' ? meta('Periodicidad', esc(textoPeriodicidad(p.periodicidad).replace('Recurrente · ', ''))) : meta('Plazo', plazo)}`}
+        </div>
+        ${textosTipos(p).length ? `<div class="sis-chips" style="margin-top:10px">${textosTipos(p).map(t => `<span class="sis-chip gris">${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="sis-acciones">${esOficina ? '<span class="sis-chip gris">Especial</span>' : `<span class="sis-chip ${p.estado === 'cerrado' ? 'gris' : 'verde'}">${p.estado === 'cerrado' ? 'Cerrado' : 'Activo'}</span>
+        <a class="sis-btn chico" href="${ctx.rol === 'terreno' ? '#/proyecto-tecnico/' : '#/encargo/'}${esc(p.id)}">${ctx.rol === 'terreno' ? 'Datos técnicos' : 'Editar'}</a>`}</div>
+    </div>
+    ${esOficina ? '' : (() => { const et = etapaProyecto(p), iEt = ETAPAS_PROYECTO.findIndex(([k]) => k === et); return `<section class="sis-tarjeta sis-etapa-ficha"><div class="sis-etapas-pasos">${ETAPAS_PROYECTO.map(([k, t], i) => `<button type="button" class="sis-etapa-paso${i < iEt ? ' hecho' : i === iEt ? ' actual' : ''}" data-accion="etapa-proyecto" data-id="${esc(p.id)}" data-e="${k}" ${i === iEt ? 'aria-current="step"' : ''}><span>${i < iEt ? '✓' : i + 1}</span>${t}${p.etapas && p.etapas[k] ? `<small>${fechaLegible(p.etapas[k])}</small>` : ''}</button>`).join('')}</div></section>`; })()}
+    ${esOficina ? '' : htmlAcuse(p, ctx, nomPers)}
+    ${p.notas ? `<p class="sis-notas">${esc(p.notas)}</p>` : ''}
+    <nav class="pf-pestanas" role="tablist" aria-label="Secciones del proyecto">${PESTANAS.map(([k, t, n]) => `<a role="tab" aria-selected="${k === tab}" class="${k === tab ? 'activo' : ''}" href="#/proyecto/${esc(id)}${k === 'resumen' ? '' : `/${k}`}">${t}${n ? ` <span class="pf-badge">${n}</span>` : ''}</a>`).join('')}</nav>
+    <div class="pf-cuerpo">${cuerpo}</div>`;
 }

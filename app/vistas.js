@@ -174,7 +174,7 @@ export async function manejarEnvio(form, ctx) {
     if (archivos.length) { const leidas = await leerCapasDeArchivos(archivos); extra.capas = fusionarCapas(previo && previo.capas, leidas); }
     const r = await guardarProyecto({ id, ...d, ...extra }, { personaId: ctx.personaId });
     ctx.avisar(previo ? 'Datos técnicos guardados' : `Proyecto creado${extra.capas ? ` · capas: ${resumenCapas(extra.capas)}` : ''}`);
-    ctx.ir(`#/proyecto/${r.id}`);
+    ctx.ir(`#/proyecto/${r.id}/planificacion`);
     return false;
   }
   if (form.dataset.form === 'bitacora') {

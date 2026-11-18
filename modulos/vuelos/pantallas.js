@@ -451,6 +451,8 @@ export function montarPantallas(contenedor, ctx) {
     if (t.dataset.campo === 'maxVertices') st.maxVertices = Math.max(4, Number(t.value) || 200);
   });
 
+  // v0.17b: los paneles plegables recuerdan si estaban abiertos al repintar (ajustes de jornada, días restantes).
+  raiz.addEventListener('toggle', ev => { const d = ev.target; if (d.classList && d.classList.contains('vu-jajustes')) st.ajustesAbiertos = d.open; if (d.classList && d.classList.contains('vu-dias-mas')) st.diasAbiertos = d.open; }, true);
   raiz.addEventListener('change', async ev => {
     const t = ev.target;
     try {

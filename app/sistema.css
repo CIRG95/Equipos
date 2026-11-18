@@ -576,7 +576,12 @@ a.sis-kpi:hover{border-color:var(--marca);}
 
 /* ================= Sistema v0.17 · Planificación técnica en la ficha del proyecto ================= */
 .tec-plan{margin-bottom:6px;}
-.tec-plan-tit{font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:6px 0 8px; font-weight:600;}
+.tec-plan-tit{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; cursor:pointer; list-style:none; margin:6px 0 8px; padding:6px 0;}
+.tec-plan-tit::-webkit-details-marker{display:none;}
+.tec-plan-tit::before{content:'▸'; color:var(--muted); font-size:12px; transition:transform .15s;}
+.tec-plan[open] > .tec-plan-tit::before{transform:rotate(90deg);}
+.tec-plan-tit span{font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:600;}
+.tec-plan-tit small{font-size:12.5px; color:var(--muted);}
 .tr-lista{list-style:none; margin:8px 0 10px; padding:0; display:flex; flex-direction:column; gap:6px;}
 .tr-fila{display:grid; grid-template-columns:auto auto minmax(0,1fr) auto auto auto; gap:10px; align-items:center; border:1px solid var(--borde); border-radius:10px; padding:8px 10px; background:#fff;}
 .tr-fila.paralelo{margin-left:26px; border-style:dashed;}
@@ -589,10 +594,24 @@ a.sis-kpi:hover{border-color:var(--marca);}
 .tr-par{display:inline-flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); white-space:nowrap;}
 .tr-par input{accent-color:var(--marca); width:16px; height:16px;}
 .tr-acc{display:inline-flex; gap:4px; flex-wrap:wrap; justify-content:flex-end;}
-body[data-modo="telefono"] .tr-fila{grid-template-columns:auto minmax(0,1fr) auto; }
+body[data-modo="telefono"] .tr-fila{grid-template-columns:auto minmax(0,1fr) auto; row-gap:6px;}
+body[data-modo="telefono"] .tr-fila.paralelo{margin-left:14px;}
 body[data-modo="telefono"] .tr-asa{display:none;}
 body[data-modo="telefono"] .tr-dias, body[data-modo="telefono"] .tr-par{grid-column:2 / 4;}
-body[data-modo="telefono"] .tr-acc{grid-column:1 / 4; justify-content:flex-start;}
+body[data-modo="telefono"] .tr-acc{grid-column:1 / 4; justify-content:flex-start; border-top:1px solid var(--borde-suave); padding-top:6px;}
 .cap-prs{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0;}
 .cap-pr{display:inline-flex; gap:6px; align-items:center; border:1px solid var(--borde); border-radius:999px; padding:4px 10px 4px 8px; font-size:13px; background:#fff; cursor:pointer;}
 .cap-pr input{accent-color:var(--marca);} .cap-pr.off{color:var(--muted); background:#F4F3EF; border-style:dashed;}
+
+/* ================= Sistema v0.17b · Pestañas de la ficha del proyecto ================= */
+.pf-pestanas{display:flex; gap:2px; border-bottom:1px solid var(--borde); margin:4px 0 16px; overflow-x:auto; scrollbar-width:none;}
+.pf-pestanas::-webkit-scrollbar{display:none;}
+.pf-pestanas a{flex:none; padding:10px 14px; color:var(--muted); text-decoration:none; font-weight:500; font-size:14.5px; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap;}
+.pf-pestanas a:hover{color:var(--ink);}
+.pf-pestanas a.activo{color:var(--enlace); border-bottom-color:var(--marca); font-weight:600;}
+.pf-badge{display:inline-grid; place-items:center; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#B42318; color:#fff; font-size:11px; font-weight:700; margin-left:4px;}
+body[data-modo="telefono"] .pf-pestanas a{padding:10px 11px; font-size:14px;}
+.pf-cuerpo > .sis-dos > aside:empty{display:none;}
+body[data-modo="pc"] .pf-cuerpo > .sis-dos:has(> aside:empty){grid-template-columns:1fr;}
+.tec-peligro{border-color:#F1C9A8;}
+.sis-jornadas-mas{list-style:none; font-size:13px; padding-top:4px;} .sis-jornadas-mas a{color:var(--enlace); font-weight:600;}

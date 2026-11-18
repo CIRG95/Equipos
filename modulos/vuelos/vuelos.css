@@ -644,3 +644,25 @@ body[data-modo="pc"] .vu-doc-fila{grid-template-columns:minmax(0,1fr) 140px 140p
 .vu-jgrilla .vu-jhora{grid-column:span 2;}
 .vu-jhora .vu-jvalor input{min-width:118px;}
 @media (max-width: 600px){ .vu-jgrilla .vu-jhora{grid-column:1 / -1;} .vu-jhora .vu-jvalor input{min-width:0;} }
+
+/* ---------- v0.17b · Resumen más compacto: ajustes plegados y días en mosaico ---------- */
+.vu-jajustes{border:1px solid #B9D3D5; border-radius:9px; background:#fff;}
+.vu-jajustes > summary{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; cursor:pointer; list-style:none; font-size:13px; color:#43484E;}
+.vu-jajustes > summary::-webkit-details-marker{display:none;}
+.vu-jajustes > summary b{color:var(--enlace, #1D5C63); font-size:13px; flex:none;}
+.vu-jajustes > summary b::after{content:' ▾';}
+.vu-jajustes[open] > summary{border-bottom:1px dashed #B9D3D5;}
+.vu-jajustes[open] > summary b::after{content:' ▴';}
+.vu-jajustes > .vu-jgrilla, .vu-jajustes > .vu-jrecarga{padding:10px 12px;}
+.vu-jajustes > .vu-jrecarga{border-top:1px dashed #B9D3D5;}
+.vu-dias{display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:8px;}
+.vu-dia{padding:7px 9px; gap:4px;}
+.vu-dia-cab b{font-size:13.5px;} .vu-dia-cab .vu-dia-min{font-size:12px;}
+.vu-dia-det{font-size:12px; line-height:1.35;}
+.vu-bat-dia summary{font-size:12px;}
+.vu-bat-dia[open]{grid-column:1 / -1;}
+.vu-clima-mas{border-style:dashed;}
+@media (max-width: 600px){ .vu-dias{grid-template-columns:repeat(2, minmax(0, 1fr));} }
+
+.vu-dia-cab{flex-wrap:wrap; row-gap:0;}
+.vu-dia-cab b, .vu-dia-cab small, .vu-dia-cab .vu-dia-min{white-space:nowrap;}

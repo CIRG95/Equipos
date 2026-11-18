@@ -602,3 +602,16 @@ body[data-modo="telefono"] .tr-acc{grid-column:1 / 4; justify-content:flex-start
 .cap-prs{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0;}
 .cap-pr{display:inline-flex; gap:6px; align-items:center; border:1px solid var(--borde); border-radius:999px; padding:4px 10px 4px 8px; font-size:13px; background:#fff; cursor:pointer;}
 .cap-pr input{accent-color:var(--marca);} .cap-pr.off{color:var(--muted); background:#F4F3EF; border-style:dashed;}
+
+/* ================= Sistema v0.17b · Pestañas de la ficha del proyecto ================= */
+.pf-pestanas{display:flex; gap:2px; border-bottom:1px solid var(--borde); margin:4px 0 16px; overflow-x:auto; scrollbar-width:none;}
+.pf-pestanas::-webkit-scrollbar{display:none;}
+.pf-pestanas a{flex:none; padding:10px 14px; color:var(--muted); text-decoration:none; font-weight:500; font-size:14.5px; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap;}
+.pf-pestanas a:hover{color:var(--ink);}
+.pf-pestanas a.activo{color:var(--enlace); border-bottom-color:var(--marca); font-weight:600;}
+.pf-badge{display:inline-grid; place-items:center; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#B42318; color:#fff; font-size:11px; font-weight:700; margin-left:4px;}
+body[data-modo="telefono"] .pf-pestanas a{padding:10px 11px; font-size:14px;}
+.pf-cuerpo > .sis-dos > aside:empty{display:none;}
+body[data-modo="pc"] .pf-cuerpo > .sis-dos:has(> aside:empty){grid-template-columns:1fr;}
+.tec-peligro{border-color:#F1C9A8;}
+.sis-jornadas-mas{list-style:none; font-size:13px; padding-top:4px;} .sis-jornadas-mas a{color:var(--enlace); font-weight:600;}

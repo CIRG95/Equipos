@@ -2,6 +2,14 @@
 
 **Sistema v0.17a = v0.17 + pulido de pantallas** (pedido por Camilo el 17-nov: «optimización de pantallas como versión a»). Sin funciones nuevas.
 
+## Qué cambia en v0.17b
+- **Ficha del proyecto en pestañas:** Resumen (cronograma, cuadrilla, seguridad, gastos) · Planificación (trabajos, capas KMZ, vuelos, red de PR, monografías) · Datos y bitácora · Entregas · Equipos y gastos. Cada pestaña tiene su propia dirección (`#/proyecto/<id>/<pestaña>`); los pendientes enlazan directo a la pestaña que corresponde. La pestaña «Datos y bitácora» muestra cuántas entradas siguen abiertas.
+- **Eliminar o cerrar un proyecto propio:** el encargado lo hace desde «Datos técnicos» → «Cerrar o eliminar». Los proyectos encargados por Jefatura solo los cierra o elimina quien los encargó (Editar → Eliminar). Lo eliminado queda en la papelera de Proyectos, desde donde se restaura o se borra definitivamente.
+- **Hoja de vuelo más compacta:** los ajustes de la jornada quedan plegados en una línea con «Ajustar»; los días se muestran en mosaico (6 visibles, el resto en «Ver los N días restantes»); el clima muestra 6 días y un resumen del resto. En la ficha, cada vuelo lista 6 jornadas y un enlace a la hoja.
+- Al crear un proyecto técnico se abre directo en la pestaña Planificación.
+
+## Versión anterior: v0.17a
+
 ## Qué cambia en v0.17a
 - **Hoja de vuelo · Jornadas:** un día por tarjeta (día, fecha, duración, barra, base y baterías), legible en el teléfono; se muestran los primeros 5 días y el resto en «Ver los N días restantes». El detalle de cada día es más corto («S1 a S2 · base PR1 · 4 + 4 baterías · S2 sigue otro día») y «Ver las baterías» lista solo las de ese día.
 - **Controles de la jornada** en una grilla con etiquetas (horario, baterías, base, traslado) y la recarga en su propio bloque; la cantidad de jornadas se ve en grande. En el teléfono, dos columnas.

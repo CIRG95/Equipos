@@ -53,7 +53,12 @@ export async function proyectoTecnico(ctx, id) {
       <p class="sis-tenue">KMZ o KML con los caminos (líneas) y los PR ya instalados (puntos). Las usan las hojas de vuelo para elegir las bases de amarre y la planificación de la red.${p.capas ? ` Hoy: ${esc(resumenCapas(p.capas) || 'sin PR activos')}.` : ''}</p>
       <label class="sis-campo"><span>${p.capas ? 'Agregar capas' : 'Cargar capas'}</span><input type="file" name="capas" accept=".kml,.kmz" multiple></label>
       <div class="sis-acciones"><button class="sis-btn primario">${nuevo ? 'Crear proyecto' : 'Guardar'}</button><a class="sis-btn" href="${nuevo ? '#/proyectos' : `#/proyecto/${esc(p.id)}`}">Cancelar</a></div>
-    </form>`;
+    </form>
+    ${nuevo || deJefatura ? '' : `<section class="sis-tarjeta tec-peligro"><h2>Cerrar o eliminar</h2>
+      <p class="sis-tenue">«Cerrar» es para un trabajo terminado: pasa al registro por mandante. «Eliminar» es para empezar de nuevo o para un proyecto creado por error: va a la papelera de Proyectos, desde donde se puede restaurar o eliminar definitivamente.</p>
+      <div class="sis-acciones"><button type="button" class="sis-btn" data-accion="cerrar-proyecto" data-id="${esc(p.id)}">${p.estado === 'cerrado' ? 'Reabrir proyecto' : 'Cerrar proyecto'}</button>
+        <button type="button" class="sis-btn peligro" data-accion="eliminar-proyecto" data-id="${esc(p.id)}">Eliminar proyecto</button></div></section>`}
+    ${deJefatura ? '<p class="sis-tenue">Este proyecto lo encargó Jefatura: solo quien lo encargó puede cerrarlo o eliminarlo.</p>' : ''}`;
 }
 
 /** Lee el formulario técnico como un proyecto parcial. Si el proyecto lo encargó Jefatura, no toca sus datos. */

@@ -10,7 +10,7 @@ import { calcularAmarre, jornadasPorBaterias, AMARRE_INICIAL, JORNADA_INICIAL } 
 import { prsActivos, resumenCapas } from './capas-proyecto.js';
 
 export function crearVistaAmarre(v) {
-  const { base } = v;
+  const { base, st } = v;
   const proyectoDe = h => base.proyectos.find(p => p.id === h.proyectoId) || null;
   const memo = new WeakMap();
 
@@ -67,14 +67,16 @@ export function crearVistaAmarre(v) {
         <label><input type="radio" name="jornadaModo" data-jornada="modo" value="baterias" ${c.modo !== 'horario' ? 'checked' : ''}><span>Por baterías</span></label>
         <label><input type="radio" name="jornadaModo" data-jornada="modo" value="horario" ${c.modo === 'horario' ? 'checked' : ''}><span>Por horario</span></label></div>
       <b class="vu-jtotal">${jor ? jor.dias.length : '—'} <small>jornada${jor && jor.dias.length === 1 ? '' : 's'}</small></b></div>
+      <details class="vu-jajustes"${st.ajustesAbiertos ? ' open' : ''}><summary><span>${c.modo === 'horario' ? `${esc(hor.inicio)}–${esc(hor.fin)} · pausa ${esc(hor.pausa)} min` : `${c.baterias} baterías · base ${c.minBase} min · ${esc(hor.inicio)}–${esc(hor.fin)}${c.recarga ? ' · con recarga a mediodía' : ''}`}${Number(hor.traslado) ? ` · traslado ${hor.traslado} min` : ''}</span><b>Ajustar</b></summary>
       <div class="vu-jgrilla">${horario}
         ${c.modo === 'horario' ? campoH('Pausa', 'pausa', hor.pausa, 'min') : `${campo('Baterías disponibles', 'baterias', c.baterias, 'min="1" max="40" step="1"')}${campo('Instalar la base', 'minBase', c.minBase, 'min="0" max="180" step="5"', 'min')}`}
         ${campoH('Traslado entre sectores', 'traslado', hor.traslado, 'min')}</div>
       ${c.modo === 'horario' ? '' : `<div class="vu-jrecarga${c.recarga ? ' activa' : ''}">
           <label class="vu-check"><input type="checkbox" data-jornada="recarga" ${c.recarga ? 'checked' : ''}> Volver a cargar baterías a mediodía</label>
           ${c.recarga ? `<div class="vu-jgrilla">${campo('Ida y vuelta al punto de carga', 'minIdaVuelta', c.minIdaVuelta, 'min="0" max="300" step="5"', 'min')}${campo('Carga de las baterías', 'minCarga', c.minCarga, 'min="0" max="300" step="5"', 'min')}${campo('Almuerzo (durante la carga)', 'minAlmuerzo', c.minAlmuerzo, 'min="0" max="180" step="5"', 'min')}</div>` : ''}
-          ${jor && jor.comparacion && jor.comparacion.sin !== jor.comparacion.con ? `<p class="vu-comparar">Sin recarga: <b>${jor.comparacion.sin}</b> jornada${jor.comparacion.sin === 1 ? '' : 's'} · con recarga: <b>${jor.comparacion.con}</b>.${jor.comparacion.con < jor.comparacion.sin && !c.recarga ? ' Conviene volver a cargar si el punto de carga está cerca.' : ''}</p>` : ''}
-        </div>`}`;
+        </div>`}
+      </details>
+      ${jor && jor.comparacion && jor.comparacion.sin !== jor.comparacion.con ? `<p class="vu-comparar">Sin recarga: <b>${jor.comparacion.sin}</b> jornada${jor.comparacion.sin === 1 ? '' : 's'} · con recarga: <b>${jor.comparacion.con}</b>.${jor.comparacion.con < jor.comparacion.sin && !c.recarga ? ' Conviene volver a cargar si el punto de carga está cerca.' : ''}</p>` : ''}`;
   }
 
   /** Detalle de cada día por baterías: bases del día, bloques y sectores repartidos. */

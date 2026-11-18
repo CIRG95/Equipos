@@ -55,28 +55,26 @@ export function crearVistaAmarre(v) {
     return { ...r, modo: 'baterias', cfg, amarre: am, comparacion: { sin: cfg.recarga ? calc(false).dias.length : r.dias.length, con: cfg.recarga ? r.dias.length : calc(true).dias.length } };
   }
 
-  const num = (k, val, attrs = '') => `<input type="number" data-jornada="${k}" value="${esc(val)}" ${attrs}>`;
+  const num = (k, val, attrs = '') => `<input type="number" data-jornada="${k}" value="${esc(val)}" ${attrs} aria-label="${k}">`;
 
   /** Controles del modo de jornada (por baterías o por horario), dentro de la tarjeta «2 · Vuelo». */
   function htmlControlesJornada(h, jor) {
     const c = cfgJornada(h), hor = { ...HORARIO_INICIAL, ...(h.params.horario || {}) };
-    const hora = `Horario <input type="time" data-horario="inicio" value="${esc(hor.inicio)}" aria-label="Hora de inicio">–<input type="time" data-horario="fin" value="${esc(hor.fin)}" aria-label="Hora de término">`;
-    const traslado = `traslado entre sectores <input type="number" min="0" max="240" step="5" data-horario="traslado" value="${esc(hor.traslado)}" aria-label="Traslado entre sectores en minutos"> min`;
+    const campo = (t, k, val, attrs, unidad = '') => `<label class="vu-jcampo"><span>${t}</span><span class="vu-jvalor">${num(k, val, attrs)}${unidad ? `<small>${unidad}</small>` : ''}</span></label>`;
+    const campoH = (t, k, val, unidad) => `<label class="vu-jcampo"><span>${t}</span><span class="vu-jvalor"><input type="number" min="0" max="240" step="5" data-horario="${k}" value="${esc(val)}" aria-label="${t}"><small>${unidad}</small></span></label>`;
+    const horario = `<label class="vu-jcampo vu-jhora"><span>Horario de trabajo</span><span class="vu-jvalor"><input type="time" data-horario="inicio" value="${esc(hor.inicio)}" aria-label="Hora de inicio"><small>a</small><input type="time" data-horario="fin" value="${esc(hor.fin)}" aria-label="Hora de término"></span></label>`;
     return `<div class="vu-jornada-modo"><div class="vu-seg" role="radiogroup" aria-label="Cálculo de jornadas">
         <label><input type="radio" name="jornadaModo" data-jornada="modo" value="baterias" ${c.modo !== 'horario' ? 'checked' : ''}><span>Por baterías</span></label>
         <label><input type="radio" name="jornadaModo" data-jornada="modo" value="horario" ${c.modo === 'horario' ? 'checked' : ''}><span>Por horario</span></label></div>
-      <b>Jornadas necesarias: ${jor ? jor.dias.length : '—'}</b></div>
-      ${c.modo === 'horario' ? `<span class="vu-horario">${hora} · pausa <input type="number" min="0" max="240" step="5" data-horario="pausa" value="${esc(hor.pausa)}" aria-label="Pausa en minutos"> min · ${traslado}</span>`
-        : `<div class="vu-jornada-param">
-          <label>Baterías disponibles ${num('baterias', c.baterias, 'min="1" max="40" step="1" aria-label="Baterías disponibles"')}</label>
-          <label>Instalar la base ${num('minBase', c.minBase, 'min="0" max="180" step="5" aria-label="Minutos para instalar la base"')} min</label>
-          <span class="vu-horario">${hora} · ${traslado}</span>
+      <b class="vu-jtotal">${jor ? jor.dias.length : '—'} <small>jornada${jor && jor.dias.length === 1 ? '' : 's'}</small></b></div>
+      <div class="vu-jgrilla">${horario}
+        ${c.modo === 'horario' ? campoH('Pausa', 'pausa', hor.pausa, 'min') : `${campo('Baterías disponibles', 'baterias', c.baterias, 'min="1" max="40" step="1"')}${campo('Instalar la base', 'minBase', c.minBase, 'min="0" max="180" step="5"', 'min')}`}
+        ${campoH('Traslado entre sectores', 'traslado', hor.traslado, 'min')}</div>
+      ${c.modo === 'horario' ? '' : `<div class="vu-jrecarga${c.recarga ? ' activa' : ''}">
           <label class="vu-check"><input type="checkbox" data-jornada="recarga" ${c.recarga ? 'checked' : ''}> Volver a cargar baterías a mediodía</label>
-          ${c.recarga ? `<label>Ida y vuelta al punto de carga ${num('minIdaVuelta', c.minIdaVuelta, 'min="0" max="300" step="5" aria-label="Minutos de ida y vuelta"')} min</label>
-            <label>Carga de las baterías ${num('minCarga', c.minCarga, 'min="0" max="300" step="5" aria-label="Minutos de carga"')} min</label>
-            <label>Almuerzo ${num('minAlmuerzo', c.minAlmuerzo, 'min="0" max="180" step="5" aria-label="Minutos de almuerzo"')} min</label>` : ''}
-        </div>
-        ${jor && jor.comparacion && jor.comparacion.sin !== jor.comparacion.con ? `<p class="vu-comparar">Sin recarga: <b>${jor.comparacion.sin}</b> jornada${jor.comparacion.sin === 1 ? '' : 's'} · con recarga a mediodía: <b>${jor.comparacion.con}</b>.${jor.comparacion.con < jor.comparacion.sin ? ' Conviene volver a cargar si el punto de carga está cerca.' : ''}</p>` : ''}`}`;
+          ${c.recarga ? `<div class="vu-jgrilla">${campo('Ida y vuelta al punto de carga', 'minIdaVuelta', c.minIdaVuelta, 'min="0" max="300" step="5"', 'min')}${campo('Carga de las baterías', 'minCarga', c.minCarga, 'min="0" max="300" step="5"', 'min')}${campo('Almuerzo (durante la carga)', 'minAlmuerzo', c.minAlmuerzo, 'min="0" max="180" step="5"', 'min')}</div>` : ''}
+          ${jor && jor.comparacion && jor.comparacion.sin !== jor.comparacion.con ? `<p class="vu-comparar">Sin recarga: <b>${jor.comparacion.sin}</b> jornada${jor.comparacion.sin === 1 ? '' : 's'} · con recarga: <b>${jor.comparacion.con}</b>.${jor.comparacion.con < jor.comparacion.sin && !c.recarga ? ' Conviene volver a cargar si el punto de carga está cerca.' : ''}</p>` : ''}
+        </div>`}`;
   }
 
   /** Detalle de cada día por baterías: bases del día, bloques y sectores repartidos. */
@@ -84,7 +82,7 @@ export function crearVistaAmarre(v) {
     if (jor.modo !== 'baterias') return '';
     const am = jor.amarre, n = g.sectores.length;
     const bases = am ? di.bases.map(k => am.bases[k]).filter(Boolean).map(b => esc(b.nombre)).join(' y ') : '';
-    return `${bases ? `Base ${bases} · ` : ''}${di.bloques.length > 1 ? `${di.bloques[0]} + ${di.bloques[1]} baterías (recarga a mediodía)` : `${di.baterias} batería${di.baterias === 1 ? '' : 's'}`}${di.parciales.length ? ` · ${di.parciales.map(i => esc(nombreSector(h, i, n))).join(', ')} continúa${di.parciales.length > 1 ? 'n' : ''} otro día` : ''}`;
+    return `${bases ? `base ${bases} · ` : ''}${di.bloques.length > 1 ? `${di.bloques[0]} + ${di.bloques[1]} baterías` : `${di.baterias} batería${di.baterias === 1 ? '' : 's'}`}${di.parciales.length ? ` · ${di.parciales.map(i => esc(nombreSector(h, i, n))).join(', ')} sigue${di.parciales.length > 1 ? 'n' : ''} otro día` : ''}`;
   }
 
   /** Tarjeta «Bases de amarre (PR)». */
@@ -93,7 +91,7 @@ export function crearVistaAmarre(v) {
     const p = proyectoDe(h);
     const am = amarreDeHoja(h, g);
     const radio = (h.area.amarre && h.area.amarre.radioKm) || AMARRE_INICIAL.radioKm;
-    const cargar = `<label class="sis-btn chico vu-archivo">${p && p.capas ? 'Agregar capas' : 'Cargar KMZ con caminos y PR'}<input type="file" accept=".kml,.kmz" multiple data-archivo="capas-proyecto"></label>`;
+    const cargar = `<label class="sis-btn chico vu-archivo">${p && p.capas ? 'Agregar capas' : 'Cargar KMZ con caminos y PR'}<input type="file" accept=".kml,.kmz" multiple data-archivo="capas-proyecto" hidden></label>`;
     if (!p) return `<section class="sis-tarjeta vu-res-card"><div class="vu-res-tit"><h2>Bases de amarre (PR)</h2></div><p class="sis-tenue">Asigna la hoja a un proyecto para usar sus capas de caminos y PR.</p></section>`;
     if (!am) return `<section class="sis-tarjeta vu-res-card"><div class="vu-res-tit"><h2>Bases de amarre (PR)</h2>${cargar}</div>
       <p class="sis-tenue">Carga un KMZ o KML del proyecto: las líneas se toman como caminos y los puntos como PR ya instalados. El Sistema elige la menor cantidad de PR base que deja cada sector a ${fmt(radio, 1)} km o menos, y sugiere PR nuevos sobre los caminos donde no alcance ninguno.</p>
@@ -117,9 +115,9 @@ export function crearVistaAmarre(v) {
             <small>${b.sectores.map(i => esc(nombreSector(h, i, n))).join(', ')} · punto más lejano a ${fmt(b.maxDist / 1000, 1)} km${Number.isFinite(b.aCamino) ? ` · ${b.aCamino < 50 ? 'sobre el camino' : `a ${fmt(b.aCamino, 0)} m del camino`}` : ''}</small>
             ${b.nuevo ? `<small class="vu-mono">${b.ll[1].toFixed(6)}, ${b.ll[0].toFixed(6)}</small>` : ''}</div></div>`).join('')}</div>
       <details class="vu-amarre-det"${hayManual || am.sinCubrir.length ? ' open' : ''}><summary>Base de cada sector</summary>
-        <div class="vu-amarre-tabla">${g.sectores.map((_, i) => { const s = am.porSector[i]; return `<span>${esc(nombreSector(h, i, n))}</span>
+        <div class="vu-amarre-tabla">${g.sectores.map((_, i) => i).sort((x, y) => (am.porSector[y].fuera - am.porSector[x].fuera) || x - y).map(i => { const s = am.porSector[i]; return `<label class="vu-asec${s.fuera ? ' fuera' : ''}"><b>${esc(nombreSector(h, i, n))}</b>
           <select data-amarre-sector="${i}" aria-label="Base de ${esc(nombreSector(h, i, n))}">${opciones(i)}</select>
-          <span class="vu-mono ${s.fuera ? 'vu-rojo' : ''}">${Number.isFinite(s.dist) ? `${fmt(s.dist / 1000, 1)} km` : '—'}${s.fuera ? ' · fuera del radio' : ''}${s.manual ? ' · elegido' : ''}</span>`; }).join('')}</div></details>
+          <small class="vu-mono">${Number.isFinite(s.dist) ? `${fmt(s.dist / 1000, 1)} km` : '—'}${s.fuera ? ' · fuera del radio' : ''}${s.manual ? ' · elegida' : ''}</small></label>`; }).join('')}</div></details>
       <p class="sis-tenue vu-res-nota">Las jornadas por baterías vuelan cada grupo con su base. ${am.nuevos ? 'Los PR nuevos se deben instalar y medir antes del vuelo: ordénalo en «Trabajos del proyecto».' : ''}</p>
     </section>`;
   }

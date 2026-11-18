@@ -160,7 +160,7 @@ function htmlTrabajos(p, ctx, planes) {
         ${edita ? `<button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="-1" ${k ? '' : 'disabled'} aria-label="Subir">↑</button><button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="1" ${k < ts.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button>` : ''}</span></li>`;
   }).join('');
   const crono = desde ? cronogramaDeTrabajos(ts, desde, { diasDe: t => (POR_BATERIAS.has(t.cat) && dv ? dv : t.dias), nombre: c => NOMBRE_CATEGORIA[c] || c, plazo: p.plazo }) : [];
-  return `<section class="sis-tarjeta" id="trabajos"><div class="sis-cab"><div><h2>Trabajos del proyecto</h2><span class="sis-tenue">${edita ? 'Ordénelos arrastrando o con las flechas: el cronograma de terreno sigue este orden.' : 'Orden de ejecución definido por el encargado.'}</span></div></div>
+  return `<section class="sis-tarjeta" id="trabajos"><div class="sis-cab"><div><h2>Trabajos del proyecto</h2><span class="sis-tenue">${edita ? 'Ordénelos con las flechas<span data-solo-pc> o arrastrando</span>: el cronograma de terreno sigue este orden.' : 'Orden de ejecución definido por el encargado.'}</span></div></div>
     <ol class="tr-lista">${filas}</ol>
     ${avisos.map(a => `<p class="sis-aviso-linea">${esc(a)}</p>`).join('')}
     ${crono.length ? `<p class="sis-tenue">Desde el ${fechaLegible(desde)}: terreno hasta el ${fechaLegible(crono.filter(a => a.cat !== 'gabinete').reduce((m, a) => (a.hasta > m ? a.hasta : m), crono[0].hasta))}${p.plazo ? `, plazo de entrega ${fechaLegible(p.plazo)}` : ''}.${crono.some(a => a.cat !== 'gabinete' && p.plazo && a.hasta > p.plazo) ? ' <b class="enc-rojo">El terreno termina después del plazo.</b>' : ''}</p>
@@ -285,7 +285,7 @@ export async function proyecto(ctx, id) {
     ${esOficina ? '' : (() => { const et = etapaProyecto(p), iEt = ETAPAS_PROYECTO.findIndex(([k]) => k === et); return `<section class="sis-tarjeta sis-etapa-ficha"><div class="sis-etapas-pasos">${ETAPAS_PROYECTO.map(([k, t], i) => `<button type="button" class="sis-etapa-paso${i < iEt ? ' hecho' : i === iEt ? ' actual' : ''}" data-accion="etapa-proyecto" data-id="${esc(p.id)}" data-e="${k}" ${i === iEt ? 'aria-current="step"' : ''}><span>${i < iEt ? '✓' : i + 1}</span>${t}${p.etapas && p.etapas[k] ? `<small>${fechaLegible(p.etapas[k])}</small>` : ''}</button>`).join('')}</div></section>`; })()}
     ${esOficina ? '' : htmlAcuse(p, ctx, nomPers)}
     ${p.notas ? `<p class="sis-notas">${esc(p.notas)}</p>` : ''}
-    ${!esOficina && ctx.rol === 'terreno' ? `<div class="tec-plan"><h2 class="tec-plan-tit">Planificación técnica</h2>${htmlTrabajos(p, ctx, planes)}${htmlCapas(p, ctx)}</div>` : ''}
+    ${!esOficina && ctx.rol === 'terreno' ? `<details class="tec-plan" ${etapaProyecto(p) === 'terreno' ? 'open' : ''}><summary class="tec-plan-tit"><span>Planificación técnica</span><small>${esc([`${trabajosDeProyecto(p).length} trabajo${trabajosDeProyecto(p).length === 1 ? '' : 's'}`, p.capas ? resumenCapas(p.capas) : 'sin capas'].filter(Boolean).join(' · '))}</small></summary>${htmlTrabajos(p, ctx, planes)}${htmlCapas(p, ctx)}</details>` : ''}
     <div class="sis-dos"><div>
       ${esOficina ? '' : `<section class="sis-tarjeta">
         <div class="sis-cab"><h2>${propio ? 'Datos del proyecto' : 'Ficha de encargo'}</h2>${ctx.rol === 'terreno' ? '' : `<a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a>`}</div>

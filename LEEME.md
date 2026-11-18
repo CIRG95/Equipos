@@ -1,4 +1,17 @@
-# Topoland · Sistema de trabajo — v0.17
+# Topoland · Sistema de trabajo — v0.17a
+
+**Sistema v0.17a = v0.17 + pulido de pantallas** (pedido por Camilo el 17-nov: «optimización de pantallas como versión a»). Sin funciones nuevas.
+
+## Qué cambia en v0.17a
+- **Hoja de vuelo · Jornadas:** un día por tarjeta (día, fecha, duración, barra, base y baterías), legible en el teléfono; se muestran los primeros 5 días y el resto en «Ver los N días restantes». El detalle de cada día es más corto («S1 a S2 · base PR1 · 4 + 4 baterías · S2 sigue otro día») y «Ver las baterías» lista solo las de ese día.
+- **Controles de la jornada** en una grilla con etiquetas (horario, baterías, base, traslado) y la recarga en su propio bloque; la cantidad de jornadas se ve en grande. En el teléfono, dos columnas.
+- **Bases de amarre:** «Base de cada sector» en tarjetas, con los sectores fuera del radio primero y en rojo; el botón de carga ya no muestra el campo de archivo del navegador.
+- **Ficha del proyecto (encargado):** «Planificación técnica» plegable, abierta en la etapa de terreno, con resumen (trabajos y capas) en el título. En el teléfono, las filas de trabajos separan las acciones y el texto dice «con las flechas».
+- **Teléfono:** se corrigió un desborde horizontal de la hoja de vuelo (avance del Resumen y botón de carga).
+
+---
+
+## Versión anterior: v0.17
 
 **Sistema v0.17 = v0.16 + roles separados en proyectos + Vuelos 0.10 (bases de amarre y jornadas por baterías) + trabajos ordenables.** Pedido por Camilo el 17-nov-2026.
 

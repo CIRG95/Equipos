@@ -287,3 +287,9 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Rutas nuevas: `#/planificacion/nueva-red/<proyectoId>`, `#/planificacion/nueva-marcas/<proyectoId>`, `#/herramientas/vuelo-rapido`, `#/proyecto/<id>/terreno`. Redirigen: `#/planificacion` → `#/proyectos`; `#/planificacion/proyecto/<id>` → `#/proyecto/<id>/planificacion`.
 - Módulo nuevo `modulos/planificacion/desde-proyecto.js` (semillas de red y marcas). `app/trabajos.js` suma `cronogramaSincronizado`.
 - Paquete de conexión sin cambios (cmp idéntico a `terreno/js/topoland-conexion.js`).
+
+## v0.18a · Avance por sector · paquete de conexión 1.5 · Terreno 0.7.0
+- Almacén nuevo `vuelos_avance` (índices `hojaId`, `proyectoId`), agregado en `compartido/esquema.js`: eventos de solo agregar `{ hojaId, proyectoId, sector, fecha, pct, base, alturaBase, obs, personaId, origen: 'sistema'|'terreno' }`. La hoja guarda `resumen.listaSectores [{ nombre, ha }]`.
+- Módulos: `modulos/vuelos/avance.js` (cálculo, sin base de datos), `modulos/vuelos/avance-datos.js` (registrar: hoja a «Volado» y tramo de Seguimiento), `Vuelos.avanceDeProyecto(pid)`.
+- Paquete 1.5: `vuelosDeProyecto(proyectoId)`, `registrarAvance({ hojaId, sector, fecha, pct, base, alturaBase, obs })`, `PORCENTAJES_AVANCE`. Copiado a `terreno/js/` (cmp idéntico).
+- Hoja: `permisos.omitir` y etapa `planificado`. Amarre: también los puntos de `planif_redes` del proyecto.

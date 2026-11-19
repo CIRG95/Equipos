@@ -13,6 +13,8 @@ import { textoUbicacion } from './ubicacion.js';
 import { diasHabilesDesde, restarHabiles } from '../../compartido/periodicidad.js';
 import { ESTADOS_HOJA, PASOS } from './ui.js';
 import { resumenMetar } from './metar-ui.js';
+import { estadoSectores, totalesAvance, metaDelDia, textoAvance, PORCENTAJES } from './avance.js';
+import { prsActivos } from './capas-proyecto.js';
 
 export function crearVistaHojas(v) {
   const ref = n => (...a) => v[n](...a);
@@ -228,6 +230,40 @@ export function crearVistaHojas(v) {
       <div class="vu-cinta-barra">${g.sectores.map((s, i) => `<i style="flex: 0 0 ${(100 * medida(s) / total).toFixed(3)}%; background: ${colorDia(diaDe[i] ?? 0)}" title="${esc(nombreSector(h, i, n))} · ${fmt(s.area / 10000, 1)} ha${t.sectores[i] ? ` · ${t.sectores[i].vuelos} bat. · ${fmtDuracion(t.sectores[i].minTotal)}` : ''}${diaDe[i] != null ? ` · día ${diaDe[i] + 1}` : ''}"></i>`).join('')}</div></div>`;
   }
 
+  /** v0.18a · Avance por sector: estado, meta del día y registro (fecha, base, altura de la base, % y observación). */
+  function htmlAvance(h, g) {
+    const n = g.sectores.length;
+    const sectores = g.sectores.map((x, i) => ({ nombre: nombreSector(h, i, n), ha: Math.round((x.area || 0) / 100) / 100 }));
+    const est = estadoSectores(sectores, st.avance || []), t = totalesAvance(est);
+    const hoy = new Date().toISOString().slice(0, 10);
+    const meta = metaDelDia(h.programa || [], est, hoy);
+    const sel = st.avSel && est.find(x => x.nombre === st.avSel);
+    const am = v.amarreDeHoja ? v.amarreDeHoja(h, g) : null;
+    const pr = base.proyectos.find(x => x.id === h.proyectoId);
+    const bases = [...new Set([...(am ? am.bases.map(b => b.nombre) : []), ...prsActivos(pr && pr.capas).map(x => x.nombre)])];
+    const clase = x => (x.pct >= 100 ? 'ok' : x.pct > 0 ? 'parcial' : '');
+    const sinGuardar = !h.id;
+    return `<section class="sis-tarjeta vu-avance" id="avance">
+      <div class="sis-cab"><div><h2>Avance por sector</h2><span class="sis-tenue">${esc(textoAvance(t))}</span></div>
+        <span class="sis-chips">${meta.hoy ? `<span class="sis-chip ${meta.cumplida ? 'verde' : 'ambar'}">Hoy (día ${meta.hoy.dia}): ${meta.hoy.listos.length} de ${meta.hoy.sectores.length}</span>` : ''}${meta.atrasados.length ? `<span class="sis-chip rojo">Atrasados: ${esc(meta.atrasados.join(', '))}</span>` : ''}${t.terminado ? '<span class="sis-chip verde">Todo volado</span>' : ''}</span></div>
+      <div class="sg-mini vu-av-barra"><i style="width:${t.pct}%"></i></div>
+      ${sinGuardar ? '<p class="sis-tenue">Guarda la hoja (nombre o área) para registrar el avance.</p>' : `<div class="vu-av-grilla">${est.map(x => `<button type="button" class="vu-av-sec ${clase(x)}${sel && sel.nombre === x.nombre ? ' sel' : ''}" data-accion="av-abrir" data-s="${esc(x.nombre)}">
+        <b>${esc(x.nombre)}</b><small>${x.pct ? `${x.pct} %${x.ultimo ? ` · ${esc(fechaLegible(x.ultimo.fecha).slice(0, 5))}${x.ultimo.base ? ` · ${esc(x.ultimo.base)}` : ''}` : ''}` : 'pendiente'}</small></button>`).join('')}</div>`}
+      ${sel ? `<form class="sis-form vu-av-form" data-form="avance" data-s="${esc(sel.nombre)}">
+        <h3>Registrar ${esc(sel.nombre)}${sel.ha ? ` · ${fmt(sel.ha, 1)} ha` : ''}</h3>
+        <div class="vu-av-pct" role="radiogroup" aria-label="Porcentaje volado">${PORCENTAJES.map(p => `<label><input type="radio" name="pct" value="${p}" ${p === (sel.pct && sel.pct < 100 ? Math.min(100, sel.pct + 25) : 100) ? 'checked' : ''}><span>${p} %</span></label>`).join('')}</div>
+        <div class="vu-datos-grilla">
+          <label class="sis-campo"><span>Fecha</span><input type="date" name="fecha" value="${hoy}" required></label>
+          <label class="sis-campo"><span>Base usada (PR)</span><input name="base" list="vu-av-bases" value="${esc((sel.ultimo && sel.ultimo.base) || (bases[0] || ''))}" placeholder="PR11"><datalist id="vu-av-bases">${bases.map(b => `<option value="${esc(b)}">`).join('')}</datalist></label>
+          <label class="sis-campo"><span>Altura de la base (m)</span><input type="number" name="alturaBase" step="0.001" min="0" max="10" value="${esc(sel.ultimo && sel.ultimo.alturaBase != null ? sel.ultimo.alturaBase : '')}" placeholder="1,600"></label>
+          <label class="sis-campo vu-ancho"><span>Observación</span><input name="obs" placeholder="Viento en la tarde; faltó la franja norte"></label>
+        </div>
+        <div class="sis-acciones"><button class="sis-btn primario">Registrar</button><button type="button" class="sis-btn" data-accion="av-cerrar">Cancelar</button></div>
+        ${sel.registros.length ? `<ul class="vu-av-hist">${sel.registros.slice(0, 5).map(r => `<li><b>${r.pct} %</b> ${esc(fechaLegible(r.fecha))}${r.base ? ` · base ${esc(r.base)}` : ''}${r.alturaBase != null ? ` · ${fmt(r.alturaBase, 3)} m` : ''}${r.obs ? ` · ${esc(r.obs)}` : ''}<small>${esc(nomPers(r.personaId) || '')}${r.origen === 'terreno' ? ' · desde el teléfono' : ''}</small></li>`).join('')}</ul>` : ''}
+      </form>` : (sinGuardar ? '' : '<p class="sis-tenue vu-res-nota">Toca un sector para registrar cuánto se voló. Al quedar todos al 100 % la hoja pasa a «Volado». También se registra desde la app de Terreno.</p>')}
+    </section>`;
+  }
+
   function vistaResumen() {
     const h = st.hoja, g = geo(), d = dron(), t = g && d ? totales(h, d, g) : null, c = h.clima, perm = estadoPermiso(h);
     const zonas = g ? zonasDeHoja() : [];
@@ -243,8 +279,25 @@ export function crearVistaHojas(v) {
       ['area', 'Área', g ? (g.fallidos.length ? 'aviso' : 'ok') : 'pend', g ? `${g.sectores.length} sector${g.sectores.length === 1 ? '' : 'es'}` : 'falta el área'],
       ['vuelo', 'Vuelo', t ? (t.excede ? 'aviso' : 'ok') : 'pend', t ? `${t.baterias} baterías${jor && jor.dias.length ? ` · ${jor.dias.length} jornada${jor.dias.length === 1 ? '' : 's'}` : ''}` : '—'],
       ['clima', 'Clima', c ? (climaObs ? 'aviso' : 'ok') : 'pend', c ? (c.ventana ? `ventana ${c.ventana}` : 'sin ventana') : 'sin consultar'],
-      ['permisos', 'Permisos', perm.nivel === 'ok' ? 'ok' : (perm.nivel === 'aviso' || (limiteDgac && limiteDgac <= hoy && !h.permisos.dgac.enviado) ? 'aviso' : 'pend'), h.permisos.dgac.enviado || h.permisos.dgac.aprobado ? perm.texto.toLowerCase() : (limiteDgac ? `enviar DGAC antes del ${fechaLegible(limiteDgac)}` : perm.detalle)],
+      h.permisos.omitir ? ['permisos', 'Permisos', 'ok', 'omitidos por ahora'] : ['permisos', 'Permisos', perm.nivel === 'ok' ? 'ok' : (perm.nivel === 'aviso' || (limiteDgac && limiteDgac <= hoy && !h.permisos.dgac.enviado) ? 'aviso' : 'pend'), h.permisos.dgac.enviado || h.permisos.dgac.aprobado ? perm.texto.toLowerCase() : (limiteDgac ? `enviar DGAC antes del ${fechaLegible(limiteDgac)}` : perm.detalle)],
     ];
+    // v0.18a: las jornadas completas van en un panel lateral («Ajustar jornadas»), para que Clima y Permisos no queden abajo.
+    const bloqueJornadas = t ? `<div class="vu-jornadas">
+              <div class="vu-jornadas-cab">${v.htmlControlesJornada(h, jor)}</div>
+              ${jor && jor.util ? `${(() => { // v0.17a: un día por tarjeta (se lee bien en el teléfono); después del quinto, plegados
+                const n = g.sectores.length;
+                const dia = (di, k) => { const a = di.sectores[0], b = di.sectores[di.sectores.length - 1];
+                  const rango = n > 1 ? (a === b ? nombreSector(h, a, n) : g.sectores[a].dm && g.sectores[b].dm ? `${kmADm(Math.min(...g.sectores[a].dm, ...g.sectores[b].dm))} – ${kmADm(Math.max(...g.sectores[a].dm, ...g.sectores[b].dm))}` : `${nombreSector(h, a, n)} a ${nombreSector(h, b, n)}`) : 'Área completa';
+                  return `<div class="vu-dia"><div class="vu-dia-cab"><span class="vu-dia-punto" style="background:${colorDia(k)}"></span><b>Día ${k + 1}</b>${fechas[k] ? `<small>${esc(diaCorto(fechas[k]))}</small>` : ''}<span class="vu-dia-min${di.excede ? ' vu-rojo' : ''}">${fmtDuracion(di.min)}</span></div>
+                    <div class="vu-dia-barra"><i style="width: ${Math.min(100, 100 * di.min / jor.util).toFixed(1)}%; background: ${colorDia(k)}"></i></div>
+                    <small class="vu-dia-det">${esc(rango)} · ${jor.modo === 'baterias' ? v.detalleDia(h, g, jor, di) : `${di.baterias} batería${di.baterias === 1 ? '' : 's'}`}${di.excede ? ' · <b>no cabe en el horario: divide el sector</b>' : ''}</small>
+                    ${htmlBateriasDia(h, g, t, di)}</div>`; };
+                const MAX = 6, todos = jor.dias.map(dia);
+                return `<div class="vu-dias">${todos.slice(0, MAX).join('')}</div>${todos.length > MAX ? `<details class="vu-dias-mas"${st.diasAbiertos ? ' open' : ''}><summary>Ver los ${todos.length - MAX} días restantes</summary><div class="vu-dias">${todos.slice(MAX).join('')}</div></details>` : ''}`; })()}
+                <p class="sis-tenue vu-res-nota">${jor.modo === 'baterias' ? `Cada día usa ${jor.cfg.baterias} baterías${jor.cfg.recarga ? ' por bloque (dos bloques con recarga)' : ''}, ${jor.amarre ? 'volando cada grupo desde su base' : 'en el orden de los sectores'}; un grupo que no alcanza sigue al día siguiente con la misma base.` : `Cada día toma sectores completos, en orden${g.sectores.some(s => s.dm) ? ' (sentido del eje)' : ''}, hasta llenar ${fmtDuracion(jor.util)} útiles.`} ${h.fecha ? 'Días hábiles desde el primer día de vuelo.' : 'Pon el primer día de vuelo para ver las fechas.'}</p>
+                <div class="sis-acciones"><button class="sis-btn chico${programado ? '' : ' primario'}" data-accion="programar" ${h.fecha ? '' : 'disabled'}>${programado ? `Actualizar el calendario (${h.programa.length} días)` : `Agregar ${jor.dias.length === 1 ? 'la jornada' : `las ${jor.dias.length} jornadas`} al calendario`}</button>${programado ? '<button class="sis-btn chico" data-accion="desprogramar">Quitar del calendario</button>' : ''}</div>`
+                : '<p class="vu-rojo">Revisa el horario: el término debe ser después del inicio.</p>'}
+            </div>` : '';
     const listos = pasos.filter(p => p[2] === 'ok').length;
     const siguiente = pasos.find(p => p[2] !== 'ok');
     const icono = (e, n) => e === 'ok' ? '✓' : e === 'aviso' ? '!' : n;
@@ -253,6 +306,7 @@ export function crearVistaHojas(v) {
           ${siguiente ? `<button class="sis-btn primario" data-accion="paso" data-paso="${siguiente[0]}">Siguiente: ${{ area: 'cargar el área', vuelo: 'ajustar el vuelo', clima: 'consultar el clima', permisos: 'permisos y consultas' }[siguiente[0]]} →</button>` : '<span class="sis-chip verde">Todo listo</span>'}</div>
         <div class="vu-res-progreso"><i style="width: ${listos * 25}%"></i></div>
       </section>
+      ${g ? htmlAvance(h, g) : ''}
       <section class="sis-tarjeta vu-datos-hoja"><div class="vu-datos-grilla">
           <label class="sis-campo"><span>Nombre</span><input data-hoja="nombre" value="${esc(h.nombre)}" placeholder="El Pimiento — vuelo 1"></label>
           <label class="sis-campo"><span>Proyecto</span><select data-hoja="proyectoId">${opcionesProyectos(h.proyectoId)}</select></label>
@@ -269,28 +323,18 @@ export function crearVistaHojas(v) {
               <div><small>Sectores</small><b>${g.sectores.length}${g.sectores.length > 1 ? ` · ~${g.tipo === 'corredor' || g.sectores.some(s => s.rango) ? `${fmt(g.sectores.reduce((a, s) => a + ((s.rango ? s.rango[1] - s.rango[0] : s.largo) || 0), 0) / g.sectores.length / 1000, 1)} km` : `${fmt(g.areaVuelo / g.sectores.length / 10000, 1)} ha`} c/u` : ''}</b></div>
               <div class="${zonas && zonas.some(z => z.toca || z.distancia < 5000) ? 'aviso' : ''}"><small>Zonas</small><b>${zonas === null ? 'sin capas cargadas' : zonas.length ? zonas.slice(0, 1).map(z => `${z.toca ? 'toca ' : ''}${esc(z.nombre)}${z.toca ? '' : ` a ${fmt(z.distancia / 1000, 1)} km`}`).join('') : 'no toca zonas cargadas'}</b></div>
             </div>
-            ${g.sectores.length > 1 && t ? `${cinta(g, t, diaDe)}<p class="sis-tenue vu-res-nota">Pasa el mouse por la cinta para ver cada sector. Los colores son las jornadas de vuelo.</p>` : ''}`
+            ${g.sectores.length > 1 && t ? `${cinta(g, t, diaDe)}<p class="sis-tenue vu-res-nota vu-cinta-nota"><button type="button" class="sis-btn chico" data-accion="jornadas-abrir">Ajustar jornadas</button> Pasa el mouse por la cinta para ver cada sector. Los colores son las jornadas de vuelo.</p>` : ''}`
             : '<p class="sis-tenue">Carga el KMZ/KML del área (o la línea del corredor), o dibújala en el mapa.</p>'}
         </section>
         <section class="sis-tarjeta vu-res-card">
           <div class="vu-res-tit"><h2>2 · Vuelo</h2><button class="vu-link" data-accion="paso" data-paso="vuelo">Ajustar →</button></div>
-          ${t ? `<div class="vu-mini-kpis">${kpi('GSD', h.params.modo === 'lidar' ? '—' : `${fmt(t.gsd, 2)} cm`)}${kpi('Altura', `${fmt(t.altura, 0)} m`)}${kpi('Baterías', t.baterias)}${kpi('Fotos', fmt(t.fotos))}</div>
+          ${t ? `<div class="vu-mini-kpis">${h.params.modo === 'lidar' ? `${kpi('Densidad', t.sectores[0] && t.sectores[0].densidad ? `${fmt(t.sectores[0].densidad, 0)} pts/m²` : '—')}${kpi('Altura', `${fmt(t.altura, 0)} m`)}${kpi('Baterías', t.baterias)}${kpi('GSD cámara', t.gsd ? `${fmt(t.gsd, 2)} cm` : '—')}` : `${kpi('GSD', `${fmt(t.gsd, 2)} cm`)}${kpi('Altura', `${fmt(t.altura, 0)} m`)}${kpi('Baterías', t.baterias)}${kpi('Fotos', fmt(t.fotos))}`}</div>
             <p class="vu-res-linea"><span>Traslapes ${h.params.traslapeFrontal}/${h.params.traslapeLateral} % · ${t.sectores[0] ? fmt(t.sectores[0].velocidad, 1) : '—'} m/s</span><span>En el aire ${fmtDuracion(t.minVuelo)} · jornada ${fmtDuracion(t.minJornada)}</span></p>
-            <div class="vu-jornadas">
-              <div class="vu-jornadas-cab">${v.htmlControlesJornada(h, jor)}</div>
-              ${jor && jor.util ? `${(() => { // v0.17a: un día por tarjeta (se lee bien en el teléfono); después del quinto, plegados
-                const n = g.sectores.length;
-                const dia = (di, k) => { const a = di.sectores[0], b = di.sectores[di.sectores.length - 1];
-                  const rango = n > 1 ? (a === b ? nombreSector(h, a, n) : g.sectores[a].dm && g.sectores[b].dm ? `${kmADm(Math.min(...g.sectores[a].dm, ...g.sectores[b].dm))} – ${kmADm(Math.max(...g.sectores[a].dm, ...g.sectores[b].dm))}` : `${nombreSector(h, a, n)} a ${nombreSector(h, b, n)}`) : 'Área completa';
-                  return `<div class="vu-dia"><div class="vu-dia-cab"><span class="vu-dia-punto" style="background:${colorDia(k)}"></span><b>Día ${k + 1}</b>${fechas[k] ? `<small>${esc(diaCorto(fechas[k]))}</small>` : ''}<span class="vu-dia-min${di.excede ? ' vu-rojo' : ''}">${fmtDuracion(di.min)}</span></div>
-                    <div class="vu-dia-barra"><i style="width: ${Math.min(100, 100 * di.min / jor.util).toFixed(1)}%; background: ${colorDia(k)}"></i></div>
-                    <small class="vu-dia-det">${esc(rango)} · ${jor.modo === 'baterias' ? v.detalleDia(h, g, jor, di) : `${di.baterias} batería${di.baterias === 1 ? '' : 's'}`}${di.excede ? ' · <b>no cabe en el horario: divide el sector</b>' : ''}</small>
-                    ${htmlBateriasDia(h, g, t, di)}</div>`; };
-                const MAX = 6, todos = jor.dias.map(dia);
-                return `<div class="vu-dias">${todos.slice(0, MAX).join('')}</div>${todos.length > MAX ? `<details class="vu-dias-mas"${st.diasAbiertos ? ' open' : ''}><summary>Ver los ${todos.length - MAX} días restantes</summary><div class="vu-dias">${todos.slice(MAX).join('')}</div></details>` : ''}`; })()}
-                <p class="sis-tenue vu-res-nota">${jor.modo === 'baterias' ? `Cada día usa ${jor.cfg.baterias} baterías${jor.cfg.recarga ? ' por bloque (dos bloques con recarga)' : ''}, ${jor.amarre ? 'volando cada grupo desde su base' : 'en el orden de los sectores'}; un grupo que no alcanza sigue al día siguiente con la misma base.` : `Cada día toma sectores completos, en orden${g.sectores.some(s => s.dm) ? ' (sentido del eje)' : ''}, hasta llenar ${fmtDuracion(jor.util)} útiles.`} ${h.fecha ? 'Días hábiles desde el primer día de vuelo.' : 'Pon el primer día de vuelo para ver las fechas.'}</p>
-                <div class="sis-acciones"><button class="sis-btn chico${programado ? '' : ' primario'}" data-accion="programar" ${h.fecha ? '' : 'disabled'}>${programado ? `Actualizar el calendario (${h.programa.length} días)` : `Agregar ${jor.dias.length === 1 ? 'la jornada' : `las ${jor.dias.length} jornadas`} al calendario`}</button>${programado ? '<button class="sis-btn chico" data-accion="desprogramar">Quitar del calendario</button>' : ''}</div>`
-                : '<p class="vu-rojo">Revisa el horario: el término debe ser después del inicio.</p>'}
+            ${jor && jor.util ? `<div class="vu-jor-compacta">
+              <p class="vu-jor-tot"><b>${jor.dias.length}</b> jornada${jor.dias.length === 1 ? '' : 's'} ${jor.modo === 'baterias' ? `por baterías (${jor.cfg.baterias} por día${jor.cfg.recarga ? ', con recarga' : ''})` : 'por horario'}${programado ? ' · en el calendario' : ''}</p>
+              <div class="vu-jor-chips">${jor.dias.slice(0, 10).map((di, k) => `<span title="${esc(fechas[k] ? diaCorto(fechas[k]) : '')}"><i style="background:${colorDia(k)}"></i>Día ${k + 1}${fechas[k] ? ` <small>${esc(diaCorto(fechas[k]).split(' ')[1] || '')}</small>` : ''}</span>`).join('')}${jor.dias.length > 10 ? `<span>+${jor.dias.length - 10} días</span>` : ''}</div>
+              <div class="sis-acciones"><button type="button" class="sis-btn chico primario" data-accion="jornadas-abrir">Ajustar jornadas</button></div></div>`
+              : `<div class="sis-acciones"><button type="button" class="sis-btn chico" data-accion="jornadas-abrir">Ajustar jornadas</button></div>`}
             </div>` : '<p class="sis-tenue">Cuando cargues el área, aquí aparece el plan de vuelo.</p>'}
         </section>
       </div>
@@ -307,6 +351,7 @@ export function crearVistaHojas(v) {
         </section>
         <section class="sis-tarjeta vu-res-card">
           <div class="vu-res-tit"><h2>4 · Permisos y consultas</h2><button class="vu-link" data-accion="paso" data-paso="permisos">Abrir →</button></div>
+          ${h.permisos.omitir ? `<p class="vu-res-omitido">Omitidos por ahora: la hoja queda cerrada en planificación. <button type="button" class="sis-btn chico" data-accion="permisos-omitir" data-v="0">Retomar permisos</button></p>` : `<div class="sis-acciones"><button type="button" class="sis-btn chico" data-accion="permisos-omitir" data-v="1">Omitir permisos por ahora</button></div>`}
           ${(() => { const dg = h.permisos.dgac; const et = [
               ['Enviar', dg.enviado ? `enviada ${fechaLegible(dg.enviado)}` : limiteDgac ? `antes del ${fechaLegible(limiteDgac)}` : 'mín. 7 días hábiles antes', dg.enviado ? 'ok' : (limiteDgac && limiteDgac <= hoy ? 'mal' : 'actual')],
               ['En trámite', dg.enviado && !dg.aprobado ? 'esperando respuesta' : '', dg.aprobado ? 'ok' : dg.enviado ? 'actual' : ''],
@@ -317,7 +362,12 @@ export function crearVistaHojas(v) {
             ${(() => { const ds = documentosPermiso(h), listos = ds.filter(x => x.listo).length; return chip(`Documentos ${listos}/${ds.length}`, listos === ds.length ? 'verde' : 'gris'); })()}</div>
           <p class="sis-tenue vu-res-nota">La fecha límite sale de la regla de 7 días hábiles antes del primer día de vuelo.</p>
         </section>
-      </div>`;
+      </div>
+      ${st.jorAbierto && bloqueJornadas ? `<div class="vu-cajon-fondo" data-accion="jornadas-cerrar" aria-hidden="true"></div>
+      <aside class="vu-cajon" role="dialog" aria-modal="true" aria-label="Jornadas de vuelo">
+        <div class="vu-cajon-cab"><h2>Jornadas de vuelo</h2><button type="button" class="sis-btn chico" data-accion="jornadas-cerrar" aria-label="Cerrar">✕ Cerrar</button></div>
+        ${bloqueJornadas}
+      </aside>` : ''}`;
   }
   // ─────────── Paso 1 · Identificación (v0.11) ───────────
   const proyectoDe = h => base.proyectos.find(p => p.id === h.proyectoId) || null;

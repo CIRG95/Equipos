@@ -7,13 +7,13 @@ import { DRONES_BASE } from './drones.js';
 
 export const VERSION_MODULO = '0.10';
 export const SCHEMA_VERSION = 2; // 2: hoja de vuelo (área, clima, permisos)
-export const ALM = { planes: 'vuelos_planes', drones: 'vuelos_drones' };
+export const ALM = { planes: 'vuelos_planes', drones: 'vuelos_drones', avance: 'vuelos_avance' };
 // Las capas de zonas pueden pesar varios MB: quedan solo en este equipo (sin prefijo vuelos_, la nube no las sube).
 const ALM_CAPAS = 'local_vuelos_capas';
 
 let persona = null;
 export function iniciarDatos({ personaId = null } = {}) {
-  registrarAlmacenes([{ nombre: ALM.planes, indices: [['proyectoId', 'proyectoId']] }, { nombre: ALM.drones }, { nombre: ALM_CAPAS }]);
+  registrarAlmacenes([{ nombre: ALM.planes, indices: [['proyectoId', 'proyectoId']] }, { nombre: ALM.drones }, { nombre: ALM_CAPAS }, { nombre: ALM.avance, indices: [['hojaId', 'hojaId'], ['proyectoId', 'proyectoId']] }]);
   persona = personaId;
 }
 export function fijarPersona(p) { persona = p; }
@@ -55,3 +55,11 @@ export async function purgarPlan(id) { return eliminarDefinitivo(ALM.planes, id,
 export async function listarCapasUsuario() { return (await todos(ALM_CAPAS)).filter(vivo); }
 export async function guardarCapaUsuario(capa) { return guardar(ALM_CAPAS, sello({ ...capa }), { silencioso: true }); }
 export async function borrarCapaUsuario(id) { return borrarDefinitivo(ALM_CAPAS, id); }
+
+// ─────────── v0.18a · Avance por sector (eventos que solo se agregan; los escriben el Sistema y Terreno) ───────────
+const nuevoId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : `av${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`);
+export async function registrarAvance(r, { personaId = persona, origen = 'sistema' } = {}) {
+  return guardar(ALM.avance, sellar({ id: nuevoId(), ...r, pct: Number(r.pct), alturaBase: r.alturaBase === '' || r.alturaBase == null ? null : Number(r.alturaBase), personaId: personaId || null, origen }, { personaId, schemaVersion: 1 }));
+}
+export async function avanceDeHoja(hojaId) { return (await porIndice(ALM.avance, 'hojaId', hojaId)).filter(vivo); }
+export async function avanceDeProyecto(proyectoId) { return (await porIndice(ALM.avance, 'proyectoId', proyectoId)).filter(vivo); }

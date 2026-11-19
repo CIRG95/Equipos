@@ -28,6 +28,9 @@ import { crearPasoPermisos } from './paso-permisos.js';
 import { crearHerramientas } from './herramientas.js';
 import { crearMapas } from './mapas.js';
 import { crearVistaAmarre } from './vista-amarre.js';
+import { registrarAvanceSector } from './avance-datos.js';
+import { avanceDeHoja } from './datos.js';
+import { listarRedes } from '../planificacion/datos.js';
 import { leerCapasDeArchivos, fusionarCapas, resumenCapas, areaPrincipal, haDeAnillo } from './capas-proyecto.js';
 import { ubicacionDe } from './ubicacion.js';
 
@@ -70,11 +73,11 @@ export function montarPantallas(contenedor, ctx) {
   // v0.11.4: la base (drones, proyectos, personas, hojas) se relee solo si cambió algo, no en cada clic:
   // con muchas hojas o caminos cargados, leerlas todas en cada repintado se notaba.
   let baseSucia = true;
-  const quitarOyente = alCambiar(ns => { if (ns.some(n => n.startsWith('vuelos_') || n.startsWith('compartido_'))) baseSucia = true; });
+  const quitarOyente = alCambiar(ns => { if (ns.some(n => n.startsWith('vuelos_') || n.startsWith('compartido_') || n.startsWith('planif_'))) baseSucia = true; });
   async function cargarBase() {
     if (!baseSucia) return;
     baseSucia = false;
-    [base.drones, base.proyectos, base.personas, base.hojas, base.papelera] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes(), planesEnPapelera()]);
+    [base.drones, base.proyectos, base.personas, base.hojas, base.papelera, base.redes] = await Promise.all([listarDrones(), listarProyectos(), listarPersonas(), listarPlanes(), planesEnPapelera(), listarRedes().catch(() => [])]);
     base.hojas = base.hojas.map(migrarHoja);
   }
 
@@ -106,6 +109,7 @@ export function montarPantallas(contenedor, ctx) {
     st.tramos = null; st.ubicError = ''; st.previas = null; st.pronError = '';
     st.vista = 'hoja';
     for (const m of Object.values(mapas)) m.encuadre = null;
+    st.avSel = null; st.avance = p ? await avanceDeHoja(p.id).catch(() => []) : []; // v0.18a: avance por sector
     if (!p && st.hoja.proyectoId) usarAreaDelProyecto(true);
   }
 
@@ -483,7 +487,11 @@ export function montarPantallas(contenedor, ctx) {
 
   // v0.17b: los paneles plegables recuerdan si estaban abiertos al repintar (ajustes de jornada, días restantes).
   raiz.addEventListener('toggle', ev => { const d = ev.target; if (d.classList && d.classList.contains('vu-jajustes')) st.ajustesAbiertos = d.open; if (d.classList && d.classList.contains('vu-dias-mas')) st.diasAbiertos = d.open; }, true);
+  // v0.18a: Escape cierra el panel de jornadas
+  const alTecla = ev => { if (ev.key === 'Escape' && st.jorAbierto && activo) { st.jorAbierto = false; render(); } };
+  document.addEventListener('keydown', alTecla);
   raiz.addEventListener('change', async ev => {
+    if (ev.target.dataset.accionCambio === 'permisos-omitir' && st.hoja) { st.hoja.permisos.omitir = ev.target.checked; avisar(ev.target.checked ? 'Permisos omitidos por ahora: la hoja queda «Planificado».' : 'Permisos retomados.'); cambio(); await guardarAhora(); await render(); return; }
     const t = ev.target;
     try {
       if (t.dataset.archivo && t.files && t.files[0]) { await alCargarArchivo(t); t.value = ''; await render(); if (st.hoja && t.dataset.archivo === 'area') detectarUbicacion(); return; }
@@ -563,6 +571,15 @@ export function montarPantallas(contenedor, ctx) {
     const fd = new FormData(form);
     try {
       if (form.dataset.form === 'plan') return;
+      if (form.dataset.form === 'avance') {
+        const h = st.hoja;
+        await guardarAhora(); // el resumen guardado lleva la lista de sectores
+        const r = await registrarAvanceSector({ hojaId: h.id, sector: form.dataset.s, fecha: fd.get('fecha'), pct: Number(fd.get('pct')), base: String(fd.get('base') || '').trim(), alturaBase: String(fd.get('alturaBase') || '').trim().replace(',', '.'), obs: String(fd.get('obs') || '').trim() }, { personaId: ctx.personaId, nombrePersona: nomPers(ctx.personaId), origen: 'sistema' });
+        st.avance = await avanceDeHoja(h.id); st.avSel = null;
+        if (r.terminado) h.estado = 'volada';
+        avisar(`${form.dataset.s}: ${fd.get('pct')} % registrado${r.tramo ? ` · tramo «${r.tramo}» marcado volado en Entregas` : ''}${r.terminado ? ' · todos los sectores volados: la hoja pasó a «Volado»' : ''}`);
+        await render(); return;
+      }
       if (form.dataset.form === 'viento') {
         const ms = Number(num(fd.get('ms')));
         if (!(ms >= 0)) throw new Error('Escribe el viento en m/s.');
@@ -605,6 +622,11 @@ export function montarPantallas(contenedor, ctx) {
       if (a === 'vista') { if (st.hoja) await guardarAhora(); st.vista = b.dataset.vista; st.pron = null; st.metar = null; st.pronError = ''; if (st.vista === 'hojas') st.hoja = null; }
       else if (a === 'volver-lista') { await guardarAhora(); st.vista = 'hojas'; st.hoja = null; try { history.replaceState(null, '', st.soloSueltos ? '#/herramientas/vuelo-rapido' : '#/vuelos'); } catch { /* */ } }
       else if (a === 'area-proyecto') { usarAreaDelProyecto(); }
+      else if (a === 'jornadas-abrir') { st.jorAbierto = true; }
+      else if (a === 'jornadas-cerrar') { st.jorAbierto = false; }
+      else if (a === 'av-abrir') { st.avSel = st.avSel === b.dataset.s ? null : b.dataset.s; }
+      else if (a === 'av-cerrar') { st.avSel = null; }
+      else if (a === 'permisos-omitir') { h.permisos.omitir = b.dataset.v === '1'; avisar(h.permisos.omitir ? 'Permisos omitidos por ahora: la hoja queda «Planificado».' : 'Permisos retomados.'); cambio(); await guardarAhora(); }
       else if (a === 'convertir-proyecto') { await convertirEnProyecto(b.dataset.id); return; }
       else if (a === 'nueva-hoja') { await abrirHoja(null); }
       else if (a === 'abrir-hoja') { await abrirHoja(b.dataset.id); try { history.replaceState(null, '', `#/vuelos/plan/${b.dataset.id}`); } catch { /* */ } }
@@ -820,7 +842,7 @@ export function montarPantallas(contenedor, ctx) {
   })();
 
   return {
-    desmontar() { activo = false; quitarOyente(); guardarAhora(); for (const m of Object.values(mapas)) m.mapa.remove(); raiz.remove(); },
+    desmontar() { activo = false; quitarOyente(); document.removeEventListener('keydown', alTecla); guardarAhora(); for (const m of Object.values(mapas)) m.mapa.remove(); raiz.remove(); },
     refrescar() { baseSucia = true; if (st.vista === 'hojas' || st.vista === 'drones') render(); },
   };
 }

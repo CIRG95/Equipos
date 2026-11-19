@@ -17,8 +17,14 @@ export function crearVistaAmarre(v) {
   /** Bases de amarre de la hoja, o null si el proyecto no tiene PR cargados. */
   function amarreDeHoja(h, g) {
     if (!g || !g.sectores.length) return null;
-    const p = proyectoDe(h), capas = p && p.capas;
-    const prs = prsActivos(capas);
+    const p = proyectoDe(h), capas = (p && p.capas) || {};
+    // v0.18a: además de los PR existentes (capas), cuentan los PR planificados en la red de PR del proyecto.
+    const norm = t => String(t || '').trim().toLowerCase();
+    const yaEn = new Set(prsActivos(capas).map(x => norm(x.nombre)));
+    const deRed = (base.redes || []).filter(r => r.proyectoId === h.proyectoId).flatMap(r => (r.puntos || []))
+      .filter(x => Number.isFinite(x.lon) && Number.isFinite(x.lat) && !yaEn.has(norm(x.nombre)) && (yaEn.add(norm(x.nombre)) || true))
+      .map(x => ({ id: `red-${x.id}`, nombre: x.nombre, lon: x.lon, lat: x.lat, usar: true, planificado: true }));
+    const prs = [...prsActivos(capas), ...deRed];
     if (!prs.length) return null;
     const am = { ...AMARRE_INICIAL, asignado: {}, ...(h.area.amarre || {}) };
     const clave = JSON.stringify([prs, (capas.caminos || []).length, (h.area.caminos || []).length, am]);
@@ -113,7 +119,7 @@ export function crearVistaAmarre(v) {
       ${am.sinCubrir.length > am.grandes.length ? `<p class="sis-aviso-linea">${am.sinCubrir.filter(i => !am.grandes.includes(i)).map(i => esc(nombreSector(h, i, n))).join(', ')} quedan fuera del radio con la base elegida.</p>` : ''}
       <div class="vu-bases">${am.bases.map((b, k) => `<div class="vu-base ${b.nuevo ? 'nuevo' : ''}">
           <span class="vu-base-ic" style="background:${COLORES_BASE[k % COLORES_BASE.length]}">${k + 1}</span>
-          <div><b>${esc(b.nombre)}</b>${b.nuevo ? ' <span class="sis-chip ambar">Instalar</span>' : ''}
+          <div><b>${esc(b.nombre)}</b>${b.nuevo ? ' <span class="sis-chip ambar">Instalar</span>' : String(b.id).startsWith('red-') ? ' <span class="sis-chip azul">Planificado en la red</span>' : ''}
             <small>${b.sectores.map(i => esc(nombreSector(h, i, n))).join(', ')} · punto más lejano a ${fmt(b.maxDist / 1000, 1)} km${Number.isFinite(b.aCamino) ? ` · ${b.aCamino < 50 ? 'sobre el camino' : `a ${fmt(b.aCamino, 0)} m del camino`}` : ''}</small>
             ${b.nuevo ? `<small class="vu-mono">${b.ll[1].toFixed(6)}, ${b.ll[0].toFixed(6)}</small>` : ''}</div></div>`).join('')}</div>
       <details class="vu-amarre-det"${hayManual || am.sinCubrir.length ? ' open' : ''}><summary>Base de cada sector</summary>

@@ -112,19 +112,15 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.6.1: menos pasos y pantallas más claras. Pestañas: Hoy · Registrar · Monografías · Gastos · Historial (los reportes Excel y PDF están en cada jornada del Historial).",
-    "Vinculado con el Sistema, el operador es tu persona y el proyecto se elige de la lista (recuerda el último). El texto libre queda en «Escribir otro proyecto».",
-    "Trabajos en un solo nivel, sin abrir grupos. La ubicación de inicio se toma sola con el GPS; el mapa queda como opción.",
-    "Siguiente paso coherente: en una jornada de dron lleva al checklist del vuelo. En Registrar, el instrumento y el tipo salen del trabajo de la jornada, y el equipo se elige de los equipos del Sistema en terreno.",
-    "Checklist plegado («4 de 6»); la nota se abre al tocar «+ nota». El pronóstico de vuelo queda en una línea que se despliega.",
-    "«Terminar jornada» va al final, con el resumen (levantamientos, puntos, fotos y checklist que faltan) y la jornada se envía al Sistema al cerrar; sin señal queda en cola.",
-    "Encabezado con una sola pastilla (nube y pendientes) y el engranaje. Las plantillas del checklist se editan en ⚙ → General. «Eliminar jornada» queda en «⋯ Más acciones»."
+    "Versión 0.7.0: avance de los vuelos por sector. En una jornada de dron con proyecto del Sistema aparece «Vuelos del proyecto»: los sectores de cada hoja de vuelo, los que tocan hoy y los atrasados.",
+    "Toca un sector y registra cuánto se voló (25, 50, 75 o 100 %), la base usada (PR), la altura de la base y una observación. Sin señal queda guardado y llega al Sistema al sincronizar.",
+    "«Siguiente paso» lleva a los sectores. Cuando todos los sectores de una hoja quedan al 100 %, la hoja pasa sola a «Volado» en el Sistema.",
+    "Paquete de conexión 1.5 (vuelosDeProyecto y registrarAvance)."
   ],
   probar: [
-    "Vinculado: iniciar una jornada solo eligiendo trabajos (el operador y el proyecto ya vienen puestos). La ubicación debe aparecer sola en «Jornada en curso».",
-    "Jornada de dron: «Siguiente paso» abre el checklist del vuelo; marcar ítems y agregar una nota con «+ nota».",
-    "Terminar la jornada en modo avión: debe quedar enviada en cola y llegar al Sistema al volver la señal.",
-    "Historial: exportar Excel y PDF desde la tarjeta de la jornada."
+    "Vinculado y con un proyecto que tenga una hoja de vuelo programada en el Sistema: iniciar una jornada de dron y registrar dos sectores (uno al 100 % y otro al 50 %).",
+    "En modo avión: registrar un sector, quitar el modo avión y revisar en el Sistema (hoja de vuelo › Avance por sector) que llegó.",
+    "Revisar que los sectores de hoy se ven resaltados."
   ],
   conocidos: [
     "Google entrega sesiones de una hora: si la señal vuelve después, la subida a Google Drive puede pedir un toque en la pastilla de la nube para renovar la sesión. Nextcloud se reconecta solo.",

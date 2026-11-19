@@ -26,6 +26,7 @@ export const ESQUEMA = [
   { nombre: 'vuelos_planes', indices: porProyecto },
   { nombre: 'vuelos_drones' },
   { nombre: 'local_vuelos_capas' },
+  { nombre: 'vuelos_avance', indices: [['hojaId', 'hojaId'], ['proyectoId', 'proyectoId']] }, // v0.18a: avance por sector
   // Seguimiento
   { nombre: 'seguimiento_planes', indices: porProyecto },
   { nombre: 'seguimiento_ciclos', indices: [['planId', 'planId']] },

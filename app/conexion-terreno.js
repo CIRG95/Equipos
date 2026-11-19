@@ -21,11 +21,15 @@ import { obtenerProyecto } from '../compartido/catalogos.js';
 import * as Gastos from '../modulos/gastos/datos.js';
 import { CATEGORIAS, problemasGasto, posiblesDuplicados, libroCuenta, eventosDe, estadoRendicion, ultimo, numeroSiguiente, gastoEditable, ordenGastos, suma } from '../modulos/gastos/modelo.js';
 import { urlArchivo, infoArchivo } from '../compartido/archivos.js';
+import { planesDeProyecto as hojasDeProyecto, avanceDeHoja } from '../modulos/vuelos/datos.js';
+import { estadoSectores, totalesAvance, metaDelDia, PORCENTAJES } from '../modulos/vuelos/avance.js';
+import { registrarAvanceSector } from '../modulos/vuelos/avance-datos.js';
 
 // v1.4 (Sistema v0.14): gastos desde Terreno — misma lógica y almacenes que el módulo Gastos 0.1 del Sistema.
 // v1.4.1 (Sistema v0.15): mismas funciones; solo el esquema de la base suma los almacenes de Administración y Planificación.
 // v1.4.2 (Sistema v0.16): mismas funciones; los mensajes de vinculación apuntan a Configuración (botón de engranaje del Sistema).
-export const VERSION = '1.4.2 (Sistema v0.16)';
+// v1.5 (Sistema v0.18a): vuelos del proyecto con sus sectores y registro del avance por sector (almacén vuelos_avance).
+export const VERSION = '1.5 (Sistema v0.18a)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
 const CLAVE_CODIGO = 'topoland_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)
@@ -165,6 +169,35 @@ export function tramosDeProyecto(proyectoId) { return Seguimiento.tramosDeProyec
 export function marcarTramoVolado(proyectoId, tramoId, { volado = true, fecha, nota = null } = {}) {
   const p = yo();
   return Seguimiento.marcarTramoVolado(proyectoId, tramoId, { volado, ...(fecha ? { fecha } : {}), por: p.nombre, nota });
+}
+
+// ───────── Avance de vuelos por sector (v1.5) ─────────
+export const PORCENTAJES_AVANCE = PORCENTAJES;
+/**
+ * Vuelos de un proyecto con su avance, para la jornada de dron en el teléfono (sin calcular geometría: los sectores
+ * vienen en el resumen que guarda el Sistema). → [{ id, nombre, fecha, sectores: [{ nombre, ha, pct, base, fecha }],
+ *   totales, hoy: { dia, sectores, listos } | null, atrasados, bases: [nombres] }]
+ */
+export async function vuelosDeProyecto(proyectoId, hoy = new Date().toISOString().slice(0, 10)) {
+  yo();
+  const hojas = (await hojasDeProyecto(proyectoId)).filter(h => h.resumen && (h.resumen.listaSectores || []).length);
+  const out = [];
+  for (const h of hojas) {
+    const est = estadoSectores(h.resumen.listaSectores, await avanceDeHoja(h.id));
+    const meta = metaDelDia(h.programa || [], est, hoy);
+    out.push({
+      id: h.id, nombre: h.nombre || 'Hoja de vuelo', fecha: h.fecha || null,
+      sectores: est.map(x => ({ nombre: x.nombre, ha: x.ha, pct: x.pct, base: x.ultimo ? x.ultimo.base || '' : '', alturaBase: x.ultimo ? x.ultimo.alturaBase : null, fecha: x.ultimo ? x.ultimo.fecha : null })),
+      totales: totalesAvance(est), hoy: meta.hoy, atrasados: meta.atrasados,
+      bases: [...new Set((h.programa || []).flatMap(d => d.bases || []).map(b => (typeof b === 'string' ? b : b && b.nombre)).filter(Boolean))],
+    });
+  }
+  return out;
+}
+/** Registra el avance de un sector desde el teléfono (sin señal queda guardado y sale con la próxima sincronización). */
+export async function registrarAvance({ hojaId, sector, fecha, pct, base = '', alturaBase = null, obs = '' }) {
+  const p = yo();
+  return registrarAvanceSector({ hojaId, sector, fecha: fecha || new Date().toISOString().slice(0, 10), pct, base, alturaBase, obs }, { personaId: p.id, nombrePersona: p.nombre, origen: 'terreno' });
 }
 
 // ───────── Monografías, jornadas y fotos (v1.2) ─────────

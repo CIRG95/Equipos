@@ -22,6 +22,7 @@ var TopolandConexion = (() => {
   var conexion_terreno_exports = {};
   __export(conexion_terreno_exports, {
     CATEGORIAS_GASTO: () => CATEGORIAS_GASTO,
+    PORCENTAJES_AVANCE: () => PORCENTAJES_AVANCE,
     VERSION: () => VERSION,
     alCambiarNube: () => alCambiarNube,
     alLlegarDatos: () => alLlegarDatos,
@@ -41,16 +42,18 @@ var TopolandConexion = (() => {
     misEquiposEnTerreno: () => misEquiposEnTerreno,
     misGastos: () => misGastos,
     misProyectos: () => misProyectos,
-    persona: () => persona4,
+    persona: () => persona5,
     proyectosGastos: () => proyectosGastos,
     publicarJornada: () => publicarJornada2,
     publicarMonografia: () => publicarMonografia2,
+    registrarAvance: () => registrarAvance2,
     reportar: () => reportar,
     restaurarGasto: () => restaurarGasto2,
     sincronizar: () => sincronizar2,
     subirFoto: () => subirFoto,
     tramosDeProyecto: () => tramosDeProyecto2,
-    vincular: () => vincular
+    vincular: () => vincular,
+    vuelosDeProyecto: () => vuelosDeProyecto
   });
 
   // compartido/esquema.js
@@ -73,6 +76,8 @@ var TopolandConexion = (() => {
     { nombre: "vuelos_planes", indices: porProyecto },
     { nombre: "vuelos_drones" },
     { nombre: "local_vuelos_capas" },
+    { nombre: "vuelos_avance", indices: [["hojaId", "hojaId"], ["proyectoId", "proyectoId"]] },
+    // v0.18a: avance por sector
     // Seguimiento
     { nombre: "seguimiento_planes", indices: porProyecto },
     { nombre: "seguimiento_ciclos", indices: [["planId", "planId"]] },
@@ -1558,8 +1563,100 @@ Content-Type: ${mime}\r
     return restaurar(ALM5.gastos, id, { personaId: persona3 });
   }
 
+  // modulos/vuelos/datos.js
+  var SCHEMA_VERSION5 = 2;
+  var ALM6 = { planes: "vuelos_planes", drones: "vuelos_drones", avance: "vuelos_avance" };
+  var persona4 = null;
+  var sello5 = (r) => sellar(r, { personaId: persona4, schemaVersion: SCHEMA_VERSION5 });
+  var vivo6 = (r) => !r.eliminadoEn;
+  async function planesDeProyecto(proyectoId) {
+    return (await porIndice(ALM6.planes, "proyectoId", proyectoId)).filter(vivo6);
+  }
+  async function obtenerPlan(id) {
+    const p = await obtener(ALM6.planes, id);
+    return p && vivo6(p) ? p : null;
+  }
+  async function guardarPlan2(plan) {
+    return guardar(ALM6.planes, sello5({ ...plan }));
+  }
+  var nuevoId2 = () => globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : `av${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  async function registrarAvance(r, { personaId = persona4, origen = "sistema" } = {}) {
+    return guardar(ALM6.avance, sellar({ id: nuevoId2(), ...r, pct: Number(r.pct), alturaBase: r.alturaBase === "" || r.alturaBase == null ? null : Number(r.alturaBase), personaId: personaId || null, origen }, { personaId, schemaVersion: 1 }));
+  }
+  async function avanceDeHoja(hojaId) {
+    return (await porIndice(ALM6.avance, "hojaId", hojaId)).filter(vivo6);
+  }
+
+  // modulos/vuelos/avance.js
+  var PORCENTAJES = [25, 50, 75, 100];
+  var posterior = (a, b) => a.fecha !== b.fecha ? a.fecha > b.fecha : String(a.creadoEn || "") > String(b.creadoEn || "");
+  var r1 = (x) => Math.round(x * 10) / 10;
+  function estadoSectores(sectores = [], eventos = []) {
+    return sectores.map((s) => {
+      const regs = eventos.filter((e) => e.sector === s.nombre && !e.eliminadoEn).sort((a, b) => posterior(a, b) ? -1 : 1);
+      const ultimo2 = regs[0] || null;
+      return { nombre: s.nombre, ha: Number(s.ha) || 0, pct: ultimo2 ? Math.max(0, Math.min(100, Number(ultimo2.pct) || 0)) : 0, ultimo: ultimo2, registros: regs };
+    });
+  }
+  function totalesAvance(estado2 = []) {
+    const n = estado2.length;
+    const volados = r1(estado2.reduce((s, x) => s + x.pct / 100, 0));
+    const ha = estado2.reduce((s, x) => s + x.ha, 0);
+    const haVoladas = estado2.reduce((s, x) => s + x.ha * x.pct / 100, 0);
+    const completos = estado2.filter((x) => x.pct >= 100).length;
+    return { sectores: n, volados, completos, ha: r1(ha), haVoladas: r1(haVoladas), pct: ha ? Math.round(100 * haVoladas / ha) : n ? Math.round(100 * volados / n) : 0, terminado: n > 0 && completos === n };
+  }
+  function metaDelDia(programa = [], estado2 = [], hoy) {
+    const pct = Object.fromEntries(estado2.map((x) => [x.nombre, x.pct]));
+    const deHoy = programa.find((d) => d.fecha === hoy) || null;
+    const atrasados = [...new Set(programa.filter((d) => d.fecha < hoy).flatMap((d) => d.sectores || []))].filter((nm) => {
+      var _a;
+      return ((_a = pct[nm]) != null ? _a : 0) < 100;
+    });
+    const listos = deHoy ? (deHoy.sectores || []).filter((nm) => {
+      var _a;
+      return ((_a = pct[nm]) != null ? _a : 0) >= 100;
+    }) : [];
+    return { hoy: deHoy ? { dia: deHoy.dia, sectores: deHoy.sectores || [], listos } : null, atrasados, cumplida: deHoy ? listos.length === (deHoy.sectores || []).length : null };
+  }
+  function problemaRegistro(r = {}) {
+    if (!r.hojaId) return "Falta la hoja de vuelo.";
+    if (!r.sector) return "Elige el sector.";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.fecha || ""))) return "Indica la fecha del vuelo.";
+    const p = Number(r.pct);
+    if (!(p >= 0 && p <= 100)) return "El porcentaje va de 0 a 100.";
+    if (r.alturaBase !== "" && r.alturaBase != null && !(Number(r.alturaBase) >= 0 && Number(r.alturaBase) < 10)) return "La altura de la base va en metros (entre 0 y 10).";
+    return "";
+  }
+
+  // modulos/vuelos/avance-datos.js
+  var norm = (t) => String(t || "").trim().toLowerCase().replace(/\s+/g, " ");
+  async function registrarAvanceSector(r, { personaId = null, nombrePersona = "", origen = "sistema" } = {}) {
+    const problema = problemaRegistro(r);
+    if (problema) throw new Error(problema);
+    const hoja = await obtenerPlan(r.hojaId);
+    if (!hoja) throw new Error("Esa hoja de vuelo no está en este equipo. Sincroniza con la nube del Sistema.");
+    const registro = await registrarAvance({ ...r, proyectoId: hoja.proyectoId || null }, { personaId, origen });
+    const sectores = hoja.resumen && hoja.resumen.listaSectores || [];
+    const t = totalesAvance(estadoSectores(sectores, await avanceDeHoja(hoja.id)));
+    if (t.terminado && hoja.estado !== "volada") await guardarPlan2({ ...hoja, estado: "volada" });
+    let tramo = null;
+    if (Number(r.pct) >= 100 && hoja.proyectoId) {
+      try {
+        const seg = await tramosDeProyecto(hoja.proyectoId);
+        const t2 = seg && seg.areas.flatMap((a) => a.tramos).find((x) => norm(x.nombre) === norm(r.sector) || norm(x.n) === norm(r.sector));
+        if (t2 && !t2.volado) {
+          await marcarTramoVolado(hoja.proyectoId, t2.id, { fecha: r.fecha, por: nombrePersona, nota: `Sector ${r.sector} volado (avance)` });
+          tramo = t2.nombre;
+        }
+      } catch {
+      }
+    }
+    return { registro, totales: t, terminado: t.terminado, tramo };
+  }
+
   // app/conexion-terreno.js
-  var VERSION = "1.4.2 (Sistema v0.16)";
+  var VERSION = "1.5 (Sistema v0.18a)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var CLAVE_CODIGO = "topoland_conexion_codigo";
@@ -1585,7 +1682,7 @@ Content-Type: ${mime}\r
   var oyentesVinculo = /* @__PURE__ */ new Set();
   var escuchando = false;
   async function intentarCodigoPendiente() {
-    if (!codigoPendiente || persona4()) return null;
+    if (!codigoPendiente || persona5()) return null;
     try {
       const p = await vincular(codigoPendiente);
       if (p) for (const fn of oyentesVinculo) {
@@ -1602,7 +1699,7 @@ Content-Type: ${mime}\r
     }
   }
   function iniciar4({ clienteId } = {}) {
-    const p = persona4();
+    const p = persona5();
     iniciar2({ personaId: p ? p.id : null });
     iniciar3({ personaId: p ? p.id : null });
     iniciarDatos3({ personaId: p ? p.id : null });
@@ -1642,7 +1739,7 @@ Content-Type: ${mime}\r
     else if (codigoPendiente) intentarCodigoPendiente();
     return { persona: p, codigoPendiente, carpetaPendiente: leer(CLAVE_CARPETA) && !estado().carpetaId ? leer(CLAVE_CARPETA) : null };
   }
-  function persona4() {
+  function persona5() {
     return leer(CLAVE_PERSONA);
   }
   async function vincular(codigo) {
@@ -1668,7 +1765,7 @@ Content-Type: ${mime}\r
     return () => oyentesVinculo.delete(fn);
   };
   async function explicarVinculo(codigo = codigoPendiente) {
-    if (persona4()) return "";
+    if (persona5()) return "";
     let n = 0;
     try {
       n = (await listarPersonas()).length;
@@ -1680,7 +1777,7 @@ Content-Type: ${mime}\r
     return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Configuración → Vinculación con la app de Terreno) y sincroniza de nuevo.`;
   }
   var yo = () => {
-    const p = persona4();
+    const p = persona5();
     if (!p) throw new Error("Primero vincula el teléfono a una persona.");
     return p;
   };
@@ -1707,6 +1804,31 @@ Content-Type: ${mime}\r
     const p = yo();
     return marcarTramoVolado(proyectoId, tramoId, { volado: volado2, ...fecha ? { fecha } : {}, por: p.nombre, nota });
   }
+  var PORCENTAJES_AVANCE = PORCENTAJES;
+  async function vuelosDeProyecto(proyectoId, hoy = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+    yo();
+    const hojas = (await planesDeProyecto(proyectoId)).filter((h) => h.resumen && (h.resumen.listaSectores || []).length);
+    const out = [];
+    for (const h of hojas) {
+      const est2 = estadoSectores(h.resumen.listaSectores, await avanceDeHoja(h.id));
+      const meta = metaDelDia(h.programa || [], est2, hoy);
+      out.push({
+        id: h.id,
+        nombre: h.nombre || "Hoja de vuelo",
+        fecha: h.fecha || null,
+        sectores: est2.map((x) => ({ nombre: x.nombre, ha: x.ha, pct: x.pct, base: x.ultimo ? x.ultimo.base || "" : "", alturaBase: x.ultimo ? x.ultimo.alturaBase : null, fecha: x.ultimo ? x.ultimo.fecha : null })),
+        totales: totalesAvance(est2),
+        hoy: meta.hoy,
+        atrasados: meta.atrasados,
+        bases: [...new Set((h.programa || []).flatMap((d) => d.bases || []).map((b) => typeof b === "string" ? b : b && b.nombre).filter(Boolean))]
+      });
+    }
+    return out;
+  }
+  async function registrarAvance2({ hojaId, sector, fecha, pct, base = "", alturaBase = null, obs = "" }) {
+    const p = yo();
+    return registrarAvanceSector({ hojaId, sector, fecha: fecha || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10), pct, base, alturaBase, obs }, { personaId: p.id, nombrePersona: p.nombre, origen: "terreno" });
+  }
   async function opcionesProyecto(proyectoId) {
     const p = yo();
     if (!proyectoId) throw new Error("Elige el proyecto del Sistema.");
@@ -1722,7 +1844,7 @@ Content-Type: ${mime}\r
   }
   async function subirFoto(dataUrl, { proyectoId, tipo = "otra", monografiaId = null, puntoId = null, punto = "", lat = null, lng = null, hora = null, leyenda = "" } = {}) {
     const op = await opcionesProyecto(proyectoId);
-    const archivoId = await guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? "terreno_monografia" : "terreno_foto", duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || (/* @__PURE__ */ new Date()).toISOString(), leyenda, autor: persona4().nombre } });
+    const archivoId = await guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? "terreno_monografia" : "terreno_foto", duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || (/* @__PURE__ */ new Date()).toISOString(), leyenda, autor: persona5().nombre } });
     return { archivoId };
   }
   async function estadoMonografias2(proyectoId) {
@@ -1795,7 +1917,7 @@ Content-Type: ${mime}\r
     };
   }
   async function gastosDevueltos() {
-    const p = persona4();
+    const p = persona5();
     if (!p) return [];
     const d = await cargarTodo();
     return d.rendiciones.filter((r) => r.personaId === p.id && estadoRendicion(eventosDe(d.eventos, r.id)) === "devuelta").map((r) => ({ id: r.id, numero: r.numero, proyectoId: r.proyectoId, motivo: (ultimo(eventosDe(d.eventos, r.id), "devuelta") || {}).motivo || "" }));

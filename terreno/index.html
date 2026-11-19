@@ -303,6 +303,25 @@ body[data-modo="pc"] header.app-header{border-radius:12px;}
 body[data-modo="pc"].insp-visible #pcMapa .leaflet-right{right:364px;}
 .pc-centrar{font-size:20px !important; line-height:30px !important; text-align:center; text-decoration:none; color:var(--primary-dark) !important;}
 .chip-trabajo.on{background:var(--primary); border-color:var(--primary); color:#fff; font-weight:600;}
+/* 0.7.0 · avance de vuelos por sector */
+.av-hoja{border-top:1px solid var(--line); padding-top:10px; margin-top:10px;}
+.av-hoja:first-of-type{border-top:0; margin-top:0; padding-top:0;}
+.av-cab{display:flex; flex-direction:column; gap:2px;}
+.av-barra{height:8px; border-radius:999px; background:#E7ECEA; overflow:hidden; margin:8px 0;}
+.av-barra i{display:block; height:100%; background:var(--primary);}
+.av-hoy{font-size:13px; margin:4px 0;}
+.av-atraso{font-size:13px; color:#B42318; margin:4px 0;}
+.av-sectores{display:grid; grid-template-columns:repeat(auto-fill,minmax(76px,1fr)); gap:8px; margin:8px 0;}
+.av-sec{min-height:56px; border:1px solid #9FB0AA; border-radius:10px; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; font-size:15px;}
+.av-sec small{font-size:11px; color:var(--muted);}
+.av-sec.hoy{border-width:2px; border-color:var(--primary);}
+.av-sec.parcial{background:#FBEBDD;}
+.av-sec.ok{background:#DCEFE8;}
+.av-sec.sel{outline:3px solid var(--accent, #C2571A); outline-offset:1px;}
+.av-form{background:#F6F9F8; border-radius:10px; padding:12px; margin-top:6px;}
+.av-pcts{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 4px;}
+.av-pct{flex:1; min-width:64px; min-height:48px; border:1px solid #9FB0AA; border-radius:999px; background:#fff; font-size:15px; font-weight:600; cursor:pointer;}
+.av-pct.on{background:var(--primary); color:#fff; border-color:var(--primary);}
 /* 0.6.1 · trabajos en un nivel, checklist plegado, pronóstico en una línea, cierre al final */
 .trabajos-plano{display:flex; flex-direction:column; gap:8px; margin-bottom:8px;}
 .trabajos-plano .tp-grupo{font-size:12px; font-weight:600; color:var(--muted); margin:2px 0 -2px;}

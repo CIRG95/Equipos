@@ -36,7 +36,9 @@ export function crearPasoPermisos(v) {
     const docs = documentosPermiso(h), listos = docs.filter(x => x.listo).length;
     const logs = P.logs || [];
     const zona = P.zona || 'no_poblada';
-    return `<section class="sis-tarjeta vu-perm-cab">
+    // v0.18a: los permisos se pueden omitir por ahora para cerrar la hoja en planificación (se retoman cuando el vuelo se concrete).
+    return `<section class="sis-tarjeta vu-perm-omitir"><label class="sis-opcion"><input type="checkbox" data-accion-cambio="permisos-omitir" ${P.omitir ? 'checked' : ''}> Omitir permisos por ahora (la hoja queda «Planificado»; el aviso de la fecha límite DGAC se mantiene)</label></section>
+      <section class="sis-tarjeta vu-perm-cab">
         <div class="sis-cab"><h2>Permisos del vuelo</h2>${limite ? chip(g.enviado || g.aprobado ? `Solicitud enviada ${g.enviado ? fechaLegible(g.enviado) : ''}` : `Presentar a más tardar el ${fechaLegible(limite)} (7 días hábiles antes)`, g.enviado || g.aprobado ? 'verde' : limite < hoy ? 'rojo' : 'ambar') : chip('Pon el primer día de vuelo para calcular el plazo', 'gris')}</div>
         <div class="sis-campo"><span>Tipo de zona de vuelo</span><div class="vu-zonas-tipo" role="radiogroup" aria-label="Tipo de zona">${ZONAS_VUELO.map(([k, t]) => `<label class="vu-zona-op${zona === k ? ' activo' : ''}"><input type="radio" name="zonaVuelo" data-zona="${k}" ${zona === k ? 'checked' : ''}> ${t}</label>`).join('')}</div></div>
         <p class="vu-guia-zona">${esc(GUIA_ZONA[zona])} Las solicitudes al Subdepartamento de Operaciones se presentan con al menos 7 días de anticipación.</p>

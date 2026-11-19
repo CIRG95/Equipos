@@ -2,7 +2,8 @@
 // Planificador (GSD, líneas, fotos, tiempo, baterías, densidad LiDAR), limpiador de KML/KMZ para DJI Pilot 2
 // y pronóstico por hora. Otros módulos y la app global solo importan este archivo.
 
-import { iniciarDatos, fijarPersona, planesDeProyecto as planesCrudos, listarDrones, listarPlanes, VERSION_MODULO, ALM } from './datos.js';
+import { iniciarDatos, fijarPersona, planesDeProyecto as planesCrudos, listarDrones, listarPlanes, VERSION_MODULO, ALM, avanceDeProyecto as eventosDeProyecto } from './datos.js';
+import { estadoSectores, totalesAvance, metaDelDia } from './avance.js';
 import { migrarHoja, etapaVuelo, NOMBRE_ETAPA_VUELO, documentosPermiso, geometria, totales, jornadasNecesarias, nombreSector } from './hoja.js';
 import { fondoEstatico } from './mapa-estatico.js';
 import { diasHabilesDesde } from '../../compartido/periodicidad.js';
@@ -16,6 +17,20 @@ let iniciado = false;
 export function iniciar({ personaId } = {}) {
   if (!iniciado) { iniciarDatos({ personaId: personaId ?? null }); iniciado = true; }
   else if (personaId !== undefined) fijarPersona(personaId);
+}
+
+/**
+ * v0.18a · Avance de los vuelos de un proyecto, por hoja: [{ id, nombre, estado: [{ nombre, ha, pct, ultimo }], totales, meta }]
+ * más el total del proyecto. Solo hojas con sectores en su resumen (las guardadas con área).
+ */
+export async function avanceDeProyecto(proyectoId, hoy = new Date().toISOString().slice(0, 10)) {
+  iniciar();
+  const [planes, eventos] = await Promise.all([planesCrudos(proyectoId), eventosDeProyecto(proyectoId).catch(() => [])]);
+  const hojas = planes.filter(p => p.resumen && (p.resumen.listaSectores || []).length).map(p => {
+    const estado = estadoSectores(p.resumen.listaSectores, eventos.filter(e => e.hojaId === p.id));
+    return { id: p.id, nombre: p.nombre || 'Hoja de vuelo', estado, totales: totalesAvance(estado), meta: metaDelDia(p.programa || [], estado, hoy) };
+  });
+  return { hojas, totales: totalesAvance(hojas.flatMap(x => x.estado)), registros: eventos.length };
 }
 
 /** contexto: { rol, personaId, proyectoId?, planId?, tab? } → { desmontar(), refrescar() } */

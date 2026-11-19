@@ -397,9 +397,9 @@ export function estadoPermiso(hoja) {
   return { texto: 'Sin iniciar', nivel: 'gris', detalle: 'mín. 7 días hábiles antes' };
 }
 
-// ─────────── Etapa del vuelo (v0.11): Planificación → Permisos → Programado → Volado → Log cargado → Procesado ───────────
+// ─────────── Etapa del vuelo (v0.11; v0.18a: «Planificado» si se omiten los permisos): Planificación → Permisos → Programado → Volado → Log cargado → Procesado ───────────
 export const ETAPAS_VUELO = [
-  ['planificacion', 'Planificación', 'gris'], ['permisos', 'Permisos', 'ambar'], ['programado', 'Programado', 'azul'],
+  ['planificacion', 'Planificación', 'gris'], ['permisos', 'Permisos', 'ambar'], ['planificado', 'Planificado', 'verde'], ['programado', 'Programado', 'azul'],
   ['volado', 'Volado', 'verde'], ['log', 'Log cargado', 'verde'], ['procesado', 'Procesado', 'gris'],
 ];
 export const NOMBRE_ETAPA_VUELO = Object.fromEntries(ETAPAS_VUELO.map(([k, t]) => [k, t]));
@@ -409,7 +409,8 @@ export function etapaVuelo(h) {
   if (h.estado === 'volada') return logs.length ? 'log' : 'volado';
   if (h.estado === 'lista') return 'programado';
   const conArea = !!(h.resumen || (h.area && (h.area.original || h.area.eje)));
-  return conArea ? 'permisos' : 'planificacion';
+  // v0.18a: con los permisos omitidos por ahora, la hoja queda cerrada en planificación («Planificado»).
+  return conArea ? (h.permisos && h.permisos.omitir ? 'planificado' : 'permisos') : 'planificacion';
 }
 
 /** Resumen corto que se guarda con la hoja (para listas y la ficha del proyecto). */
@@ -418,7 +419,9 @@ export function resumenHoja(hoja, d, geo) {
   if (!t) return null;
   const largoLineal = geo.tipo === 'corredor' ? geo.sectores.reduce((s, x) => s + (x.largo || 0), 0) : (hoja.area.ejeCalc && hoja.area.ejeCalc.linea ? hoja.area.ejeCalc.largo : 0);
   const [lon, lat] = geo.marco.aLonLat([0, 0]);
-  return { area: geo.areaVuelo, gsd: hoja.params.modo === 'lidar' ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === 'corredor', modo: hoja.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null, largo: largoLineal || 0, centro: [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5] };
+  return { area: geo.areaVuelo, gsd: hoja.params.modo === 'lidar' ? null : t.gsd, altura: t.altura, vuelos: t.baterias, minTotal: t.minJornada, fotos: t.fotos, sectores: geo.sectores.length, corredor: geo.tipo === 'corredor', modo: hoja.params.modo, densidad: t.sectores[0] ? t.sectores[0].densidad : null, largo: largoLineal || 0, centro: [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5],
+    // v0.18a: nombre y superficie de cada sector, para el avance (Sistema y app de Terreno sin calcular la geometría)
+    listaSectores: geo.sectores.map((x, i) => ({ nombre: nombreSector(hoja, i, geo.sectores.length), ha: Math.round((x.area || 0) / 100) / 100 })) };
 }
 
 // ─────────── Jornadas necesarias (v0.10) ───────────

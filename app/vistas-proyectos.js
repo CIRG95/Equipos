@@ -22,6 +22,7 @@ import { archivosDe } from '../compartido/archivos.js';
 import { INFO_ENCARGO, TIPOS_BITACORA, calidadEncargo, resumenCronograma, barraActividad, sinAcuse, entradasAbiertas } from './encargo.js';
 import { trabajosDeProyecto, cronogramaDeTrabajos, cronogramaSincronizado, avisosOrden, POR_BATERIAS } from './trabajos.js';
 import { resumenCapas, prsActivos, areaPrincipal } from '../modulos/vuelos/capas-proyecto.js';
+import { textoAvance } from '../modulos/vuelos/avance.js';
 
 // v0.15 · Entregables del proyecto (versiones, revisión y envío al mandante)
 export const ESTADOS_ENTREGABLE = [['pendiente', 'Pendiente', 'gris'], ['revision', 'En revisión', 'ambar'], ['enviado', 'Enviado', 'azul'], ['observado', 'Observado', 'rojo'], ['aprobado', 'Aprobado', 'verde']];
@@ -221,6 +222,17 @@ function htmlLoPlanificado(p, ctx, lineas, nomPers, { compacto = false } = {}) {
   </section>`;
 }
 
+/** v0.18a · Avance de los vuelos del proyecto (por sector, desde el Sistema o la app de Terreno). */
+function htmlAvanceVuelos(av, { compacto = false } = {}) {
+  if (!av || !av.hojas.length) return compacto ? '' : `<section class="sis-tarjeta"><h2>Avance de los vuelos</h2><p class="sis-tenue">Cuando una hoja de vuelo tenga sectores, aquí se ve cuánto se ha volado. Se registra por sector en la hoja o desde la app de Terreno.</p></section>`;
+  const t = av.totales;
+  return `<section class="sis-tarjeta av-proy" id="avance-vuelos"><div class="sis-cab"><div><h2>Avance de los vuelos</h2><span class="sis-tenue">${esc(textoAvance(t))}</span></div>${t.terminado ? '<span class="sis-chip verde">Todo volado</span>' : ''}</div>
+    <div class="sg-mini"><i style="width:${t.pct}%"></i></div>
+    ${compacto && av.hojas.length === 1 ? '' : `<div class="sis-lista">${av.hojas.map(h => `<a class="sis-fila" href="#/vuelos/plan/${esc(h.id)}"><span class="sis-fila-txt"><b>${esc(h.nombre)}</b><span class="sis-tenue">${esc(textoAvance(h.totales))}</span></span>
+      <span class="sis-chips">${h.meta.hoy ? `<span class="sis-chip ${h.meta.cumplida ? 'verde' : 'ambar'}">Hoy ${h.meta.hoy.listos.length}/${h.meta.hoy.sectores.length}</span>` : ''}${h.meta.atrasados.length ? `<span class="sis-chip rojo">${h.meta.atrasados.length} atrasado${h.meta.atrasados.length === 1 ? '' : 's'}</span>` : ''}${compacto ? '' : `<span class="sis-chip gris">Registrar</span>`}</span></a>`).join('')}</div>`}
+  </section>`;
+}
+
 /** Un paso numerado de la Planificación del proyecto. */
 const paso = (n, id, titulo, sub, estado, cuerpo, acciones = '') => `<section class="sis-tarjeta pl-paso${estado === 'ok' ? ' ok' : ''}" id="paso-${id}">
     <div class="pl-paso-cab"><span class="pl-paso-n">${estado === 'ok' ? '✓' : n}</span><div><h2>${titulo}</h2><span class="sis-tenue">${sub}</span></div>${acciones ? `<span class="sis-acciones">${acciones}</span>` : ''}</div>
@@ -293,6 +305,7 @@ export async function proyecto(ctx, id) {
   if (!p || p.eliminadoEn) return vacio('Este proyecto no existe o está en la papelera.', '<a class="sis-btn" href="#/proyectos">Volver a Proyectos</a>');
   const [personas, equipos, certs, planes, seg, mono] = await Promise.all([listarPersonas(), Equipos.listarEquiposConEstado(), Equipos.certificadosDeProyecto(id), Vuelos.planesDeProyecto(id), Seguimiento.resumenDeProyecto(id), Monografias.resumenDeProyecto(id)]);
   const gas = await Gastos.resumenDeProyecto(id).catch(() => null);
+  const av = await Vuelos.avanceDeProyecto(id).catch(() => ({ hojas: [], totales: null })); // v0.18a
   const hoy = hoyISO();
   const [cua, pla, archEnc, todosProy] = await Promise.all([
     Administracion.cuadrillaDeProyecto(p, { personas, hoy }).catch(() => null), Planificacion.resumenDeProyecto(id).catch(() => ({ redes: [], marcas: [] })),
@@ -433,10 +446,10 @@ export async function proyecto(ctx, id) {
   const dos = (main, aside) => `<div class="sis-dos"><div>${main}</div><aside>${aside}</aside></div>`;
   const lineas = esOficina ? [] : resumenPlanificacion(p, planes, pla);
   const cuerpo = {
-    resumen: () => dos(`${esOficina ? '' : htmlCronograma(p, nomPers, hoy, ctx)}${B.ciclos}${esOficina ? B.vuelos : ''}`, `${esOficina ? '' : htmlLoPlanificado(p, ctx, lineas, nomPers, { compacto: true })}${B.gastos}`),
+    resumen: () => dos(`${esOficina ? '' : htmlCronograma(p, nomPers, hoy, ctx)}${esOficina ? '' : htmlAvanceVuelos(av, { compacto: true })}${B.ciclos}${esOficina ? B.vuelos : ''}`, `${esOficina ? '' : htmlLoPlanificado(p, ctx, lineas, nomPers, { compacto: true })}${B.gastos}`),
     encargo: () => dos(`${B.encargo}${htmlBitacora(p, ctx, nomPers)}`, `${B.lecc}`),
     planificacion: () => dos(pasosPlanificacion(), htmlLoPlanificado(p, ctx, lineas, nomPers)),
-    terreno: () => dos(`${B.mono}${B.segur}`, `${B.cuad}`),
+    terreno: () => dos(`${htmlAvanceVuelos(av)}${B.mono}${B.segur}`, `${B.cuad}`),
     entregas: () => dos(`${B.entregas}${B.entregables}`, `${B.certs}`),
     recursos: () => dos(`${B.equip}${B.gastos}`, `${B.certs}`),
   }[tab]();

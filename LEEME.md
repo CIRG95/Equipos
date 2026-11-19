@@ -1,6 +1,15 @@
-# Topoland · Sistema de trabajo — v0.18 · Terreno 0.6.1
+# Topoland · Sistema de trabajo — v0.18a · Terreno 0.7.0
 
 **Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra «Sistema Topoland — flujos por rol y propuesta v0.18»): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
+
+## Qué cambia en v0.18a (avance por sector)
+- **Avance por sector en la hoja de vuelo:** tarjeta «Avance por sector» en el Resumen; se toca un sector y se registra fecha, % (25/50/75/100), base usada (PR), altura de la base y observación. Muestra sectores (un 50 % suma medio) y hectáreas, la meta del día y los sectores atrasados según el programa. Con todos los sectores al 100 % la hoja pasa sola a «Volado»; un sector al 100 % marca la columna Terreno de Entregas si el proyecto tiene un tramo con el mismo nombre.
+- **Ficha del proyecto:** «Avance de los vuelos» en el Resumen y en la pestaña Terreno.
+- **Desde el teléfono (Terreno 0.7.0):** el mismo registro sin señal; llega al Sistema con la sincronización.
+- **Bases de amarre con la red planificada:** además de los PR existentes del KMZ, los PR de la red de PR del proyecto son candidatos a base de los vuelos (chip «Planificado en la red»).
+- **Permisos omitidos por ahora:** interruptor en el paso Permisos y botón en el Resumen; la hoja queda «Planificado» (etapa nueva) sin perder lo cargado y se mantiene el aviso de la fecha límite DGAC.
+- **Jornadas en panel lateral:** el Resumen muestra las jornadas en una línea de chips y «Ajustar jornadas» abre el panel con los controles, los días y «Agregar al calendario» (Escape cierra); Clima y Permisos ya no quedan abajo.
+- **LiDAR:** el Resumen muestra densidad (pts/m²) y GSD de la cámara en vez de dejar el GSD vacío.
 
 ## Qué cambia en v0.18
 - **Menús:** Planificación y Vuelos salen del menú y viven dentro del proyecto. Proyectos › **Vuelos** lista los vuelos de todos los proyectos; Herramientas › **Vuelo rápido** reúne los vuelos sin proyecto (u Oficina) con «Convertir en proyecto». Los enlaces antiguos (`#/planificacion`, `#/planificacion/proyecto/<id>`) llevan al proyecto.

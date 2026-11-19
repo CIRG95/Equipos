@@ -424,3 +424,67 @@ document.addEventListener("click", async (ev) => {
   } catch (err) { toast(err && err.message ? err.message : "No se pudo enviar"); }
   if (state.herramienta === "monografias" && !state.monografiaEnEdicionId) renderMonografias();
 });
+
+/* =========================================================================
+   v0.7.0 — AVANCE DE VUELOS POR SECTOR (paquete 1.5)
+   En una jornada de dron con proyecto del Sistema, la tarjeta «Vuelos del proyecto» muestra los sectores de cada
+   hoja de vuelo y registra cuánto se voló (%, base, altura de la base y observación). Sin señal queda guardado en
+   el teléfono y llega al Sistema con la próxima sincronización. La hoja y sus sectores los arma el Sistema.
+   ========================================================================= */
+const SIS_AV = { abierto: null }; // «hojaId|sector» del formulario abierto
+function sisPuedeAvance(j) {
+  return SIS.listo && !!sisPersona() && !!(j && j.proyectoId && j.proyectoId !== "oficina") && typeof TopolandConexion.vuelosDeProyecto === "function";
+}
+function sisAvanceHtml(j) {
+  return sisPuedeAvance(j) ? '<div class="card" id="avanceVuelos"><h2>Vuelos del proyecto</h2><p class="muted">Cargando sectores…</p></div>' : "";
+}
+async function sisCargarAvance(j) {
+  const el = document.getElementById("avanceVuelos");
+  if (!el || !sisPuedeAvance(j)) return;
+  let vuelos = [];
+  try { vuelos = await TopolandConexion.vuelosDeProyecto(j.proyectoId); } catch (e) { el.innerHTML = '<h2>Vuelos del proyecto</h2><p class="muted">' + escapeHtml(e.message || "No se pudieron leer los vuelos") + "</p>"; return; }
+  if (!document.body.contains(el)) return;
+  if (!vuelos.length) { el.innerHTML = '<h2>Vuelos del proyecto</h2><p class="muted">El proyecto aún no tiene hojas de vuelo con sectores. Se arman en el Sistema (Planificación › Vuelos) y llegan con la sincronización.</p>'; return; }
+  const f1 = (x) => Number(x || 0).toLocaleString("es-CL", { maximumFractionDigits: 1 });
+  const pcts = TopolandConexion.PORCENTAJES_AVANCE || [25, 50, 75, 100];
+  el.innerHTML = '<h2>Vuelos del proyecto</h2>' + vuelos.map((v) => {
+    const t = v.totales, hoy = v.hoy;
+    const abierto = SIS_AV.abierto && SIS_AV.abierto.startsWith(v.id + "|") ? SIS_AV.abierto.slice(v.id.length + 1) : null;
+    const s = abierto ? v.sectores.find((x) => x.nombre === abierto) : null;
+    return `<div class="av-hoja">
+      <div class="av-cab"><b>${escapeHtml(v.nombre)}</b><span class="muted">${f1(t.volados)} de ${t.sectores} sectores${t.ha ? " · " + f1(t.haVoladas) + " de " + f1(t.ha) + " ha" : ""}</span></div>
+      <div class="av-barra"><i style="width:${t.pct}%"></i></div>
+      ${hoy ? `<p class="av-hoy">Hoy (día ${hoy.dia}): <b>${hoy.sectores.map(escapeHtml).join(", ")}</b> · ${hoy.listos.length} de ${hoy.sectores.length} listos</p>` : ""}
+      ${v.atrasados.length ? `<p class="av-atraso">Atrasados: ${v.atrasados.map(escapeHtml).join(", ")}</p>` : ""}
+      <div class="av-sectores">${v.sectores.map((x) => `<button type="button" class="av-sec ${x.pct >= 100 ? "ok" : x.pct > 0 ? "parcial" : ""}${hoy && hoy.sectores.includes(x.nombre) ? " hoy" : ""}${abierto === x.nombre ? " sel" : ""}" data-av-sec="${escapeHtml(v.id + "|" + x.nombre)}"><b>${escapeHtml(x.nombre)}</b><small>${x.pct ? x.pct + " %" : "pendiente"}</small></button>`).join("")}</div>
+      ${s ? `<div class="av-form" data-av-form="${escapeHtml(v.id + "|" + s.nombre)}">
+        <p><b>${escapeHtml(s.nombre)}</b>${s.ha ? " · " + f1(s.ha) + " ha" : ""} — ¿cuánto se voló?</p>
+        <div class="av-pcts">${pcts.map((p) => `<button type="button" class="av-pct${p === 100 ? " on" : ""}" data-av-pct="${p}">${p} %</button>`).join("")}</div>
+        <label>Base usada (PR)</label><input type="text" data-av-base list="avBases" value="${escapeHtml(s.base || v.bases[0] || "")}" placeholder="PR11">
+        <datalist id="avBases">${v.bases.map((b) => `<option value="${escapeHtml(b)}">`).join("")}</datalist>
+        <label>Altura de la base (m)</label><input type="number" step="0.001" min="0" max="10" data-av-altura value="${s.alturaBase != null ? s.alturaBase : ""}" placeholder="1.600">
+        <label>Observación (opcional)</label><input type="text" data-av-obs placeholder="Viento en la tarde">
+        <div class="row" style="margin-top:10px;"><button type="button" class="btn btn-accent" data-av-guardar style="flex:1;">Registrar</button><button type="button" class="btn btn-outline" data-av-cancelar>Cancelar</button></div>
+      </div>` : ""}
+    </div>`;
+  }).join("") + '<p class="muted" style="font-size:12px;">Toca un sector para registrar cuánto se voló. Sin señal queda guardado y llega al Sistema al sincronizar.</p>';
+  el.querySelectorAll("[data-av-sec]").forEach((b) => b.addEventListener("click", () => { SIS_AV.abierto = SIS_AV.abierto === b.dataset.avSec ? null : b.dataset.avSec; sisCargarAvance(j); }));
+  el.querySelectorAll("[data-av-pct]").forEach((b) => b.addEventListener("click", () => { el.querySelectorAll("[data-av-pct]").forEach((x) => x.classList.toggle("on", x === b)); }));
+  const cancelar = el.querySelector("[data-av-cancelar]");
+  if (cancelar) cancelar.addEventListener("click", () => { SIS_AV.abierto = null; sisCargarAvance(j); });
+  const guardarBtn = el.querySelector("[data-av-guardar]");
+  if (guardarBtn) guardarBtn.addEventListener("click", async () => {
+    const form = el.querySelector("[data-av-form]");
+    const [hojaId, sector] = form.dataset.avForm.split("|");
+    const pct = Number((form.querySelector(".av-pct.on") || {}).dataset ? form.querySelector(".av-pct.on").dataset.avPct : 100);
+    const alt = form.querySelector("[data-av-altura]").value.trim().replace(",", ".");
+    try {
+      guardarBtn.disabled = true;
+      const r = await TopolandConexion.registrarAvance({ hojaId, sector, pct, base: form.querySelector("[data-av-base]").value.trim(), alturaBase: alt === "" ? null : Number(alt), obs: form.querySelector("[data-av-obs]").value.trim() });
+      SIS_AV.abierto = null;
+      toast(sector + ": " + pct + " % registrado" + (r && r.terminado ? " · vuelo completo" : "") + (typeof hayConexion === "function" && !hayConexion() ? " · se envía al volver la señal" : ""));
+      if (typeof hayConexion !== "function" || hayConexion()) Promise.resolve().then(() => TopolandConexion.sincronizar()).catch(() => {});
+    } catch (e) { toast(e && e.message ? e.message : "No se pudo registrar"); guardarBtn.disabled = false; return; }
+    sisCargarAvance(j);
+  });
+}

@@ -125,6 +125,7 @@ function renderJornada() {
     ${jornadaEsDron(j) ? `<details class="card pron-linea" id="detPronostico"${state.pronAbierto ? " open" : ""}>
       <summary><b>Pronóstico de vuelo</b><small id="pronLinea">${escapeHtml(lineaClima(j))}</small></summary>
       <div id="pronosticoJornada"></div></details>` : ""}
+    ${typeof sisAvanceHtml === "function" && jornadaEsDron(j) ? sisAvanceHtml(j) : ""}
     ${typeof gastosTarjetaJornadaHtml === "function" ? gastosTarjetaJornadaHtml(j) : ""}
     <div class="card" id="cardChecklist">
       <h2>Checklist del día</h2>
@@ -205,6 +206,8 @@ function renderJornada() {
   });
   wireObjetivosJornada(j);
   montarPronosticoJornada(j);
+  if (typeof sisCargarAvance === "function" && jornadaEsDron(j)) sisCargarAvance(j);
+  el.querySelectorAll("[data-ir-avance]").forEach((b) => b.addEventListener("click", () => { const c = document.getElementById("avanceVuelos"); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); }));
   document.getElementById("btnCambiarProyecto").addEventListener("click", async () => {
     const nuevo = prompt("Proyecto de esta jornada:", j.proyecto || "");
     if (nuevo === null) return;
@@ -382,6 +385,7 @@ function tarjetaSiguientePasoHtml(j, levs) {
   const estado = `<div class="paso-estado ${totalPend ? "pend" : "ok"}">${objs.length ? (totalPend ? "Faltan " + totalPend + " de " + objs.length + " ítems del checklist" : "Checklist completo") : "Sin checklist: agrégalo más abajo"}</div>`;
   if (!act) {
     // 0.6.1: un vuelo no es un levantamiento; su registro está en el checklist del dron
+    if (jornadaEsDron(j) && typeof sisPuedeAvance === "function" && sisPuedeAvance(j)) filas.push(`<button class="paso" type="button" data-ir-avance><span>Registrar los sectores volados</span><small>sectores de hoy, base y altura de la base</small></button>`);
     (j.objetivos || []).filter((b) => b.plantillaId === "aer" || b.plantillaId === "lid").forEach((b) => {
       const checks = b.items.filter((it) => it.tipo === "check");
       const faltan = checks.filter((it) => !it.marcado).length;

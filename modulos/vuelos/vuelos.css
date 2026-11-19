@@ -666,3 +666,41 @@ body[data-modo="pc"] .vu-doc-fila{grid-template-columns:minmax(0,1fr) 140px 140p
 
 .vu-dia-cab{flex-wrap:wrap; row-gap:0;}
 .vu-dia-cab b, .vu-dia-cab small, .vu-dia-cab .vu-dia-min{white-space:nowrap;}
+
+/* v0.18a · Avance por sector y permisos omitidos */
+.vu-avance .vu-av-barra{margin:6px 0 12px;}
+.vu-av-grilla{display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px;}
+.vu-av-sec{display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px 12px; border:1px solid var(--borde,#D8DEDC); border-radius:10px; background:#fff; cursor:pointer; text-align:left; min-height:56px;}
+.vu-av-sec b{font-size:15px;}
+.vu-av-sec small{color:var(--tinta-3,#6B7680); font-size:12px;}
+.vu-av-sec.parcial{background:#FBEBDD; border-color:#EDB98A;}
+.vu-av-sec.ok{background:#DCEFE8; border-color:#8FCBB5;}
+.vu-av-sec.sel{outline:2px solid var(--marca); outline-offset:1px;}
+.vu-av-form{margin-top:14px; padding-top:12px; border-top:1px solid var(--borde,#D8DEDC);}
+.vu-av-form h3{margin:0 0 8px; font-size:15px;}
+.vu-av-pct{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+.vu-av-pct label{position:relative;}
+.vu-av-pct input{position:absolute; opacity:0;}
+.vu-av-pct span{display:inline-flex; align-items:center; justify-content:center; min-width:64px; min-height:44px; border:1px solid var(--borde,#D8DEDC); border-radius:999px; font-weight:600; cursor:pointer; background:#fff;}
+.vu-av-pct input:checked + span{background:var(--marca); color:#fff; border-color:var(--marca);}
+.vu-av-pct input:focus-visible + span{outline:2px solid var(--marca); outline-offset:2px;}
+.vu-av-hist{list-style:none; margin:12px 0 0; padding:0; font-size:13px; display:flex; flex-direction:column; gap:4px;}
+.vu-av-hist small{display:block; color:var(--tinta-3,#6B7680);}
+.vu-res-omitido{background:#F6F9F8; border-radius:8px; padding:8px 10px; font-size:13px;}
+.vu-perm-omitir{padding:12px 16px;}
+
+/* v0.18a · Jornadas en panel lateral */
+.vu-jor-compacta{margin-top:10px; padding-top:10px; border-top:1px solid var(--borde,#D8DEDC);}
+.vu-jor-tot{margin:0 0 8px; font-size:14px;}
+.vu-jor-chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
+.vu-jor-chips span{display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 8px; border-radius:999px; background:#F1F4F3;}
+.vu-jor-chips i{width:9px; height:9px; border-radius:50%; display:inline-block;}
+.vu-jor-chips small{color:var(--tinta-3,#6B7680);}
+.vu-cinta-nota{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.vu-cajon-fondo{position:fixed; inset:0; background:rgba(16,24,28,.35); z-index:60;}
+.vu-cajon{position:fixed; top:0; right:0; bottom:0; width:min(620px,100vw); background:var(--fondo,#F6F5F1); z-index:61; overflow-y:auto; padding:16px 18px 32px; box-shadow:-8px 0 24px rgba(16,24,28,.18);}
+.vu-cajon-cab{display:flex; justify-content:space-between; align-items:center; position:sticky; top:-16px; background:inherit; padding:8px 0; margin-bottom:8px; z-index:1;}
+.vu-cajon-cab h2{margin:0;}
+.vu-cajon .vu-jornadas{background:#fff; border-radius:12px; padding:12px;}
+@media (max-width:720px){ .vu-cajon{width:100vw; padding:12px 12px 90px;} }
+.vu-avance .vu-res-nota{margin-top:10px;}

@@ -89,7 +89,8 @@ function renderLevantamiento() {
       <label>Tipo de levantamiento</label>
       <select id="selTipo"></select>
       <label>Equipo utilizado</label>
-      <input type="text" id="inpEquipo" placeholder="Ej: Nivel Leica NA324, N° serie 12345">
+      <input type="text" id="inpEquipo" list="listaEquipos" placeholder="Ej: Nivel Leica NA324, N° serie 12345">
+      <datalist id="listaEquipos">${[...new Set(state.levantamientos.map((l) => l.equipo).filter(Boolean))].map((e) => `<option value="${escapeHtml(e)}">`).join("")}</datalist>
       <div id="wrapCerradaInicio" style="display:none;">
         <div class="divider"></div>
         <p class="muted" style="margin-bottom:8px;"><strong>Punto de partida (BM)</strong></p>
@@ -158,6 +159,25 @@ function renderLevantamiento() {
   selInstrumento.addEventListener("change", poblarTipos);
   selTipo.addEventListener("change", actualizarPreview);
   poblarTipos();
+  // 0.6.1: sin elección previa, el instrumento y el tipo salen del primer trabajo de la jornada que falta
+  if (!state.preseleccionLev && typeof LEV_SUGERIDO !== "undefined") {
+    const jAct = jornadaActiva();
+    if (jAct) {
+      const hechos = new Set(levantamientosDeJornada(jAct.id).map((l) => l.instrumento + "." + l.tipo));
+      const sug = (jAct.objetivos || []).map((b) => LEV_SUGERIDO[String(b.plantillaId || "").slice(0, 3)]).filter(Boolean);
+      const elegido = sug.find((x) => !hechos.has(x[0] + "." + x[1])) || sug[0];
+      if (elegido) state.preseleccionLev = { instrumento: elegido[0], tipo: elegido[1] };
+    }
+  }
+  // 0.6.1: el equipo se elige de los equipos que el Sistema tiene en terreno a tu cargo (o se escribe)
+  if (typeof sisPersona === "function" && sisPersona() && typeof TopolandConexion.misEquiposEnTerreno === "function") {
+    TopolandConexion.misEquiposEnTerreno().then((lista) => {
+      const dl = document.getElementById("listaEquipos");
+      if (!dl || !lista || !lista.length) return;
+      const ya = new Set([...dl.options].map((o) => o.value));
+      dl.insertAdjacentHTML("afterbegin", lista.map((e) => e.nombre + (e.numeroSerie ? " · N° serie " + e.numeroSerie : "")).filter((t) => !ya.has(t)).map((t) => `<option value="${escapeHtml(t)}">`).join(""));
+    }).catch(() => {});
+  }
   if (state.preseleccionLev && INSTRUMENTOS[state.preseleccionLev.instrumento]) {
     selInstrumento.value = state.preseleccionLev.instrumento; poblarTipos();
     if (INSTRUMENTOS[selInstrumento.value].tipos[state.preseleccionLev.tipo]) selTipo.value = state.preseleccionLev.tipo;

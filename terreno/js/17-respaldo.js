@@ -112,15 +112,19 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.6.0: trabajo sin conexión completo. La app abre y registra sin señal; lo pendiente de subir queda guardado en el teléfono aunque se cierre la app, y se sincroniza sola al recuperar la conexión.",
-    "Franja «Sin conexión» y pastilla de la nube con la cantidad de jornadas por subir. Al volver la señal avisa y sube lo pendiente (jornadas, monografías, gastos y avisos del Sistema).",
-    "Si la app se abrió sin señal, al recuperarla reconecta Nextcloud y Google sin reiniciar. Ya no vuelve a subir todas las jornadas en cada apertura: solo las que cambiaron.",
-    "Paquete de conexión 1.4.2: los mensajes de vinculación indican la nueva ubicación en el Sistema (Configuración, botón de engranaje)."
+    "Versión 0.6.1: menos pasos y pantallas más claras. Pestañas: Hoy · Registrar · Monografías · Gastos · Historial (los reportes Excel y PDF están en cada jornada del Historial).",
+    "Vinculado con el Sistema, el operador es tu persona y el proyecto se elige de la lista (recuerda el último). El texto libre queda en «Escribir otro proyecto».",
+    "Trabajos en un solo nivel, sin abrir grupos. La ubicación de inicio se toma sola con el GPS; el mapa queda como opción.",
+    "Siguiente paso coherente: en una jornada de dron lleva al checklist del vuelo. En Registrar, el instrumento y el tipo salen del trabajo de la jornada, y el equipo se elige de los equipos del Sistema en terreno.",
+    "Checklist plegado («4 de 6»); la nota se abre al tocar «+ nota». El pronóstico de vuelo queda en una línea que se despliega.",
+    "«Terminar jornada» va al final, con el resumen (levantamientos, puntos, fotos y checklist que faltan) y la jornada se envía al Sistema al cerrar; sin señal queda en cola.",
+    "Encabezado con una sola pastilla (nube y pendientes) y el engranaje. Las plantillas del checklist se editan en ⚙ → General. «Eliminar jornada» queda en «⋯ Más acciones»."
   ],
   probar: [
-    "Modo avión: abrir la app instalada, iniciar una jornada, registrar puntos con foto y un gasto, cerrar la app y volver a abrirla: todo debe seguir ahí y la pastilla debe decir cuántas jornadas faltan por subir.",
-    "Quitar el modo avión: debe aparecer «Conexión recuperada» y la pastilla pasar a «Sincronizado». Si Google pide renovar la sesión, tocar la pastilla una vez.",
-    "Lo registrado sin señal debe verse en el Sistema del computador después de sincronizar."
+    "Vinculado: iniciar una jornada solo eligiendo trabajos (el operador y el proyecto ya vienen puestos). La ubicación debe aparecer sola en «Jornada en curso».",
+    "Jornada de dron: «Siguiente paso» abre el checklist del vuelo; marcar ítems y agregar una nota con «+ nota».",
+    "Terminar la jornada en modo avión: debe quedar enviada en cola y llegar al Sistema al volver la señal.",
+    "Historial: exportar Excel y PDF desde la tarjeta de la jornada."
   ],
   conocidos: [
     "Google entrega sesiones de una hora: si la señal vuelve después, la subida a Google Drive puede pedir un toque en la pastilla de la nube para renovar la sesión. Nextcloud se reconecta solo.",

@@ -1,6 +1,10 @@
-# Topoland · Sistema de trabajo — v0.17a
+# Topoland · Sistema de trabajo — v0.17b · Terreno 0.6.1
 
-**Sistema v0.17a = v0.17 + pulido de pantallas** (pedido por Camilo el 17-nov: «optimización de pantallas como versión a»). Sin funciones nuevas.
+**Sistema v0.17b = v0.17a + ficha del proyecto en pestañas, eliminar proyecto propio y hoja de vuelo compacta.** **Terreno 0.6.1** (18-nov): menos pasos en la app de terreno; el Sistema no cambia.
+
+## App de Terreno 0.6.1 — menos pasos
+- Pestañas Hoy · Registrar · Monografías · Gastos · Historial. Vinculado, el operador y el proyecto vienen del Sistema; trabajos en un nivel; ubicación automática; checklist plegado; pronóstico en una línea; cierre al final con resumen y envío al Sistema (sin señal queda en cola). Detalle en `terreno/LEEME.md`.
+- Conexión intacta: `terreno/js/topoland-conexion.js` idéntico a `paquete-conexion/` (cmp), mismas funciones del paquete 1.4.2 (`misProyectos`, `publicarJornada`, `misEquiposEnTerreno`).
 
 ## Qué cambia en v0.17b
 - **Ficha del proyecto en pestañas:** Resumen (cronograma, cuadrilla, seguridad, gastos) · Planificación (trabajos, capas KMZ, vuelos, red de PR, monografías) · Datos y bitácora · Entregas · Equipos y gastos. Cada pestaña tiene su propia dirección (`#/proyecto/<id>/<pestaña>`); los pendientes enlazan directo a la pestaña que corresponde. La pestaña «Datos y bitácora» muestra cuántas entradas siguen abiertas.

@@ -64,21 +64,38 @@ async function sisCargarProyectosJornada() {
   try { lista = await TopolandConexion.misProyectos(); } catch (_) {}
   SIS.proyectos = lista;
   if (!document.getElementById("proyectoSistema")) return;
-  cont.innerHTML = `<label>Proyecto del Sistema <span class="muted" style="font-weight:400;">(${escapeHtml(p.nombre)})</span></label>
+  // 0.6.1: vinculado, el operador es la persona del Sistema y el proyecto se elige de la lista;
+  // el texto libre queda a un toque («Escribir otro») para trabajos fuera del Sistema.
+  const wrapLibre = document.getElementById("wrapProyectoLibre");
+  const wrapOp = document.getElementById("wrapOperador");
+  const inp = document.getElementById("inpProyecto");
+  const inpOp = document.getElementById("inpOperador");
+  if (inpOp) inpOp.value = p.nombre;
+  if (wrapOp) wrapOp.hidden = true;
+  cont.innerHTML = `<div class="fila-vinculo"><span>Operador: <strong>${escapeHtml(p.nombre)}</strong> <span class="muted">(vinculado)</span></span><button type="button" id="btnCambiarOperador">Cambiar</button></div>
+    <label>Proyecto del Sistema</label>
     <select id="selProyectoSistema"><option value="">— elegir —</option>
       ${lista.map((x) => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.nombre)}${x.mandante ? " · " + escapeHtml(x.mandante) : ""}</option>`).join("")}
       <option value="oficina">Oficina (sin proyecto de terreno)</option>
     </select>
-    ${lista.length ? "" : '<p class="muted" style="margin-top:4px;">No eres encargado de ningún proyecto activo; puedes escribir uno abajo.</p>'}`;
+    ${lista.length ? '<div class="fila-vinculo" style="justify-content:flex-end;"><button type="button" id="btnProyectoLibre">Escribir otro proyecto</button></div>'
+      : '<p class="muted" style="margin-top:4px;">No eres encargado de ningún proyecto activo; puedes escribir uno abajo.</p>'}`;
+  if (wrapLibre) wrapLibre.hidden = lista.length > 0;
   const sel = document.getElementById("selProyectoSistema");
-  const inp = document.getElementById("inpProyecto");
-  sel.addEventListener("change", () => {
-    SIS.proyectoIdSel = sel.value || null;
-    if (!sel.value) return;
-    const x = lista.find((y) => y.id === sel.value);
+  const elegir = (id) => {
+    SIS.proyectoIdSel = id || null;
+    if (!id) return;
+    const x = lista.find((y) => y.id === id);
     inp.value = x ? x.nombre : "Oficina";
-  });
+  };
+  let ultimo = ""; try { ultimo = localStorage.getItem("ultimoProyectoId") || ""; } catch (_) {}
+  if (ultimo && (ultimo === "oficina" || lista.some((x) => x.id === ultimo))) { sel.value = ultimo; elegir(ultimo); }
+  else if (lista.length === 1) { sel.value = lista[0].id; elegir(lista[0].id); }
+  sel.addEventListener("change", () => elegir(sel.value));
   inp.addEventListener("input", () => { SIS.proyectoIdSel = null; sel.value = ""; });
+  const bl = document.getElementById("btnProyectoLibre");
+  if (bl) bl.addEventListener("click", () => { wrapLibre.hidden = false; sel.value = ""; SIS.proyectoIdSel = null; inp.value = ""; inp.focus(); });
+  document.getElementById("btnCambiarOperador").addEventListener("click", () => { if (wrapOp) wrapOp.hidden = false; inpOp.focus(); });
 }
 
 /* ---------- Sección en ⚙ ---------- */
@@ -365,6 +382,15 @@ async function sisMonoEditor(m, leerCampos) {
   }
 }
 
+/* 0.6.1 — Jornada: al cerrar se envía sola (ya se avisó en la confirmación de cierre).
+   publicarJornada guarda en la base común; la nube la sube con la próxima sincronización. */
+async function sisEnviarJornada(j) {
+  try {
+    toast("Enviando jornada al Sistema…");
+    const r = await TopolandConexion.publicarJornada(j, state.levantamientos.filter((l) => l.jornadaId === j.id && !l.eliminado), { proyectoId: j.proyectoId });
+    toast("Jornada enviada al Sistema" + (r && r.fotos ? " (" + r.fotos + " fotos)" : ""));
+  } catch (e) { toast(e && e.message ? e.message : "No se pudo enviar la jornada"); }
+}
 /* Jornada: al cerrar, ofrecer enviarla (con confirmación) */
 async function sisPreguntarEnviarJornada(j) {
   if (!sisPuedePublicar() || !j.proyectoId || typeof TopolandConexion.publicarJornada !== "function") return;

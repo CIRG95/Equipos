@@ -49,13 +49,22 @@ function renderHistorial() {
         </details>
       `).join("")}
       <div class="divider"></div>
-      <button class="btn btn-outline danger btn-sm" onclick="eliminarJornada('${j.id}')" type="button">Eliminar jornada y sus levantamientos</button>
+      <div class="row">
+        <button class="btn btn-outline btn-sm" data-exportar-excel="${j.id}" type="button">📊 Excel</button>
+        <button class="btn btn-outline btn-sm" data-exportar-pdf="${j.id}" type="button">📄 PDF</button>
+      </div>
+      <details class="mas-acciones">
+        <summary>⋯ Más acciones</summary>
+        <button class="btn btn-outline danger btn-sm" onclick="eliminarJornada('${j.id}')" type="button">Eliminar jornada y sus levantamientos</button>
+      </details>
     </div>`;
-  }).join("");
+  }).join("") + `<p class="preview-note">ℹ️ El Excel trae una hoja por levantamiento con los datos numéricos listos para post-proceso. El PDF incluye además las fotos de cada punto.</p>`;
+  el.querySelectorAll("[data-exportar-excel]").forEach((b) => b.addEventListener("click", () => exportarExcel(b.dataset.exportarExcel)));
+  el.querySelectorAll("[data-exportar-pdf]").forEach((b) => b.addEventListener("click", () => exportarPdf(b.dataset.exportarPdf)));
 }
 
 async function eliminarJornada(id) {
-  if (!confirm("Esto elimina la jornada y todos sus levantamientos asociados. ¿Continuar?")) return;
+  if (!confirm("Esto elimina la jornada y todos sus levantamientos asociados.\nQuedan en la papelera (⚙ → Datos) y en los respaldos.\n\n¿Continuar?")) return;
   const levs = levantamientosDeJornada(id);
   for (const l of levs) {
     await dbEliminarSuave("levantamientos", l);
@@ -80,53 +89,7 @@ async function eliminarLevantamiento(id) {
 window.eliminarJornada = eliminarJornada;
 window.eliminarLevantamiento = eliminarLevantamiento;
 
-/* =========================================================================
-   TAB: REPORTES
-   ========================================================================= */
-function renderReportes() {
-  const el = document.getElementById("tab-reportes");
-  const jornadasOrdenadas = [...state.jornadas].sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio));
-
-  if (jornadasOrdenadas.length === 0) {
-    el.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
-        <p><strong>Nada que exportar todavía</strong></p>
-        <p class="muted">Registra una jornada y sus levantamientos para generar reportes.</p>
-      </div>`;
-    return;
-  }
-
-  el.innerHTML = `
-    <div class="card">
-      <h2>Generar reporte</h2>
-      <label>Jornada</label>
-      <select id="selReporteJornada">
-        ${jornadasOrdenadas.map((j) => `<option value="${j.id}">${fmtFecha(j.fechaInicio)} (${levantamientosDeJornada(j.id).length} levant.)</option>`).join("")}
-      </select>
-      <div id="reporteLevsInfo" class="muted" style="margin-top:10px;"></div>
-      <div class="divider"></div>
-      <div class="row">
-        <button class="btn btn-outline" id="btnExportExcel" type="button">📊 Exportar Excel</button>
-        <button class="btn btn-outline" id="btnExportPdf" type="button">📄 Exportar PDF</button>
-      </div>
-      <p class="preview-note">ℹ️ El Excel trae una hoja por levantamiento con los datos numéricos listos para post-proceso. El PDF incluye además las fotos de cada punto, útil como respaldo o base de monografía.</p>
-    </div>
-  `;
-
-  const sel = document.getElementById("selReporteJornada");
-  function actualizarInfo() {
-    const levs = levantamientosDeJornada(sel.value);
-    document.getElementById("reporteLevsInfo").textContent =
-      levs.length + " levantamiento(s), " + levs.reduce((a, l) => a + l.puntos.length, 0) + " punto(s) en total.";
-  }
-  sel.addEventListener("change", actualizarInfo);
-  actualizarInfo();
-
-  document.getElementById("btnExportExcel").addEventListener("click", () => exportarExcel(sel.value));
-  document.getElementById("btnExportPdf").addEventListener("click", () => exportarPdf(sel.value));
-}
-
+/* Reportes (0.6.1): se exportan desde cada jornada del Historial. */
 function exportarExcel(jornadaId) {
   const j = state.jornadas.find((x) => x.id === jornadaId);
   if (!j) return;

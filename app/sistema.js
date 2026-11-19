@@ -89,9 +89,8 @@ const GESTION = ['rrhh', 'direccion']; // Recursos Humanos y Jefatura
 const FUERA_DE_MENU = { configuracion: { ruta: 'configuracion', texto: 'Configuración', roles: TODOS } };
 const MENU = [
   { ruta: 'inicio', texto: 'Inicio', roles: TODOS, tambien: ['avisos'] },
-  { ruta: 'proyectos', texto: 'Proyectos', roles: TODOS, tambien: ['proyecto', 'encargo', 'proyecto-tecnico', 'seguimiento', 'seguridad'] },
-  { ruta: 'planificacion', texto: 'Planificación', roles: ['terreno'] },
-  { ruta: 'vuelos', texto: 'Vuelos', roles: ['terreno'] },
+  // v0.18: Planificación y Vuelos viven dentro del proyecto (pestaña Planificación); la lista de vuelos está en Proyectos › Vuelos.
+  { ruta: 'proyectos', texto: 'Proyectos', roles: TODOS, tambien: ['proyecto', 'encargo', 'proyecto-tecnico', 'seguimiento', 'seguridad', 'planificacion', 'vuelos'] },
   { ruta: 'equipos', texto: 'Equipos', roles: TODOS, tambien: ['sensores'] },
   { ruta: 'personal', texto: 'Personas', roles: TODOS },
   { ruta: 'administracion', texto: 'Administración', roles: ['rrhh', 'direccion'] },
@@ -103,8 +102,9 @@ const MENU = [
 // Sub-pestañas de cada sección: [enlace, texto, ¿activa?(ruta)]
 const SUBNAV = {
   proyectos: [
-    ['#/proyectos', 'Activos', r => ['proyectos', 'proyecto', 'encargo', 'proyecto-tecnico'].includes(r.base) && !['calendario', 'registro'].includes(r.arg)],
+    ['#/proyectos', 'Activos', r => ['proyectos', 'proyecto', 'encargo', 'proyecto-tecnico', 'planificacion'].includes(r.base) && !['calendario', 'registro'].includes(r.arg)],
     ['#/proyectos/calendario', 'Calendario', r => r.base === 'proyectos' && r.arg === 'calendario'],
+    ['#/vuelos', 'Vuelos', r => r.base === 'vuelos'],
     ['#/seguimiento', 'Entregas', r => r.base === 'seguimiento'],
     ['#/proyectos/registro', 'Registro por mandante', r => r.base === 'proyectos' && r.arg === 'registro'],
   ],
@@ -123,6 +123,7 @@ const SUBNAV = {
   ],
   herramientas: [
     ['#/monografias', 'Monografías', r => r.base === 'monografias'],
+    ['#/herramientas/vuelo-rapido', 'Vuelo rápido', r => r.base === 'herramientas' && r.arg === 'vuelo-rapido', ['terreno']],
     ['#/herramientas/kml', 'Limpieza de KMZ', r => r.base === 'herramientas' && r.arg === 'kml'],
     ['#/herramientas/pronostico', 'Pronóstico rápido', r => r.base === 'herramientas' && r.arg === 'pronostico'],
   ],
@@ -223,6 +224,9 @@ async function mostrar() {
   // v0.17: el encargado de terreno no usa el asistente de Jefatura; crea o ajusta lo técnico en su propio formulario.
   if (base === 'encargo' && selRol.value === 'terreno') { location.replace(`#/proyecto-tecnico/${arg || 'nuevo'}`); return; }
   if (base === 'proyecto-tecnico' && selRol.value !== 'terreno') { location.replace(`#/encargo/${arg || 'nuevo'}`); return; }
+  // v0.18: la lista de Planificación se reemplazó por la pestaña Planificación de cada proyecto (los marcadores antiguos llegan solos).
+  if (base === 'planificacion' && !arg) { location.replace('#/proyectos'); return; }
+  if (base === 'planificacion' && arg === 'proyecto') { const pid = location.hash.split('/')[3]; location.replace(pid ? `#/proyecto/${pid}/planificacion` : '#/proyectos'); return; }
   const item = MENU.find(m => m.ruta === base || (m.tambien || []).includes(base)) || FUERA_DE_MENU[base];
   if (!item || !item.roles.includes(selRol.value)) { location.hash = '#/inicio'; return; }
   if (base === 'herramientas' && !arg) { location.hash = '#/monografias'; return; }
@@ -243,8 +247,8 @@ async function mostrar() {
   };
 
   if (base === 'herramientas' || base === 'sensores') {
-    // Herramientas que viven en el módulo Vuelos: Limpieza de KMZ, Pronóstico rápido y Catálogo de sensores (Drones).
-    const tab = base === 'sensores' ? 'drones' : arg === 'kml' ? 'kml' : 'rapido';
+    // Herramientas que viven en el módulo Vuelos: Vuelo rápido (v0.18, vuelos sin proyecto), Limpieza de KMZ, Pronóstico rápido y Catálogo de sensores (Drones).
+    const tab = base === 'sensores' ? 'drones' : arg === 'kml' ? 'kml' : arg === 'vuelo-rapido' ? 'sueltos' : 'rapido';
     montado = Vuelos.montar(lugarModulo(), { rol: selRol.value, personaId: selPersona.value || null, tab });
     rutaActual = clave;
     window.scrollTo(0, 0);

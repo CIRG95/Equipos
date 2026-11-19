@@ -80,7 +80,9 @@ export function crearVistaHojas(v) {
   }
 
   function vistaHojas() {
-    const filtroProy = h => !st.filtroProyecto || h.proyectoId === st.filtroProyecto;
+    // v0.18: los vuelos sin proyecto (o de Oficina) están en Herramientas › Vuelo rápido; aquí, los de los proyectos.
+    const suelto = h => !h.proyectoId || h.proyectoId === OFICINA_ID;
+    const filtroProy = h => (st.soloSueltos ? suelto(h) : !suelto(h) && (!st.filtroProyecto || h.proyectoId === st.filtroProyecto));
     const todas = base.hojas.filter(filtroProy).filter(h => st.verProcesados || etapaVuelo(h) !== 'procesado');
     const cuenta = Object.fromEntries(ETAPAS_VUELO.map(([k]) => [k, base.hojas.filter(filtroProy).filter(h => etapaVuelo(h) === k).length]));
     const lista = todas.filter(h => !st.filtroEtapa || etapaVuelo(h) === st.filtroEtapa)
@@ -104,21 +106,25 @@ export function crearVistaHojas(v) {
             <div><small>Permiso DGAC</small><b>${esc(perm.texto)}</b></div>
           </div>
           <div class="vu-vuelo-acc"><button type="button" class="sis-btn primario vu-abrir" data-accion="abrir-hoja" data-id="${esc(h.id)}">Abrir vuelo</button>
+            ${suelto(h) ? `<button type="button" class="sis-btn chico" data-accion="convertir-proyecto" data-id="${esc(h.id)}">Convertir en proyecto</button>` : ''}
             <button type="button" class="sis-btn chico peligro" data-accion="eliminar-hoja" data-id="${esc(h.id)}">Eliminar</button></div>
         </article>`;
     };
-    return `<div class="sis-cab"><h1>Vuelos</h1><button class="sis-btn primario" data-accion="nueva-hoja">Planificación</button></div>
-      <p class="sis-tenue">Los vuelos que se están realizando o que hay que hacer, con su estado. «Planificación» arma un vuelo nuevo paso a paso.</p>
+    return `${st.soloSueltos
+      ? `<div class="sis-cab"><h1>Vuelo rápido</h1><button class="sis-btn primario" data-accion="nueva-hoja">+ Nuevo vuelo rápido</button></div>
+      <p class="sis-tenue">Vuelos sin proyecto: un levantamiento puntual o una cotización. Si se concreta, «Convertir en proyecto» crea el proyecto con el área del vuelo.</p>`
+      : `<div class="sis-cab"><h1>Vuelos de los proyectos</h1></div>
+      <p class="sis-tenue">Todos los vuelos de los proyectos, con su estado. Un vuelo nuevo se arma en la ficha del proyecto (Planificación › Vuelos); los vuelos sin proyecto están en Herramientas › Vuelo rápido.</p>`}
       <div class="vu-filtros">
         <div class="vu-chips-filtro" role="group" aria-label="Filtrar por estado">
           <button type="button" class="vu-chip-f${!st.filtroEtapa ? ' activo' : ''}" data-accion="filtro-etapa" data-e="">Todos ${todas.length}</button>
           ${ETAPAS_VUELO.filter(([k]) => k !== 'procesado' || st.verProcesados).map(([k, t]) => `<button type="button" class="vu-chip-f${st.filtroEtapa === k ? ' activo' : ''}" data-accion="filtro-etapa" data-e="${k}">${t} ${cuenta[k]}</button>`).join('')}
         </div>
-        <label class="sis-campo vu-filtro"><span>Proyecto</span><select data-campo="filtroProyecto"><option value="">Todos</option>${base.proyectos.map(p => `<option value="${esc(p.id)}" ${p.id === st.filtroProyecto ? 'selected' : ''}>${esc(p.id === OFICINA_ID ? 'Oficina' : p.nombre)}</option>`).join('')}</select></label>
+        ${st.soloSueltos ? '' : `<label class="sis-campo vu-filtro"><span>Proyecto</span><select data-campo="filtroProyecto"><option value="">Todos</option>${base.proyectos.map(p => `<option value="${esc(p.id)}" ${p.id === st.filtroProyecto ? 'selected' : ''}>${esc(p.id === OFICINA_ID ? 'Oficina' : p.nombre)}</option>`).join('')}</select></label>`}
         <label class="sis-check"><input type="checkbox" data-campo="verProcesados" ${st.verProcesados ? 'checked' : ''}> Mostrar procesados (${cuenta.procesado})</label>
       </div>
       <div class="vu-resumen-vuelos">
-        <div class="vu-lista-vuelos">${lista.length ? lista.map(tarjeta).join('') : `<div class="sis-vacio"><p>${base.hojas.length ? 'No hay vuelos con este filtro.' : 'Todavía no hay vuelos. Toca «Planificación» y carga el KMZ del área.'}</p></div>`}</div>
+        <div class="vu-lista-vuelos">${lista.length ? lista.map(tarjeta).join('') : `<div class="sis-vacio"><p>${base.hojas.length ? 'No hay vuelos con este filtro.' : (st.soloSueltos ? 'Sin vuelos rápidos. Toca «+ Nuevo vuelo rápido» y carga el KMZ del área.' : 'Todavía no hay vuelos de proyectos. Se arman en la ficha de cada proyecto.')}</p></div>`}</div>
         ${sel ? htmlPronLateral(sel) : ''}
       </div>
       ${base.papelera.length ? `<details class="sis-papelera"><summary>Papelera de vuelos (${base.papelera.length})</summary>

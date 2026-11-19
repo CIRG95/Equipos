@@ -3,7 +3,7 @@
 
 import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, diasEntre } from '../compartido/util.js';
 import { enPapelera } from '../compartido/papelera.js';
-import { listarProyectos, obtenerProyecto, listarPersonas, OFICINA_ID } from '../compartido/catalogos.js';
+import { listarProyectos, obtenerProyecto, guardarProyecto, listarPersonas, OFICINA_ID } from '../compartido/catalogos.js';
 import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
@@ -20,8 +20,8 @@ import * as Administracion from '../modulos/administracion/administracion.js';
 import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { archivosDe } from '../compartido/archivos.js';
 import { INFO_ENCARGO, TIPOS_BITACORA, calidadEncargo, resumenCronograma, barraActividad, sinAcuse, entradasAbiertas } from './encargo.js';
-import { trabajosDeProyecto, cronogramaDeTrabajos, avisosOrden, POR_BATERIAS } from './trabajos.js';
-import { resumenCapas } from '../modulos/vuelos/capas-proyecto.js';
+import { trabajosDeProyecto, cronogramaDeTrabajos, cronogramaSincronizado, avisosOrden, POR_BATERIAS } from './trabajos.js';
+import { resumenCapas, prsActivos, areaPrincipal } from '../modulos/vuelos/capas-proyecto.js';
 
 // v0.15 · Entregables del proyecto (versiones, revisión y envío al mandante)
 export const ESTADOS_ENTREGABLE = [['pendiente', 'Pendiente', 'gris'], ['revision', 'En revisión', 'ambar'], ['enviado', 'Enviado', 'azul'], ['observado', 'Observado', 'rojo'], ['aprobado', 'Aprobado', 'verde']];
@@ -142,7 +142,7 @@ const diasDeVuelo = planes => planes.reduce((s, v) => s + (v.programadas || 0), 
 
 function htmlTrabajos(p, ctx, planes) {
   const ts = trabajosDeProyecto(p);
-  if (!ts.length) return '';
+  if (!ts.length) return '<p class="sis-tenue">Indique los tipos de trabajo en «Datos técnicos» para ordenarlos aquí.</p>';
   const edita = ctx.rol === 'terreno' || ctx.rol === 'direccion';
   const dv = diasDeVuelo(planes);
   const nuevos = planes.reduce((s, v) => s + ((v.resumen && v.resumen.amarre && v.resumen.amarre.nuevos) || 0), 0);
@@ -160,26 +160,71 @@ function htmlTrabajos(p, ctx, planes) {
         ${edita ? `<button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="-1" ${k ? '' : 'disabled'} aria-label="Subir">↑</button><button type="button" class="sis-btn chico" data-accion="trabajo-mover" data-id="${esc(p.id)}" data-i="${k}" data-a="1" ${k < ts.length - 1 ? '' : 'disabled'} aria-label="Bajar">↓</button>` : ''}</span></li>`;
   }).join('');
   const crono = desde ? cronogramaDeTrabajos(ts, desde, { diasDe: t => (POR_BATERIAS.has(t.cat) && dv ? dv : t.dias), nombre: c => NOMBRE_CATEGORIA[c] || c, plazo: p.plazo }) : [];
-  return `<section class="sis-tarjeta" id="trabajos"><div class="sis-cab"><div><h2>Trabajos del proyecto</h2><span class="sis-tenue">${edita ? 'Ordénelos con las flechas<span data-solo-pc> o arrastrando</span>: el cronograma de terreno sigue este orden.' : 'Orden de ejecución definido por el encargado.'}</span></div></div>
+  return `<p class="sis-tenue">${edita ? 'Ordénelos con las flechas<span data-solo-pc> o arrastrando</span>: el cronograma de terreno sigue este orden.' : 'Orden de ejecución definido por el encargado.'}</p>
     <ol class="tr-lista">${filas}</ol>
     ${avisos.map(a => `<p class="sis-aviso-linea">${esc(a)}</p>`).join('')}
     ${crono.length ? `<p class="sis-tenue">Desde el ${fechaLegible(desde)}: terreno hasta el ${fechaLegible(crono.filter(a => a.cat !== 'gabinete').reduce((m, a) => (a.hasta > m ? a.hasta : m), crono[0].hasta))}${p.plazo ? `, plazo de entrega ${fechaLegible(p.plazo)}` : ''}.${crono.some(a => a.cat !== 'gabinete' && p.plazo && a.hasta > p.plazo) ? ' <b class="enc-rojo">El terreno termina después del plazo.</b>' : ''}</p>
-      ${edita ? `<div class="sis-acciones"><button type="button" class="sis-btn chico primario" data-accion="aplicar-trabajos" data-id="${esc(p.id)}">Llevar al cronograma</button></div>` : ''}`
-      : `<p class="sis-tenue">${edita ? `Indique la fecha de inicio de terreno en <a href="#/proyecto-tecnico/${esc(p.id)}">Datos técnicos</a> para armar el cronograma.` : 'Sin fecha de inicio todavía.'}</p>`}
-  </section>`;
+      <p class="sis-tenue">El cronograma del Resumen se arma solo con este orden y estos días; lo ya marcado como realizado se conserva.</p>`
+      : `<p class="sis-tenue">${edita ? `Indique la fecha de inicio de terreno en <a href="#/proyecto-tecnico/${esc(p.id)}">Datos técnicos</a> para armar el cronograma.` : 'Sin fecha de inicio todavía.'}</p>`}`;
 }
 
 function htmlCapas(p, ctx) {
   const c = p.capas;
   const edita = ctx.rol === 'terreno' || ctx.rol === 'direccion';
-  const cargar = edita ? `<label class="sis-btn chico">${c ? '+ Agregar KMZ' : 'Cargar KMZ'}<input type="file" accept=".kml,.kmz" multiple data-accion="capas-cargar" data-id="${esc(p.id)}" hidden></label>` : '';
-  if (!c) return edita ? `<section class="sis-tarjeta" id="capas"><div class="sis-cab"><h2>Capas del proyecto</h2>${cargar}</div><p class="sis-tenue">Caminos y PR ya instalados (KMZ o KML). Las hojas de vuelo los usan para elegir las bases de amarre con la menor cantidad de instalaciones.</p></section>` : '';
-  const prs = c.prs || [];
-  return `<section class="sis-tarjeta" id="capas"><div class="sis-cab"><div><h2>Capas del proyecto</h2><span class="sis-tenue">${esc(resumenCapas(c) || 'Sin PR activos')} · ${esc((c.archivos || []).join(', '))}</span></div><span class="sis-acciones">${cargar}${edita ? `<button type="button" class="sis-btn chico" data-accion="capas-quitar" data-id="${esc(p.id)}">Quitar</button>` : ''}</span></div>
+  const cargar = edita ? `<label class="sis-btn chico${c ? '' : ' primario'}">${c ? '+ Agregar KMZ' : 'Cargar KMZ'}<input type="file" accept=".kml,.kmz" multiple data-accion="capas-cargar" data-id="${esc(p.id)}" hidden></label>` : '';
+  if (!c) return `<p class="sis-tenue">Un solo KMZ o KML para todo el proyecto: los polígonos son el área de trabajo, las líneas son caminos y los puntos son PR ya instalados. La red de PR, las marcas y los vuelos parten de aquí.</p>${cargar ? `<div class="sis-acciones">${cargar}</div>` : ''}`;
+  const prs = c.prs || [], areas = c.areas || [];
+  return `<p class="sis-tenue">${esc(resumenCapas(c) || 'Sin datos')} · ${esc((c.archivos || []).join(', '))}</p>
+    ${areas.length ? `<div class="sis-chips">${areas.map(a => `<span class="sis-chip azul">${esc(a.nombre)} · ${(a.ha || 0).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>`).join('')}</div>` : '<p class="sis-aviso-linea">El KMZ no trae un polígono del área: agrégelo para que la red, las marcas y los vuelos partan de él.</p>'}
     ${prs.length ? `<div class="cap-prs">${prs.map(x => `<label class="cap-pr${x.usar === false ? ' off' : ''}"><input type="checkbox" data-accion="capa-pr-usar" data-id="${esc(p.id)}" data-pr="${esc(x.id)}" ${x.usar !== false ? 'checked' : ''} ${edita ? '' : 'disabled'}><span>${esc(x.nombre)}</span></label>`).join('')}</div>
-      <p class="sis-tenue">Solo los puntos marcados se usan como PR para el amarre de los vuelos. Los puntos sin nombre útil («Marcador sin título») se cargan desmarcados.</p>` : '<p class="sis-tenue">La capa no trae puntos (PR).</p>'}
+      <p class="sis-tenue">Los PR marcados se usan para el amarre de los vuelos y entran a la red como puntos de control. Los puntos sin nombre útil («Marcador sin título») se cargan desmarcados.</p>` : ''}
+    ${edita ? `<div class="sis-acciones">${cargar}<button type="button" class="sis-btn chico" data-accion="capas-quitar" data-id="${esc(p.id)}">Quitar</button></div>` : ''}`;
+}
+
+/** v0.18 · Lo planificado: una línea por parte, para guardar y comparar. */
+export function resumenPlanificacion(p, planes = [], pla = { redes: [], marcas: [] }) {
+  const c = p.capas || {}, a = areaPrincipal(c), ha = (c.areas || []).reduce((s, x) => s + (x.ha || 0), 0);
+  const lineas = [];
+  const f1 = n => n.toLocaleString('es-CL', { maximumFractionDigits: 1 });
+  lineas.push(['area', 'Área y capas', a || prsActivos(c).length ? [a ? `${f1(ha)} ha` : 'sin área', `${prsActivos(c).length} PR existentes`, `${(c.caminos || []).length} caminos`].join(' · ') : '', !!a]);
+  const cats = trabajosDeProyecto(p).map(t => t.cat), todo = !cats.length;
+  if (todo || cats.includes('gnss')) {
+    const prs = pla.redes.reduce((s, r) => s + (r.puntos || []).filter(x => x.tipo !== 'control').length, 0), vec = pla.redes.reduce((s, r) => s + (r.vectores || []).length, 0);
+    lineas.push(['red', 'Red de PR', pla.redes.length ? `${prs} PR nuevos · ${vec} vectores` : '', pla.redes.length > 0]);
+  }
+  if (todo || cats.includes('dron')) {
+    const ms = pla.marcas.flatMap(r => r.marcas || []);
+    lineas.push(['marcas', 'Marcas de vuelo', pla.marcas.length ? `${ms.filter(m => m.tipo !== 'chequeo').length} de control · ${ms.filter(m => m.tipo === 'chequeo').length} de chequeo` : '', pla.marcas.length > 0]);
+    const dv = diasDeVuelo(planes), bat = planes.reduce((s, v) => s + ((v.resumen && v.resumen.vuelos) || 0), 0);
+    const bases = [...new Set(planes.flatMap(v => (v.resumen && v.resumen.amarre && v.resumen.amarre.nombres) || []))];
+    const nuevos = planes.reduce((s, v) => s + ((v.resumen && v.resumen.amarre && v.resumen.amarre.nuevos) || 0), 0);
+    lineas.push(['vuelos', 'Vuelos', planes.length ? [`${planes.length} hoja${planes.length === 1 ? '' : 's'}`, dv ? `${dv} jornada${dv === 1 ? '' : 's'}` : 'sin programar', bat ? `${bat} baterías` : '', bases.length ? `bases ${bases.join(', ')}` : '', nuevos ? `${nuevos} PR nuevo${nuevos === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') : '', planes.length > 0 && dv > 0]);
+  }
+  const acts = (p.cronograma || []).filter(x => x.origen === 'trabajos');
+  const terreno = acts.filter(x => x.cat !== 'gabinete');
+  const fin = terreno.reduce((m, x) => (x.hasta > m ? x.hasta : m), '');
+  const ini = terreno.reduce((m, x) => (!m || x.desde < m ? x.desde : m), '');
+  lineas.push(['crono', 'Cronograma', terreno.length ? `terreno del ${fechaLegible(ini)} al ${fechaLegible(fin)}${p.plazo ? (fin > p.plazo ? ' · termina después del plazo' : ' · dentro del plazo') : ''}` : '', terreno.length > 0 && !(p.plazo && fin > p.plazo)]);
+  return lineas;
+}
+
+function htmlLoPlanificado(p, ctx, lineas, nomPers, { compacto = false } = {}) {
+  const g = p.planificacion || null;
+  const firma = l => JSON.stringify(l.map(x => [x[0], x[2]]));
+  const cambios = g && firma(g.lineas || []) !== firma(lineas);
+  const edita = ctx.rol === 'terreno' || ctx.rol === 'direccion';
+  return `<section class="sis-tarjeta lp-tarjeta" id="lo-planificado"><div class="sis-cab"><h2>Lo planificado</h2>${compacto ? `<a class="sis-btn chico" href="#/proyecto/${esc(p.id)}/planificacion">Ver</a>` : ''}</div>
+    <ul class="lp-lista">${lineas.map(([k, t, txt, ok]) => `<li class="${ok ? 'ok' : txt ? 'medio' : 'pend'}"><i aria-hidden="true">${ok ? '✓' : txt ? '!' : '·'}</i><span><b>${esc(t)}</b><small>${esc(txt || 'Pendiente')}</small></span></li>`).join('')}</ul>
+    <p class="sis-tenue lp-estado">${g ? `Guardada el ${esc(fechaHoraLegible(g.guardadoEn))}${g.guardadoPor ? ` por ${esc(nomPers(g.guardadoPor))}` : ''}${cambios ? ' · <b class="enc-rojo">hay cambios sin guardar</b>' : ''}.` : 'Todavía no se guarda la planificación.'}</p>
+    ${!compacto && edita ? `<div class="sis-acciones"><button type="button" class="sis-btn ${!g || cambios ? 'primario' : ''}" data-accion="guardar-planificacion" data-id="${esc(p.id)}">Guardar planificación</button></div>
+    <p class="sis-tenue">Cada cambio queda registrado al instante; «Guardar» deja constancia de lo planificado hasta ahora, con fecha y autor, para compararlo después.</p>` : ''}
   </section>`;
 }
+
+/** Un paso numerado de la Planificación del proyecto. */
+const paso = (n, id, titulo, sub, estado, cuerpo, acciones = '') => `<section class="sis-tarjeta pl-paso${estado === 'ok' ? ' ok' : ''}" id="paso-${id}">
+    <div class="pl-paso-cab"><span class="pl-paso-n">${estado === 'ok' ? '✓' : n}</span><div><h2>${titulo}</h2><span class="sis-tenue">${sub}</span></div>${acciones ? `<span class="sis-acciones">${acciones}</span>` : ''}</div>
+    ${cuerpo}</section>`;
 
 // ─────────── v0.16 · Encargo: acuse de recibo, calidad, cronograma y bitácora ───────────
 function htmlAcuse(p, ctx, nomPers) {
@@ -205,18 +250,20 @@ function htmlCalidad(p) {
     ${p.sistemaReferencia ? `<p><b>Sistema de referencia:</b> ${esc(p.sistemaReferencia)}</p>` : ''}`;
 }
 
-function htmlCronograma(p, nomPers, hoy) {
+function htmlCronograma(p, nomPers, hoy, ctx) {
   const acts = (p.cronograma || []).filter(a => a.nombre && a.desde && a.hasta);
-  if (!acts.length) return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Cronograma</h2><a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Definir</a></div>
-    <div class="sis-vacio"><p>Sin cronograma. Defina las actividades y sus fechas estimadas para dar seguimiento al avance.</p></div></section>`;
+  const terreno = ctx.rol === 'terreno';
+  const auto = acts.some(a => a.origen === 'trabajos');
+  if (!acts.length) return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Cronograma</h2>${terreno ? `<a class="sis-btn chico" href="#/proyecto/${esc(p.id)}/planificacion">Planificar</a>` : `<a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Definir</a>`}</div>
+    <div class="sis-vacio"><p>${terreno ? 'Se arma solo con los trabajos del proyecto y la fecha de inicio de terreno (pestaña Planificación).' : 'Sin cronograma. Defina las actividades estimadas del encargo, o espere la planificación del encargado.'}</p></div></section>`;
   const r = resumenCronograma(acts, hoy);
   const bHoy = hoy >= r.desde && hoy <= r.hasta ? barraActividad({ desde: hoy, hasta: hoy }, r.desde, r.hasta) : null;
-  return `<section class="sis-tarjeta"><div class="sis-cab"><div><h2>Cronograma</h2><span class="sis-tenue">${r.hechas} de ${r.total} actividades realizadas · ${fechaLegible(r.desde)} al ${fechaLegible(r.hasta)}${r.atrasadas.length ? ` · <b class="enc-rojo">${r.atrasadas.length} atrasada${r.atrasadas.length > 1 ? 's' : ''}</b>` : ''}</span></div><a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Editar</a></div>
+  return `<section class="sis-tarjeta"><div class="sis-cab"><div><h2>Cronograma</h2><span class="sis-tenue">${r.hechas} de ${r.total} actividades realizadas · ${fechaLegible(r.desde)} al ${fechaLegible(r.hasta)}${r.atrasadas.length ? ` · <b class="enc-rojo">${r.atrasadas.length} atrasada${r.atrasadas.length > 1 ? 's' : ''}</b>` : ''}</span></div>${terreno ? `<a class="sis-btn chico" href="#/proyecto/${esc(p.id)}/planificacion">Ajustar</a>` : auto ? '' : `<a class="sis-btn chico" href="#/encargo/${esc(p.id)}">Editar</a>`}</div>
     <div class="sg-mini enc-avance"><i style="width:${r.pct}%"></i></div>
     <div class="enc-gantt ficha">${acts.map((a, i) => { const b = barraActividad(a, r.desde, r.hasta), tarde = !a.hecho && a.hasta < hoy;
       return `<label class="enc-gantt-fila${a.hecho ? ' hecho' : ''}${tarde ? ' tarde' : ''}"><span class="enc-gantt-nombre"><input type="checkbox" data-accion="crono-hecho" data-id="${esc(p.id)}" data-a="${esc(a.id)}" ${a.hecho ? 'checked' : ''} aria-label="Realizada: ${esc(a.nombre)}"><span><b>${esc(a.nombre)}</b><small>${fechaLegible(a.desde)}${a.hasta !== a.desde ? ` al ${fechaLegible(a.hasta)}` : ''}${a.responsableId ? ` · ${esc(nomPers(a.responsableId))}` : ''}${tarde ? ' · atrasada' : ''}</small></span></span>
         <span class="enc-gantt-pista">${bHoy ? `<em class="enc-hoy" style="left:${bHoy.izq.toFixed(2)}%" title="Hoy"></em>` : ''}<i class="c${i % 5}" style="margin-left:${b.izq.toFixed(2)}%;width:${b.ancho.toFixed(2)}%"></i></span></label>`; }).join('')}</div>
-    <p class="sis-tenue">Marque cada actividad al terminarla. Las atrasadas aparecen en «Mis pendientes» del encargado.</p></section>`;
+    <p class="sis-tenue">Marque cada actividad al terminarla. Las atrasadas aparecen en «Mis pendientes» del encargado.${auto ? ' Se arma solo con los trabajos del proyecto.' : ''}</p></section>`;
 }
 
 function htmlBitacora(p, ctx, nomPers) {
@@ -258,6 +305,13 @@ export async function proyecto(ctx, id) {
   const esOficina = id === OFICINA_ID;
   // v0.17: proyecto propio del encargado (no lo encargó Jefatura): no aplica la calidad del encargo.
   const propio = !!(p.encargo && p.encargo.emitidoPor && p.encargo.emitidoPor === p.encargadoId);
+  // v0.18 · Cronograma automático: con trabajos guardados (o sin cronograma todavía), se arma solo y se guarda.
+  if (!esOficina && (ctx.rol === 'terreno' || ctx.rol === 'direccion') && (propio || Array.isArray(p.trabajos) || !(p.cronograma || []).length)) {
+    const desde = p.fechaInicio || p.fechaEncargo, dv = diasDeVuelo(planes);
+    const nuevo = desde ? cronogramaDeTrabajos(trabajosDeProyecto(p), desde, { diasDe: t => (POR_BATERIAS.has(t.cat) && dv ? dv : t.dias), nombre: c => NOMBRE_CATEGORIA[c] || c, plazo: p.plazo }) : [];
+    const { cronograma, cambio } = cronogramaSincronizado(p.cronograma || [], nuevo);
+    if (cambio) { await guardarProyecto({ id: p.id, cronograma }, { personaId: ctx.personaId }).catch(() => null); p.cronograma = cronograma; }
+  }
   const plazo = p.plazo ? (() => { const d = diasEntre(hoyISO(), p.plazo); return `${fechaLegible(p.plazo)}${d >= 0 ? ` · faltan ${d} d` : ` · vencido hace ${-d} d`}`; })() : '';
 
   const meta = (t, v) => v ? `<span>${t}: <b>${v}</b></span>` : '';
@@ -269,7 +323,16 @@ export async function proyecto(ctx, id) {
     : vacio('Cuando salgan equipos a este proyecto, aquí aparecen sus certificados vigentes.');
 
   // v0.17b · Pestañas: cada tema en su vista, sin bajar tanto. #/proyecto/<id>/<pestaña>
+  const B_vuelosLista = planes.length ? `<div class="sis-vuelos-proy">${planes.map(v => `<article class="sis-vuelo-proy">
+            <a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
+            <span class="sis-fila-txt"><b>${esc(v.nombre)}</b><span class="sis-tenue">${esc(v.dron)}</span></span>
+            <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} batería${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>
+            ${v.mapa || v.jornadas.length ? `<div class="sis-vuelo-proy-det">${v.mapa || ''}
+              ${v.jornadas.length ? `<ol class="sis-jornadas">${v.jornadas.slice(0, 6).map((j, k) => `<li><i style="background: ${v.coloresDia[k]}"></i><span><b>Día ${j.dia}</b>${j.fecha ? ` <small>${esc(diaCorto(j.fecha))}</small>` : ''} · ${j.baterias} batería${j.baterias === 1 ? '' : 's'} · ${duracion(j.min)}<small>${esc(j.sectores)}${j.excede ? ' · no cabe en el horario' : ''}</small></span></li>`).join('')}${v.jornadas.length > 6 ? `<li class="sis-jornadas-mas"><a href="#/vuelos/plan/${esc(v.id)}">y ${v.jornadas.length - 6} jornadas más · abrir la hoja</a></li>` : ''}</ol>` : ''}</div>` : ''}
+          </article>`).join('')}</div>`
+          : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>';
   const B = {
+    vuelosLista: B_vuelosLista,
     encargo: `      ${esOficina ? '' : `<section class="sis-tarjeta">
         <div class="sis-cab"><h2>${propio ? 'Datos del proyecto' : 'Ficha de encargo'}</h2>${ctx.rol === 'terreno' ? '' : `<a class="sis-btn chico" href="#/encargo/${esc(id)}">Editar</a>`}</div>
         <div class="sis-datos ad-encargo">
@@ -287,15 +350,8 @@ export async function proyecto(ctx, id) {
         return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Próximos ciclos</h2><button class="sis-btn chico" data-accion="ver-calendario">▦ Calendario</button></div>
           ${cs.length ? `<div class="sis-lista">${cs.map(c => `<div class="sis-fila"><span class="sis-fila-txt"><b><span class="mono">${esc(c.numero)}</span> ${esc(c.nombre)}</b><span class="sis-tenue">Terreno ${fechaLegible(c.terreno[0])}${c.terreno[1] !== c.terreno[0] ? ` – ${fechaLegible(c.terreno[1])}` : ''} · datos ${fechaLegible(c.datos)} · entrega ${fechaLegible(c.entrega)}</span></span></div>`).join('')}</div>`
             : '<p class="sis-tenue">Sin ciclos en los próximos 4 meses: revisa la periodicidad (primer ciclo y término).</p>'}</section>`; })() : ''}`, vuelos: `      <section class="sis-tarjeta">
-        <div class="sis-cab"><h2>Vuelos</h2>${ctx.rol === 'terreno' ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">Planificación</a>` : ''}</div>
-        ${planes.length ? `<div class="sis-vuelos-proy">${planes.map(v => `<article class="sis-vuelo-proy">
-            <a class="sis-fila" href="#/vuelos/plan/${esc(v.id)}">
-            <span class="sis-fila-txt"><b>${esc(v.nombre)}</b><span class="sis-tenue">${esc(v.dron)}</span></span>
-            <span class="sis-chips">${v.resumen.area ? `<span class="sis-chip gris">${(v.resumen.area / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha</span>` : ''}${v.resumen.gsd ? `<span class="sis-chip gris">GSD ${v.resumen.gsd.toLocaleString('es-CL', { maximumFractionDigits: 2 })} cm</span>` : ''}${v.resumen.densidad ? `<span class="sis-chip gris">${Math.round(v.resumen.densidad)} pts/m²</span>` : ''}${v.resumen.vuelos ? `<span class="sis-chip azul">${v.resumen.vuelos} batería${v.resumen.vuelos > 1 ? 's' : ''}</span>` : ''}</span></a>
-            ${v.mapa || v.jornadas.length ? `<div class="sis-vuelo-proy-det">${v.mapa || ''}
-              ${v.jornadas.length ? `<ol class="sis-jornadas">${v.jornadas.slice(0, 6).map((j, k) => `<li><i style="background: ${v.coloresDia[k]}"></i><span><b>Día ${j.dia}</b>${j.fecha ? ` <small>${esc(diaCorto(j.fecha))}</small>` : ''} · ${j.baterias} batería${j.baterias === 1 ? '' : 's'} · ${duracion(j.min)}<small>${esc(j.sectores)}${j.excede ? ' · no cabe en el horario' : ''}</small></span></li>`).join('')}${v.jornadas.length > 6 ? `<li class="sis-jornadas-mas"><a href="#/vuelos/plan/${esc(v.id)}">y ${v.jornadas.length - 6} jornadas más · abrir la hoja</a></li>` : ''}</ol>` : ''}</div>` : ''}
-          </article>`).join('')}</div>`
-          : '<div class="sis-vacio"><p>Sin hojas de vuelo. Desde aquí se arma la hoja: área, plan de vuelo, clima y permisos.</p></div>'}
+        <div class="sis-cab"><h2>Vuelos</h2></div>
+        ${B_vuelosLista}
       </section>`, entregas: `      <section class="sis-tarjeta">
         <div class="sis-cab"><h2>Entregas</h2>${seg ? `<a class="sis-btn chico" href="#/seguimiento/${esc(id)}">Abrir</a>` : (ctx.rol === 'terreno' && !esOficina ? `<a class="sis-btn chico" href="#/seguimiento/${esc(id)}">+ Seguimiento</a>` : '')}</div>
         ${seg ? (() => { const c = seg.cuenta, pct = c.productos ? Math.round(100 * c.productosListos / c.productos) : 0; return `<p class="sis-tenue">${seg.ciclo ? esc(seg.ciclo.nombre || '') + ' · ' : ''}${c.total - c.sinvolar}/${c.total} tramos volados · ${c.productosListos}/${c.productos} productos · ${c.ok}/${c.total} entregados</p>
@@ -368,20 +424,44 @@ export async function proyecto(ctx, id) {
       </section>`,
   };
   const abiertas = esOficina ? 0 : entradasAbiertas(p).length;
+  // v0.18 · La ficha sigue la línea del proyecto: encargo → planificación → terreno → entregas y cierre (+ recursos).
   const PESTANAS = esOficina
     ? [['resumen', 'Resumen'], ['recursos', 'Equipos y gastos']]
-    : [['resumen', 'Resumen'], ['planificacion', 'Planificación'], ['encargo', propio ? 'Datos y bitácora' : 'Encargo y bitácora', abiertas], ['entregas', 'Entregas'], ['recursos', 'Equipos y gastos']];
+    : [['resumen', 'Resumen'], ['encargo', propio ? 'Datos y bitácora' : 'Encargo y bitácora', abiertas], ['planificacion', 'Planificación'], ['terreno', 'Terreno'], ['entregas', 'Entregas y cierre'], ['recursos', 'Equipos y gastos']];
   const pedida = String(location.hash.split('/')[3] || '');
   const tab = PESTANAS.some(([k]) => k === pedida) ? pedida : 'resumen';
   const dos = (main, aside) => `<div class="sis-dos"><div>${main}</div><aside>${aside}</aside></div>`;
-  const tecnico = !esOficina ? `${htmlTrabajos(p, ctx, planes)}${ctx.rol === 'terreno' || p.capas ? htmlCapas(p, ctx) : ''}` : '';
+  const lineas = esOficina ? [] : resumenPlanificacion(p, planes, pla);
   const cuerpo = {
-    resumen: dos(`${esOficina ? '' : htmlCronograma(p, nomPers, hoy)}${B.ciclos}${esOficina ? B.vuelos : ''}`, `${B.cuad}${B.segur}${B.gastos}`),
-    planificacion: dos(`${tecnico}${B.vuelos}`, `${B.planif}${B.mono}`),
-    encargo: dos(`${B.encargo}${htmlBitacora(p, ctx, nomPers)}`, `${B.lecc}`),
-    entregas: dos(`${B.entregas}${B.entregables}`, `${B.certs}`),
-    recursos: dos(`${B.equip}${esOficina ? B.gastos : ''}`, `${B.certs}`),
-  }[tab];
+    resumen: () => dos(`${esOficina ? '' : htmlCronograma(p, nomPers, hoy, ctx)}${B.ciclos}${esOficina ? B.vuelos : ''}`, `${esOficina ? '' : htmlLoPlanificado(p, ctx, lineas, nomPers, { compacto: true })}${B.gastos}`),
+    encargo: () => dos(`${B.encargo}${htmlBitacora(p, ctx, nomPers)}`, `${B.lecc}`),
+    planificacion: () => dos(pasosPlanificacion(), htmlLoPlanificado(p, ctx, lineas, nomPers)),
+    terreno: () => dos(`${B.mono}${B.segur}`, `${B.cuad}`),
+    entregas: () => dos(`${B.entregas}${B.entregables}`, `${B.certs}`),
+    recursos: () => dos(`${B.equip}${B.gastos}`, `${B.certs}`),
+  }[tab]();
+
+  /** v0.18 · Planificación en pasos, en el orden en que se trabaja; cada paso parte de lo anterior. */
+  function pasosPlanificacion() {
+    const cats = trabajosDeProyecto(p).map(t => t.cat), todo = !cats.length;
+    const edita = ctx.rol === 'terreno' || ctx.rol === 'direccion';
+    const lista = (filas, vacioTxt) => (filas.length ? `<div class="sis-lista">${filas.join('')}</div>` : `<p class="sis-tenue">${vacioTxt}</p>`);
+    const out = [];
+    let n = 0;
+    out.push(paso(++n, 'area', 'Área y capas', 'Un solo KMZ del proyecto: área, caminos y PR existentes.', areaPrincipal(p.capas) ? 'ok' : '', htmlCapas(p, ctx)));
+    if (todo || cats.includes('gnss')) out.push(paso(++n, 'red', 'Red de PR', 'Nace con el área, los PR existentes (control) y los PR nuevos que piden los vuelos.', pla.redes.length ? 'ok' : '',
+      lista(pla.redes.map(r => `<a class="sis-fila" href="#/planificacion/red/${esc(r.id)}"><span class="sis-fila-txt"><b>${esc(r.nombre || 'Red geodésica')}</b><span class="sis-tenue">${(r.puntos || []).filter(x => x.tipo !== 'control').length} PR nuevos · ${(r.puntos || []).filter(x => x.tipo === 'control').length} de control · ${(r.vectores || []).length} vectores</span></span><span class="sis-chip gris">Abrir</span></a>`), 'Sin red. «+ Nueva red» la arma con lo que ya tiene el proyecto.'),
+      edita ? `<a class="sis-btn chico" href="#/planificacion/nueva-red/${esc(id)}">+ Nueva red</a>` : ''));
+    if (todo || cats.includes('dron')) {
+      out.push(paso(++n, 'marcas', 'Marcas de vuelo (GCP)', 'Sobre la misma área del proyecto.', pla.marcas.length ? 'ok' : '',
+        lista(pla.marcas.map(r => `<a class="sis-fila" href="#/planificacion/marcas/${esc(r.id)}"><span class="sis-fila-txt"><b>${esc(r.nombre || 'Marcas de vuelo')}</b><span class="sis-tenue">${(r.marcas || []).length} marcas · ${r.modo === 'corredor' ? 'corredor' : 'área'}</span></span><span class="sis-chip gris">Abrir</span></a>`), 'Sin distribución de marcas.'),
+        edita ? `<a class="sis-btn chico" href="#/planificacion/nueva-marcas/${esc(id)}">+ Nuevas marcas</a>` : ''));
+      out.push(paso(++n, 'vuelos', 'Vuelos', 'Sectores, bases de amarre y jornadas por baterías; la hoja nueva parte con el área del proyecto.', planes.length && diasDeVuelo(planes) ? 'ok' : '',
+        B.vuelosLista, edita ? `<a class="sis-btn chico" href="#/vuelos/proyecto/${esc(id)}">+ Nuevo vuelo</a>` : ''));
+    }
+    out.push(paso(++n, 'trabajos', 'Trabajos y cronograma', 'Orden de ejecución y días; el cronograma del Resumen se arma solo.', (p.cronograma || []).some(a => a.origen === 'trabajos') ? 'ok' : '', htmlTrabajos(p, ctx, planes)));
+    return out.join('');
+  }
   return `  <div class="sis-encabezado">
       <div>
         <div class="sis-miga"><a href="#/proyectos">Proyectos</a> / ${esc(p.nombre)}</div>

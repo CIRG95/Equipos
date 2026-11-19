@@ -1,6 +1,16 @@
-# Topoland · Sistema de trabajo — v0.17b · Terreno 0.6.1
+# Topoland · Sistema de trabajo — v0.18 · Terreno 0.6.1
 
-**Sistema v0.17b = v0.17a + ficha del proyecto en pestañas, eliminar proyecto propio y hoja de vuelo compacta.** **Terreno 0.6.1** (18-nov): menos pasos en la app de terreno; el Sistema no cambia.
+**Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra «Sistema Topoland — flujos por rol y propuesta v0.18»): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
+
+## Qué cambia en v0.18
+- **Menús:** Planificación y Vuelos salen del menú y viven dentro del proyecto. Proyectos › **Vuelos** lista los vuelos de todos los proyectos; Herramientas › **Vuelo rápido** reúne los vuelos sin proyecto (u Oficina) con «Convertir en proyecto». Los enlaces antiguos (`#/planificacion`, `#/planificacion/proyecto/<id>`) llevan al proyecto.
+- **Ficha por etapas:** Resumen · Encargo (o Datos) y bitácora · Planificación · Terreno · Entregas y cierre · Equipos y gastos.
+- **Un solo KMZ por proyecto:** los polígonos quedan como área de trabajo (`capas.areas`, con hectáreas), las líneas como caminos y los puntos como PR existentes. La red de PR nueva nace con el área, los caminos, los PR existentes (control) y los PR nuevos que piden los vuelos (`resumen.amarre.nuevosLL`); las marcas nacen con el área; la hoja de vuelo nueva del proyecto parte con el área («Usar el área del proyecto» en el paso Área).
+- **Planificación en pasos:** 1 Área y capas → 2 Red de PR → 3 Marcas de vuelo → 4 Vuelos → 5 Trabajos y cronograma (los pasos que no aplican al tipo de trabajo no aparecen). Tarjeta **«Lo planificado»** con una línea por parte y **«Guardar planificación»** (fecha, autor y aviso de cambios sin guardar).
+- **Cronograma automático:** se arma solo con los trabajos ordenados y la fecha de inicio; conserva lo realizado. Se retiran «Llevar al cronograma» y el «Definir» que volvía a pedir los datos técnicos (para el encargado: «Planificar»/«Ajustar»).
+- **Tabla de tiempos de ocupación GNSS** en Configuración (engranaje) › Parámetros técnicos.
+
+## Versión anterior: v0.17b
 
 ## App de Terreno 0.6.1 — menos pasos
 - Pestañas Hoy · Registrar · Monografías · Gastos · Historial. Vinculado, el operador y el proyecto vienen del Sistema; trabajos en un nivel; ubicación automática; checklist plegado; pronóstico en una línea; cierre al final con resumen y envío al Sistema (sin señal queda en cola). Detalle en `terreno/LEEME.md`.

@@ -281,3 +281,9 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 
 ## Terreno 0.6.1
 - Sin cambios en el paquete de conexión ni en la base común. Terreno ahora usa también `misEquiposEnTerreno()` (lista de equipos en Registrar) y llama `publicarJornada()` al terminar la jornada sin segunda confirmación (si el teléfono está vinculado y la jornada tiene proyecto del Sistema).
+
+## v0.18 · Estructura: proyecto por etapas, un solo KMZ, planificación en pasos
+- Sin almacenes nuevos ni cambios en `compartido/esquema.js`. Campos nuevos en `compartido_proyectos`: `capas.areas [{ id, nombre, anillo, ha }]` y `planificacion { guardadoEn, guardadoPor, lineas }`. En la hoja de vuelo: `resumen.amarre.nuevosLL [{ nombre, lon, lat }]`.
+- Rutas nuevas: `#/planificacion/nueva-red/<proyectoId>`, `#/planificacion/nueva-marcas/<proyectoId>`, `#/herramientas/vuelo-rapido`, `#/proyecto/<id>/terreno`. Redirigen: `#/planificacion` → `#/proyectos`; `#/planificacion/proyecto/<id>` → `#/proyecto/<id>/planificacion`.
+- Módulo nuevo `modulos/planificacion/desde-proyecto.js` (semillas de red y marcas). `app/trabajos.js` suma `cronogramaSincronizado`.
+- Paquete de conexión sin cambios (cmp idéntico a `terreno/js/topoland-conexion.js`).

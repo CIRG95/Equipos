@@ -254,6 +254,7 @@ export function crearPasoArea(v) {
     let tarjetas = '';
     if (sub === 'origen') tarjetas = `<section class="sis-tarjeta"><h2>Origen</h2>
             <div class="sis-acciones">
+              ${(() => { const pr = h.proyectoId && v.base.proyectos.find(x => x.id === h.proyectoId); return pr && pr.capas && (pr.capas.areas || []).length ? '<button class="sis-btn primario" data-accion="area-proyecto">Usar el área del proyecto</button>' : ''; })()}
               <label class="sis-btn vu-archivo">Cargar KML / KMZ<input type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" data-archivo="area" hidden></label>
               <button class="sis-btn${st.dibujo && st.dibujo.modo === 'area' ? ' primario' : ''}" data-accion="dibujar" data-modo="area">Dibujar área</button>
               <button class="sis-btn${st.dibujo && st.dibujo.modo === 'eje' ? ' primario' : ''}" data-accion="dibujar" data-modo="eje">Dibujar eje</button>

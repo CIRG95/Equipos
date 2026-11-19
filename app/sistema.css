@@ -615,3 +615,24 @@ body[data-modo="telefono"] .pf-pestanas a{padding:10px 11px; font-size:14px;}
 body[data-modo="pc"] .pf-cuerpo > .sis-dos:has(> aside:empty){grid-template-columns:1fr;}
 .tec-peligro{border-color:#F1C9A8;}
 .sis-jornadas-mas{list-style:none; font-size:13px; padding-top:4px;} .sis-jornadas-mas a{color:var(--enlace); font-weight:600;}
+
+/* v0.18 · Planificación en pasos y «Lo planificado» */
+.pl-paso{border-left:0;}
+.pl-paso-cab{display:flex; align-items:flex-start; gap:12px; margin-bottom:10px;}
+.pl-paso-cab > div{flex:1; min-width:0;}
+.pl-paso-cab h2{margin:0;}
+.pl-paso-n{flex:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; background:var(--superficie-2, #EEF2F1); color:var(--tinta-2, #4A5560); border:1px solid var(--borde, #D8DEDC);}
+.pl-paso.ok .pl-paso-n{background:var(--marca); color:#fff; border-color:var(--marca);}
+.pl-paso-cab .sis-acciones{flex:none;}
+.lp-lista{list-style:none; margin:4px 0 8px; padding:0; display:flex; flex-direction:column; gap:8px;}
+.lp-lista li{display:flex; gap:10px; align-items:flex-start;}
+.lp-lista li > i{flex:none; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-style:normal; font-size:12px; font-weight:700; background:#EEF2F1; color:#6B7680;}
+.lp-lista li.ok > i{background:#DCEFE8; color:#0F6E56;}
+.lp-lista li.medio > i{background:#FBEBDD; color:#8A3B0A;}
+.lp-lista li span{display:flex; flex-direction:column; min-width:0;}
+.lp-lista li small{color:var(--tinta-3, #6B7680); font-size:13px;}
+.lp-estado{margin-top:4px;}
+@media (max-width: 720px){ .pl-paso-cab{flex-wrap:wrap;} .pl-paso-cab .sis-acciones{width:100%;} }
+.cfg-grilla > *{min-width:0;}
+#tiempos .sis-tabla{width:100%;}
+#tiempos .sis-tabla input{width:100%; min-width:0; box-sizing:border-box;}

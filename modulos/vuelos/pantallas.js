@@ -3,7 +3,7 @@
 // paso-clima.js (y Pronóstico rápido), paso-permisos.js (y la hoja para terreno), herramientas.js (KML, Drones), mapas.js.
 // Cada uno es una fábrica crearX(v) que recibe el contexto compartido v (estado st, listas base y funciones del núcleo).
 
-import { escapar as esc, descargar, cargarScript, leerLS, escribirLS } from '../../compartido/util.js';
+import { escapar as esc, descargar, cargarScript, leerLS, escribirLS, hoyISO, ahoraISO } from '../../compartido/util.js';
 import { alCambiar } from '../../compartido/almacen.js';
 import { listarProyectos, listarPersonas, OFICINA_ID, guardarProyecto, obtenerProyecto } from '../../compartido/catalogos.js';
 import { guardarArchivo, abrirArchivo } from '../../compartido/archivos.js';
@@ -28,7 +28,7 @@ import { crearPasoPermisos } from './paso-permisos.js';
 import { crearHerramientas } from './herramientas.js';
 import { crearMapas } from './mapas.js';
 import { crearVistaAmarre } from './vista-amarre.js';
-import { leerCapasDeArchivos, fusionarCapas, resumenCapas } from './capas-proyecto.js';
+import { leerCapasDeArchivos, fusionarCapas, resumenCapas, areaPrincipal, haDeAnillo } from './capas-proyecto.js';
 import { ubicacionDe } from './ubicacion.js';
 
 const HERRAMIENTAS = [['hojas', 'Hojas de vuelo'], ['rapido', 'Pronóstico rápido'], ['kml', 'Limpiar KML'], ['drones', 'Drones']];
@@ -42,7 +42,8 @@ export function montarPantallas(contenedor, ctx) {
   let activo = true;
 
   const st = {
-    vista: ctx.planId || ctx.proyectoId ? 'hoja' : (ctx.tab || 'hojas'),
+    vista: ctx.planId || ctx.proyectoId ? 'hoja' : (ctx.tab === 'sueltos' ? 'hojas' : (ctx.tab || 'hojas')),
+    soloSueltos: ctx.tab === 'sueltos', // v0.18 · Herramientas › Vuelo rápido: vuelos sin proyecto (u Oficina)
     paso: 'resumen',
     hoja: null, candidatos: null,
     dibujo: null, // { modo: 'area'|'eje'|'corte'|'camino'|'dmfijo', puntos: [] }
@@ -89,7 +90,7 @@ export function montarPantallas(contenedor, ctx) {
     const nombre = h.nombre || (h.area.original && h.area.original.nombre) || (h.area.eje && h.area.eje.nombre) || 'Hoja de vuelo';
     const { problemas, ...area } = h.area;
     const am = g ? v.amarreDeHoja(h, g) : null; // v0.10: bases de amarre en el resumen (la ficha del proyecto avisa si faltan PR nuevos)
-    const r = await guardarPlan({ ...h, area: { ...area, problemas }, nombre, dronId: h.dronId, schemaVersion: 2, resumen: g && d ? { ...resumenHoja(h, d, g), amarre: am ? { bases: am.bases.length, nuevos: am.nuevos, nombres: am.bases.map(b => b.nombre) } : null } : null });
+    const r = await guardarPlan({ ...h, area: { ...area, problemas }, nombre, dronId: h.dronId, schemaVersion: 2, resumen: g && d ? { ...resumenHoja(h, d, g), amarre: am ? { bases: am.bases.length, nuevos: am.nuevos, nombres: am.bases.map(b => b.nombre), nuevosLL: am.bases.filter(b => b.nuevo && b.ll).map(b => ({ nombre: b.nombre, lon: Math.round(b.ll[0] * 1e6) / 1e6, lat: Math.round(b.ll[1] * 1e6) / 1e6 })) } : null } : null });
     const nueva = !h.id;
     h.id = r.id; h.creadoEn = r.creadoEn; if (!h.nombre) h.nombre = nombre;
     if (nueva && activo) try { history.replaceState(null, '', `#/vuelos/plan/${r.id}`); } catch { /* sin historial */ }
@@ -99,12 +100,41 @@ export function montarPantallas(contenedor, ctx) {
 
   async function abrirHoja(id) {
     const p = id ? await obtenerPlan(id) : null;
-    st.hoja = p ? migrarHoja(p) : nuevaHoja({ proyectoId: ctx.proyectoId || st.filtroProyecto, personaId: ctx.personaId });
+    st.hoja = p ? migrarHoja(p) : nuevaHoja({ proyectoId: st.soloSueltos ? null : (ctx.proyectoId || st.filtroProyecto), personaId: ctx.personaId });
     st.paso = p ? 'resumen' : 'identificacion';
     st.pron = null; st.metar = null; st.metarError = ''; st.dia = null; st.candidatos = null; st.dibujo = null; st.gsdExtra = [];
     st.tramos = null; st.ubicError = ''; st.previas = null; st.pronError = '';
     st.vista = 'hoja';
     for (const m of Object.values(mapas)) m.encuadre = null;
+    if (!p && st.hoja.proyectoId) usarAreaDelProyecto(true);
+  }
+
+  /** v0.18 · Vuelo rápido → proyecto: crea el proyecto técnico con el área del vuelo y lo lleva a su Planificación. */
+  async function convertirEnProyecto(id) {
+    const h = await obtenerPlan(id);
+    if (!h) return;
+    const nombre = prompt('Nombre del proyecto nuevo:', h.nombre || 'Proyecto de vuelo');
+    if (nombre === null || !nombre.trim()) return;
+    const ahora = ahoraISO(), yo = ctx.personaId || null;
+    const anillo = h.area && h.area.original && h.area.original.anillo;
+    const capas = anillo ? fusionarCapas(null, { archivos: [], caminos: [], prs: [], areas: [{ nombre: h.area.original.nombre || nombre.trim(), anillo, ha: haDeAnillo(anillo) }] }) : null;
+    const p = await guardarProyecto({
+      nombre: nombre.trim(), mandante: h.mandante || '', estado: 'activo', fechaEncargo: hoyISO(), fechaInicio: h.fecha || hoyISO(),
+      encargadoId: yo, cuadrilla: yo ? [yo] : [], tiposTrabajo: ['dron'], trabajos: [{ cat: 'dron', dias: 1, paralelo: false }], capas,
+      encargo: { info: {}, prioridad: 'normal', emitidoPor: yo, emitidoEn: ahora, recibidoPor: yo, recibidoEn: ahora },
+    }, { personaId: yo });
+    await guardarPlan({ ...h, proyectoId: p.id });
+    location.hash = `#/proyecto/${p.id}/planificacion`;
+  }
+
+  /** v0.18: el área de la hoja sale del KMZ del proyecto (Planificación › Área y capas). */
+  function usarAreaDelProyecto(silencioso = false) {
+    const h = st.hoja, pr = h && base.proyectos.find(x => x.id === h.proyectoId);
+    const a = pr && areaPrincipal(pr.capas);
+    if (!a) { if (!silencioso) avisar('El proyecto no tiene área cargada: cárgala en la ficha del proyecto (Planificación › Área y capas).', 'error'); return false; }
+    usarPoligono({ nombre: a.nombre, anillo: a.anillo, area: (a.ha || 0) * 10000 }, 'Área del proyecto');
+    if (!silencioso) avisar(`Área del proyecto: ${a.nombre}`);
+    return true;
   }
 
   // ─────────── Contexto compartido y vistas por paso ───────────
@@ -331,7 +361,7 @@ export function montarPantallas(contenedor, ctx) {
       if (!h.proyectoId) { avisar('Asigna primero la hoja a un proyecto.', 'error'); return; }
       const p = await obtenerProyecto(h.proyectoId);
       const leidas = await leerCapasDeArchivos(t.files);
-      if (!leidas.prs.length && !leidas.caminos.length) { avisar('El archivo no trae líneas ni puntos.', 'error'); return; }
+      if (!leidas.prs.length && !leidas.caminos.length && !leidas.areas.length) { avisar('El archivo no trae áreas, líneas ni puntos.', 'error'); return; }
       const capas = fusionarCapas(p.capas, leidas);
       await guardarProyecto({ id: p.id, capas }, { personaId: ctx.personaId });
       baseSucia = true;
@@ -573,7 +603,9 @@ export function montarPantallas(contenedor, ctx) {
     const h = st.hoja;
     try {
       if (a === 'vista') { if (st.hoja) await guardarAhora(); st.vista = b.dataset.vista; st.pron = null; st.metar = null; st.pronError = ''; if (st.vista === 'hojas') st.hoja = null; }
-      else if (a === 'volver-lista') { await guardarAhora(); st.vista = 'hojas'; st.hoja = null; try { history.replaceState(null, '', '#/vuelos'); } catch { /* */ } }
+      else if (a === 'volver-lista') { await guardarAhora(); st.vista = 'hojas'; st.hoja = null; try { history.replaceState(null, '', st.soloSueltos ? '#/herramientas/vuelo-rapido' : '#/vuelos'); } catch { /* */ } }
+      else if (a === 'area-proyecto') { usarAreaDelProyecto(); }
+      else if (a === 'convertir-proyecto') { await convertirEnProyecto(b.dataset.id); return; }
       else if (a === 'nueva-hoja') { await abrirHoja(null); }
       else if (a === 'abrir-hoja') { await abrirHoja(b.dataset.id); try { history.replaceState(null, '', `#/vuelos/plan/${b.dataset.id}`); } catch { /* */ } }
       else if (a === 'restaurar-hoja') { await restaurarPlan(b.dataset.id); avisar('Vuelo restaurado'); }
@@ -783,7 +815,7 @@ export function montarPantallas(contenedor, ctx) {
 
   (async () => {
     if (ctx.planId) await abrirHoja(ctx.planId);
-    else if (ctx.proyectoId) await abrirHoja(null);
+    else if (ctx.proyectoId) { await cargarBase(); await abrirHoja(null); } // v0.18: la hoja nueva parte con el área del proyecto
     await render();
   })();
 

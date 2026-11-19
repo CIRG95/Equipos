@@ -1,4 +1,4 @@
-# Terreno Topografía — app de terreno (v0.6.0)
+# Terreno Topografía — app de terreno (v0.6.1)
 
 App aparte, liviana, para el teléfono (y PC). Alimenta al Sistema sin integrarse a él. Se publica con GitHub Pages en `…/equipos/terreno/`.
 
@@ -7,5 +7,6 @@ App aparte, liviana, para el teléfono (y PC). Alimenta al Sistema sin integrars
 - Service worker propio (`terreno-topo-…`): solo borra sus cachés.
 - **0.5.8:** paquete de conexión 1.3 del Sistema (`js/topoland-conexion.js`, copiado sin cambios desde `paquete-conexion/`): base compartida completa, código del QR guardado y vinculación automática al terminar la sincronización.
 - **0.6.0:** trabajo sin conexión completo: cola de subida guardada en el teléfono (`colaSync`), reconexión automática al volver la señal aunque la app haya abierto sin internet (`reconectarNubes` en `js/99-inicio.js`), franja «Sin conexión» y pastilla con las jornadas por subir, `sw.js` que guarda `../config.js` y abre la app guardada ante cualquier navegación sin señal. Paquete de conexión 1.4.2.
+- **0.6.1:** menos pasos y pantallas más claras (pedido por Camilo el 18-nov). Pestañas Hoy · Registrar · Monografías · Gastos · Historial (reportes Excel/PDF en cada jornada). Vinculado: operador = persona del Sistema y proyecto de la lista (recuerda el último); trabajos en un solo nivel; ubicación de inicio automática; «Siguiente paso» del dron abre su checklist; Registrar preselecciona instrumento y tipo según el trabajo y ofrece los equipos del Sistema en terreno; checklist plegado con nota al tocar; pronóstico en una línea; «Terminar jornada» al final con resumen y envío al Sistema al cerrar (sin señal queda en cola); encabezado con pastilla de la nube y engranaje (plantillas en ⚙ → General); «Eliminar jornada» en «⋯ Más acciones». Paquete de conexión sin cambios (1.4.2); caché `terreno-topo-v49-0.6.1`.
 - **0.5.9:** pestaña **Gastos** con el paquete de conexión 1.4: nuevo gasto con foto de la boleta (cámara, galería o PDF), monto y categoría; borrador con fondo, gastado y saldo; aviso de duplicado; rendiciones devueltas con motivo y gastos observados; tarjeta «Gastos del proyecto» en la jornada en curso. Funciona sin señal. Archivos nuevos: `js/23-gastos.js`, `css/gastos.css`.
 - Detalle de versiones: `LEEME-vX.Y.md` del proyecto Terreno.

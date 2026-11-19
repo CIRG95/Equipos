@@ -195,39 +195,14 @@ function wirePanelComunes(el) {
     renderMonografias();
   });
 }
-/* v0.1l — Pestaña «Herramientas»: utilidades que funcionan solas, sin jornada abierta. */
-function renderHerramientas() {
-  const el = document.getElementById("tab-monografias");
-  const n = state.monografias.length;
-  el.innerHTML = `
-    <div class="card">
-      <h2>Herramientas</h2>
-      <p class="muted">Utilidades que se usan solas, sin necesidad de tener una jornada abierta.</p>
-    </div>
-    <div class="card" style="padding:12px 14px; cursor:pointer;" id="herrMonografias" role="button" tabindex="0">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <div style="font-size:28px;">📐</div>
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:700;">Monografías</div>
-          <div class="muted" style="font-size:12px;">Crear fichas de PRs y monolitos desde cero, desde un punto o importando TXT/CSV · ${n} guardada${n === 1 ? "" : "s"}</div>
-        </div>
-        <div style="font-size:20px;" aria-hidden="true">›</div>
-      </div>
-    </div>
-    <p class="muted" style="text-align:center; font-size:12px;">Aquí se irán sumando más herramientas.</p>`;
-  const ir = () => { state.herramienta = "monografias"; renderMonografias(); };
-  const card = el.querySelector("#herrMonografias");
-  card.addEventListener("click", ir);
-  card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ir(); } });
-}
+/* Pestaña «Monografías» (0.6.1: antes vivía dentro de «Herramientas»). */
 function renderMonografias() {
   const el = document.getElementById("tab-monografias");
   if (state.monografiaEnEdicionId) { renderEditorMonografia(el); return; }
-  if (state.herramienta !== "monografias") { renderHerramientas(); return; }
+  state.herramienta = "monografias"; // 0.6.1: Monografías es una pestaña propia (antes estaba dentro de Herramientas)
 
   el.innerHTML = `
     <div class="card">
-      <button class="btn btn-outline btn-sm" id="btnVolverHerramientas" type="button" style="margin-bottom:8px;">← Herramientas</button>
       <h2>Monografías GNSS</h2>
       <p class="muted">Fichas de punto para entregar a mandantes — basadas en tu plantilla de monografía de PRs y monolitos.</p>
       <div class="row">
@@ -260,7 +235,6 @@ function renderMonografias() {
     `).join("") : `<div class="empty-state"><p class="muted">Todavía no has creado ninguna monografía.</p></div>`}
   `;
 
-  document.getElementById("btnVolverHerramientas").addEventListener("click", () => { state.herramienta = null; renderMonografias(); });
   wirePanelComunes(el);
   if (typeof sisDespuesDeListado === "function") sisDespuesDeListado();
   document.getElementById("btnNuevaMonografia").addEventListener("click", async () => {

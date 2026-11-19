@@ -278,3 +278,6 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 ## v0.17b
 - Rutas nuevas: `#/proyecto/<id>/{planificacion|encargo|entregas|recursos}` (sin sufijo = Resumen). Sin cambios en IndexedDB ni en `compartido/esquema.js`.
 - Paquete de conexión sin cambios (cmp con `terreno/js/topoland-conexion.js` idéntico).
+
+## Terreno 0.6.1
+- Sin cambios en el paquete de conexión ni en la base común. Terreno ahora usa también `misEquiposEnTerreno()` (lista de equipos en Registrar) y llama `publicarJornada()` al terminar la jornada sin segunda confirmación (si el teléfono está vinculado y la jornada tiene proyecto del Sistema).

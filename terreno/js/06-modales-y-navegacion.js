@@ -110,6 +110,11 @@ document.getElementById("btnPlantillas").addEventListener("click", () => {
   renderPlantillasModal();
   plantillasModalEl.classList.remove("hidden");
 });
+// 0.6.1: las plantillas se abren desde el engranaje (el botón del encabezado se retiró)
+document.getElementById("btnAbrirPlantillas").addEventListener("click", () => {
+  configModalEl.classList.add("hidden");
+  document.getElementById("btnPlantillas").click();
+});
 
 function renderPlantillasModal(editandoId) {
   const body = document.getElementById("plantillasModalBody");
@@ -226,7 +231,6 @@ function renderTabActual() {
   if (state.tabActual === "jornada") renderJornada();
   else if (state.tabActual === "levantamiento") renderLevantamiento();
   else if (state.tabActual === "historial") renderHistorial();
-  else if (state.tabActual === "reportes") renderReportes();
   else if (state.tabActual === "monografias") renderMonografias();
   else if (state.tabActual === "gastos") renderGastos();
   renderHeader();
@@ -240,7 +244,7 @@ function renderHeader() {
   if (j) {
     pill.textContent = fmtDuracion(Date.now() - new Date(j.fechaInicio).getTime());
     pill.classList.add("pill-live");
-    sub.textContent = "Jornada iniciada " + fmtHoraCorta(j.fechaInicio);
+    sub.textContent = "Jornada en curso desde " + fmtHoraCorta(j.fechaInicio);
   } else {
     pill.textContent = "—";
     pill.classList.remove("pill-live");

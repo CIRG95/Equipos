@@ -1,6 +1,17 @@
-# Topoland · Sistema de trabajo — v0.18a · Terreno 0.7.0
+# Topoland · Sistema de trabajo — v0.19 · Terreno 0.8.0
 
 **Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra «Sistema Topoland — flujos por rol y propuesta v0.18»): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
+
+## Qué cambia en v0.19 (uso simple)
+Pensado para que lo use desde un alarife hasta la jefatura, sin explicación.
+- **«¿Quién eres?»** reemplaza las listas de persona y rol del encabezado. Cada persona se elige una vez (agrupadas en Jefatura · Administración y RRHH · Terreno y gabinete) y **el rol sale de su ficha** (Dirección → Jefatura, RRHH → Administración, el resto → Terreno). El encabezado muestra un botón con el nombre y el rol; tocarlo permite cambiar de persona. Para probar pantallas de otro rol: Configuración › Usuario › «Ver como otro rol».
+- **Inicio = «Hoy»** en los tres roles: arriba, **lo primero de hoy** con un botón grande («Hacerlo ahora»); debajo, **«Para hacer»** agrupado por lo que hay que hacer (Responder y confirmar · Renovar documentos · Aprobar vacaciones y permisos · Revisar contratos que terminan · Reponer EPP · Habilitar a la cuadrilla · Calibrar equipos · Pedir permisos de vuelo…). Ya no se muestran tarjetas en cero.
+- **Jefatura**: tablero «Cómo van los proyectos» con un **semáforo** por proyecto (rojo: plazo vencido o consultas sin responder; ámbar: sin confirmar recepción, actividades atrasadas o vence en 7 días; verde: avanza bien) y el motivo en palabras simples. Al lado, solo **sus decisiones**.
+- **RRHH**: pendientes agrupados por tipo; los de Personal se separan en documentos, contratos, EPP y ausencias.
+- **Lenguaje simple**: «Confirmar que lo recibí» (antes «Acusar recibo»), «Información entregada» (antes «Calidad del encargo»), «Pedir permiso DGAC», «Subir el log del vuelo», tuteo en los pendientes.
+- **Terreno 0.8.0 · modo simple para ayudantes y alarifes** (solo teléfono): si la ficha dice «Ayudante», la app abre en «Inicio» con cuatro botones grandes — Mi jornada · Foto o punto · Gasto · Charla de seguridad — y oculta Monografías e Historial. La **charla de seguridad** (proyecto, tema y asistentes) se registra sin señal y llega a Seguridad del proyecto en el Sistema.
+- Paquete de conexión **1.6**: `miModo()`, `companerosDeProyecto(proyectoId)`, `registrarCharla({...})`; `misProyectos()` incluye los proyectos donde la persona integra la cuadrilla.
+- Pruebas: 155 unitarias (nueva `hoy.test.mjs`); navegador `v019.js` (PC y teléfono) y `terreno-080.js`.
 
 ## Qué cambia en v0.18a (avance por sector)
 - **Avance por sector en la hoja de vuelo:** tarjeta «Avance por sector» en el Resumen; se toca un sector y se registra fecha, % (25/50/75/100), base usada (PR), altura de la base y observación. Muestra sectores (un 50 % suma medio) y hectáreas, la meta del día y los sectores atrasados según el programa. Con todos los sectores al 100 % la hoja pasa sola a «Volado»; un sector al 100 % marca la columna Terreno de Entregas si el proyecto tiene un tramo con el mismo nombre.

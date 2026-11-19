@@ -29,6 +29,7 @@ var TopolandConexion = (() => {
     alVincular: () => alVincular,
     boleta: () => boleta,
     codigoQR: () => codigoQR,
+    companerosDeProyecto: () => companerosDeProyecto,
     conectarNube: () => conectarNube,
     desvincular: () => desvincular,
     eliminarGasto: () => eliminarGasto,
@@ -39,14 +40,16 @@ var TopolandConexion = (() => {
     guardarGasto: () => guardarGasto2,
     iniciar: () => iniciar4,
     marcarTramoVolado: () => marcarTramoVolado2,
+    miModo: () => miModo,
     misEquiposEnTerreno: () => misEquiposEnTerreno,
     misGastos: () => misGastos,
     misProyectos: () => misProyectos,
-    persona: () => persona5,
+    persona: () => persona6,
     proyectosGastos: () => proyectosGastos,
     publicarJornada: () => publicarJornada2,
     publicarMonografia: () => publicarMonografia2,
     registrarAvance: () => registrarAvance2,
+    registrarCharla: () => registrarCharla,
     reportar: () => reportar,
     restaurarGasto: () => restaurarGasto2,
     sincronizar: () => sincronizar2,
@@ -1655,8 +1658,95 @@ Content-Type: ${mime}\r
     return { registro, totales: t, terminado: t.terminado, tramo };
   }
 
+  // compartido/cronograma.js
+  var genteDeProyecto = (p) => [...new Set([p.encargadoId, ...p.cuadrilla || []].filter(Boolean))];
+
+  // modulos/administracion/modelo.js
+  var TIPOS_BASE = [
+    { id: "per-cedula", aplica: "persona", nombre: "Cédula de identidad", vence: true, obligatorio: true, orden: 1 },
+    { id: "per-contrato", aplica: "persona", nombre: "Contrato de trabajo y anexos", vence: false, obligatorio: true, orden: 2 },
+    { id: "per-titulo", aplica: "persona", nombre: "Título profesional o técnico", vence: false, obligatorio: false, orden: 3 },
+    { id: "per-licencia", aplica: "persona", nombre: "Licencia de conducir", vence: true, obligatorio: false, orden: 4 },
+    { id: "per-altura", aplica: "persona", nombre: "Examen de altura física", vence: true, obligatorio: false, orden: 5 },
+    { id: "per-ocupacional", aplica: "persona", nombre: "Examen ocupacional", vence: true, obligatorio: false, orden: 6 },
+    { id: "per-rpas", aplica: "persona", nombre: "Credencial de operador RPAS (DGAC)", vence: true, obligatorio: false, orden: 7 },
+    { id: "per-manejo", aplica: "persona", nombre: "Curso de manejo defensivo", vence: true, obligatorio: false, orden: 8 },
+    { id: "per-induccion", aplica: "persona", nombre: "Inducción de faena", vence: true, obligatorio: false, orden: 9 },
+    // Vehículos: los 8 documentos que pide SUCAL para habilitar camionetas en Codelco (captura de Camilo, 13-nov-2026).
+    { id: "veh-revision", aplica: "vehiculo", nombre: "Copia del certificado de revisión técnica o certificado de homologación", vence: true, obligatorio: true, orden: 1 },
+    { id: "veh-permiso", aplica: "vehiculo", nombre: "Copia del permiso de circulación vigente", vence: true, obligatorio: true, orden: 2 },
+    { id: "veh-seguro", aplica: "vehiculo", nombre: "Seguro obligatorio", vence: true, obligatorio: true, orden: 3 },
+    { id: "veh-barras", aplica: "vehiculo", nombre: "Certificado de barras antivuelco o certificado de homologación de barras", vence: false, obligatorio: false, orden: 4 },
+    { id: "veh-mantencion", aplica: "vehiculo", nombre: "Certificado de mantención", vence: false, obligatorio: true, orden: 5 },
+    { id: "veh-malla", aplica: "vehiculo", nombre: "Certificado de malla o sistema de defensa externa", vence: false, obligatorio: false, orden: 6 },
+    { id: "veh-gps", aplica: "vehiculo", nombre: "Certificado de instalación de GPS", vence: false, obligatorio: true, orden: 7 },
+    { id: "veh-cunas", aplica: "vehiculo", nombre: "Certificado de cuñas", vence: false, obligatorio: true, orden: 8 }
+  ];
+  var MANDANTES_BASE = [
+    {
+      id: "man-codelco",
+      nombre: "Codelco",
+      plataforma: "SUCAL",
+      alias: ["codelco", "radomiro tomic", "andina", "el teniente", "chuquicamata", "ministro hales", "salvador"],
+      requisitosVehiculo: TIPOS_BASE.filter((t) => t.aplica === "vehiculo").map((t) => ({ tipoId: t.id, obligatorio: t.obligatorio })),
+      requisitosPersona: [],
+      notas: "Requisitos de vehículos según SUCAL. Los requisitos de personas se completan con la lista que pida la plataforma."
+    }
+  ];
+  var TURNOS = [["5x2", "5×2 (lunes a viernes)"], ["4x3", "4×3"], ["7x7", "7×7"], ["10x10", "10×10"], ["14x14", "14×14"], ["otro", "Otro"]];
+  var TIPOS_CONTRATO = [["indefinido", "Indefinido"], ["plazo_fijo", "Plazo fijo"], ["obra", "Por obra o faena"], ["honorarios", "Honorarios"]];
+  var TIPOS_AUSENCIA = [["vacaciones", "Vacaciones"], ["permiso", "Permiso"], ["licencia", "Licencia médica"], ["descanso", "Descanso de turno"], ["otro", "Otro"]];
+  var TIPOS_BIBLIOTECA = [["plantilla", "Plantilla oficial"], ["norma", "Norma"], ["mandante", "Especificación del mandante"], ["interno", "Procedimiento interno"], ["equipo", "Manual de equipo"]];
+  var nombreDe = (lista) => Object.fromEntries(lista.map(([k, t]) => [k, t]));
+  var NOMBRE_TURNO = nombreDe(TURNOS);
+  var NOMBRE_CONTRATO = nombreDe(TIPOS_CONTRATO);
+  var NOMBRE_AUSENCIA = nombreDe(TIPOS_AUSENCIA);
+  var NOMBRE_BIBLIOTECA = nombreDe(TIPOS_BIBLIOTECA);
+
+  // modulos/administracion/datos.js
+  var SCHEMA_VERSION6 = 1;
+  var ALM7 = {
+    mandantes: "compartido_mandantes",
+    tipos: "admin_tipos_doc",
+    documentos: "admin_documentos",
+    fichas: "admin_fichas",
+    ausencias: "admin_ausencias",
+    licitaciones: "admin_licitaciones",
+    vehiculos: "admin_vehiculos",
+    viajes: "admin_viajes",
+    guias: "admin_guias",
+    cotizaciones: "admin_cotizaciones",
+    seguridad: "admin_seguridad",
+    biblioteca: "admin_biblioteca",
+    config: "admin_config"
+  };
+  var DEFINICIONES = [
+    { nombre: ALM7.mandantes },
+    { nombre: ALM7.tipos },
+    { nombre: ALM7.documentos, indices: [["dueno", ["duenoTipo", "duenoId"]]] },
+    { nombre: ALM7.fichas },
+    { nombre: ALM7.ausencias, indices: [["personaId", "personaId"]] },
+    { nombre: ALM7.licitaciones },
+    { nombre: ALM7.vehiculos },
+    { nombre: ALM7.viajes, indices: [["proyectoId", "proyectoId"]] },
+    { nombre: ALM7.guias, indices: [["proyectoId", "proyectoId"]] },
+    { nombre: ALM7.cotizaciones },
+    { nombre: ALM7.seguridad, indices: [["proyectoId", "proyectoId"]] },
+    { nombre: ALM7.biblioteca },
+    { nombre: ALM7.config }
+  ];
+  var persona5 = null;
+  function fijarPersona4(p) {
+    persona5 = p;
+  }
+  var sello6 = (r) => sellar(r, { personaId: persona5, schemaVersion: SCHEMA_VERSION6 });
+  async function guardarRegistro(almacen, datos) {
+    const previo = datos.id ? await obtener(almacen, datos.id) : null;
+    return guardar(almacen, sello6({ ...previo || {}, ...datos }));
+  }
+
   // app/conexion-terreno.js
-  var VERSION = "1.5 (Sistema v0.18a)";
+  var VERSION = "1.6 (Sistema v0.19)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var CLAVE_CODIGO = "topoland_conexion_codigo";
@@ -1682,7 +1772,7 @@ Content-Type: ${mime}\r
   var oyentesVinculo = /* @__PURE__ */ new Set();
   var escuchando = false;
   async function intentarCodigoPendiente() {
-    if (!codigoPendiente || persona5()) return null;
+    if (!codigoPendiente || persona6()) return null;
     try {
       const p = await vincular(codigoPendiente);
       if (p) for (const fn of oyentesVinculo) {
@@ -1699,11 +1789,12 @@ Content-Type: ${mime}\r
     }
   }
   function iniciar4({ clienteId } = {}) {
-    const p = persona5();
+    const p = persona6();
     iniciar2({ personaId: p ? p.id : null });
     iniciar3({ personaId: p ? p.id : null });
     iniciarDatos3({ personaId: p ? p.id : null });
     iniciarDatos4({ personaId: p ? p.id : null });
+    fijarPersona4(p ? p.id : null);
     configurar({ clienteId: clienteId || void 0 });
     iniciar();
     codigoPendiente = leer(CLAVE_CODIGO);
@@ -1739,7 +1830,7 @@ Content-Type: ${mime}\r
     else if (codigoPendiente) intentarCodigoPendiente();
     return { persona: p, codigoPendiente, carpetaPendiente: leer(CLAVE_CARPETA) && !estado().carpetaId ? leer(CLAVE_CARPETA) : null };
   }
-  function persona5() {
+  function persona6() {
     return leer(CLAVE_PERSONA);
   }
   async function vincular(codigo) {
@@ -1753,8 +1844,28 @@ Content-Type: ${mime}\r
     iniciar3({ personaId: p.id });
     iniciarDatos3({ personaId: p.id });
     fijarPersona3(p.id);
+    fijarPersona4(p.id);
     fijarCodigo(null);
     return datos;
+  }
+  async function miModo() {
+    const p = persona6();
+    if (!p) return { modo: "completo", roles: [] };
+    const f = (await listarPersonas()).find((x) => x.id === p.id) || {};
+    const roles = f.roles || [];
+    return { modo: roles.includes("ayudante") && !roles.includes("encargado") ? "simple" : "completo", roles };
+  }
+  async function companerosDeProyecto(proyectoId) {
+    const pr = await obtenerProyecto(proyectoId);
+    if (!pr) return [];
+    const ids = genteDeProyecto(pr), personas = await listarPersonas();
+    return ids.map((id) => personas.find((x) => x.id === id)).filter(Boolean).map((x) => ({ id: x.id, nombre: x.nombre }));
+  }
+  async function registrarCharla({ proyectoId, tema, asistentes = [], otros = [], fecha = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) }) {
+    yo();
+    if (!proyectoId) throw new Error("Falta el proyecto");
+    if (!String(tema || "").trim()) throw new Error("Falta el tema de la charla");
+    return guardarRegistro(ALM7.seguridad, { proyectoId, tipo: "charla", fecha, tema: String(tema).trim(), asistentes, otros: otros.map((s) => String(s).trim()).filter(Boolean), origen: "terreno" });
   }
   function desvincular() {
     escribir(CLAVE_PERSONA, null);
@@ -1765,7 +1876,7 @@ Content-Type: ${mime}\r
     return () => oyentesVinculo.delete(fn);
   };
   async function explicarVinculo(codigo = codigoPendiente) {
-    if (persona5()) return "";
+    if (persona6()) return "";
     let n = 0;
     try {
       n = (await listarPersonas()).length;
@@ -1777,13 +1888,13 @@ Content-Type: ${mime}\r
     return `El código ${c} no está entre las personas del Sistema. Revisa que sea el vigente (Configuración → Vinculación con la app de Terreno) y sincroniza de nuevo.`;
   }
   var yo = () => {
-    const p = persona5();
+    const p = persona6();
     if (!p) throw new Error("Primero vincula el teléfono a una persona.");
     return p;
   };
   async function misProyectos() {
     const p = yo();
-    return (await listarProyectos()).filter((x) => x.id !== OFICINA_ID && x.estado !== "cerrado" && x.encargadoId === p.id).map((x) => ({ id: x.id, nombre: x.nombre, mandante: x.mandante || "", comuna: x.comuna || "", region: x.region || "", tiposTrabajo: x.tiposTrabajo || [] }));
+    return (await listarProyectos()).filter((x) => x.id !== OFICINA_ID && x.estado !== "cerrado" && genteDeProyecto(x).includes(p.id)).map((x) => ({ id: x.id, nombre: x.nombre, mandante: x.mandante || "", comuna: x.comuna || "", region: x.region || "", tiposTrabajo: x.tiposTrabajo || [] }));
   }
   async function misEquiposEnTerreno() {
     const p = yo();
@@ -1844,7 +1955,7 @@ Content-Type: ${mime}\r
   }
   async function subirFoto(dataUrl, { proyectoId, tipo = "otra", monografiaId = null, puntoId = null, punto = "", lat = null, lng = null, hora = null, leyenda = "" } = {}) {
     const op = await opcionesProyecto(proyectoId);
-    const archivoId = await guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? "terreno_monografia" : "terreno_foto", duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || (/* @__PURE__ */ new Date()).toISOString(), leyenda, autor: persona5().nombre } });
+    const archivoId = await guardarFoto(dataUrl, { ...op, duenoTipo: monografiaId ? "terreno_monografia" : "terreno_foto", duenoId: monografiaId, detalle: { tipo, monografiaId, puntoId, punto, lat, lng, hora: hora || (/* @__PURE__ */ new Date()).toISOString(), leyenda, autor: persona6().nombre } });
     return { archivoId };
   }
   async function estadoMonografias2(proyectoId) {
@@ -1917,7 +2028,7 @@ Content-Type: ${mime}\r
     };
   }
   async function gastosDevueltos() {
-    const p = persona5();
+    const p = persona6();
     if (!p) return [];
     const d = await cargarTodo();
     return d.rendiciones.filter((r) => r.personaId === p.id && estadoRendicion(eventosDe(d.eventos, r.id)) === "devuelta").map((r) => ({ id: r.id, numero: r.numero, proyectoId: r.proyectoId, motivo: (ultimo(eventosDe(d.eventos, r.id), "devuelta") || {}).motivo || "" }));

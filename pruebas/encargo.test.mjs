@@ -88,10 +88,10 @@ test('pendientes: el encargado debe acusar recibo y quien encargó debe responde
   assert.equal(sinAcuse(p), true);
   assert.equal(entradasAbiertas(p).length, 2);
   const enc = pendientesEncargo({ rol: 'terreno', personaId: 'u1', proyectos: [p], hoy: '2026-11-17' });
-  assert.ok(enc.some(x => x.titulo.startsWith('Acusar recibo')));
+  assert.ok(enc.some(x => x.titulo.startsWith('Confirmar que lo recibí')));
   assert.ok(!enc.some(x => x.etiqueta === 'Responder'), 'el encargado no responde su propia consulta');
   const jefe = pendientesEncargo({ rol: 'direccion', personaId: 'jefe', proyectos: [p], hoy: '2026-11-17' });
-  assert.deepEqual(jefe.map(x => x.etiqueta).sort(), ['Confirmar', 'Responder', 'Sin acuse']);
+  assert.deepEqual(jefe.map(x => x.etiqueta).sort(), ['Confirmar', 'Responder', 'Sin confirmar']);
   // Resuelto todo, no quedan pendientes.
   const listo = { ...p, encargo: { ...p.encargo, recibidoEn: '2026-11-16T16:00:00Z', recibidoPor: 'u1' }, bitacora: [{ ...p.bitacora[0], respuesta: '19 S' }, { ...p.bitacora[1], confirmadoEn: '2026-11-16T17:00:00Z' }] };
   assert.deepEqual(pendientesEncargo({ rol: 'direccion', personaId: 'jefe', proyectos: [listo], hoy: '2026-11-17' }), []);

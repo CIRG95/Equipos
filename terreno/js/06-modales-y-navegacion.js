@@ -233,6 +233,7 @@ function renderTabActual() {
   else if (state.tabActual === "historial") renderHistorial();
   else if (state.tabActual === "monografias") renderMonografias();
   else if (state.tabActual === "gastos") renderGastos();
+  else if (state.tabActual === "simple" && typeof simpleRender === "function") simpleRender(); // 0.8.0 · modo simple
   renderHeader();
   try { if (typeof renderPanelWeb === "function") renderPanelWeb(); } catch (e) { console.error(e); }
 }

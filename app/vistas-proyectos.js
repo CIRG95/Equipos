@@ -244,9 +244,9 @@ function htmlAcuse(p, ctx, nomPers) {
   if (!e.emitidoEn) return '';
   if (sinAcuse(p)) {
     const mio = ctx.personaId && ctx.personaId === p.encargadoId;
-    return `<section class="sis-tarjeta enc-acuse pendiente"><div><b>${mio ? 'Tiene un encargo nuevo' : 'Encargo sin acuse de recibo'}</b>
+    return `<section class="sis-tarjeta enc-acuse pendiente"><div><b>${mio ? 'Tienes un encargo nuevo' : 'El encargado aún no confirma que lo recibió'}</b>
       <span>Encargado por ${esc(nomPers(e.emitidoPor) || 'Jefatura')} el ${esc(fechaHoraLegible(e.emitidoEn))}${e.prioridad === 'urgente' ? ' · <b>urgente</b>' : ''}. ${mio ? 'Revise la información y confirme la recepción; si falta algo, regístrelo como consulta en la bitácora.' : `${esc(nomPers(p.encargadoId) || 'El encargado')} aún no confirma la recepción.`}</span></div>
-      ${mio ? `<button type="button" class="sis-btn primario" data-accion="acusar-recibo" data-id="${esc(p.id)}">Acusar recibo</button>` : ''}</section>`;
+      ${mio ? `<button type="button" class="sis-btn primario" data-accion="acusar-recibo" data-id="${esc(p.id)}">Confirmar que lo recibí</button>` : ''}</section>`;
   }
   return e.recibidoEn && e.recibidoPor !== e.emitidoPor ? `<p class="sis-tenue enc-acuse-ok">✓ Encargo recibido por ${esc(nomPers(e.recibidoPor) || 'el encargado')} el ${esc(fechaHoraLegible(e.recibidoEn))}.</p>` : '';
 }
@@ -256,7 +256,7 @@ function htmlCalidad(p) {
   const ct = p.contactoTerreno || {};
   const ESTADO = { si: ['Entregada', 'verde'], na: ['No aplica', 'gris'], pend: ['Pendiente', 'ambar'] };
   return `<div class="enc-medidor"><div class="enc-medidor-barra"><i class="${c.pct >= 85 ? 'alto' : c.pct >= 55 ? 'medio' : 'bajo'}" style="width:${c.pct}%"></i></div><b>${c.pct} %</b></div>
-    <p class="sis-tenue">Calidad del encargo: ${c.puntos} de ${c.total} antecedentes. ${c.faltan.length ? `Falta: ${esc(c.faltan.slice(0, 4).join(' · '))}${c.faltan.length > 4 ? ` y ${c.faltan.length - 4} más` : ''}.` : 'Completo.'}</p>
+    <p class="sis-tenue">Información entregada: ${c.puntos} de ${c.total}. ${c.faltan.length ? `Falta: ${esc(c.faltan.slice(0, 4).join(' · '))}${c.faltan.length > 4 ? ` y ${c.faltan.length - 4} más` : ''}.` : 'Completo.'}</p>
     <div class="sis-lista enc-info-lista">${INFO_ENCARGO.map(([k, t]) => { const e = ESTADO[info[k]] || ['Sin indicar', 'rojo']; return `<div class="sis-fila"><span class="sis-fila-txt"><b>${esc(t)}</b></span><span class="sis-chips"><span class="sis-chip ${e[1]}">${e[0]}</span>${info[k] !== 'si' && info[k] !== 'na' ? `<button type="button" class="sis-btn chico" data-accion="info-entregada" data-id="${esc(p.id)}" data-k="${k}">Marcar entregada</button>` : ''}</span></div>`; }).join('')}</div>
     ${ct.nombre || ct.telefono ? `<p><b>Contacto en terreno:</b> ${esc(ct.nombre || '')}${ct.telefono ? ` · <a href="tel:${esc(ct.telefono)}">${esc(ct.telefono)}</a>` : ''}</p>` : ''}
     ${p.sistemaReferencia ? `<p><b>Sistema de referencia:</b> ${esc(p.sistemaReferencia)}</p>` : ''}`;

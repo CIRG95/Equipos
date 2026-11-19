@@ -6,7 +6,7 @@ import { escapar as esc, cargarScript, leerTexto as leerLS, fechaHoraLegible } f
 import { estado as estadoNube } from '../compartido/nube.js';
 import { listarPersonas } from '../compartido/catalogos.js';
 import { resolverUrlTerreno } from './url-terreno.js';
-import { COLORES_MARCA, NOMBRE_ROL_PERSONA } from './catalogo.js';
+import { COLORES_MARCA, NOMBRE_ROL_PERSONA, ROLES } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
 import { vacio } from './vistas-ui.js';
 import { obtener } from '../compartido/almacen.js';
@@ -87,6 +87,7 @@ export async function configuracion(ctx) {
         <p class="sis-tenue">Los datos se guardan primero en este equipo y se sincronizan cuando hay conexión.</p>
       </section>
 
+      ${tarjetaVerComo(ctx)}
       ${await tarjetaTiempos()}
 
       <section class="sis-tarjeta"><h2>Acerca del Sistema</h2>
@@ -107,4 +108,27 @@ async function tarjetaTiempos() {
       ${tabla.map(fila).join('')}${fila()}</tbody></table></div>
       <p class="sis-tenue">Complete la última fila para agregar un rango; deje vacías las casillas de un rango para quitarlo.</p>
       <div class="sis-acciones"><button class="sis-btn primario">Guardar tabla</button></div></form></section>`;
+}
+
+/** v0.19 · Rol del Sistema según la ficha de la persona (Jefatura > RRHH > terreno). */
+export const rolDePersona = p => { const r = (p && p.roles) || []; return r.includes('direccion') ? 'direccion' : r.includes('rrhh') ? 'rrhh' : 'terreno'; };
+
+/** v0.19 · «¿Quién eres?»: cada persona entra como sí misma, una vez; el rol sale de su ficha. */
+export async function quien(ctx) {
+  const personas = (await listarPersonas()).filter(p => p.activo !== false);
+  const grupos = [['direccion', 'Jefatura'], ['rrhh', 'Administración y RRHH'], ['terreno', 'Terreno y gabinete']];
+  return `<div class="sis-cab"><div><h1>¿Quién eres?</h1><span class="sis-tenue">Elígete una vez: el Sistema anota quién hace cada cosa y te muestra lo tuyo.</span></div></div>
+    ${personas.length ? grupos.map(([k, t]) => { const ps = personas.filter(p => rolDePersona(p) === k); return ps.length ? `<section class="sis-tarjeta"><h2>${t}</h2>
+      <div class="quien-grilla">${ps.map(p => `<button type="button" class="quien-btn${p.id === ctx.personaId ? ' activo' : ''}" data-accion="soy" data-id="${esc(p.id)}" data-rol="${rolDePersona(p)}"><b>${esc(p.nombre)}</b><small>${esc(p.cargo || (p.roles || []).map(r => NOMBRE_ROL_PERSONA[r] || r).join(', ') || '')}</small></button>`).join('')}</div></section>` : ''; }).join('') : ''}
+    <section class="sis-tarjeta"><h2>${personas.length ? '¿No estás en la lista?' : 'Primero, crea tu persona'}</h2>
+      <form class="sis-form-linea" data-form="persona-rapida"><input name="nombre" placeholder="Tu nombre" required aria-label="Nombre"><input name="cargo" placeholder="Cargo (geomensor, RRHH…)" aria-label="Cargo"><button class="sis-btn primario">Crear y entrar</button></form>
+      <p class="sis-tenue">Los ayudantes y alarifes usan solo la app del teléfono (Terreno), con su código de vinculación.</p></section>`;
+}
+
+/** v0.19 · Para probar pantallas de otro rol sin cambiar de persona (queda en Configuración). */
+export function tarjetaVerComo(ctx) {
+  return `<section class="sis-tarjeta" id="ver-como"><h2>Usuario</h2>
+    <p>Entraste como <b>${esc(ctx.nombrePersona || 'nadie todavía')}</b> · ${esc(ROLES[ctx.rol] || '')}.</p>
+    <div class="sis-acciones"><a class="sis-btn chico" href="#/quien">Cambiar de persona</a></div>
+    <label class="sis-campo"><span>Ver como otro rol (para probar)</span><select data-accion="ver-como">${Object.entries(ROLES).map(([k, t]) => `<option value="${k}" ${k === ctx.rol ? 'selected' : ''}>${t}</option>`).join('')}</select></label></section>`;
 }

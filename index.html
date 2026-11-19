@@ -28,8 +28,10 @@
     </div>
     <nav class="sis-menu" id="sis-menu" aria-label="Secciones"></nav>
     <div class="sis-quien">
-      <select id="sis-persona" class="pill" aria-label="Persona"></select>
-      <select id="sis-rol" class="pill" aria-label="Rol"></select>
+      <!-- v0.19: cada persona entra como sí misma («¿Quién eres?»); el rol sale de su ficha. Las listas quedan ocultas como estado. -->
+      <a id="sis-yo" class="pill sis-yo" href="#/quien" title="Cambiar de persona"><b>¿Quién eres?</b></a>
+      <select id="sis-persona" class="pill" aria-label="Persona" hidden></select>
+      <select id="sis-rol" class="pill" aria-label="Rol" hidden></select>
     </div>
     <div class="sis-acciones-cab">
       <a id="sis-avisos" class="sis-campana" href="#/avisos" hidden title="Avisos" aria-label="Avisos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 20a2 2 0 004 0"/></svg><b></b></a>

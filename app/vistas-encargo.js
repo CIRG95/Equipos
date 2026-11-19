@@ -152,7 +152,7 @@ export async function encargo(ctx, id) {
 
   const paso5 = `<section class="enc-paso" data-paso="5" role="tabpanel" hidden><h2>Revisar y ${nuevo ? 'encargar' : 'guardar'}</h2>
     <div class="enc-resumen" data-enc-resumen></div>
-    ${nuevo ? '<p class="sis-tenue">Al encargar, el proyecto queda creado y el encargado recibe un aviso para acusar recibo. Las consultas, instrucciones y acuerdos posteriores se registran en la bitácora del proyecto.</p>' : `
+    ${nuevo ? '<p class="sis-tenue">Al encargar, el proyecto queda creado y el encargado recibe un aviso y confirma que lo recibió. Las consultas, instrucciones y acuerdos posteriores se registran en la bitácora del proyecto.</p>' : `
     <label class="sis-campo"><span>Estado</span><select name="estado"><option value="activo">Activo</option><option value="cerrado" ${p.estado === 'cerrado' ? 'selected' : ''}>Cerrado</option></select></label>`}
   </section>`;
 
@@ -166,7 +166,7 @@ export async function encargo(ctx, id) {
             <button type="button" class="sis-btn primario" data-enc="sig">Siguiente →</button>
             <button class="sis-btn primario" data-enc-enviar hidden>${nuevo ? 'Encargar proyecto' : 'Guardar cambios'}</button></div>
         </div>
-        <aside class="enc-lateral sis-tarjeta" aria-live="polite"><h2>Calidad del encargo</h2>
+        <aside class="enc-lateral sis-tarjeta" aria-live="polite"><h2>Información entregada</h2>
           <div class="enc-medidor"><div class="enc-medidor-barra"><i data-enc-barra style="width:0%"></i></div><b data-enc-pct>0 %</b></div>
           <p class="sis-tenue" data-enc-frase></p>
           <ul class="enc-check" data-enc-check></ul>
@@ -298,7 +298,7 @@ export function iniciarEncargo(raiz) {
         ${dato('Equipo de trabajo', esc(p.cuadrilla.map(nomPers).filter(Boolean).join(', ')))}${dato('Archivos por adjuntar', archivos.length ? esc(archivos.map(a => a.name).join(', ')) : '')}
       </div>
       ${p.alcance ? `<p><b>Alcance:</b> ${esc(p.alcance)}</p>` : ''}${p.entregablesPedidos ? `<p><b>Entregables:</b> ${esc(p.entregablesPedidos)}</p>` : ''}
-      ${c.faltan.length ? `<div class="enc-faltan"><b>Calidad del encargo: ${c.pct} %. Aún falta:</b><ul>${c.faltan.map(f => `<li>${esc(f)}</li>`).join('')}</ul><span class="sis-tenue">Puede emitir el encargo de todos modos: lo faltante queda visible en la ficha del proyecto.</span></div>` : '<div class="enc-completo">Encargo completo: toda la información fue entregada o descartada.</div>'}
+      ${c.faltan.length ? `<div class="enc-faltan"><b>Información entregada: ${c.pct} %. Aún falta:</b><ul>${c.faltan.map(f => `<li>${esc(f)}</li>`).join('')}</ul><span class="sis-tenue">Puede emitir el encargo de todos modos: lo faltante queda visible en la ficha del proyecto.</span></div>` : '<div class="enc-completo">Encargo completo: toda la información fue entregada o descartada.</div>'}
       ${!p.nombre ? '<p class="sis-aviso-linea">Falta el nombre del proyecto (paso 1).</p>' : ''}`;
   }
 

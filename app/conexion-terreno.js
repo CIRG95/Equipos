@@ -24,12 +24,16 @@ import { urlArchivo, infoArchivo } from '../compartido/archivos.js';
 import { planesDeProyecto as hojasDeProyecto, avanceDeHoja } from '../modulos/vuelos/datos.js';
 import { estadoSectores, totalesAvance, metaDelDia, PORCENTAJES } from '../modulos/vuelos/avance.js';
 import { registrarAvanceSector } from '../modulos/vuelos/avance-datos.js';
+import { genteDeProyecto } from '../compartido/cronograma.js';
+import { ALM as ALM_ADMIN, guardarRegistro, fijarPersona as fijarPersonaAdmin } from '../modulos/administracion/datos.js';
 
 // v1.4 (Sistema v0.14): gastos desde Terreno — misma lógica y almacenes que el módulo Gastos 0.1 del Sistema.
 // v1.4.1 (Sistema v0.15): mismas funciones; solo el esquema de la base suma los almacenes de Administración y Planificación.
 // v1.4.2 (Sistema v0.16): mismas funciones; los mensajes de vinculación apuntan a Configuración (botón de engranaje del Sistema).
 // v1.5 (Sistema v0.18a): vuelos del proyecto con sus sectores y registro del avance por sector (almacén vuelos_avance).
-export const VERSION = '1.5 (Sistema v0.18a)';
+// v1.6 (Sistema v0.19): modo simple para ayudantes (miModo), proyectos donde la persona es encargado o integra la cuadrilla,
+//       compañeros del proyecto y registro de la charla de seguridad (almacén admin_seguridad, igual que en el Sistema).
+export const VERSION = '1.6 (Sistema v0.19)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
 const CLAVE_CODIGO = 'topoland_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)
@@ -62,6 +66,7 @@ export function iniciar({ clienteId } = {}) {
   Seguimiento.iniciar({ personaId: p ? p.id : null });
   Mono.iniciarDatos({ personaId: p ? p.id : null });
   Gastos.iniciarDatos({ personaId: p ? p.id : null });
+  fijarPersonaAdmin(p ? p.id : null);
   nube.configurar({ clienteId: clienteId || undefined });
   nube.iniciar();
   codigoPendiente = leer(CLAVE_CODIGO);
@@ -106,9 +111,42 @@ export async function vincular(codigo) {
   Seguimiento.iniciar({ personaId: p.id });
   Mono.iniciarDatos({ personaId: p.id });
   Gastos.fijarPersona(p.id);
+  fijarPersonaAdmin(p.id);
   fijarCodigo(null);
   return datos;
 }
+/**
+ * v1.6 · Modo de la app según la ficha de la persona en el Sistema: «simple» para ayudantes y alarifes
+ * (cuatro botones grandes), «completo» para encargados. Sin vincular, «completo».
+ * @returns {Promise<{modo:'simple'|'completo', roles:string[]}>}
+ */
+export async function miModo() {
+  const p = persona();
+  if (!p) return { modo: 'completo', roles: [] };
+  const f = (await listarPersonas()).find(x => x.id === p.id) || {};
+  const roles = f.roles || [];
+  return { modo: roles.includes('ayudante') && !roles.includes('encargado') ? 'simple' : 'completo', roles };
+}
+
+/** v1.6 · Personas del proyecto (encargado y cuadrilla), para marcar asistentes de la charla. */
+export async function companerosDeProyecto(proyectoId) {
+  const pr = await obtenerProyecto(proyectoId);
+  if (!pr) return [];
+  const ids = genteDeProyecto(pr), personas = await listarPersonas();
+  return ids.map(id => personas.find(x => x.id === id)).filter(Boolean).map(x => ({ id: x.id, nombre: x.nombre }));
+}
+
+/**
+ * v1.6 · Charla de seguridad del día (la ve el Sistema en Administración → Seguridad del proyecto).
+ * asistentes: ids de personas del Sistema; otros: nombres de quienes no están en el Sistema.
+ */
+export async function registrarCharla({ proyectoId, tema, asistentes = [], otros = [], fecha = new Date().toISOString().slice(0, 10) }) {
+  yo();
+  if (!proyectoId) throw new Error('Falta el proyecto');
+  if (!String(tema || '').trim()) throw new Error('Falta el tema de la charla');
+  return guardarRegistro(ALM_ADMIN.seguridad, { proyectoId, tipo: 'charla', fecha, tema: String(tema).trim(), asistentes, otros: otros.map(s => String(s).trim()).filter(Boolean), origen: 'terreno' });
+}
+
 export function desvincular() { escribir(CLAVE_PERSONA, null); fijarCodigo(null); }
 
 /** Avisa cuando el teléfono queda vinculado solo (código del QR + personas recién llegadas de la nube). */
@@ -136,7 +174,7 @@ const yo = () => { const p = persona(); if (!p) throw new Error('Primero vincula
 /** Proyectos activos donde la persona es encargada: [{ id, nombre, mandante, comuna, region, tiposTrabajo }] */
 export async function misProyectos() {
   const p = yo();
-  return (await listarProyectos()).filter(x => x.id !== OFICINA_ID && x.estado !== 'cerrado' && x.encargadoId === p.id)
+  return (await listarProyectos()).filter(x => x.id !== OFICINA_ID && x.estado !== 'cerrado' && genteDeProyecto(x).includes(p.id))
     .map(x => ({ id: x.id, nombre: x.nombre, mandante: x.mandante || '', comuna: x.comuna || '', region: x.region || '', tiposTrabajo: x.tiposTrabajo || [] }));
 }
 

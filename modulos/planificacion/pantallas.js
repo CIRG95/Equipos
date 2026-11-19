@@ -1,5 +1,7 @@
 // modulos/planificacion/pantallas.js — pantallas de Planificación (Sistema v0.15): red geodésica GNSS y marcas de vuelo.
-// Rutas: #/planificacion · #/planificacion/proyecto/<id> · #/planificacion/red/<id> · #/planificacion/marcas/<id>
+// Rutas: #/planificacion/red/<id> · #/planificacion/marcas/<id> · v0.18: #/planificacion/nueva-red/<proyectoId> y
+// #/planificacion/nueva-marcas/<proyectoId> (nacen con el área, los caminos y los PR del KMZ del proyecto).
+// La lista antigua (#/planificacion) quedó en la pestaña Planificación de cada proyecto.
 // El mapa (Leaflet + base satelital de Esri, igual que Vuelos) se crea una vez por editor; los cambios repintan
 // solo las capas y el panel, para que arrastrar un PR recalcule al instante sin recargar el mapa.
 
@@ -12,6 +14,8 @@ import { agregarMapaBase } from '../vuelos/mapa-base.js';
 import { caminosEn, recuadro } from '../vuelos/redvial.js';
 import { geoAUtm } from '../monografias/comun.js';
 import { guardarConfig } from '../administracion/datos.js';
+import { semillaRed, semillaMarcas, sumarPuntosDelProyecto } from './desde-proyecto.js';
+import { areaPrincipal } from '../vuelos/capas-proyecto.js';
 import { ALM, PARAMS_RED, listarRedes, listarMarcas, obtenerRed, obtenerMarcas, guardarRed, guardarMarcas, eliminar } from './datos.js';
 import {
   marcoLocal, sugerirPR, vectoresSugeridos, preAnalisis, evaluarPunto, reforzar, planificarSesiones, tiempoPara, marcasArea, marcasCorredor, dist, largoLinea, areaPoligono,
@@ -84,11 +88,13 @@ export function montarPantallas(contenedor, ctx) {
   // ─────────────────────────── Editor de red geodésica ───────────────────────────
   async function editorRed(id) {
     let r = await obtenerRed(id);
-    if (!r) { raiz.innerHTML = vacio('Esta planificación no existe.', '<a class="sis-btn" href="#/planificacion">Volver</a>'); return; }
+    if (!r) { raiz.innerHTML = vacio('Esta planificación no existe.', '<a class="sis-btn" href="#/proyectos">Volver</a>'); return; }
     let calc = null, guardarT = null;
+    const proy = st.proyectos.find(x => x.id === r.proyectoId) || null;
+    const areaProy = areaPrincipal(proy && proy.capas);
     const P = () => ({ ...PARAMS_RED, ...(r.params || {}) });
     const hojasProy = st.hojas.filter(h => h.proyectoId === r.proyectoId && h.area && h.area.original);
-    raiz.innerHTML = `<div class="sis-miga"><a href="#/planificacion">Planificación</a> / <a href="#/proyecto/${esc(r.proyectoId)}">${esc(nomProy(r.proyectoId))}</a> / ${esc(r.nombre || 'Red geodésica')}</div>
+    raiz.innerHTML = `<div class="sis-miga"><a href="#/proyectos">Proyectos</a> / <a href="#/proyecto/${esc(r.proyectoId)}/planificacion">${esc(nomProy(r.proyectoId))} · Planificación</a> / ${esc(r.nombre || 'Red geodésica')}</div>
       <div class="sis-cab"><div><h1>Planificar red geodésica</h1><span class="sis-tenue">Cargue el área de trabajo, sugiera la red y ajuste los PR sobre el mapa: el pre-análisis se recalcula de forma inmediata.</span></div><span id="pl-veredicto"></span></div>
       <div class="pl-editor"><section class="sis-tarjeta pl-mapa-caja"><div class="pl-mapa"></div><div class="pl-barra" id="pl-barra"></div></section><aside class="pl-panel" id="pl-panel"></aside></div>
       <section class="sis-tarjeta" id="pl-bajo"></section>`;
@@ -145,7 +151,9 @@ export function montarPantallas(contenedor, ctx) {
       const tabla = st.config.tablaTiempos || [];
       raiz.querySelector('#pl-panel').innerHTML = `
         <section class="sis-tarjeta"><h2>Datos de entrada</h2>
-          <label class="sis-campo"><span>Área de trabajo (KMZ o KML del mandante)</span><input type="file" accept=".kml,.kmz" data-c="area-archivo"></label>
+          ${areaProy ? `<div class="sis-acciones"><button type="button" class="sis-btn chico" data-a="area-proyecto">Usar el área del proyecto</button><button type="button" class="sis-btn chico" data-a="traer-proyecto">Traer PR del proyecto</button></div>
+          <p class="sis-tenue">Del KMZ del proyecto: área «${esc(areaProy.nombre)}», PR existentes como control y los PR nuevos que piden los vuelos.</p>` : `<div class="sis-acciones"><button type="button" class="sis-btn chico" data-a="traer-proyecto">Traer PR del proyecto</button></div>`}
+          <label class="sis-campo"><span>Otra área (KMZ o KML)</span><input type="file" accept=".kml,.kmz" data-c="area-archivo"></label>
           ${hojasProy.length ? `<label class="sis-campo"><span>O usar el área de una hoja de vuelo del proyecto</span><select data-c="area-hoja"><option value="">Seleccione</option>${hojasProy.map(h => `<option value="${esc(h.id)}">${esc(h.nombre || 'Hoja de vuelo')}</option>`).join('')}</select></label>` : ''}
           <p class="sis-tenue">${r.area && r.area.length ? `Área cargada: ${esc(r.areaNombre || 'polígono')} · ${(areaPoligono(r.area.map(marcoLocal(r.area).aXY)) / 10000).toLocaleString('es-CL', { maximumFractionDigits: 1 })} ha.` : 'Sin área: los PR sugeridos se distribuyen dentro de ella.'}</p>
           <label class="sis-campo"><span>Caminos (KML con líneas)</span><input type="file" accept=".kml,.kmz" data-c="caminos-archivo"></label>
@@ -153,7 +161,7 @@ export function montarPantallas(contenedor, ctx) {
           <p class="sis-tenue">${(r.caminos || []).length + (r.usarMOP ? (r.caminosMOP || []).length : 0)} camino(s). El PR de partida se ubica junto al camino, en el acceso al área.</p>
           <div class="sis-par"><label class="sis-campo"><span>Receptores</span><input type="number" min="2" max="8" value="${p.receptores}" data-c="param" data-k="receptores"></label><label class="sis-campo"><span>PR a sugerir</span><input type="number" min="2" max="60" value="${p.nSugeridos}" data-c="param" data-k="nSugeridos"></label></div>
           <div class="sis-par"><label class="sis-campo"><span>Precisión a priori (mm)</span><input type="number" min="1" step="0.5" value="${p.a}" data-c="param" data-k="a"></label><label class="sis-campo"><span>+ ppm</span><input type="number" min="0" step="0.1" value="${p.b}" data-c="param" data-k="b"></label><label class="sis-campo"><span>Tolerancia horizontal 95 % (mm)</span><input type="number" min="1" value="${p.tol}" data-c="param" data-k="tol"></label></div>
-          <p class="sis-tenue">Tiempos: ${tabla.length ? `tabla de ${tabla.length} rangos cargada.` : '<a href="#/planificacion">cargue la tabla del Manual de Carreteras</a> para calcular la duración de las sesiones.'}</p>
+          <p class="sis-tenue">Tiempos: ${tabla.length ? `tabla de ${tabla.length} rangos cargada.` : '<a href="#/configuracion">cargue la tabla del Manual de Carreteras</a> (Configuración › Parámetros técnicos) para calcular la duración de las sesiones.'}</p>
           <div class="sis-acciones"><button type="button" class="sis-btn" data-a="sugerir">Sugerir red</button><button type="button" class="sis-btn primario" data-a="reforzar" ${calc && calc.ev.some(e => e.nivel !== 'ok') ? '' : 'disabled'}>Reforzar puntos débiles</button></div>
           <p class="sis-tenue">«Sugerir red» reemplaza los PR y vectores actuales (los puntos de control se mantienen).</p>
         </section>
@@ -195,6 +203,12 @@ export function montarPantallas(contenedor, ctx) {
       acciones: {
         modo: b => { st.modo = st.modo === b.dataset.m ? null : b.dataset.m; if (st.modo) ctx.avisar('Toque el mapa para ubicar el punto'); pintarPanel(); },
         'tab-bajo': b => { st.tabBajo = b.dataset.t; pintarPanel(); },
+        'area-proyecto': async () => { if (!areaProy) return; r.area = areaProy.anillo; r.areaNombre = `Área del proyecto · ${areaProy.nombre}`; await cargarMOP(); r = await guardarRed(r); pintarTodo({ encuadre: true }); ctx.avisar('Área del proyecto cargada'); },
+        'traer-proyecto': async () => {
+          const { puntos, agregados } = sumarPuntosDelProyecto(r, proy, st.hojas.filter(h => h.proyectoId === r.proyectoId));
+          if (!agregados) { ctx.avisar('La red ya tiene todos los PR del proyecto.'); return; }
+          r.puntos = puntos; r = await guardarRed(r); pintarTodo({ encuadre: true }); ctx.avisar(`${agregados} PR del proyecto agregado${agregados === 1 ? '' : 's'}`);
+        },
         sugerir: async () => {
           if (!r.area || !r.area.length) { ctx.avisar('Primero cargue el área de trabajo (KMZ o KML).'); return; }
           if ((r.puntos || []).some(x => x.tipo !== 'control') && !confirm('¿Reemplazar los PR y vectores actuales por una red sugerida?')) return;
@@ -253,9 +267,9 @@ export function montarPantallas(contenedor, ctx) {
   // ─────────────────────────── Editor de marcas de vuelo ───────────────────────────
   async function editorMarcas(id) {
     let r = await obtenerMarcas(id);
-    if (!r) { raiz.innerHTML = vacio('Esta planificación no existe.', '<a class="sis-btn" href="#/planificacion">Volver</a>'); return; }
+    if (!r) { raiz.innerHTML = vacio('Esta planificación no existe.', '<a class="sis-btn" href="#/proyectos">Volver</a>'); return; }
     const hojasProy = st.hojas.filter(h => h.proyectoId === r.proyectoId && h.area && (h.area.original || h.area.eje));
-    raiz.innerHTML = `<div class="sis-miga"><a href="#/planificacion">Planificación</a> / <a href="#/proyecto/${esc(r.proyectoId)}">${esc(nomProy(r.proyectoId))}</a> / ${esc(r.nombre || 'Marcas de vuelo')}</div>
+    raiz.innerHTML = `<div class="sis-miga"><a href="#/proyectos">Proyectos</a> / <a href="#/proyecto/${esc(r.proyectoId)}/planificacion">${esc(nomProy(r.proyectoId))} · Planificación</a> / ${esc(r.nombre || 'Marcas de vuelo')}</div>
       <div class="sis-cab"><div><h1>Distribuir marcas de vuelo</h1><span class="sis-tenue">Cargue el área o el eje del vuelo, genere la distribución y ajuste las marcas sobre el mapa. Toque una marca para cambiarla entre control y chequeo.</span></div></div>
       <div class="pl-editor"><section class="sis-tarjeta pl-mapa-caja"><div class="pl-mapa"></div><div class="pl-barra"><span class="pl-ley"><i class="gcp"></i>Control <i class="chequeo"></i>Chequeo</span></div></section><aside class="pl-panel" id="pl-panel"></aside></div>`;
     mapa = await crearMapa(raiz.querySelector('.pl-mapa'));
@@ -393,6 +407,13 @@ export function montarPantallas(contenedor, ctx) {
     if (!activo) return;
     editor = null; mapa = null;
     await base();
+    if (ctx.vista === 'nueva-red' || ctx.vista === 'nueva-marcas') {
+      const proy = st.proyectos.find(x => x.id === ctx.id);
+      if (!proy) { raiz.innerHTML = vacio('El proyecto no existe.', '<a class="sis-btn" href="#/proyectos">Volver</a>'); return; }
+      const n = ctx.vista === 'nueva-red' ? await guardarRed(semillaRed(proy, st.hojas.filter(h => h.proyectoId === proy.id))) : await guardarMarcas(semillaMarcas(proy));
+      location.replace(`#/planificacion/${ctx.vista === 'nueva-red' ? 'red' : 'marcas'}/${n.id}`);
+      return;
+    }
     if (ctx.vista === 'red') await editorRed(ctx.id);
     else if (ctx.vista === 'marcas') await editorMarcas(ctx.id);
     else await lista();

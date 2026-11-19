@@ -9,6 +9,7 @@ import { resolverUrlTerreno } from './url-terreno.js';
 import { COLORES_MARCA, NOMBRE_ROL_PERSONA } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
 import { vacio } from './vistas-ui.js';
+import { obtener } from '../compartido/almacen.js';
 
 const LETRAS_CODIGO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS_CODIGO[Math.floor(Math.random() * LETRAS_CODIGO.length)]).join('');
@@ -86,9 +87,24 @@ export async function configuracion(ctx) {
         <p class="sis-tenue">Los datos se guardan primero en este equipo y se sincronizan cuando hay conexión.</p>
       </section>
 
+      ${await tarjetaTiempos()}
+
       <section class="sis-tarjeta"><h2>Acerca del Sistema</h2>
         <div class="sis-datos"><div class="sis-dato"><span>Versión</span><b>v${VERSION_SISTEMA}</b></div><div class="sis-dato"><span>Perfil en uso</span><b>${esc(ctx.nombreRol)}</b></div></div>
         <p class="sis-tenue">${esc(MODULOS_INCLUIDOS)}</p>
       </section>
     </div>`;
+}
+
+/** v0.18 · Parámetros técnicos: la tabla de tiempos de ocupación GNSS es norma de la empresa (antes estaba en Planificación). */
+async function tarjetaTiempos() {
+  const cfg = (await obtener('admin_config', 'general').catch(() => null)) || {};
+  const tabla = cfg.tablaTiempos && cfg.tablaTiempos.length ? cfg.tablaTiempos : [];
+  const fila = (t = {}) => `<tr><td><input name="km" type="number" min="0" step="0.1" value="${esc(t.hastaKm ?? '')}" aria-label="Vector hasta (km)"></td><td><input name="min" type="number" min="0" step="1" value="${esc(t.minutos ?? '')}" aria-label="Tiempo mínimo (min)"></td></tr>`;
+  return `<section class="sis-tarjeta" id="tiempos"><h2>Parámetros técnicos · tiempos de ocupación GNSS</h2>
+    <p class="sis-tenue">Tiempos mínimos de observación estática según la longitud del vector (Manual de Carreteras, Volumen 2). Las redes de PR de todos los proyectos calculan con ella la duración de cada sesión.</p>
+    <form class="sis-form" data-form="tabla-tiempos"><div class="sis-tabla-scroll"><table class="sis-tabla"><thead><tr><th>Vector hasta (km)</th><th>Tiempo mínimo (min)</th></tr></thead><tbody>
+      ${tabla.map(fila).join('')}${fila()}</tbody></table></div>
+      <p class="sis-tenue">Complete la última fila para agregar un rango; deje vacías las casillas de un rango para quitarlo.</p>
+      <div class="sis-acciones"><button class="sis-btn primario">Guardar tabla</button></div></form></section>`;
 }

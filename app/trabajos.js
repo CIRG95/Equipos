@@ -69,3 +69,16 @@ export function moverTrabajo(trabajos, a, b) {
   t.splice(b, 0, x);
   return t.map((x2, k) => ({ ...x2, paralelo: k === 0 ? false : x2.paralelo }));
 }
+
+/**
+ * v0.18 · Cronograma automático: las actividades ya realizadas se conservan y las pendientes se reemplazan por las de
+ * los trabajos ordenados. Devuelve { cronograma, cambio } (cambio = hay que guardarlo).
+ */
+export function cronogramaSincronizado(previas = [], nuevo = []) {
+  if (!nuevo.length) return { cronograma: previas, cambio: false };
+  const hechas = previas.filter(a => a.hecho);
+  const ids = new Set(hechas.map(a => a.id));
+  const cronograma = [...hechas, ...nuevo.filter(n => !ids.has(n.id))];
+  const firma = l => JSON.stringify(l.map(a => [a.id, a.nombre, a.desde, a.hasta, !!a.hecho]));
+  return { cronograma, cambio: firma(cronograma) !== firma(previas) };
+}

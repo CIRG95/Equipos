@@ -14,13 +14,15 @@ import { COLORES_MARCA, NOMBRE_ETAPA_PROYECTO } from './catalogo.js';
 import { vacio } from './vistas-ui.js';
 import { guardarArchivo } from '../compartido/archivos.js';
 import { inicio, htmlFranjaProyectos } from './vistas-inicio.js';
-import { proyectos, proyecto, datosRegistro } from './vistas-proyectos.js';
+import { proyectos, proyecto, datosRegistro, resumenPlanificacion } from './vistas-proyectos.js';
+import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { encargo, iniciarEncargo, leerEncargo } from './vistas-encargo.js';
 import { configuracion, nuevoCodigo } from './vistas-config.js';
 import { proyectoTecnico, leerTecnico } from './vistas-tecnico.js';
 import { trabajosDeProyecto, moverTrabajo, cronogramaDeTrabajos, POR_BATERIAS } from './trabajos.js';
 import { leerCapasDeArchivos, fusionarCapas, resumenCapas } from '../modulos/vuelos/capas-proyecto.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
+import { guardarConfig } from '../modulos/administracion/datos.js';
 import { NOMBRE_CATEGORIA } from './catalogo.js';
 
 export { htmlFranjaProyectos, nuevoCodigo };
@@ -129,6 +131,13 @@ export async function manejarEnvio(form, ctx) {
     const u = (datos.get('url') || '').trim();
     try { if (u) { new URL(u); localStorage.setItem('env_terreno_url', u); } else localStorage.removeItem('env_terreno_url'); } catch { throw new Error('La dirección debe empezar con https://'); }
     ctx.avisar('Dirección guardada');
+    return true;
+  }
+  if (form.dataset.form === 'tabla-tiempos') {
+    const kms = datos.getAll('km'), mins = datos.getAll('min');
+    const filas = kms.map((k, i) => ({ hastaKm: k === '' ? null : Number(k), minutos: mins[i] === '' ? null : Number(mins[i]) })).filter(x => x.hastaKm != null && x.minutos != null).sort((a, b) => a.hastaKm - b.hastaKm);
+    await guardarConfig({ tablaTiempos: filas });
+    ctx.avisar('Tabla de tiempos guardada');
     return true;
   }
   if (form.dataset.form === 'empresa') {
@@ -259,8 +268,16 @@ export async function manejarClic(boton, ctx) {
       await guardarProyecto({ id: p.id, cronograma: [...hechas, ...nuevo.filter(n => !hechas.some(h => h.id === n.id))] }, { personaId: ctx.personaId });
       ctx.avisar('Cronograma actualizado con el orden de los trabajos'); return true;
     }
+    case 'guardar-planificacion': {
+      // v0.18: deja constancia de lo planificado hasta ahora (con fecha y autor) para comparar después.
+      const p = await obtenerProyecto(boton.dataset.id);
+      if (!p) return false;
+      const [planes, pla] = await Promise.all([Vuelos.planesDeProyecto(p.id).catch(() => []), Planificacion.resumenDeProyecto(p.id).catch(() => ({ redes: [], marcas: [] }))]);
+      await guardarProyecto({ id: p.id, planificacion: { guardadoEn: ahoraISO(), guardadoPor: ctx.personaId || null, lineas: resumenPlanificacion(p, planes, pla) } }, { personaId: ctx.personaId });
+      ctx.avisar('Planificación guardada'); return true;
+    }
     case 'capas-quitar': {
-      if (!confirm('¿Quitar las capas del proyecto (caminos y PR)? Las hojas de vuelo dejan de proponer bases de amarre.')) return false;
+      if (!confirm('¿Quitar las capas del proyecto (área, caminos y PR)? Las hojas de vuelo dejan de proponer bases de amarre y la red y las marcas nuevas ya no parten del área.')) return false;
       await guardarProyecto({ id: boton.dataset.id, capas: null }, { personaId: ctx.personaId });
       ctx.avisar('Capas quitadas'); return true;
     }
@@ -348,7 +365,7 @@ export async function manejarCambio(input, ctx) {
     const p = await obtenerProyecto(input.dataset.id);
     if (!p) return false;
     const leidas = await leerCapasDeArchivos(input.files);
-    if (!leidas.prs.length && !leidas.caminos.length) { ctx.avisar('El archivo no trae líneas ni puntos.'); return false; }
+    if (!leidas.prs.length && !leidas.caminos.length && !leidas.areas.length) { ctx.avisar('El archivo no trae áreas, líneas ni puntos.'); return false; }
     const capas = fusionarCapas(p.capas, leidas);
     await guardarProyecto({ id: p.id, capas }, { personaId: ctx.personaId });
     ctx.avisar(`Capas del proyecto: ${resumenCapas(capas)}`); return true;

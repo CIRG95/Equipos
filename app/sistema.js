@@ -86,7 +86,7 @@ const ICONOS_MENU = {
 const TODOS = ['terreno', 'rrhh', 'direccion'];
 const GESTION = ['rrhh', 'direccion']; // Recursos Humanos y Jefatura
 // Pantallas sin pestaña propia en el menú (se abren desde el encabezado).
-const FUERA_DE_MENU = { configuracion: { ruta: 'configuracion', texto: 'Configuración', roles: TODOS } };
+const FUERA_DE_MENU = { configuracion: { ruta: 'configuracion', texto: 'Configuración', roles: TODOS }, quien: { ruta: 'quien', texto: '¿Quién eres?', roles: TODOS } };
 const MENU = [
   { ruta: 'inicio', texto: 'Inicio', roles: TODOS, tambien: ['avisos'] },
   // v0.18: Planificación y Vuelos viven dentro del proyecto (pestaña Planificación); la lista de vuelos está en Proyectos › Vuelos.
@@ -151,11 +151,20 @@ function pintarMenu(base) {
 }
 
 // ── Persona y rol ──
+async function pintarYo() {
+  const b = $('sis-yo');
+  if (!b) return;
+  const id = selPersona.value;
+  const op = id ? [...selPersona.options].find(o => o.value === id) : null;
+  b.innerHTML = op ? `<b>${op.textContent.split(' ').slice(0, 2).join(' ').replace(/</g, '&lt;')}</b><small>${ROLES[selRol.value] || ''}</small>` : '<b>¿Quién eres?</b><small>Toca para elegir</small>';
+  b.title = op ? 'Cambiar de persona' : 'Elegir quién eres';
+}
 async function cargarPersonas(seleccionar) {
   const personas = await listarPersonas();
   selPersona.innerHTML = '<option value="">Sin persona</option>' +
     personas.map(p => `<option value="${p.id}">${p.nombre.replace(/</g, '&lt;')}</option>`).join('');
   selPersona.value = seleccionar && personas.some(p => p.id === seleccionar) ? seleccionar : '';
+  pintarYo();
 }
 
 // ── Marca de la empresa (nombre y color). Por ahora por equipo, en localStorage. ──
@@ -184,6 +193,7 @@ const ctx = () => ({
   fijarModo,
   abrirNube: () => $('sis-nube').click(),
   nombreRol: ROLES[selRol.value],
+  nombrePersona: (selPersona.selectedOptions[0] && selPersona.value ? selPersona.selectedOptions[0].textContent : ''),
   rol: selRol.value,
   personaId: selPersona.value || null,
   estado,
@@ -191,6 +201,9 @@ const ctx = () => ({
   ir: r => { if (location.hash === r) mostrar(); else location.hash = r; },
   repintar: () => { rutaActual = ''; return mostrar(); },
   usarPersona: async id => { escribir('env_persona', id); await cargarPersonas(id); },
+  // v0.19: elegir quién eres fija la persona y su rol (desde la ficha); «ver como» cambia solo el rol (pruebas)
+  serPersona: async (id, rol) => { escribir('env_persona', id); if (rol && ROLES[rol]) { escribir('env_rol', rol); selRol.value = rol; } await cargarPersonas(id); pintarYo(); },
+  cambiarRol: rol => { if (!ROLES[rol]) return; escribir('env_rol', rol); selRol.value = rol; rutaActual = ''; pintarYo(); },
   recargarPersonas: () => cargarPersonas(selPersona.value),
   textosTipos,
 });
@@ -398,7 +411,7 @@ async function arrancar() {
   Planificacion.iniciar({ personaId: selPersona.value || null });
   buscador = iniciarBuscador({ panel: $('sis-busqueda'), boton: $('sis-buscar-btn'), rol: () => selRol.value, seccion: () => seccionActual });
 
-  selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; mostrar(); });
+  selRol.addEventListener('change', () => { escribir('env_rol', selRol.value); rutaActual = ''; pintarYo(); mostrar(); });
   selPersona.addEventListener('change', () => { escribir('env_persona', selPersona.value); rutaActual = ''; mostrar(); });
   addEventListener('hashchange', mostrar);
   document.addEventListener('click', ev => { if (!ev.target.closest('#sis-menu')) menu.classList.remove('abierto'); });

@@ -37,6 +37,7 @@ function sisIniciar() {
         sisRefrescar();
       }).catch(() => {});
     }
+    if (typeof simpleAplicar === "function") simpleAplicar(); // 0.8.0
   } catch (e) { SIS.error = e && e.message ? e.message : String(e); }
 }
 function sisPersona() {
@@ -44,6 +45,7 @@ function sisPersona() {
 }
 function sisRefrescar() {
   sisRenderConfig();
+  if (typeof simpleAplicar === "function") simpleAplicar(); // 0.8.0: ayudante → modo simple
   if (state.herramienta === "monografias" && !state.monografiaEnEdicionId && state.tabActual === "monografias") sisDespuesDeListado();
   if (!jornadaActiva() && state.tabActual === "jornada") sisCargarProyectosJornada();
 }
@@ -79,7 +81,7 @@ async function sisCargarProyectosJornada() {
       <option value="oficina">Oficina (sin proyecto de terreno)</option>
     </select>
     ${lista.length ? '<div class="fila-vinculo" style="justify-content:flex-end;"><button type="button" id="btnProyectoLibre">Escribir otro proyecto</button></div>'
-      : '<p class="muted" style="margin-top:4px;">No eres encargado de ningún proyecto activo; puedes escribir uno abajo.</p>'}`;
+      : '<p class="muted" style="margin-top:4px;">No tienes proyectos activos asignados; puedes escribir uno abajo.</p>'}`;
   if (wrapLibre) wrapLibre.hidden = lista.length > 0;
   const sel = document.getElementById("selProyectoSistema");
   const elegir = (id) => {

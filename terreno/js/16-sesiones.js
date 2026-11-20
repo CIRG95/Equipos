@@ -9,7 +9,7 @@
    - Plano simple: triángulo azul = midiendo, verde = sesión completada.
    Todo se guarda dentro del levantamiento (lev.sesiones, punto.sesionId).
    ========================================================================= */
-const APP_VERSION = "0.7.0";
+const APP_VERSION = "0.8.0";
 const SES_PREFS_KEY = "sesionPrefs";
 const SES_COLOR = { midiendo: "#1F5FBF", completada: "#2E9E5B", sin: "#8A949A" };
 let tmrAudioCtx = null;

@@ -17,7 +17,7 @@ import { inicio, htmlFranjaProyectos } from './vistas-inicio.js';
 import { proyectos, proyecto, datosRegistro, resumenPlanificacion } from './vistas-proyectos.js';
 import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { encargo, iniciarEncargo, leerEncargo } from './vistas-encargo.js';
-import { configuracion, nuevoCodigo } from './vistas-config.js';
+import { configuracion, nuevoCodigo, quien, rolDePersona } from './vistas-config.js';
 import { proyectoTecnico, leerTecnico } from './vistas-tecnico.js';
 import { trabajosDeProyecto, moverTrabajo, cronogramaDeTrabajos, POR_BATERIAS } from './trabajos.js';
 import { leerCapasDeArchivos, fusionarCapas, resumenCapas } from '../modulos/vuelos/capas-proyecto.js';
@@ -83,7 +83,7 @@ async function avisos(ctx) {
       : vacio('No hay avisos abiertos.')}</section>`;
 }
 
-export const VISTAS = { inicio, proyectos, proyecto, encargo, proyectoTecnico, configuracion, avisos };
+export const VISTAS = { inicio, proyectos, proyecto, encargo, proyectoTecnico, configuracion, avisos, quien };
 /** Comportamiento en vivo que algunas pantallas inician después de pintarse. */
 export const AL_PINTAR = { encargo: iniciarEncargo, proyecto: iniciarArrastreTrabajos };
 
@@ -218,6 +218,7 @@ export async function manejarEnvio(form, ctx) {
 export async function manejarClic(boton, ctx) {
   const cal = () => (ctx.estado.cal = ctx.estado.cal || { modo: leerLS('env_cal_modo') || 'mes', ref: hoyISO(), proyecto: '' });
   switch (boton.dataset.accion) {
+    case 'soy': await ctx.serPersona(boton.dataset.id, boton.dataset.rol); ctx.avisar('Listo: el Sistema te muestra lo tuyo'); ctx.ir('#/inicio'); return false;
     case 'vista-proyectos': escribirLS('env_proyectos_vista2', boton.dataset.v); return true;
     case 'ver-calendario': cal().proyecto = location.hash.split('/')[2] || ''; ctx.ir('#/proyectos/calendario'); return false;
     case 'ver-mandante': ctx.estado.mandante = boton.dataset.m; return true;
@@ -350,6 +351,7 @@ export async function manejarClic(boton, ctx) {
 
 export async function manejarCambio(input, ctx) {
   if (input.dataset.accion === 'ver-cerrados') { ctx.estado.verCerrados = input.checked; return true; }
+  if (input.dataset.accion === 'ver-como') { ctx.cambiarRol(input.value); ctx.avisar('Viendo el Sistema como ' + input.options[input.selectedIndex].text); ctx.ir('#/inicio'); return false; }
   if (input.dataset.accion === 'trabajo-dias' || input.dataset.accion === 'trabajo-paralelo') {
     const i = Number(input.dataset.i);
     await guardarTrabajos(input.dataset.id, ts => ts.map((t, k) => (k !== i ? t : input.dataset.accion === 'trabajo-dias' ? { ...t, dias: Math.max(1, Math.round(Number(input.value) || 1)) } : { ...t, paralelo: input.checked })), ctx);

@@ -112,15 +112,16 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.7.0: avance de los vuelos por sector. En una jornada de dron con proyecto del Sistema aparece «Vuelos del proyecto»: los sectores de cada hoja de vuelo, los que tocan hoy y los atrasados.",
-    "Toca un sector y registra cuánto se voló (25, 50, 75 o 100 %), la base usada (PR), la altura de la base y una observación. Sin señal queda guardado y llega al Sistema al sincronizar.",
-    "«Siguiente paso» lleva a los sectores. Cuando todos los sectores de una hoja quedan al 100 %, la hoja pasa sola a «Volado» en el Sistema.",
-    "Paquete de conexión 1.5 (vuelosDeProyecto y registrarAvance)."
+    "Versión 0.8.0: modo simple para ayudantes y alarifes. Si en el Sistema la ficha dice «Ayudante», la app abre en «Inicio» con cuatro botones grandes: Mi jornada, Foto o punto, Gasto y Charla de seguridad.",
+    "Charla de seguridad desde el teléfono: proyecto, tema (con temas frecuentes) y quiénes estuvieron. Llega al Sistema en Administración › Seguridad del proyecto.",
+    "En modo simple se ocultan Monografías e Historial (quedan para el encargado). El encargado sigue viendo la app completa.",
+    "Los proyectos de la lista ahora incluyen aquellos donde la persona integra la cuadrilla, no solo donde es encargada.",
+    "Paquete de conexión 1.6 (miModo, companerosDeProyecto y registrarCharla)."
   ],
   probar: [
-    "Vinculado y con un proyecto que tenga una hoja de vuelo programada en el Sistema: iniciar una jornada de dron y registrar dos sectores (uno al 100 % y otro al 50 %).",
-    "En modo avión: registrar un sector, quitar el modo avión y revisar en el Sistema (hoja de vuelo › Avance por sector) que llegó.",
-    "Revisar que los sectores de hoy se ven resaltados."
+    "En el Sistema, dejar a una persona solo con el rol «Ayudante» y sumarla a la cuadrilla de un proyecto. Vincular el teléfono con su código: debe abrir en «Inicio» con los cuatro botones.",
+    "Registrar una charla de seguridad en modo avión; quitar el modo avión, sincronizar y revisarla en el Sistema (proyecto › Seguridad).",
+    "Con una persona «Encargado de terreno» la app se ve como antes."
   ],
   conocidos: [
     "Google entrega sesiones de una hora: si la señal vuelve después, la subida a Google Drive puede pedir un toque en la pastilla de la nube para renovar la sesión. Nextcloud se reconecta solo.",

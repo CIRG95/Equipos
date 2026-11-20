@@ -293,3 +293,10 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Módulos: `modulos/vuelos/avance.js` (cálculo, sin base de datos), `modulos/vuelos/avance-datos.js` (registrar: hoja a «Volado» y tramo de Seguimiento), `Vuelos.avanceDeProyecto(pid)`.
 - Paquete 1.5: `vuelosDeProyecto(proyectoId)`, `registrarAvance({ hojaId, sector, fecha, pct, base, alturaBase, obs })`, `PORCENTAJES_AVANCE`. Copiado a `terreno/js/` (cmp idéntico).
 - Hoja: `permisos.omitir` y etapa `planificado`. Amarre: también los puntos de `planif_redes` del proyecto.
+
+## v0.19 · Uso simple · paquete de conexión 1.6 · Terreno 0.8.0
+- Sistema: persona y rol ya no se eligen en listas del encabezado: pantalla `#/quien` («¿Quién eres?»), rol desde `persona.roles` (`rolDePersona`: direccion > rrhh > terreno). Las listas `#sis-persona`/`#sis-rol` siguen en el HTML, ocultas, como estado (claves `env_persona`/`env_rol` sin cambios). «Ver como otro rol» en Configuración (`data-accion="ver-como"`).
+- Inicio por rol con `app/hoy.js` (sin DOM, con pruebas): `agruparPendientes`, `accionPrincipal`, `semaforoProyecto`, `contarSemaforo`, `VERBO`.
+- Categorías de pendientes de Administración: `Personal` (documentos), `Contratos`, `EPP`, `Ausencias`, `Cuadrilla`, `Vehículos`, `Guías`, `Comercial`.
+- Paquete 1.6: `miModo()` → `{ modo: 'simple'|'completo', roles }` (simple = ayudante sin encargado); `companerosDeProyecto(proyectoId)` → `[{ id, nombre }]`; `registrarCharla({ proyectoId, tema, asistentes, otros, fecha })` escribe en `admin_seguridad` (`tipo: 'charla'`, `origen: 'terreno'`, `creadoPor` = persona vinculada). `misProyectos()` usa `genteDeProyecto` (encargado + cuadrilla). Sin almacenes nuevos. Copiado a `terreno/js/` (cmp idéntico).
+- Terreno 0.8.0: `js/24-simple.js` (pestaña `simple`, `body[data-simple="1"]`); se activa al iniciar y en cada `sisRefrescar`.

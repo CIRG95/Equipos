@@ -233,8 +233,8 @@ export function pendientesAdmin({ rol, personaId, d, personas, proyectos, hoy })
       }
       const fi = d.fichas.find(x => x.id === p.id);
       const c = avisoContrato(fi, { hoy, diasAviso: dias });
-      if (c) out.push({ nivel: c.estado === 'vencido' ? 'rojo' : 'ambar', etiqueta: etiquetaDe(c), categoria: 'Personal', titulo: `Término de contrato · ${p.nombre}`, detalle: `Contrato ${NOMBRE_CONTRATO[fi.contrato.tipo].toLowerCase()}: ${textoDias(c)} (${fechaCorta(c.termino)}).`, enlace: `#/personal/${p.id}/contrato`, fecha: c.termino });
-      for (const x of eppPorReponer(fi, { hoy, diasAviso: dias })) out.push({ nivel: x.e.estado === 'vencido' ? 'rojo' : 'ambar', etiqueta: etiquetaDe(x.e), categoria: 'Personal', titulo: `Reposición de EPP · ${p.nombre}`, detalle: `${x.item}: ${textoDias(x.e)}.`, enlace: `#/personal/${p.id}/epp`, fecha: x.reponer });
+      if (c) out.push({ nivel: c.estado === 'vencido' ? 'rojo' : 'ambar', etiqueta: etiquetaDe(c), categoria: 'Contratos', titulo: `Término de contrato · ${p.nombre}`, detalle: `Contrato ${NOMBRE_CONTRATO[fi.contrato.tipo].toLowerCase()}: ${textoDias(c)} (${fechaCorta(c.termino)}).`, enlace: `#/personal/${p.id}/contrato`, fecha: c.termino });
+      for (const x of eppPorReponer(fi, { hoy, diasAviso: dias })) out.push({ nivel: x.e.estado === 'vencido' ? 'rojo' : 'ambar', etiqueta: etiquetaDe(x.e), categoria: 'EPP', titulo: `Reposición de EPP · ${p.nombre}`, detalle: `${x.item}: ${textoDias(x.e)}.`, enlace: `#/personal/${p.id}/epp`, fecha: x.reponer });
     }
     for (const v of d.vehiculos) {
       for (const f of estadoDocumentos('vehiculo', v.id, { ...d, hoy, diasAviso: dias })) {
@@ -248,7 +248,7 @@ export function pendientesAdmin({ rol, personaId, d, personas, proyectos, hoy })
     const nomPer = id => (personas.find(p => p.id === id) || {}).nombre || 'Persona';
     for (const a of d.ausencias.filter(x => x.estado === 'solicitada')) {
       const cr = crucesAusencia(a, proyectos);
-      out.push({ nivel: 'ambar', etiqueta: 'Por aprobar', categoria: 'Personal', titulo: `${NOMBRE_AUSENCIA[a.tipo] || 'Ausencia'} · ${nomPer(a.personaId)}`, detalle: `Del ${fechaCorta(a.desde)} al ${fechaCorta(a.hasta || a.desde)}${cr.length ? ` · coincide con ${cr.map(p => p.nombre).join(', ')}` : ''}.`, enlace: '#/personal/vacaciones', fecha: a.desde });
+      out.push({ nivel: 'ambar', etiqueta: 'Por aprobar', categoria: 'Ausencias', titulo: `${NOMBRE_AUSENCIA[a.tipo] || 'Ausencia'} · ${nomPer(a.personaId)}`, detalle: `Del ${fechaCorta(a.desde)} al ${fechaCorta(a.hasta || a.desde)}${cr.length ? ` · coincide con ${cr.map(p => p.nombre).join(', ')}` : ''}.`, enlace: '#/personal/vacaciones', fecha: a.desde });
     }
   }
   if (rol === 'terreno' && personaId) {

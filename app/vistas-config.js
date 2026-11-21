@@ -10,6 +10,9 @@ import { COLORES_MARCA, NOMBRE_ROL_PERSONA, ROLES } from './catalogo.js';
 import { VERSION_SISTEMA, MODULOS_INCLUIDOS } from './version.js';
 import { vacio } from './vistas-ui.js';
 import { obtener } from '../compartido/almacen.js';
+import { configEfectiva, TIPOS_ITEM } from '../compartido/plantillas-terreno.js';
+import { CATEGORIAS_TRABAJO } from './catalogo.js';
+import { PLANTILLA_DE_TRABAJO } from '../compartido/plantillas-terreno.js';
 
 const LETRAS_CODIGO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS_CODIGO[Math.floor(Math.random() * LETRAS_CODIGO.length)]).join('');
@@ -89,6 +92,7 @@ export async function configuracion(ctx) {
 
       ${tarjetaVerComo(ctx)}
       ${await tarjetaTiempos()}
+      ${await tarjetaChecklistTerreno()}
 
       <section class="sis-tarjeta"><h2>Acerca del Sistema</h2>
         <div class="sis-datos"><div class="sis-dato"><span>Versión</span><b>v${VERSION_SISTEMA}</b></div><div class="sis-dato"><span>Perfil en uso</span><b>${esc(ctx.nombreRol)}</b></div></div>
@@ -108,6 +112,34 @@ async function tarjetaTiempos() {
       ${tabla.map(fila).join('')}${fila()}</tbody></table></div>
       <p class="sis-tenue">Complete la última fila para agregar un rango; deje vacías las casillas de un rango para quitarlo.</p>
       <div class="sis-acciones"><button class="sis-btn primario">Guardar tabla</button></div></form></section>`;
+}
+
+/** v0.20 · Checklist de terreno: se edita aquí y llega al teléfono; en terreno solo se marca. */
+async function tarjetaChecklistTerreno() {
+  const cfg = configEfectiva(await obtener('admin_config', 'terreno').catch(() => null));
+  // Qué tipos de trabajo cargan cada plantilla (para que se entienda de dónde sale el checklist de la jornada)
+  const usos = {};
+  for (const c of CATEGORIAS_TRABAJO) for (const [d, t] of c.det) { const id = PLANTILLA_DE_TRABAJO[`${c.k}:${d}`]; if (id) (usos[id] = usos[id] || []).push(`${c.t} · ${t}`); }
+  const fila = (it = {}) => `<tr><td><input name="texto" value="${esc(it.texto || '')}" aria-label="Ítem" placeholder="Nuevo ítem"><input type="hidden" name="itemId" value="${esc(it.id || '')}"></td>
+    <td><select name="tipo" aria-label="Tipo de respuesta">${TIPOS_ITEM.map(([k, t]) => `<option value="${k}" ${(it.tipo || 'check') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></td></tr>`;
+  return `<section class="sis-tarjeta" id="checklist-terreno"><h2>Checklist de terreno</h2>
+    <p class="sis-tenue">Cada jornada en el teléfono trae cargado el checklist de los tipos de trabajo de su proyecto. Aquí se editan; en terreno solo se marcan. Los cambios llegan a los teléfonos al sincronizar.</p>
+    ${cfg.desdeSistema ? `<p class="sis-tenue">Última modificación: ${esc(cfg.actualizadoEn ? fechaHoraLegible(cfg.actualizadoEn) : '—')}.</p>` : '<p class="sis-tenue">Se usan las plantillas de fábrica.</p>'}
+    <div class="ck-lista">${cfg.plantillas.map(p => `<details class="ck-plantilla"><summary><b>${esc(p.nombre)}</b><span class="sis-tenue">${p.items.length} ítem${p.items.length === 1 ? '' : 's'}${usos[p.id] ? ' · ' + esc(usos[p.id].join(', ')) : ''}</span></summary>
+      <form class="sis-form" data-form="plantilla-terreno" data-id="${esc(p.id)}">
+        <label class="sis-campo"><span>Nombre</span><input name="nombre" value="${esc(p.nombre)}" required></label>
+        <div class="sis-tabla-scroll"><table class="sis-tabla ck-items"><thead><tr><th>Ítem</th><th>Respuesta</th></tr></thead><tbody>${p.items.map(fila).join('')}${fila()}</tbody></table></div>
+        <p class="sis-tenue">Escriba en la última fila para agregar un ítem; borre el texto de un ítem para quitarlo.</p>
+        <div class="sis-acciones"><button class="sis-btn primario">Guardar</button><button type="button" class="sis-btn chico" data-accion="plantilla-terreno-quitar" data-id="${esc(p.id)}">Quitar plantilla</button></div>
+      </form></details>`).join('')}</div>
+    <div class="sis-acciones"><button type="button" class="sis-btn" data-accion="plantilla-terreno-nueva">+ Nueva plantilla</button>${cfg.desdeSistema ? '<button type="button" class="sis-btn chico" data-accion="plantilla-terreno-fabrica">Volver a las de fábrica</button>' : ''}</div>
+    <details class="ck-plantilla"><summary><b>Nivelación y catastro</b><span class="sis-tenue">semáforo ${cfg.tolerancia.verdeMm} / ${cfg.tolerancia.amarilloMm} mm</span></summary>
+      <form class="sis-form" data-form="terreno-parametros">
+        <div class="sis-form-linea"><label class="sis-campo"><span>Verde hasta (mm)</span><input name="verde" type="number" min="0" step="0.1" value="${esc(cfg.tolerancia.verdeMm)}"></label>
+          <label class="sis-campo"><span>Amarillo hasta (mm) — sobre este valor, rojo</span><input name="amarillo" type="number" min="0" step="0.1" value="${esc(cfg.tolerancia.amarilloMm)}"></label></div>
+        <label class="sis-campo"><span>Tipos de elemento de catastro (uno por línea: «Tipo: atributo, atributo»)</span><textarea name="catastro" rows="6">${esc(cfg.catastro)}</textarea></label>
+        <div class="sis-acciones"><button class="sis-btn primario">Guardar</button></div></form></details>
+  </section>`;
 }
 
 /** v0.19 · Rol del Sistema según la ficha de la persona (Jefatura > RRHH > terreno). */

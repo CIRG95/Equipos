@@ -384,6 +384,17 @@ body[data-simple="1"] nav.tabbar button[data-tab="historial"]{display:none;}
 .simple-chip input:focus-visible + span{outline:2px solid var(--accent); outline-offset:2px;}
 .simple-check{flex-direction:row !important; align-items:center; gap:10px !important; font-weight:500 !important; font-size:16px !important; padding:6px 0;}
 .simple-check input{width:22px; height:22px;}
+
+/* 0.9.0 · el Sistema prepara, el teléfono registra */
+body:not([data-modo="pc"]) nav.tabbar button[data-tab="monografias"],
+body:not([data-modo="pc"]) nav.tabbar button[data-tab="historial"]{display:none;}
+body[data-vinculado="1"] .solo-sin-sistema{display:none;}
+body:not([data-vinculado="1"]) .solo-con-sistema{display:none;}
+.chk-proy{display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 6px;}
+.chk-proy-item{display:inline-block; padding:8px 12px; border-radius:999px; background:var(--primary); color:#fff; font-size:14px;}
+.link-btn{background:none; border:0; padding:0; color:var(--primary); text-decoration:underline; font:inherit; cursor:pointer;}
+.barra-volver{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+.barra-volver b{font-size:16px; color:var(--primary-dark);}
 </style>
 <script>
 /* v0.4.3: si algo falla (incluidos errores asíncronos), muestra el error en pantalla (toca para ocultar) */
@@ -530,10 +541,13 @@ window.addEventListener("unhandledrejection", function (e) {
       <button type="button" class="cfg-tab" data-cfgtab="datos">Datos</button>
     </div>
     <div class="cfg-pane" data-cfgpane="general">
+    <p class="muted solo-con-sistema" style="margin-top:10px;">El checklist de cada trabajo, el semáforo de nivelación y los tipos de catastro vienen del Sistema (Configuración › Checklist de terreno).</p>
+    <div class="solo-sin-sistema">
     <div class="divider"></div>
     <h3 style="font-size:14px;">Plantillas del checklist</h3>
     <p class="muted">Los ítems que se cargan al elegir cada trabajo de la jornada.</p>
     <button class="btn btn-outline btn-sm" id="btnAbrirPlantillas" type="button">Editar plantillas</button>
+    </div>
     <div class="divider"></div>
     <h3 style="font-size:14px;">Modo de la app</h3>
     <p class="muted">Una sola app con dos vistas: teléfono (terreno) y computador (gabinete, más ancha). En automático se elige según el dispositivo.</p>
@@ -543,6 +557,7 @@ window.addEventListener("unhandledrejection", function (e) {
       <option value="pc">Computador</option>
     </select>
     <p class="muted" id="modoAppActual" style="margin-top:4px;"></p>
+    <div class="solo-sin-sistema">
     <div class="divider"></div>
     <h3 style="font-size:14px;">Semáforo de doble posición (por tramo)</h3>
     <p class="muted">Chequeo en vivo apenas ingresas las 4 lecturas de un tramo — independiente del cierre total. (La tolerancia de cierre ahora se elige en cada nivelación, con la clase del MOP.)</p>
@@ -556,6 +571,7 @@ window.addEventListener("unhandledrejection", function (e) {
     <p class="muted">Una línea por tipo: <code>Nombre: atributo 1, atributo 2…</code>. Los atributos aparecen en el formulario según el tipo elegido.</p>
     <textarea id="txtCatastroTipos" rows="8" style="font-size:13px;"></textarea>
     <button class="btn btn-outline btn-sm" id="btnCatastroTiposDefault" type="button" style="margin-top:6px;">Restablecer lista de fábrica</button>
+    </div>
 
     </div>
     <div class="cfg-pane" data-cfgpane="marca" style="display:none;">
@@ -672,6 +688,7 @@ window.addEventListener("unhandledrejection", function (e) {
 <script src="js/22-sistema.js"></script>
 <script src="js/23-gastos.js"></script>
 <script src="js/24-simple.js"></script>
+<script src="js/25-desde-sistema.js"></script>
 <script src="js/99-inicio.js"></script>
 </body>
 </html>

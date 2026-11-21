@@ -1,6 +1,17 @@
-# Topoland · Sistema de trabajo — v0.19 · Terreno 0.8.0
+# Topoland · Sistema de trabajo — v0.20 · Terreno 0.9.0
 
 **Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra «Sistema Topoland — flujos por rol y propuesta v0.18»): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
+
+## Qué cambia en v0.20 (el Sistema prepara, el teléfono registra)
+- **Checklist de terreno en el Sistema** (Configuración › Checklist de terreno): las plantillas de cada tipo de trabajo se editan aquí (nombre, ítems y tipo de respuesta: casilla, número o texto) y llegan a los teléfonos al sincronizar. Cada plantilla indica qué tipos de trabajo la cargan. También aquí: semáforo de nivelación por tramo y tipos de elemento de catastro. «Volver a las de fábrica» deshace los cambios.
+- **Terreno 0.9.0, con menos opciones:**
+  - Al elegir un proyecto del Sistema, la jornada trae **cargado el checklist de sus tipos de trabajo** (ya no se eligen los trabajos; «Cambiar» si hace falta).
+  - **Registrar** muestra solo los instrumentos del proyecto («Ver todos los tipos» para el resto) y sugiere los equipos que la persona lleva según el checklist de salida.
+  - Barra inferior en el teléfono: **Hoy · Registrar · Gastos**. «Mis jornadas» se abre desde Hoy y «Monografías» desde Registrar, con botón para volver. En modo computador se ven todas.
+  - Vinculado, en Ajustes ya no se editan el checklist, el semáforo ni el catastro (vienen del Sistema). Sin vincular, la app funciona igual que antes.
+- Paquete de conexión **1.7**: `configTerreno()`, `checklistDeProyecto(proyectoId)`. Sin almacenes nuevos: la configuración viaja en `admin_config` (id `terreno`).
+- Pendiente acordado: el informe diario de jornada se podrá sacar desde ambas apps; se estructura en la próxima etapa (reportes diarios).
+- Pruebas: 158 unitarias (nueva `plantillas-terreno.test.mjs`); navegador `terreno-090.js` y ajustes en las de Terreno.
 
 ## Qué cambia en v0.19 (uso simple)
 Pensado para que lo use desde un alarife hasta la jefatura, sin explicación.

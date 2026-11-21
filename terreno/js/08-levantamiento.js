@@ -65,8 +65,10 @@ function renderLevantamiento() {
       <div class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
         <p><strong>No hay jornada activa</strong></p>
-        <p class="muted">Inicia una jornada en la pestaña "Jornada" antes de registrar un levantamiento.</p>
-      </div>`;
+        <p class="muted">Inicia una jornada en la pestaña «Hoy» antes de registrar un levantamiento.</p>
+      </div>
+      <div class="card"><button class="btn btn-outline btn-sm" type="button" id="btnIrMonografias">Monografías de PR</button></div>`;
+    document.getElementById("btnIrMonografias").addEventListener("click", () => irATab("monografias"));
     return;
   }
 
@@ -83,7 +85,7 @@ function renderLevantamiento() {
   // Selector de instrumento / tipo + vista previa
   el.innerHTML = `
     <div class="card">
-      <h2>Nuevo levantamiento</h2>
+      <div class="fila-vinculo" style="justify-content:space-between;"><h2 style="margin:0;">Nuevo levantamiento</h2><button class="btn btn-outline btn-sm" type="button" id="btnIrMonografias">Monografías</button></div>
       <label>Instrumento</label>
       <select id="selInstrumento"></select>
       <label>Tipo de levantamiento</label>
@@ -124,13 +126,25 @@ function renderLevantamiento() {
     </div>
   `;
 
+  document.getElementById("btnIrMonografias").addEventListener("click", () => irATab("monografias"));
   const selInstrumento = document.getElementById("selInstrumento");
   const selTipo = document.getElementById("selTipo");
-  Object.keys(INSTRUMENTOS).forEach((key) => {
+  // 0.9.0: con proyecto del Sistema, solo los instrumentos de sus tipos de trabajo («Ver todos» los muestra todos)
+  const filtro = (j.instrumentos || []).filter((k) => INSTRUMENTOS[k]);
+  const filtrar = filtro.length && !state.verTodosInstrumentos;
+  Object.keys(INSTRUMENTOS).filter((k) => !filtrar || filtro.includes(k)).forEach((key) => {
     const opt = document.createElement("option");
     opt.value = key; opt.textContent = INSTRUMENTOS[key].nombre;
     selInstrumento.appendChild(opt);
   });
+  if (filtro.length) {
+    const p = document.createElement("p");
+    p.className = "muted"; p.style.fontSize = "13px";
+    p.innerHTML = filtrar ? 'Solo los del proyecto. <button type="button" class="link-btn">Ver todos los tipos</button>' : '<button type="button" class="link-btn">Ver solo los del proyecto</button>';
+    p.querySelector("button").addEventListener("click", () => { state.verTodosInstrumentos = !state.verTodosInstrumentos; renderLevantamiento(); });
+    selInstrumento.insertAdjacentElement("afterend", p);
+  }
+  if (typeof sisSugerirEquipos === "function") sisSugerirEquipos("listaEquipos");
 
   function esCerradaDoble() {
     return selInstrumento.value === "nivel" && selTipo.value === "cerrada";

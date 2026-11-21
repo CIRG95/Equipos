@@ -18,6 +18,8 @@ import { proyectos, proyecto, datosRegistro, resumenPlanificacion } from './vist
 import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { encargo, iniciarEncargo, leerEncargo } from './vistas-encargo.js';
 import { configuracion, nuevoCodigo, quien, rolDePersona } from './vistas-config.js';
+import { configEfectiva, problemaPlantilla } from '../compartido/plantillas-terreno.js';
+import { obtenerConfigTerreno, guardarConfigTerreno } from '../modulos/administracion/datos.js';
 import { proyectoTecnico, leerTecnico } from './vistas-tecnico.js';
 import { trabajosDeProyecto, moverTrabajo, cronogramaDeTrabajos, POR_BATERIAS } from './trabajos.js';
 import { leerCapasDeArchivos, fusionarCapas, resumenCapas } from '../modulos/vuelos/capas-proyecto.js';
@@ -133,6 +135,26 @@ export async function manejarEnvio(form, ctx) {
     ctx.avisar('Dirección guardada');
     return true;
   }
+  if (form.dataset.form === 'plantilla-terreno') {
+    const cfg = configEfectiva(await obtenerConfigTerreno());
+    const id = form.dataset.id;
+    const textos = datos.getAll('texto'), tipos = datos.getAll('tipo'), ids = datos.getAll('itemId');
+    const items = textos.map((t, i) => ({ id: ids[i] || `${id}-${Date.now().toString(36)}${i}`, texto: t.trim(), tipo: tipos[i] || 'check' })).filter(x => x.texto);
+    const nueva = { id, nombre: (datos.get('nombre') || '').trim(), items };
+    const problema = problemaPlantilla(nueva);
+    if (problema) { ctx.avisar(problema); return false; }
+    const plantillas = cfg.plantillas.some(p => p.id === id) ? cfg.plantillas.map(p => p.id === id ? nueva : p) : [...cfg.plantillas, nueva];
+    await guardarConfigTerreno({ plantillas });
+    ctx.avisar('Checklist guardado: llega a los teléfonos al sincronizar');
+    return true;
+  }
+  if (form.dataset.form === 'terreno-parametros') {
+    const verde = Number(datos.get('verde')), amarillo = Number(datos.get('amarillo'));
+    if (!(verde >= 0) || !(amarillo > verde)) { ctx.avisar('El límite amarillo debe ser mayor que el verde'); return false; }
+    await guardarConfigTerreno({ tolerancia: { verdeMm: verde, amarilloMm: amarillo }, catastro: String(datos.get('catastro') || '').trim() });
+    ctx.avisar('Parámetros de terreno guardados');
+    return true;
+  }
   if (form.dataset.form === 'tabla-tiempos') {
     const kms = datos.getAll('km'), mins = datos.getAll('min');
     const filas = kms.map((k, i) => ({ hastaKm: k === '' ? null : Number(k), minutos: mins[i] === '' ? null : Number(mins[i]) })).filter(x => x.hastaKm != null && x.minutos != null).sort((a, b) => a.hastaKm - b.hastaKm);
@@ -218,6 +240,24 @@ export async function manejarEnvio(form, ctx) {
 export async function manejarClic(boton, ctx) {
   const cal = () => (ctx.estado.cal = ctx.estado.cal || { modo: leerLS('env_cal_modo') || 'mes', ref: hoyISO(), proyecto: '' });
   switch (boton.dataset.accion) {
+    case 'plantilla-terreno-nueva': {
+      const nombre = (prompt('Nombre de la plantilla (por ejemplo «GPR — Prospección»)') || '').trim();
+      if (!nombre) return false;
+      const cfg = configEfectiva(await obtenerConfigTerreno());
+      await guardarConfigTerreno({ plantillas: [...cfg.plantillas, { id: 'p' + Date.now().toString(36), nombre, items: [{ id: 'i' + Date.now().toString(36), texto: 'Revisar equipos y baterías', tipo: 'check' }] }] });
+      ctx.avisar('Plantilla creada: agrégale sus ítems'); return true;
+    }
+    case 'plantilla-terreno-quitar': {
+      const cfg = configEfectiva(await obtenerConfigTerreno());
+      const p = cfg.plantillas.find(x => x.id === boton.dataset.id);
+      if (!p || !confirm(`¿Quitar la plantilla «${p.nombre}»? Las jornadas ya hechas conservan su checklist.`)) return false;
+      await guardarConfigTerreno({ plantillas: cfg.plantillas.filter(x => x.id !== p.id) });
+      ctx.avisar('Plantilla quitada'); return true;
+    }
+    case 'plantilla-terreno-fabrica':
+      if (!confirm('¿Volver a las plantillas, tolerancias y tipos de catastro de fábrica?')) return false;
+      await guardarConfigTerreno({ plantillas: null, tolerancia: null, catastro: null });
+      ctx.avisar('Se usan otra vez los valores de fábrica'); return true;
     case 'soy': await ctx.serPersona(boton.dataset.id, boton.dataset.rol); ctx.avisar('Listo: el Sistema te muestra lo tuyo'); ctx.ir('#/inicio'); return false;
     case 'vista-proyectos': escribirLS('env_proyectos_vista2', boton.dataset.v); return true;
     case 'ver-calendario': cal().proyecto = location.hash.split('/')[2] || ''; ctx.ir('#/proyectos/calendario'); return false;

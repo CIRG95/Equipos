@@ -28,9 +28,11 @@ var TopolandConexion = (() => {
     alLlegarDatos: () => alLlegarDatos,
     alVincular: () => alVincular,
     boleta: () => boleta,
+    checklistDeProyecto: () => checklistDeProyecto,
     codigoQR: () => codigoQR,
     companerosDeProyecto: () => companerosDeProyecto,
     conectarNube: () => conectarNube,
+    configTerreno: () => configTerreno,
     desvincular: () => desvincular,
     eliminarGasto: () => eliminarGasto,
     estadoMonografias: () => estadoMonografias2,
@@ -1358,25 +1360,25 @@ Content-Type: ${mime}\r
     return reg.id;
   }
   async function guardarImagenesDe(m, { proyectoId, personaId = persona2, nombreProyecto: nombreProyecto2 = "" } = {}) {
-    const copia = { ...m };
+    const copia2 = { ...m };
     const det = (tipo, extra = {}) => ({ tipo, monografiaId: m.id, punto: m.puntoMedido || "", hora: m.fechaMedicion || m.creado || "", autor: m.operadorNombre || "", ...extra });
     for (const k of IMAGENES) {
-      if (esDataURL(m[k])) copia[k] = { archivo: await guardarFoto(m[k], { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto: nombreProyecto2, detalle: det(k === "croquisImg" ? "croquis" : k === "panoramicaImg" ? "panoramica" : "logo") }) };
+      if (esDataURL(m[k])) copia2[k] = { archivo: await guardarFoto(m[k], { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto: nombreProyecto2, detalle: det(k === "croquisImg" ? "croquis" : k === "panoramicaImg" ? "panoramica" : "logo") }) };
     }
-    copia.fotosExtra = [];
+    copia2.fotosExtra = [];
     for (const f of m.fotosExtra || []) {
       const g = { ...f };
       if (esDataURL(f.img)) g.img = { archivo: await guardarFoto(f.img, { proyectoId, duenoTipo: "terreno_monografia", duenoId: m.id, personaId, nombreProyecto: nombreProyecto2, detalle: det("detalle", { leyenda: f.leyenda || "" }) }) };
-      copia.fotosExtra.push(g);
+      copia2.fotosExtra.push(g);
     }
-    return copia;
+    return copia2;
   }
   async function publicarMonografia(m, { proyectoId, personaId = persona2, nombreProyecto: nombreProyecto2 = "" } = {}) {
     if (!m || !m.id) throw new Error("La monografía no tiene id.");
     if (!proyectoId) throw new Error("Falta el proyecto del Sistema.");
-    const copia = await guardarImagenesDe(m, { proyectoId, personaId, nombreProyecto: nombreProyecto2 });
+    const copia2 = await guardarImagenesDe(m, { proyectoId, personaId, nombreProyecto: nombreProyecto2 });
     const previa = await obtener(ALM4.mono, m.id);
-    const reg = sello3({ ...copia, id: m.id, proyectoId, origen: "app-terreno", publicadoEn: (/* @__PURE__ */ new Date()).toISOString(), publicadoPor: personaId, creadoEn: previa ? previa.creadoEn : void 0 }, personaId);
+    const reg = sello3({ ...copia2, id: m.id, proyectoId, origen: "app-terreno", publicadoEn: (/* @__PURE__ */ new Date()).toISOString(), publicadoPor: personaId, creadoEn: previa ? previa.creadoEn : void 0 }, personaId);
     await guardar(ALM4.mono, reg);
     if (!previa) await agregarRevision({ monografiaId: m.id, proyectoId, estado: "enviada", observacion: "" }, personaId);
     return { id: m.id, estado: (await estadoDe2(m.id)).estado };
@@ -1661,6 +1663,525 @@ Content-Type: ${mime}\r
   // compartido/cronograma.js
   var genteDeProyecto = (p) => [...new Set([p.encargadoId, ...p.cuadrilla || []].filter(Boolean))];
 
+  // compartido/plantillas-terreno.js
+  var PLANTILLAS_BASE = [
+    {
+      "id": "aer",
+      "nombre": "Dron — Aerofotogrametría",
+      "items": [
+        {
+          "id": "aer1",
+          "texto": "Verificar red de control existente (o definir la nueva)",
+          "tipo": "check"
+        },
+        {
+          "id": "aer2",
+          "texto": "Instalar GPS/base en punto de vuelo",
+          "tipo": "check"
+        },
+        {
+          "id": "aer3",
+          "texto": "Instalar marcas de vuelo",
+          "tipo": "check"
+        },
+        {
+          "id": "aer4",
+          "texto": "Medir marcas de vuelo desde la red (coordenadas)",
+          "tipo": "check"
+        },
+        {
+          "id": "aer5",
+          "texto": "Cargar plan de vuelo",
+          "tipo": "check"
+        },
+        {
+          "id": "aer6",
+          "texto": "N° de vuelos realizados",
+          "tipo": "numero"
+        },
+        {
+          "id": "aer7",
+          "texto": "N° de baterías usadas",
+          "tipo": "numero"
+        },
+        {
+          "id": "aer8",
+          "texto": "Respaldar imágenes y datos PPK de la base",
+          "tipo": "check"
+        },
+        {
+          "id": "aer9",
+          "texto": "Avance diario (ha cubiertas)",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "lid",
+      "nombre": "Dron — LiDAR",
+      "items": [
+        {
+          "id": "lid1",
+          "texto": "Definir dónde se instala la base (según zona de vuelo)",
+          "tipo": "check"
+        },
+        {
+          "id": "lid2",
+          "texto": "Instalar y verificar base GNSS",
+          "tipo": "check"
+        },
+        {
+          "id": "lid3",
+          "texto": "Medir puntos de control en terreno (coordenadas)",
+          "tipo": "check"
+        },
+        {
+          "id": "lid4",
+          "texto": "Cargar plan de vuelo",
+          "tipo": "check"
+        },
+        {
+          "id": "lid5",
+          "texto": "N° de vuelos realizados",
+          "tipo": "numero"
+        },
+        {
+          "id": "lid6",
+          "texto": "N° de baterías usadas",
+          "tipo": "numero"
+        },
+        {
+          "id": "lid7",
+          "texto": "Respaldar datos LiDAR y PPK de la base",
+          "tipo": "check"
+        },
+        {
+          "id": "lid8",
+          "texto": "Avance diario (ha / km cubiertos)",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "niv",
+      "nombre": "Topografía — Nivelación (nivel topográfico)",
+      "items": [
+        {
+          "id": "niv1",
+          "texto": "Verificar BM de partida",
+          "tipo": "check"
+        },
+        {
+          "id": "niv2",
+          "texto": "Elegir clase de nivelación",
+          "tipo": "check"
+        },
+        {
+          "id": "niv3",
+          "texto": "Definir punto final / cierre",
+          "tipo": "check"
+        },
+        {
+          "id": "niv4",
+          "texto": "N° de tramos nivelados",
+          "tipo": "numero"
+        },
+        {
+          "id": "niv5",
+          "texto": "Cierre dentro de tolerancia",
+          "tipo": "check"
+        },
+        {
+          "id": "niv6",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "est",
+      "nombre": "Topografía — Levantamiento y poligonal (estación total)",
+      "items": [
+        {
+          "id": "est1",
+          "texto": "Verificar puntos de control (coordenadas y estado)",
+          "tipo": "check"
+        },
+        {
+          "id": "est2",
+          "texto": "Instalar estación y calar (calaje + 2 comprobaciones)",
+          "tipo": "check"
+        },
+        {
+          "id": "est3",
+          "texto": "N° de instalaciones realizadas",
+          "tipo": "numero"
+        },
+        {
+          "id": "est4",
+          "texto": "Medir poligonal (ángulos y distancias, reiteraciones)",
+          "tipo": "check"
+        },
+        {
+          "id": "est5",
+          "texto": "Levantar elementos del área",
+          "tipo": "check"
+        },
+        {
+          "id": "est6",
+          "texto": "N° de puntos levantados",
+          "tipo": "numero"
+        },
+        {
+          "id": "est7",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "rtk",
+      "nombre": "Topografía — Levantamiento RTK (GNSS)",
+      "items": [
+        {
+          "id": "rtk1",
+          "texto": "Instalar / verificar base RTK",
+          "tipo": "check"
+        },
+        {
+          "id": "rtk2",
+          "texto": "Comprobar en punto conocido",
+          "tipo": "check"
+        },
+        {
+          "id": "rtk3",
+          "texto": "Levantar puntos del tramo",
+          "tipo": "check"
+        },
+        {
+          "id": "rtk4",
+          "texto": "Fotografiar los puntos que lo requieran",
+          "tipo": "check"
+        },
+        {
+          "id": "rtk5",
+          "texto": "N° de puntos levantados",
+          "tipo": "numero"
+        },
+        {
+          "id": "rtk6",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "rep",
+      "nombre": "Topografía — Replanteo",
+      "items": [
+        {
+          "id": "rep1",
+          "texto": "Verificar puntos de control",
+          "tipo": "check"
+        },
+        {
+          "id": "rep2",
+          "texto": "Instalar estación o base y verificar",
+          "tipo": "check"
+        },
+        {
+          "id": "rep3",
+          "texto": "Replantear puntos de diseño",
+          "tipo": "check"
+        },
+        {
+          "id": "rep4",
+          "texto": "Verificar puntos replanteados",
+          "tipo": "check"
+        },
+        {
+          "id": "rep5",
+          "texto": "N° de puntos replanteados",
+          "tipo": "numero"
+        },
+        {
+          "id": "rep6",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "ees",
+      "nombre": "Escaneo 3D — Estático (FARO)",
+      "items": [
+        {
+          "id": "ees1",
+          "texto": "Instalar dianas de control",
+          "tipo": "check"
+        },
+        {
+          "id": "ees2",
+          "texto": "Medir dianas de control (coordenadas)",
+          "tipo": "check"
+        },
+        {
+          "id": "ees3",
+          "texto": "Definir estaciones de escaneo",
+          "tipo": "check"
+        },
+        {
+          "id": "ees4",
+          "texto": "N° de estaciones escaneadas",
+          "tipo": "numero"
+        },
+        {
+          "id": "ees5",
+          "texto": "Registrar la nube (CloudCompare / RealWorks)",
+          "tipo": "check"
+        },
+        {
+          "id": "ees6",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "esl",
+      "nombre": "Escaneo 3D — Móvil (SLAM)",
+      "items": [
+        {
+          "id": "esl1",
+          "texto": "Instalar y medir puntos de control para el ajuste",
+          "tipo": "check"
+        },
+        {
+          "id": "esl2",
+          "texto": "Planificar recorrido y cierres de lazo",
+          "tipo": "check"
+        },
+        {
+          "id": "esl3",
+          "texto": "N° de recorridos realizados",
+          "tipo": "numero"
+        },
+        {
+          "id": "esl4",
+          "texto": "Respaldar datos del equipo",
+          "tipo": "check"
+        },
+        {
+          "id": "esl5",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "bat",
+      "nombre": "Batimetría (bote)",
+      "items": [
+        {
+          "id": "bat1",
+          "texto": "Instalar base GNSS",
+          "tipo": "check"
+        },
+        {
+          "id": "bat2",
+          "texto": "Medir pelos de agua (nivel del agua)",
+          "tipo": "check"
+        },
+        {
+          "id": "bat3",
+          "texto": "Verificar ecosonda (velocidad del sonido / barra)",
+          "tipo": "check"
+        },
+        {
+          "id": "bat4",
+          "texto": "Definir líneas de navegación",
+          "tipo": "check"
+        },
+        {
+          "id": "bat5",
+          "texto": "Coordinar fecha y hora del vuelo dron",
+          "tipo": "texto"
+        },
+        {
+          "id": "bat6",
+          "texto": "N° de líneas navegadas",
+          "tipo": "numero"
+        },
+        {
+          "id": "bat7",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    },
+    {
+      "id": "red",
+      "nombre": "Red geodésica — GNSS estático",
+      "items": [
+        {
+          "id": "red1",
+          "texto": "Tipo de red (nueva o amarrada a existente)",
+          "tipo": "texto"
+        },
+        {
+          "id": "red2",
+          "texto": "Verificar puntos de amarre existentes",
+          "tipo": "check"
+        },
+        {
+          "id": "red3",
+          "texto": "Materializar monumentos nuevos",
+          "tipo": "check"
+        },
+        {
+          "id": "red4",
+          "texto": "N° de puntos ocupados",
+          "tipo": "numero"
+        },
+        {
+          "id": "red5",
+          "texto": "Sesiones realizadas (horario y equipo)",
+          "tipo": "texto"
+        },
+        {
+          "id": "red6",
+          "texto": "Avance diario",
+          "tipo": "texto"
+        }
+      ]
+    }
+  ];
+  var TOLERANCIA_BASE = { verdeMm: 2, amarilloMm: 10 };
+  var CATASTRO_BASE = [
+    "Poste: Material, Altura (m), Diámetro (cm)",
+    "Cámara: Material, Largo (m), Ancho (m), Profundidad (m)",
+    "Tapa: Material, Diámetro o lado (cm), Servicio",
+    "Luminaria: Tipo de lámpara, Altura (m), N° de brazos",
+    "Muro: Material, Largo (m), Alto (m), Espesor (cm)",
+    "Señal: Código de señal, Altura (m)",
+    "Árbol: Especie, Altura (m), DAP (cm)",
+    "Válvula: Diámetro (mm), Servicio",
+    "Otro: Material, Dimensiones"
+  ].join("\n");
+  var PLANTILLA_DE_TRABAJO = {
+    "dron": "aer",
+    "dron:aerofoto": "aer",
+    "dron:lidar": "lid",
+    "dron:termografia": null,
+    "nivelacion": "niv",
+    "nivelacion:simple": "niv",
+    "nivelacion:cerrada": "niv",
+    "gnss": "rtk",
+    "gnss:rtk": "rtk",
+    "gnss:estatico": "red",
+    "gnss:red": "red",
+    "estacion": "est",
+    "estacion:levantamiento": "est",
+    "estacion:poligonal": "est",
+    "estacion:cubicacion": "est",
+    "estacion:catastro": "est",
+    "estacion:replanteo": "rep",
+    "escaneo": "ees",
+    "escaneo:estatico": "ees",
+    "escaneo:slam": "esl",
+    "batimetria": "bat",
+    "batimetria:bote": "bat"
+  };
+  var INSTRUMENTOS_DE_CATEGORIA = {
+    nivelacion: ["nivel"],
+    gnss: ["gnss"],
+    estacion: ["estacion"],
+    escaneo: ["escaner"],
+    batimetria: ["gnss"],
+    dron: [],
+    otro: []
+  };
+  var copia = (x) => JSON.parse(JSON.stringify(x));
+  function configEfectiva(guardada) {
+    const g = guardada || {};
+    const plantillas = Array.isArray(g.plantillas) && g.plantillas.length ? g.plantillas : PLANTILLAS_BASE;
+    return {
+      plantillas: copia(plantillas),
+      tolerancia: { ...TOLERANCIA_BASE, ...g.tolerancia || {} },
+      catastro: String(g.catastro || "").trim() ? g.catastro : CATASTRO_BASE,
+      desdeSistema: !!(g.plantillas || g.tolerancia || g.catastro),
+      actualizadoEn: g.actualizadoEn || null
+    };
+  }
+  function plantillasDeTrabajos({ categorias = [], detalles = [] } = {}, plantillas = PLANTILLAS_BASE) {
+    const ids = [];
+    const sumar = (id) => {
+      if (id && !ids.includes(id)) ids.push(id);
+    };
+    const conDetalle = new Set(detalles.map((d) => d.split(":")[0]));
+    for (const d of detalles) sumar(d in PLANTILLA_DE_TRABAJO ? PLANTILLA_DE_TRABAJO[d] : PLANTILLA_DE_TRABAJO[d.split(":")[0]]);
+    for (const c of categorias) if (!conDetalle.has(c)) sumar(PLANTILLA_DE_TRABAJO[c]);
+    return ids.map((id) => plantillas.find((p) => p.id === id)).filter(Boolean);
+  }
+  function instrumentosDeTrabajos({ categorias = [], detalles = [] } = {}) {
+    const s = /* @__PURE__ */ new Set();
+    for (const c of categorias) (INSTRUMENTOS_DE_CATEGORIA[c] || []).forEach((i) => s.add(i));
+    if (detalles.includes("estacion:catastro")) s.add("catastro");
+    return [...s];
+  }
+
+  // app/catalogo.js
+  var CATEGORIAS_TRABAJO = [
+    { k: "dron", t: "Dron", det: [["aerofoto", "Aerofotogrametría"], ["lidar", "LiDAR"], ["termografia", "Termografía"]] },
+    { k: "nivelacion", t: "Nivelación", det: [["simple", "Simple"], ["cerrada", "Cerrada"]] },
+    { k: "gnss", t: "GNSS", det: [["rtk", "RTK"], ["estatico", "Estático"], ["red", "Red geodésica"]] },
+    { k: "estacion", t: "Estación total", det: [["levantamiento", "Levantamiento"], ["poligonal", "Poligonal"], ["replanteo", "Replanteo"], ["cubicacion", "Cubicación"], ["catastro", "Catastro"]] },
+    { k: "escaneo", t: "Escaneos", det: [["estatico", "Estático (FARO)"], ["slam", "Móvil (SLAM)"]] },
+    { k: "batimetria", t: "Batimetría", det: [["bote", "Con bote"]] },
+    { k: "otro", t: "Otro", det: [["gpr", "GPR"], ["otro", "Otro"]], texto: true }
+  ];
+  var NOMBRE_CATEGORIA = Object.fromEntries(CATEGORIAS_TRABAJO.map((c) => [c.k, c.t]));
+  var NOMBRE_DETALLE = Object.fromEntries(CATEGORIAS_TRABAJO.flatMap((c) => c.det.map(([d, t]) => [`${c.k}:${d}`, t])));
+  var TIPO_ANTIGUO = {
+    aerofoto: "dron:aerofoto",
+    lidar: "dron:lidar",
+    termografia: "dron:termografia",
+    levantamiento: "estacion:levantamiento",
+    rtk: "gnss:rtk",
+    replanteo: "estacion:replanteo",
+    cubicacion: "estacion:cubicacion",
+    red: "gnss:red",
+    escaneo: "escaneo:estatico",
+    slam: "escaneo:slam",
+    batimetria: "batimetria:bote",
+    gpr: "otro:gpr"
+  };
+  function tiposDeProyecto(p) {
+    const cats = /* @__PURE__ */ new Set();
+    const det = new Set(p.tiposDetalle || []);
+    for (const t of p.tiposTrabajo || []) {
+      if (NOMBRE_CATEGORIA[t]) cats.add(t);
+      else if (TIPO_ANTIGUO[t]) {
+        const v = TIPO_ANTIGUO[t];
+        cats.add(v.split(":")[0]);
+        det.add(v);
+      }
+    }
+    for (const d of det) cats.add(d.split(":")[0]);
+    const orden = CATEGORIAS_TRABAJO.map((c) => c.k);
+    return { categorias: [...cats].sort((a, b) => orden.indexOf(a) - orden.indexOf(b)), detalles: [...det] };
+  }
+  var ROLES_PERSONA = [
+    ["encargado", "Encargado de terreno"],
+    ["ayudante", "Ayudante"],
+    ["rrhh", "Administración / RRHH"],
+    ["dibujo", "Dibujo / gabinete"],
+    ["direccion", "Jefatura / Dirección"]
+  ];
+  var NOMBRE_ROL_PERSONA = Object.fromEntries(ROLES_PERSONA);
+  var ETAPAS_PROYECTO = [["terreno", "Terreno"], ["gabinete", "Proceso en gabinete"], ["entregables", "Entregables"], ["completado", "Completado"]];
+  var NOMBRE_ETAPA_PROYECTO = Object.fromEntries(ETAPAS_PROYECTO);
+
   // modulos/administracion/modelo.js
   var TIPOS_BASE = [
     { id: "per-cedula", aplica: "persona", nombre: "Cédula de identidad", vence: true, obligatorio: true, orden: 1 },
@@ -1746,7 +2267,7 @@ Content-Type: ${mime}\r
   }
 
   // app/conexion-terreno.js
-  var VERSION = "1.6 (Sistema v0.19)";
+  var VERSION = "1.7 (Sistema v0.20)";
   var CLAVE_PERSONA = "topoland_conexion_persona";
   var CLAVE_CARPETA = "topoland_conexion_carpeta";
   var CLAVE_CODIGO = "topoland_conexion_codigo";
@@ -1895,6 +2416,15 @@ Content-Type: ${mime}\r
   async function misProyectos() {
     const p = yo();
     return (await listarProyectos()).filter((x) => x.id !== OFICINA_ID && x.estado !== "cerrado" && genteDeProyecto(x).includes(p.id)).map((x) => ({ id: x.id, nombre: x.nombre, mandante: x.mandante || "", comuna: x.comuna || "", region: x.region || "", tiposTrabajo: x.tiposTrabajo || [] }));
+  }
+  async function configTerreno() {
+    return configEfectiva(await obtener("admin_config", "terreno").catch(() => null));
+  }
+  async function checklistDeProyecto(proyectoId) {
+    const pr = proyectoId ? await obtenerProyecto(proyectoId) : null;
+    const tipos = pr ? tiposDeProyecto(pr) : { categorias: [], detalles: [] };
+    const cfg2 = await configTerreno();
+    return { plantillas: plantillasDeTrabajos(tipos, cfg2.plantillas), instrumentos: instrumentosDeTrabajos(tipos), tipos };
   }
   async function misEquiposEnTerreno() {
     const p = yo();

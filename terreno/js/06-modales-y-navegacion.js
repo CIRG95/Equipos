@@ -68,6 +68,7 @@ leerTtfComoBase64(document.getElementById("inpFuenteRegular"), "fuenteRegularNom
 leerTtfComoBase64(document.getElementById("inpFuenteBold"), "fuenteBoldNombre", (b64) => { fuenteBoldTemp = b64; });
 
 document.getElementById("btnGuardarConfig").addEventListener("click", () => {
+  setTimeout(() => { if (typeof sisAplicarConfigTerreno === "function") sisAplicarConfigTerreno(); }, 0); // 0.9.0: lo del Sistema manda
   state.config.toleranciaTramoVerdeMm = parseFloat(document.getElementById("inpToleranciaVerde").value) || 2;
   state.config.toleranciaTramoAmarillaMm = parseFloat(document.getElementById("inpToleranciaAmarilla").value) || 10;
   state.config.marca = {
@@ -215,6 +216,7 @@ function renderEditorPlantilla(body, id) {
    NAVEGACIÓN DE TABS
    ========================================================================= */
 function irATab(nombre) {
+  if (typeof SIS !== "undefined" && state.tabActual && state.tabActual !== nombre) SIS.tabAnterior = state.tabActual; // 0.9.0: para «Volver»
   state.tabActual = nombre;
   document.querySelectorAll(".tab-section").forEach((s) => s.classList.remove("active"));
   document.getElementById("tab-" + nombre).classList.add("active");
@@ -234,6 +236,7 @@ function renderTabActual() {
   else if (state.tabActual === "monografias") renderMonografias();
   else if (state.tabActual === "gastos") renderGastos();
   else if (state.tabActual === "simple" && typeof simpleRender === "function") simpleRender(); // 0.8.0 · modo simple
+  if (typeof barraVolver === "function") barraVolver(state.tabActual); // 0.9.0
   renderHeader();
   try { if (typeof renderPanelWeb === "function") renderPanelWeb(); } catch (e) { console.error(e); }
 }

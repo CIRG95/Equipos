@@ -30,6 +30,7 @@ const CAT_ROLES = [["general", "General"], ["detalle", "Detalle"], ["placa", "Pl
 function esCatastro(lev) { return !!lev && lev.instrumento === "catastro"; }
 function catEstadoInfo(v) { return CAT_ESTADOS.find((e) => e.v === v) || { v: "", t: "Sin evaluar", c: CAT_COLOR_SIN }; }
 function catastroTiposTexto() {
+  if (typeof SIS !== "undefined" && SIS.cfgTerreno && SIS.cfgTerreno.catastro) return SIS.cfgTerreno.catastro; // 0.9.0: viene del Sistema
   let t = null;
   try { t = localStorage.getItem("catastroTiposTexto"); } catch (_) {}
   return t && t.trim() ? t : CATASTRO_TIPOS_DEFAULT;

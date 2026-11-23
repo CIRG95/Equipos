@@ -300,3 +300,10 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Categorías de pendientes de Administración: `Personal` (documentos), `Contratos`, `EPP`, `Ausencias`, `Cuadrilla`, `Vehículos`, `Guías`, `Comercial`.
 - Paquete 1.6: `miModo()` → `{ modo: 'simple'|'completo', roles }` (simple = ayudante sin encargado); `companerosDeProyecto(proyectoId)` → `[{ id, nombre }]`; `registrarCharla({ proyectoId, tema, asistentes, otros, fecha })` escribe en `admin_seguridad` (`tipo: 'charla'`, `origen: 'terreno'`, `creadoPor` = persona vinculada). `misProyectos()` usa `genteDeProyecto` (encargado + cuadrilla). Sin almacenes nuevos. Copiado a `terreno/js/` (cmp idéntico).
 - Terreno 0.8.0: `js/24-simple.js` (pestaña `simple`, `body[data-simple="1"]`); se activa al iniciar y en cada `sisRefrescar`.
+
+## v0.20 · Checklist de terreno desde el Sistema · paquete de conexión 1.7 · Terreno 0.9.0
+- `compartido/plantillas-terreno.js` (sin DOM, con pruebas): `PLANTILLAS_BASE` (las 10 de fábrica de Terreno), `TOLERANCIA_BASE`, `CATASTRO_BASE`, `PLANTILLA_DE_TRABAJO` (categoría[:detalle] → id de plantilla), `INSTRUMENTOS_DE_CATEGORIA`, `configEfectiva`, `plantillasDeTrabajos`, `instrumentosDeTrabajos`, `problemaPlantilla`.
+- Configuración en `admin_config` id `terreno`: `{ plantillas, tolerancia: { verdeMm, amarilloMm }, catastro, actualizadoEn }` (`obtenerConfigTerreno` / `guardarConfigTerreno` en `modulos/administracion/datos.js`). Valores null = usar los de fábrica.
+- Sistema: tarjeta `#checklist-terreno` en Configuración; formularios `plantilla-terreno` y `terreno-parametros`; acciones `plantilla-terreno-nueva|quitar|fabrica`.
+- Paquete 1.7: `configTerreno()`; `checklistDeProyecto(proyectoId)` → `{ plantillas, instrumentos, tipos }`. Copiado a `terreno/js/` (cmp idéntico).
+- Terreno 0.9.0: `js/25-desde-sistema.js` (`sisAplicarConfigTerreno`, `sisChecklistProyectoUI`, `sisSugerirEquipos`, `barraVolver`); `body[data-vinculado="1"]`; la jornada guarda `instrumentos` para filtrar Registrar.

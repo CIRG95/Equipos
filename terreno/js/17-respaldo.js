@@ -112,16 +112,16 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
-    "Versión 0.8.0: modo simple para ayudantes y alarifes. Si en el Sistema la ficha dice «Ayudante», la app abre en «Inicio» con cuatro botones grandes: Mi jornada, Foto o punto, Gasto y Charla de seguridad.",
-    "Charla de seguridad desde el teléfono: proyecto, tema (con temas frecuentes) y quiénes estuvieron. Llega al Sistema en Administración › Seguridad del proyecto.",
-    "En modo simple se ocultan Monografías e Historial (quedan para el encargado). El encargado sigue viendo la app completa.",
-    "Los proyectos de la lista ahora incluyen aquellos donde la persona integra la cuadrilla, no solo donde es encargada.",
-    "Paquete de conexión 1.6 (miModo, companerosDeProyecto y registrarCharla)."
+    "Versión 0.9.0: el Sistema prepara y el teléfono registra. Con el teléfono vinculado, el checklist de cada trabajo, el semáforo de nivelación y los tipos de catastro vienen del Sistema (Configuración › Checklist de terreno); en el teléfono solo se marcan.",
+    "Al elegir un proyecto del Sistema, la jornada trae cargado el checklist de sus tipos de trabajo (ya no hay que elegir los trabajos). «Cambiar» permite ajustarlo.",
+    "Registrar muestra solo los instrumentos del proyecto («Ver todos los tipos» para el resto) y sugiere los equipos que llevas según el checklist de salida.",
+    "Barra inferior más corta en el teléfono: Hoy · Registrar · Gastos. «Mis jornadas» se abre desde Hoy y «Monografías» desde Registrar, con botón para volver. En modo computador se ven todas las pestañas.",
+    "Sin vincular, la app funciona igual que antes. Paquete de conexión 1.7 (configTerreno, checklistDeProyecto)."
   ],
   probar: [
-    "En el Sistema, dejar a una persona solo con el rol «Ayudante» y sumarla a la cuadrilla de un proyecto. Vincular el teléfono con su código: debe abrir en «Inicio» con los cuatro botones.",
-    "Registrar una charla de seguridad en modo avión; quitar el modo avión, sincronizar y revisarla en el Sistema (proyecto › Seguridad).",
-    "Con una persona «Encargado de terreno» la app se ve como antes."
+    "En el Sistema, editar el checklist de «Dron — Aerofotogrametría» y sincronizar; en el teléfono, iniciar una jornada de un proyecto de vuelo: debe traer el checklist editado.",
+    "Registrar con un proyecto de nivelación: solo debe aparecer el nivel; «Ver todos los tipos» muestra el resto.",
+    "Desvincular el teléfono: vuelven las plantillas y ajustes propios del teléfono."
   ],
   conocidos: [
     "Google entrega sesiones de una hora: si la señal vuelve después, la subida a Google Drive puede pedir un toque en la pastilla de la nube para renovar la sesión. Nextcloud se reconecta solo.",

@@ -86,6 +86,13 @@ export async function guardarConfig(cambios) {
   return guardar(ALM.config, sello({ ...actual, ...cambios, id: 'general' }));
 }
 
+/** v0.20 · Lo que recibe la app de Terreno (checklist por tipo de trabajo, tolerancia de nivelación, tipos de catastro). */
+export async function obtenerConfigTerreno() { return (await obtener(ALM.config, 'terreno')) || null; }
+export async function guardarConfigTerreno(cambios) {
+  const actual = (await obtener(ALM.config, 'terreno')) || { id: 'terreno' };
+  return guardar(ALM.config, sello({ ...actual, ...cambios, id: 'terreno', actualizadoEn: new Date().toISOString() }));
+}
+
 /** Personas dadas de baja (activo = false): conservan su ficha y se pueden reincorporar. */
 export async function personasDeBaja() {
   return (await todos('compartido_personas')).filter(p => !p.eliminadoEn && p.activo === false).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));

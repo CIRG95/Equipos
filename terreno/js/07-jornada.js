@@ -27,8 +27,9 @@ function renderJornada() {
             ${[...new Set(state.jornadas.map((j) => j.operador).filter(Boolean))].map((op) => `<option value="${escapeHtml(op)}">`).join("")}
           </datalist>
         </div>
-        <label>¿Qué trabajos harás hoy? <span class="muted" style="font-weight:400;">(cargan su checklist)</span></label>
-        ${trabajosHtml()}
+        <div id="checklistProyecto" hidden></div>
+        <div id="wrapTrabajos"><label>¿Qué trabajos harás hoy? <span class="muted" style="font-weight:400;">(cargan su checklist)</span></label>
+        ${trabajosHtml()}</div>
         <label>Ubicación de inicio</label>
         <div class="ubic-auto muted" id="jornadaUbicPreview">Se toma sola con el GPS al iniciar.<button id="btnMapaJornada" type="button">Marcar en el mapa</button></div>
         <button class="btn btn-accent" id="btnIniciarJornada" type="button">Iniciar jornada</button>
@@ -38,8 +39,10 @@ function renderJornada() {
         <h2>Última jornada</h2>
         <p>${fmtFecha(ultima.fechaInicio)} → ${ultima.fechaTermino ? fmtHoraCorta(ultima.fechaTermino) : "—"}</p>
         <p class="muted">${ultima.operador ? "Operador: " + escapeHtml(ultima.operador) + " · " : ""}Duración: ${fmtDuracion(ultima.horas != null ? ultima.horas * 3600000 : null)} · ${fmtCoord(ultima.lat, ultima.lng)}</p>
-      </div>` : ""}
+        <button class="btn btn-outline btn-sm" type="button" id="btnMisJornadas" style="margin-top:8px;">Ver mis jornadas</button>
+      </div>` : `<div class="card"><button class="btn btn-outline btn-sm" type="button" id="btnMisJornadas">Ver mis jornadas</button></div>`}
     `;
+    document.getElementById("btnMisJornadas").addEventListener("click", () => irATab("historial"));
     const inpOperador = document.getElementById("inpOperador");
     inpOperador.value = localStorage.getItem("ultimoOperador") || "";
     document.getElementById("inpProyecto").value = localStorage.getItem("ultimoProyecto") || "";
@@ -83,6 +86,7 @@ function renderJornada() {
         operador: operador || null,
         proyecto: proyecto || null,
         proyectoId: SIS.proyectoIdSel || null,   // v0.5.6: id del proyecto del Sistema («oficina» = sin proyecto de terreno)
+        instrumentos: (SIS.proyectoIdSel && SIS.checklistSel && SIS.checklistSel.instrumentos) || [], // 0.9.0: los de Registrar
         lat: ubicTemp?.lat ?? null,
         lng: ubicTemp?.lng ?? null,
         estado: "abierta",
@@ -146,7 +150,7 @@ function renderJornada() {
           </select>
           <button class="btn btn-outline btn-sm" id="btnAgregarObjetivo" type="button">Agregar</button>
         </div>
-        ${!state.plantillas.length ? `<p class="muted">No tienes plantillas: créalas en ⚙ → General → Plantillas del checklist.</p>` : ""}
+        ${!state.plantillas.length ? `<p class="muted">${SIS.cfgTerreno ? "No hay plantillas: se crean en el Sistema (Configuración › Checklist de terreno)." : "No tienes plantillas: créalas en ⚙ → General → Plantillas del checklist."}</p>` : ""}
       </details>
     </div>
     ${tarjetaCierreHtml(j, levs)}
@@ -457,7 +461,7 @@ function trabajosHtml() {
   grupos.forEach((gr) => gr.items.forEach(([id]) => usados.add(id)));
   const otros = state.plantillas.filter((p) => !usados.has(p.id));
   if (otros.length) grupos.push({ titulo: "Otros", items: otros.map((p) => [p.id, p.nombre]) });
-  if (!grupos.length) return '<span class="muted">Crea plantillas en ⚙ → General → Plantillas del checklist.</span>';
+  if (!grupos.length) return SIS.cfgTerreno ? '<span class="muted">No hay plantillas: se crean en el Sistema (Configuración › Checklist de terreno).</span>' : '<span class="muted">Crea plantillas en ⚙ → General → Plantillas del checklist.</span>';
   const chip = ([id, txt]) => `<button type="button" class="chip-trabajo" data-id="${id}" aria-pressed="false">${escapeHtml(TRABAJO_ETIQUETA[id] || txt)}</button>`;
   return `<div class="trabajos-plano">${grupos.map((gr) =>
     `<div class="tp-grupo">${escapeHtml(gr.titulo)}</div><div class="chips-trabajo">${gr.items.map(chip).join("")}</div>`).join("")}</div>`;

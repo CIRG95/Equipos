@@ -38,6 +38,7 @@ function sisIniciar() {
       }).catch(() => {});
     }
     if (typeof simpleAplicar === "function") simpleAplicar(); // 0.8.0
+    if (typeof sisAplicarConfigTerreno === "function") sisAplicarConfigTerreno(); // 0.9.0
   } catch (e) { SIS.error = e && e.message ? e.message : String(e); }
 }
 function sisPersona() {
@@ -45,6 +46,7 @@ function sisPersona() {
 }
 function sisRefrescar() {
   sisRenderConfig();
+  if (typeof sisAplicarConfigTerreno === "function") sisAplicarConfigTerreno(); // 0.9.0: checklist y parámetros del Sistema
   if (typeof simpleAplicar === "function") simpleAplicar(); // 0.8.0: ayudante → modo simple
   if (state.herramienta === "monografias" && !state.monografiaEnEdicionId && state.tabActual === "monografias") sisDespuesDeListado();
   if (!jornadaActiva() && state.tabActual === "jornada") sisCargarProyectosJornada();
@@ -86,6 +88,7 @@ async function sisCargarProyectosJornada() {
   const sel = document.getElementById("selProyectoSistema");
   const elegir = (id) => {
     SIS.proyectoIdSel = id || null;
+    if (typeof sisChecklistProyectoUI === "function") sisChecklistProyectoUI(id); // 0.9.0: checklist del proyecto
     if (!id) return;
     const x = lista.find((y) => y.id === id);
     inp.value = x ? x.nombre : "Oficina";

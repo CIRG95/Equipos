@@ -18,6 +18,7 @@ import * as Equipos from '../modulos/equipos/equipos.js';
 import * as Seguimiento from '../modulos/seguimiento/seguimiento.js';
 import * as Mono from '../modulos/monografias/datos.js'; // solo datos: el paquete no lleva pantallas ni PDF
 import { obtenerProyecto } from '../compartido/catalogos.js';
+import { obtener } from '../compartido/almacen.js';
 import * as Gastos from '../modulos/gastos/datos.js';
 import { CATEGORIAS, problemasGasto, posiblesDuplicados, libroCuenta, eventosDe, estadoRendicion, ultimo, numeroSiguiente, gastoEditable, ordenGastos, suma } from '../modulos/gastos/modelo.js';
 import { urlArchivo, infoArchivo } from '../compartido/archivos.js';
@@ -25,6 +26,8 @@ import { planesDeProyecto as hojasDeProyecto, avanceDeHoja } from '../modulos/vu
 import { estadoSectores, totalesAvance, metaDelDia, PORCENTAJES } from '../modulos/vuelos/avance.js';
 import { registrarAvanceSector } from '../modulos/vuelos/avance-datos.js';
 import { genteDeProyecto } from '../compartido/cronograma.js';
+import { configEfectiva, plantillasDeTrabajos, instrumentosDeTrabajos } from '../compartido/plantillas-terreno.js';
+import { tiposDeProyecto } from './catalogo.js';
 import { ALM as ALM_ADMIN, guardarRegistro, fijarPersona as fijarPersonaAdmin } from '../modulos/administracion/datos.js';
 
 // v1.4 (Sistema v0.14): gastos desde Terreno — misma lógica y almacenes que el módulo Gastos 0.1 del Sistema.
@@ -33,7 +36,9 @@ import { ALM as ALM_ADMIN, guardarRegistro, fijarPersona as fijarPersonaAdmin } 
 // v1.5 (Sistema v0.18a): vuelos del proyecto con sus sectores y registro del avance por sector (almacén vuelos_avance).
 // v1.6 (Sistema v0.19): modo simple para ayudantes (miModo), proyectos donde la persona es encargado o integra la cuadrilla,
 //       compañeros del proyecto y registro de la charla de seguridad (almacén admin_seguridad, igual que en el Sistema).
-export const VERSION = '1.6 (Sistema v0.19)';
+// v1.7 (Sistema v0.20): el checklist de terreno, la tolerancia de nivelación y los tipos de catastro se editan en el Sistema
+//       (configTerreno); cada proyecto entrega su checklist y los instrumentos de sus tipos de trabajo (checklistDeProyecto).
+export const VERSION = '1.7 (Sistema v0.20)';
 const CLAVE_PERSONA = 'topoland_conexion_persona';
 const CLAVE_CARPETA = 'topoland_conexion_carpeta';
 const CLAVE_CODIGO = 'topoland_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)
@@ -176,6 +181,25 @@ export async function misProyectos() {
   const p = yo();
   return (await listarProyectos()).filter(x => x.id !== OFICINA_ID && x.estado !== 'cerrado' && genteDeProyecto(x).includes(p.id))
     .map(x => ({ id: x.id, nombre: x.nombre, mandante: x.mandante || '', comuna: x.comuna || '', region: x.region || '', tiposTrabajo: x.tiposTrabajo || [] }));
+}
+
+/**
+ * v1.7 · Configuración de terreno que viene del Sistema: { plantillas, tolerancia: { verdeMm, amarilloMm }, catastro, desdeSistema }.
+ * Funciona sin vincular (devuelve la de fábrica) y sin señal (lee lo último sincronizado).
+ */
+export async function configTerreno() {
+  return configEfectiva(await obtener('admin_config', 'terreno').catch(() => null));
+}
+
+/**
+ * v1.7 · Lo que la jornada necesita de un proyecto del Sistema: el checklist de sus tipos de trabajo y los instrumentos
+ * de Registrar que corresponden ([] = mostrar todos). { plantillas, instrumentos, tipos: { categorias, detalles } }
+ */
+export async function checklistDeProyecto(proyectoId) {
+  const pr = proyectoId ? await obtenerProyecto(proyectoId) : null;
+  const tipos = pr ? tiposDeProyecto(pr) : { categorias: [], detalles: [] };
+  const cfg = await configTerreno();
+  return { plantillas: plantillasDeTrabajos(tipos, cfg.plantillas), instrumentos: instrumentosDeTrabajos(tipos), tipos };
 }
 
 /** Equipos que están en terreno a cargo de la persona o en sus proyectos (según el checklist de salida de Equipos). */

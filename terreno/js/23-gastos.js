@@ -46,7 +46,7 @@ function gtFecha(iso) {
 }
 const gtPlural = (n, s, p) => n + " " + (n === 1 ? s : p);
 const gtChip = (e) => `<span class="gt-chip ${GT_ESTADOS[e][1]}">${GT_ESTADOS[e][0]}</span>`;
-function gtConectado() { return typeof sisPersona === "function" && !!sisPersona() && typeof TopolandConexion !== "undefined" && typeof TopolandConexion.misGastos === "function"; }
+function gtConectado() { return typeof sisPersona === "function" && !!sisPersona() && typeof SistemaConexion !== "undefined" && typeof SistemaConexion.misGastos === "function"; }
 function gtNombreProyecto(id) { const p = GT.proyectos.find((x) => x.id === id); return p ? p.nombre : "Proyecto"; }
 
 /** Proyecto que se muestra: el de la jornada abierta, el último usado, el primero propio o «Oficina». */
@@ -61,7 +61,7 @@ function gtProyectoInicial() {
 
 /* ---------- Estado de la nube (texto corto) ---------- */
 function gtNubeHtml() {
-  let e = {}; try { e = TopolandConexion.estadoNube() || {}; } catch (_) {}
+  let e = {}; try { e = SistemaConexion.estadoNube() || {}; } catch (_) {}
   if (e.sincronizando) return '<span class="gt-nube sube">☁ Subiendo…</span>';
   if (!e.conectado) return '<span class="gt-nube local" title="Se sube cuando conectes la nube del Sistema">📱 Guardado en el teléfono</span>';
   if (e.pendiente) return '<span class="gt-nube pend">☁ Pendiente de subir</span>';
@@ -86,9 +86,9 @@ async function renderGastos() {
   gtEscucharDatos();
   if (!GT.datos) el.innerHTML = '<div class="card"><p class="muted">Cargando gastos…</p></div>';
   try {
-    GT.proyectos = await TopolandConexion.proyectosGastos();
+    GT.proyectos = await SistemaConexion.proyectosGastos();
     if (!GT.proyectoId || !GT.proyectos.some((p) => p.id === GT.proyectoId)) GT.proyectoId = gtProyectoInicial();
-    GT.datos = await TopolandConexion.misGastos(GT.proyectoId);
+    GT.datos = await SistemaConexion.misGastos(GT.proyectoId);
     GT.error = null;
   } catch (e) { console.error(e); GT.error = e && e.message ? e.message : String(e); }
   if (state.tabActual !== "gastos") return;
@@ -167,7 +167,7 @@ async function gtPintarMiniaturas(raiz) {
     const id = m.dataset.boleta;
     if (!id) continue;
     try {
-      const bol = await TopolandConexion.boleta(id);
+      const bol = await SistemaConexion.boleta(id);
       if (!bol || !m.isConnected) continue;
       if ((bol.mime || "").startsWith("image/")) m.innerHTML = `<img src="${bol.url}" alt="">`;
       else m.innerHTML = GT_SVG.pdf;
@@ -180,19 +180,19 @@ async function gtActualizarAviso() {
   const btn = document.querySelector('nav.tabbar button[data-tab="gastos"]');
   if (!btn) return;
   let n = 0;
-  try { if (gtConectado()) n = (await TopolandConexion.gastosDevueltos()).length; } catch (_) {}
+  try { if (gtConectado()) n = (await SistemaConexion.gastosDevueltos()).length; } catch (_) {}
   btn.classList.toggle("con-aviso", n > 0);
   btn.title = n ? gtPlural(n, "rendición devuelta", "rendiciones devueltas") + " por RRHH" : "";
 }
 
 function gtEscucharDatos() {
-  if (GT.oyente || typeof TopolandConexion === "undefined") return;
+  if (GT.oyente || typeof SistemaConexion === "undefined") return;
   GT.oyente = true;
-  TopolandConexion.alLlegarDatos(() => {
+  SistemaConexion.alLlegarDatos(() => {
     gtActualizarAviso();
     if (state.tabActual === "gastos" && !GT.hoja) renderGastos();
   });
-  TopolandConexion.alCambiarNube(() => {
+  SistemaConexion.alCambiarNube(() => {
     const n = document.querySelector("#tab-gastos .gt-nube");
     if (n) n.outerHTML = gtNubeHtml();
   });
@@ -203,7 +203,7 @@ function abrirFormGasto(g) {
   if (!gtConectado()) { irATab("gastos"); return; }
   cerrarFormGasto();
   const editar = !!g;
-  const cats = TopolandConexion.CATEGORIAS_GASTO || Object.keys(GT_ICONOS);
+  const cats = SistemaConexion.CATEGORIAS_GASTO || Object.keys(GT_ICONOS);
   const proyectoId = g ? g.proyectoId : (GT.proyectoId || gtProyectoInicial());
   const proyectos = GT.proyectos.length ? GT.proyectos : [{ id: proyectoId, nombre: "Proyecto" }];
   const hoja = document.createElement("div");
@@ -246,7 +246,7 @@ function abrirFormGasto(g) {
   hoja.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarFormGasto(); });
 
   if (g && g.archivoId) {
-    TopolandConexion.boleta(g.archivoId).then((bol) => {
+    SistemaConexion.boleta(g.archivoId).then((bol) => {
       if (!GT.hoja || GT.hoja.el !== hoja) return;
       gtPrevia(bol ? bol.url : null, bol ? bol.mime : "", bol ? bol.nombre : "");
     }).catch(() => gtPrevia(null));
@@ -321,7 +321,7 @@ async function gtGuardar(otro) {
   const textoBtn = pulsado ? pulsado.textContent : "";
   if (pulsado) pulsado.textContent = "Guardando…";
   try {
-    const r = await TopolandConexion.guardarGasto(datos, { archivo: H.archivo, confirmarDuplicado: H.confirmarDup });
+    const r = await SistemaConexion.guardarGasto(datos, { archivo: H.archivo, confirmarDuplicado: H.confirmarDup });
     if (r.duplicados) {
       const x = r.duplicados[0];
       H.confirmarDup = true;
@@ -353,9 +353,9 @@ async function gtEliminar() {
   const g = H.gasto;
   if (!confirm(`¿Eliminar el gasto de ${gtClp(g.monto)} (${g.categoria})?`)) return;
   try {
-    await TopolandConexion.eliminarGasto(g.id);
+    await SistemaConexion.eliminarGasto(g.id);
     cerrarFormGasto();
-    gtAvisoDeshacer("Gasto eliminado", async () => { await TopolandConexion.restaurarGasto(g.id); renderGastos(); });
+    gtAvisoDeshacer("Gasto eliminado", async () => { await SistemaConexion.restaurarGasto(g.id); renderGastos(); });
     renderGastos();
   } catch (e) { gtProblema(escapeHtml(e && e.message ? e.message : String(e))); }
 }
@@ -396,7 +396,7 @@ function gastosEnlazarJornada(j) {
   if (!b) return;
   b.addEventListener("click", async () => {
     try {
-      if (!GT.proyectos.length) GT.proyectos = await TopolandConexion.proyectosGastos();
+      if (!GT.proyectos.length) GT.proyectos = await SistemaConexion.proyectosGastos();
     } catch (_) {}
     GT.proyectoId = j.proyectoId;
     abrirFormGasto();
@@ -410,7 +410,7 @@ async function gtActualizarTarjetaJornada() {
   const j = typeof jornadaActiva === "function" ? jornadaActiva() : null;
   if (!r || !j || !j.proyectoId) return;
   try {
-    const d = await TopolandConexion.misGastos(j.proyectoId);
+    const d = await SistemaConexion.misGastos(j.proyectoId);
     const b = d.borrador;
     r.innerHTML = b.gastos.length
       ? `${gtPlural(b.gastos.length, "gasto", "gastos")} sin rendir · <b class="gt-mono">${gtClp(b.gastado)}</b>${b.fondo > 0 ? ` · fondo ${b.saldo >= 0 ? "disponible" : "excedido"} <b class="gt-mono">${gtClp(Math.abs(b.saldo))}</b>` : ""}`

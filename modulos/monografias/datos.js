@@ -150,10 +150,6 @@ export async function usarVersionDeTerreno(id) {
   delete nueva.origen;
   return guardar(ALM.gabinete, sello({ ...nueva, creadoEn: g ? g.creadoEn : undefined }));
 }
-export async function eliminarDeGabinete(id) {
-  const g = await obtener(ALM.gabinete, id);
-  if (g) await guardar(ALM.gabinete, sello({ ...g, eliminadoEn: new Date().toISOString() }));
-}
 
 /** Estado de las monografías de un proyecto, para la app de Terreno. */
 export async function estadoMonografias(proyectoId) {

@@ -31,7 +31,7 @@ export function filaEquipo(e, { nombreProyecto } = {}) {
   </a>`;
 }
 
-export const vacio = (texto, extra = '') => `<div class="sis-vacio"><p>${texto}</p>${extra}</div>`;
+export { vacio } from '../compartido/util.js';
 
 export function estadoAlerta(e) {
   return { abierta: 'Abierta', en_mantencion: 'En mantención', recibida: 'Recibida de mantención', cerrada: 'Cerrada' }[e] || e;

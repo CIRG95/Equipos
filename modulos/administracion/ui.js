@@ -6,8 +6,7 @@ import { ESTADOS_PLATAFORMA } from './modelo.js';
 
 export { esc, fechaLegible, fechaHoraLegible };
 
-export const vacio = (t, extra = '') => `<div class="sis-vacio"><p>${t}</p>${extra}</div>`;
-export const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+export { vacio, plural, txtCampo as txt } from '../../compartido/util.js';
 
 /** Chip de un estado del motor de vencimientos. */
 export function chipVenc(e, { conDias = false } = {}) {

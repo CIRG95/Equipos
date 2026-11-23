@@ -1,5 +1,9 @@
 // compartido/util.js — utilidades comunes a todos los módulos (igual en cada módulo).
 
+// v0.21.1: lo primero es traer las preferencias de una instalación anterior (claves con el nombre antiguo).
+import { migrarClavesAnteriores } from './nombres-anteriores.js';
+migrarClavesAnteriores();
+
 export function uuid() {
   if (globalThis.crypto && crypto.randomUUID) return crypto.randomUUID();
   // Respaldo para navegadores antiguos
@@ -9,7 +13,7 @@ export function uuid() {
   });
 }
 
-const CLAVE_DISPOSITIVO = 'topoland_dispositivoId';
+const CLAVE_DISPOSITIVO = 'sistema_dispositivoId';
 let dispositivoEnMemoria = null;
 
 export function dispositivoId() {
@@ -121,3 +125,15 @@ export const escribirLS = (k, v) => { try { localStorage.setItem(k, JSON.stringi
 /** Preferencias guardadas como texto simple (sin JSON), p. ej. 'mes' o 'tarjetas' (v0.14.1: antes repetido en sistema.js y vistas.js). */
 export const leerTexto = (k, d = '') => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 export const escribirTexto = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } };
+
+/** v0.21.1 · Nombre de la empresa que eligió la instalación (Configuración › Marca). Se usa en etiquetas, PDF y archivos. */
+export const NOMBRE_EMPRESA_DEFECTO = 'Mi empresa';
+export function nombreEmpresa() {
+  try { return (JSON.parse(localStorage.getItem('env_marca') || '{}').nombre || '').trim() || NOMBRE_EMPRESA_DEFECTO; } catch { return NOMBRE_EMPRESA_DEFECTO; }
+}
+
+/** v0.21.1 · Piezas de pantalla que estaban repetidas en varios módulos. */
+export const vacio = (texto, extra = '') => `<div class="sis-vacio"><p>${texto}</p>${extra}</div>`;
+export const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+/** Texto de un campo de formulario, sin espacios a los lados. */
+export const txtCampo = (fd, k) => String(fd.get(k) || '').trim();

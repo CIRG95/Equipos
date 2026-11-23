@@ -5,7 +5,7 @@
 import { hoyISO, fechaHoraLegible } from '../../compartido/util.js';
 import { ALM, guardarRegistro, guardarArchivoAdmin } from './datos.js';
 import { RIESGOS_BASE } from './modelo.js';
-import { esc, fechaLegible, vacio, plural, campo, input, select } from './ui.js';
+import { esc, fechaLegible, vacio, plural, txt, campo, input, select } from './ui.js';
 
 const SEG = [['charla', 'Charla de 5 minutos'], ['riesgos', 'Riesgos del día'], ['incidencias', 'Incidencias']];
 const TIPOS_INC = [['equipo', 'Equipo'], ['acceso', 'Acceso'], ['seguridad', 'Seguridad'], ['mandante', 'Mandante'], ['otro', 'Otro']];
@@ -56,7 +56,6 @@ export async function seguridad(v, proyectoId) {
     <section class="sis-tarjeta"><h2>Registros del proyecto</h2>${regs.length ? `<div class="sis-lista">${regs.slice(0, 30).map(fila).join('')}</div>` : vacio('Sin registros de seguridad en este proyecto.')}</section>`;
 }
 
-const txt = (fd, k) => String(fd.get(k) || '').trim();
 export const acciones = { 'seg-seccion': (b, v) => { v.st.segSeccion = b.dataset.s; return true; } };
 export const formularios = {
   charla: async (f, fd, v) => { await guardarRegistro(ALM.seguridad, { proyectoId: f.dataset.id, tipo: 'charla', fecha: hoyISO(), tema: txt(fd, 'tema'), asistentes: fd.getAll('asistentes'), otros: txt(fd, 'otros').split(',').map(s => s.trim()).filter(Boolean) }); v.avisar('Charla registrada'); return true; },

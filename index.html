@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Topoland · Sistema</title>
+  <title>Sistema de trabajo</title>
   <meta name="theme-color" content="#FFFFFF">
 
   <link rel="manifest" href="manifest.json">
@@ -23,8 +23,8 @@
 <body>
   <header class="sis-header">
     <div class="sis-marca">
-      <div class="sis-logo" aria-hidden="true">T</div>
-      <div><b>Topoland</b><span>Sistema de trabajo · <span id="sis-version"></span></span></div>
+      <div class="sis-logo" aria-hidden="true">S</div>
+      <div><b>Mi empresa</b><span>Sistema de trabajo · <span id="sis-version"></span></span></div>
     </div>
     <nav class="sis-menu" id="sis-menu" aria-label="Secciones"></nav>
     <div class="sis-quien">
@@ -56,9 +56,9 @@
         if (window.__sistemaCargado) { clearInterval(t); return; }
         if (!c || (c.children.length && !c.querySelector('.sis-espera-bd, .sis-error-carga'))) return;
         var s = (Date.now() - inicio) / 1000;
-        if (window.__topolandBdEsperando && s > 3) {
-          if (!c.querySelector('.sis-espera-bd')) c.innerHTML = '<div class="sis-error sis-espera-bd"><b>Esperando los datos.</b><br>' + (window.__topolandBdBloqueada ? 'La app de Terreno u otra pestaña del Sistema tiene los datos abiertos.' : 'Otra app o pestaña está terminando de usar los datos.') + ' Ciérrala (en el teléfono, desde las apps recientes) y el Sistema terminará de cargar solo.</div>';
-        } else if (!window.__topolandBdEsperando && s > 8 && !c.querySelector('.sis-error-carga')) {
+        if (window.__sistemaBdEsperando && s > 3) {
+          if (!c.querySelector('.sis-espera-bd')) c.innerHTML = '<div class="sis-error sis-espera-bd"><b>Esperando los datos.</b><br>' + (window.__sistemaBdBloqueada ? 'La app de Terreno u otra pestaña del Sistema tiene los datos abiertos.' : 'Otra app o pestaña está terminando de usar los datos.') + ' Ciérrala (en el teléfono, desde las apps recientes) y el Sistema terminará de cargar solo.</div>';
+        } else if (!window.__sistemaBdEsperando && s > 8 && !c.querySelector('.sis-error-carga')) {
           c.innerHTML = '<div class="sis-error sis-error-carga"><b>El Sistema no cargó.</b><br>Recarga la página (en el computador, Ctrl+Shift+R). Si sigue igual, revisa que la carpeta tenga <code>sistema-app.js</code> junto a <code>index.html</code>; la consola (F12) muestra el detalle.</div>';
         }
       }, 1000);

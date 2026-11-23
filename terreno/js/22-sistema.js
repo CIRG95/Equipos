@@ -5,34 +5,34 @@
    Terreno sigue siendo su propia app: se vincula a una persona del Sistema y
    lee sus proyectos para elegirlos al iniciar la jornada. Nada de esto es
    obligatorio: sin vincular, la app funciona igual que antes.
-   El paquete (js/topoland-conexion.js) es generado desde el Sistema: no editar.
+   El paquete (js/sistema-conexion.js) es generado desde el Sistema: no editar.
    ========================================================================= */
 const SIS = { listo: false, error: null, proyectos: [], proyectoIdSel: null };
 
 function sisClienteId() {
-  let c = (window.TOPOLAND_CONFIG || {}).googleClientId || "";
+  let c = (window.SISTEMA_CONFIG || {}).googleClientId || "";
   if (!c) { try { c = localStorage.getItem("googleClientId") || ""; } catch (_) {} }
   return c;
 }
 function sisIniciar() {
   try {
-    if (typeof TopolandConexion === "undefined") throw new Error("No se cargó el paquete de conexión");
-    const info = TopolandConexion.iniciar({ clienteId: sisClienteId() });
+    if (typeof SistemaConexion === "undefined") throw new Error("No se cargó el paquete de conexión");
+    const info = SistemaConexion.iniciar({ clienteId: sisClienteId() });
     SIS.listo = true;
-    TopolandConexion.alLlegarDatos(() => { sisRefrescar(); });
-    TopolandConexion.alCambiarNube(() => { sisRenderConfig(); });
+    SistemaConexion.alLlegarDatos(() => { sisRefrescar(); });
+    SistemaConexion.alCambiarNube(() => { sisRenderConfig(); });
     if (info.carpetaPendiente) {   // abrió con el QR: trae la carpeta de la nube del Sistema
-      let e = {}; try { e = TopolandConexion.estadoNube() || {}; } catch (_) {}
+      let e = {}; try { e = SistemaConexion.estadoNube() || {}; } catch (_) {}
       if (e.conectado) {
-        TopolandConexion.conectarNube().then(() => { toast("Nube del Sistema conectada"); sisRefrescar(); })
+        SistemaConexion.conectarNube().then(() => { toast("Nube del Sistema conectada"); sisRefrescar(); })
           .catch((err) => toast(err && err.message ? err.message : "No se pudo conectar la nube del Sistema"));
       } else toast("Abre ⚙ → Sistema y sigue los pasos para terminar.");
     }
     // Paquete 1.3: el código del QR queda guardado y se vincula solo cuando llegan las personas desde la nube.
-    if (typeof TopolandConexion.alVincular === "function") {
-      TopolandConexion.alVincular((p) => { toast("Vinculado con el Sistema: " + p.nombre); sisRefrescar(); });
+    if (typeof SistemaConexion.alVincular === "function") {
+      SistemaConexion.alVincular((p) => { toast("Vinculado con el Sistema: " + p.nombre); sisRefrescar(); });
     } else if (info.codigoPendiente && !info.persona) {
-      TopolandConexion.vincular(info.codigoPendiente).then((p) => {
+      SistemaConexion.vincular(info.codigoPendiente).then((p) => {
         if (p) toast("Vinculado con el Sistema: " + p.nombre);
         sisRefrescar();
       }).catch(() => {});
@@ -42,7 +42,7 @@ function sisIniciar() {
   } catch (e) { SIS.error = e && e.message ? e.message : String(e); }
 }
 function sisPersona() {
-  try { return SIS.listo ? TopolandConexion.persona() : null; } catch (_) { return null; }
+  try { return SIS.listo ? SistemaConexion.persona() : null; } catch (_) { return null; }
 }
 function sisRefrescar() {
   sisRenderConfig();
@@ -65,7 +65,7 @@ async function sisCargarProyectosJornada() {
     return;
   }
   let lista = [];
-  try { lista = await TopolandConexion.misProyectos(); } catch (_) {}
+  try { lista = await SistemaConexion.misProyectos(); } catch (_) {}
   SIS.proyectos = lista;
   if (!document.getElementById("proyectoSistema")) return;
   // 0.6.1: vinculado, el operador es la persona del Sistema y el proyecto se elige de la lista;
@@ -113,7 +113,7 @@ function sisRenderConfig() {
   }
   const p = sisPersona();
   let n = {};
-  try { n = TopolandConexion.estadoNube() || {}; } catch (_) {}
+  try { n = SistemaConexion.estadoNube() || {}; } catch (_) {}
   const cid = !!sisClienteId();
   if (n.sincronizando) { if (!SIS.syncDesde) SIS.syncDesde = Date.now(); } else SIS.syncDesde = 0;
   const seg = SIS.syncDesde ? Math.round((Date.now() - SIS.syncDesde) / 1000) : 0;
@@ -123,7 +123,7 @@ function sisRenderConfig() {
   const cls = (k, ok) => "sis-paso" + (ok ? " hecho" : actual === k ? " actual" : "");
   const marca = (ok) => ok ? "✔" : "○";
   const err = [SIS.ultimoError, n.error].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
-  let qr = ""; try { qr = (!ok4 && TopolandConexion.codigoQR && TopolandConexion.codigoQR()) || ""; } catch (_) {}
+  let qr = ""; try { qr = (!ok4 && SistemaConexion.codigoQR && SistemaConexion.codigoQR()) || ""; } catch (_) {}
   const resumen = ok4
     ? `<p><strong>Listo.</strong> Vinculado como <strong>${escapeHtml(p.nombre)}</strong>${p.cargo ? " · " + escapeHtml(p.cargo) : ""}.</p>`
     : "";
@@ -204,9 +204,9 @@ document.addEventListener("click", async (ev) => {
     if (k === "vincular") {
       const cod = (document.getElementById("inpCodigoSistema").value || "").trim();
       if (!cod) return toast("Escribe el código de 6 letras.");
-      const r = await TopolandConexion.vincular(cod);
+      const r = await SistemaConexion.vincular(cod);
       if (!r) {
-        const motivo = typeof TopolandConexion.explicarVinculo === "function" ? await TopolandConexion.explicarVinculo(cod) : "";
+        const motivo = typeof SistemaConexion.explicarVinculo === "function" ? await SistemaConexion.explicarVinculo(cod) : "";
         throw new Error(motivo || "No encontré ese código. Revisa que el paso 3 haya terminado y que el código esté vigente en el Sistema.");
       }
       toast("Vinculado: " + r.nombre);
@@ -220,24 +220,24 @@ document.addEventListener("click", async (ev) => {
         const v = (document.getElementById("inpCarpetaSistema").value || "").trim();
         if (!v) throw new Error("Pega el enlace de la carpeta de Drive.");
         // El paquete 1.2 toma la carpeta que dejó el QR en esta clave; aquí se deja la que pegó la persona.
-        try { localStorage.setItem("topoland_conexion_carpeta", JSON.stringify(v)); } catch (_) {}
+        try { localStorage.setItem("sistema_conexion_carpeta", JSON.stringify(v)); } catch (_) {}
       }
       toast("Conectando…");
-      const e = TopolandConexion.estadoNube() || {};
+      const e = SistemaConexion.estadoNube() || {};
       if (e.sincronizando) throw new Error("Ya hay una sincronización en curso. Espera a que termine o reinicia la app.");
       if (k === "sync" && e.carpetaId && e.conectado) {
-        const r = await TopolandConexion.sincronizar();
+        const r = await SistemaConexion.sincronizar();
         if (r === null) throw new Error("No se pudo sincronizar: falta sesión de Google o carpeta.");
         toast("Nube del Sistema al día");
       } else {
-        await TopolandConexion.conectarNube();
-        const n2 = TopolandConexion.estadoNube() || {};
+        await SistemaConexion.conectarNube();
+        const n2 = SistemaConexion.estadoNube() || {};
         if (k === "carpeta" && !n2.carpetaId) throw new Error("No se pudo usar esa carpeta. Revisa el enlace y que esté compartida contigo como Editor.");
         toast(n2.carpetaId ? "Nube del Sistema conectada" : "Sesión de Google lista. Sigue con el paso 2.");
       }
     } else if (k === "desvincular") {
       if (!confirm("¿Desvincular este teléfono de la persona del Sistema?")) return;
-      TopolandConexion.desvincular();
+      SistemaConexion.desvincular();
       toast("Teléfono desvinculado");
     }
   } catch (err) {
@@ -246,7 +246,7 @@ document.addEventListener("click", async (ev) => {
   }
   sisRefrescar();
 });
-try { TopolandConexion.alCambiarNube(() => { if (SIS.listo) sisRenderConfig(); }); } catch (_) {}
+try { SistemaConexion.alCambiarNube(() => { if (SIS.listo) sisRenderConfig(); }); } catch (_) {}
 
 /* Mira la carpeta de Drive directamente (solo lectura) para saber si el computador subió datos. */
 async function sisProbarCarpeta() {
@@ -254,8 +254,8 @@ async function sisProbarCarpeta() {
   const poner = (h) => { SIS.probar = h; if (box()) box().innerHTML = h; };
   poner("Consultando Drive…");
   let token = null;
-  try { token = (JSON.parse(localStorage.getItem("topoland_nube_token") || "null") || {}).token; } catch (_) {}
-  const n = TopolandConexion.estadoNube() || {};
+  try { token = (JSON.parse(localStorage.getItem("sistema_nube_token") || "null") || {}).token; } catch (_) {}
+  const n = SistemaConexion.estadoNube() || {};
   if (!token || !n.carpetaId) return poner("No hay sesión de Google o carpeta. Repite los pasos 1 y 2.");
   const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
   const q = async (qs) => {
@@ -312,14 +312,14 @@ const SIS_ETIQUETAS = { enviada: "Enviada", "en-revision": "En revisión", lista
 const SIS_COLORES = { enviada: "#5B6B66", "en-revision": "#B4500F", lista: "#2e8b57", "con-observacion": "#B42318" };
 
 function sisPuedePublicar() {
-  try { return SIS.listo && !!sisPersona() && typeof TopolandConexion.publicarMonografia === "function"; } catch (_) { return false; }
+  try { return SIS.listo && !!sisPersona() && typeof SistemaConexion.publicarMonografia === "function"; } catch (_) { return false; }
 }
 function sisLeerEstados() { try { return JSON.parse(localStorage.getItem(SIS_ESTADOS_KEY) || "{}") || {}; } catch (_) { return {}; } }
 function sisGuardarEstados(c) { try { localStorage.setItem(SIS_ESTADOS_KEY, JSON.stringify(c)); } catch (_) {} }
 
 async function sisEnviarMonografia(m) {
   if (!m.proyectoId) throw new Error("Elige el proyecto del Sistema de esta monografía.");
-  const r = await TopolandConexion.publicarMonografia(m, { proyectoId: m.proyectoId });
+  const r = await SistemaConexion.publicarMonografia(m, { proyectoId: m.proyectoId });
   const c = sisLeerEstados();
   c[m.id] = { estado: (r && r.estado) || "enviada", observacion: "", revisadoPor: null, fecha: nowISO(), enviadaEn: nowISO() };
   sisGuardarEstados(c);
@@ -327,13 +327,13 @@ async function sisEnviarMonografia(m) {
 }
 /* Trae el estado de cada proyecto con monografías enviadas; true si algo cambió. */
 async function sisActualizarEstados() {
-  if (!sisPuedePublicar() || typeof TopolandConexion.estadoMonografias !== "function") return false;
+  if (!sisPuedePublicar() || typeof SistemaConexion.estadoMonografias !== "function") return false;
   const c = sisLeerEstados();
   const proyectos = [...new Set(state.monografias.filter((m) => m.proyectoId && c[m.id]).map((m) => m.proyectoId))];
   const antes = JSON.stringify(c);
   for (const pid of proyectos) {
     try {
-      (await TopolandConexion.estadoMonografias(pid)).forEach((e) => {
+      (await SistemaConexion.estadoMonografias(pid)).forEach((e) => {
         if (c[e.id]) c[e.id] = { ...c[e.id], estado: e.estado, observacion: e.observacion || "", revisadoPor: e.revisadoPor || null, fecha: e.fecha || c[e.id].fecha };
       });
     } catch (_) {}
@@ -369,7 +369,7 @@ async function sisMonoEditor(m, leerCampos) {
   const cont = document.getElementById("mProyectoSistema");
   if (!cont || !sisPersona()) return;
   let lista = [];
-  try { lista = await TopolandConexion.misProyectos(); } catch (_) {}
+  try { lista = await SistemaConexion.misProyectos(); } catch (_) {}
   if (!document.getElementById("mProyectoSistema")) return;
   const opciones = lista.map((x) => [x.id, x.nombre]).concat([["oficina", "Oficina (sin proyecto de terreno)"]]);
   if (m.proyectoId && !opciones.some(([id]) => id === m.proyectoId)) opciones.push([m.proyectoId, "(proyecto actual)"]);
@@ -392,17 +392,17 @@ async function sisMonoEditor(m, leerCampos) {
 async function sisEnviarJornada(j) {
   try {
     toast("Enviando jornada al Sistema…");
-    const r = await TopolandConexion.publicarJornada(j, state.levantamientos.filter((l) => l.jornadaId === j.id && !l.eliminado), { proyectoId: j.proyectoId });
+    const r = await SistemaConexion.publicarJornada(j, state.levantamientos.filter((l) => l.jornadaId === j.id && !l.eliminado), { proyectoId: j.proyectoId });
     toast("Jornada enviada al Sistema" + (r && r.fotos ? " (" + r.fotos + " fotos)" : ""));
   } catch (e) { toast(e && e.message ? e.message : "No se pudo enviar la jornada"); }
 }
 /* Jornada: al cerrar, ofrecer enviarla (con confirmación) */
 async function sisPreguntarEnviarJornada(j) {
-  if (!sisPuedePublicar() || !j.proyectoId || typeof TopolandConexion.publicarJornada !== "function") return;
+  if (!sisPuedePublicar() || !j.proyectoId || typeof SistemaConexion.publicarJornada !== "function") return;
   if (!confirm("¿Enviar esta jornada al Sistema (con sus levantamientos y fotos)?")) return;
   try {
     toast("Enviando jornada…");
-    const r = await TopolandConexion.publicarJornada(j, state.levantamientos.filter((l) => l.jornadaId === j.id && !l.eliminado), { proyectoId: j.proyectoId });
+    const r = await SistemaConexion.publicarJornada(j, state.levantamientos.filter((l) => l.jornadaId === j.id && !l.eliminado), { proyectoId: j.proyectoId });
     toast("Jornada enviada al Sistema" + (r && r.fotos ? " (" + r.fotos + " fotos)" : ""));
   } catch (e) { toast(e && e.message ? e.message : "No se pudo enviar la jornada"); }
 }
@@ -438,7 +438,7 @@ document.addEventListener("click", async (ev) => {
    ========================================================================= */
 const SIS_AV = { abierto: null }; // «hojaId|sector» del formulario abierto
 function sisPuedeAvance(j) {
-  return SIS.listo && !!sisPersona() && !!(j && j.proyectoId && j.proyectoId !== "oficina") && typeof TopolandConexion.vuelosDeProyecto === "function";
+  return SIS.listo && !!sisPersona() && !!(j && j.proyectoId && j.proyectoId !== "oficina") && typeof SistemaConexion.vuelosDeProyecto === "function";
 }
 function sisAvanceHtml(j) {
   return sisPuedeAvance(j) ? '<div class="card" id="avanceVuelos"><h2>Vuelos del proyecto</h2><p class="muted">Cargando sectores…</p></div>' : "";
@@ -447,11 +447,11 @@ async function sisCargarAvance(j) {
   const el = document.getElementById("avanceVuelos");
   if (!el || !sisPuedeAvance(j)) return;
   let vuelos = [];
-  try { vuelos = await TopolandConexion.vuelosDeProyecto(j.proyectoId); } catch (e) { el.innerHTML = '<h2>Vuelos del proyecto</h2><p class="muted">' + escapeHtml(e.message || "No se pudieron leer los vuelos") + "</p>"; return; }
+  try { vuelos = await SistemaConexion.vuelosDeProyecto(j.proyectoId); } catch (e) { el.innerHTML = '<h2>Vuelos del proyecto</h2><p class="muted">' + escapeHtml(e.message || "No se pudieron leer los vuelos") + "</p>"; return; }
   if (!document.body.contains(el)) return;
   if (!vuelos.length) { el.innerHTML = '<h2>Vuelos del proyecto</h2><p class="muted">El proyecto aún no tiene hojas de vuelo con sectores. Se arman en el Sistema (Planificación › Vuelos) y llegan con la sincronización.</p>'; return; }
   const f1 = (x) => Number(x || 0).toLocaleString("es-CL", { maximumFractionDigits: 1 });
-  const pcts = TopolandConexion.PORCENTAJES_AVANCE || [25, 50, 75, 100];
+  const pcts = SistemaConexion.PORCENTAJES_AVANCE || [25, 50, 75, 100];
   el.innerHTML = '<h2>Vuelos del proyecto</h2>' + vuelos.map((v) => {
     const t = v.totales, hoy = v.hoy;
     const abierto = SIS_AV.abierto && SIS_AV.abierto.startsWith(v.id + "|") ? SIS_AV.abierto.slice(v.id.length + 1) : null;
@@ -485,10 +485,10 @@ async function sisCargarAvance(j) {
     const alt = form.querySelector("[data-av-altura]").value.trim().replace(",", ".");
     try {
       guardarBtn.disabled = true;
-      const r = await TopolandConexion.registrarAvance({ hojaId, sector, pct, base: form.querySelector("[data-av-base]").value.trim(), alturaBase: alt === "" ? null : Number(alt), obs: form.querySelector("[data-av-obs]").value.trim() });
+      const r = await SistemaConexion.registrarAvance({ hojaId, sector, pct, base: form.querySelector("[data-av-base]").value.trim(), alturaBase: alt === "" ? null : Number(alt), obs: form.querySelector("[data-av-obs]").value.trim() });
       SIS_AV.abierto = null;
       toast(sector + ": " + pct + " % registrado" + (r && r.terminado ? " · vuelo completo" : "") + (typeof hayConexion === "function" && !hayConexion() ? " · se envía al volver la señal" : ""));
-      if (typeof hayConexion !== "function" || hayConexion()) Promise.resolve().then(() => TopolandConexion.sincronizar()).catch(() => {});
+      if (typeof hayConexion !== "function" || hayConexion()) Promise.resolve().then(() => SistemaConexion.sincronizar()).catch(() => {});
     } catch (e) { toast(e && e.message ? e.message : "No se pudo registrar"); guardarBtn.disabled = false; return; }
     sisCargarAvance(j);
   });

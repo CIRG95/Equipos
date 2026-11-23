@@ -11,7 +11,7 @@ import { ROLES, NOMBRE_ETAPA_PROYECTO, etapaProyecto } from './catalogo.js';
 import { VERSION_SISTEMA } from './version.js';
 import { ICONO, filaEquipo, vacio, estadoAlerta, aFechaL, lunesDe, diaCorto } from './vistas-ui.js';
 import * as Administracion from '../modulos/administracion/administracion.js';
-import { ordenarPendientes } from '../compartido/vencimientos.js';
+ '../compartido/vencimientos.js';
 import { pendientesEncargo, sinAcuse, resumenCronograma, genteDeProyecto } from './encargo.js';
 import { agruparPendientes, accionPrincipal, semaforoProyecto, contarSemaforo } from './hoy.js';
 

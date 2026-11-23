@@ -4,6 +4,8 @@
 //   · Marcas de vuelo (GCP): distribución en área o corredor, con puntos de control y de chequeo.
 // Pruebas: pruebas/planificacion.test.mjs.
 
+import { puntoEnPoligono } from '../vuelos/geom.js';
+
 // ───────── Marco local (equirectangular, como Vuelos; error < 0,5 % en áreas de pocos km) ─────────
 const R_LAT = 110540, R_LON = 111320;
 export function marcoLocal(lonlats) {
@@ -14,14 +16,7 @@ export function marcoLocal(lonlats) {
 
 // ───────── Geometría básica ─────────
 export const dist = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
-export function puntoEnPoligono(p, poli) {
-  let dentro = false;
-  for (let i = 0, j = poli.length - 1; i < poli.length; j = i++) {
-    const [xi, yi] = poli[i], [xj, yj] = poli[j];
-    if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) dentro = !dentro;
-  }
-  return dentro;
-}
+export { puntoEnPoligono }; // v0.21.1: es el mismo de Vuelos (antes estaba copiado aquí)
 function proySegmento(p, a, b) {
   const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
   const t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;

@@ -91,7 +91,7 @@ async function reconectarNubes(motivo) {
       }
     }
     try {
-      if (SIS.listo && motivo !== "reloj") { const e = TopolandConexion.estadoNube() || {}; if (e.conectado && e.carpetaId && !e.sincronizando && e.pendiente) TopolandConexion.sincronizar().catch(() => {}); }
+      if (SIS.listo && motivo !== "reloj") { const e = SistemaConexion.estadoNube() || {}; if (e.conectado && e.carpetaId && !e.sincronizando && e.pendiente) SistemaConexion.sincronizar().catch(() => {}); }
     } catch (_) {}
   } finally {
     reconectando = false;

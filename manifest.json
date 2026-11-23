@@ -1,7 +1,7 @@
 {
-  "name": "Topoland · Sistema de trabajo",
-  "short_name": "Topoland",
-  "description": "Sistema de trabajo de Topoland: proyectos, equipos y, pronto, gastos y libreta de terreno.",
+  "name": "Sistema de trabajo",
+  "short_name": "Sistema",
+  "description": "Sistema de trabajo para empresas de topografía: proyectos, planificación, vuelos, equipos, gastos y personal.",
   "lang": "es-CL",
   "start_url": "./index.html",
   "scope": "./",

@@ -1,4 +1,4 @@
-/* pronostico-vuelo.js — GENERADO desde Sistema Topoland · modulos/vuelos. No editar aquí. */
+/* pronostico-vuelo.js — GENERADO desde el Sistema de trabajo · modulos/vuelos. No editar aquí. */
 var PronosticoVuelo = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -350,8 +350,32 @@ var PronosticoVuelo = (() => {
   }
   var antiguedadMin = (m, ahora = /* @__PURE__ */ new Date()) => Math.round((ahora - m.hora) / 6e4);
 
+  // compartido/nombres-anteriores.js
+  var P = "topoland";
+  var CLAVES = ["nube", "nube_token", "dispositivoId", "conexion_persona", "conexion_carpeta", "conexion_codigo"];
+  function migrarClavesAnteriores(ls = globalThis.localStorage) {
+    if (!ls) return 0;
+    let n = 0;
+    for (const k of CLAVES) {
+      try {
+        const viejo = ls.getItem(`${P}_${k}`);
+        if (viejo != null && ls.getItem(`sistema_${k}`) == null) {
+          ls.setItem(`sistema_${k}`, viejo);
+          n++;
+        }
+      } catch {
+      }
+    }
+    return n;
+  }
+
+  // compartido/util.js
+  migrarClavesAnteriores();
+  function escapar(t) {
+    return String(t != null ? t : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  }
+
   // modulos/vuelos/metar-ui.js
-  var esc = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   var NIVEL = { ok: "mt-ok", aviso: "mt-aviso", no: "mt-no" };
   var COLOR_CAT = { VFR: "mt-ok", MVFR: "mt-aviso", IFR: "mt-no", LIFR: "mt-no" };
   function horaLocal(fecha) {
@@ -363,8 +387,8 @@ var PronosticoVuelo = (() => {
     const cerca = lat != null && lon != null ? cercanas(lat, lon, 3) : [];
     const lista = cerca.length ? `<ul class="mt-lista">${cerca.map((e) => {
       const r = representatividad(e, elevArea);
-      return `<li><div><b class="mt-icao">${esc(e.icao)}</b> ${esc(e.nombre)}<span class="mt-tenue"> · ${Math.round(e.km)} km ${e.hacia} · ${e.elev} m${e.taf ? " · con TAF" : ""}</span>
-      ${r.buena ? "" : `<span class="mt-ref">Solo referencia: ${esc(r.motivos.join(" y "))}</span>`}</div>
+      return `<li><div><b class="mt-icao">${escapar(e.icao)}</b> ${escapar(e.nombre)}<span class="mt-tenue"> · ${Math.round(e.km)} km ${e.hacia} · ${e.elev} m${e.taf ? " · con TAF" : ""}</span>
+      ${r.buena ? "" : `<span class="mt-ref">Solo referencia: ${escapar(r.motivos.join(" y "))}</span>`}</div>
       <div class="mt-enlaces">${enlaces(e.icao).map(([t, u]) => `<a href="${u}" target="_blank" rel="noopener">${t} ↗</a>`).join("")}</div></li>`;
     }).join("")}</ul>` : '<p class="mt-tenue">Carga el área para ver los aeródromos con METAR más cercanos.</p>';
     let leido = "";
@@ -377,26 +401,21 @@ var PronosticoVuelo = (() => {
         const comp = comparar(m, dron, fila);
         const edad = antiguedadMin(m);
         leido = `<div class="mt-leido">
-        <div class="mt-cab"><b>${esc(m.tipo)} ${esc(m.icao)}</b><span class="mt-chip ${COLOR_CAT[m.categoria]}">${m.categoria}</span>
-          <span class="mt-tenue">${esc(horaTexto(m.hora))} hora de Chile${edad >= 0 && edad < 60 * 24 * 3 ? ` · hace ${edad < 90 ? edad + " min" : Math.round(edad / 60) + " h"}` : ""}</span></div>
+        <div class="mt-cab"><b>${escapar(m.tipo)} ${escapar(m.icao)}</b><span class="mt-chip ${COLOR_CAT[m.categoria]}">${m.categoria}</span>
+          <span class="mt-tenue">${escapar(horaTexto(m.hora))} hora de Chile${edad >= 0 && edad < 60 * 24 * 3 ? ` · hace ${edad < 90 ? edad + " min" : Math.round(edad / 60) + " h"}` : ""}</span></div>
         ${edad > 90 ? '<p class="mt-aviso">Este reporte tiene más de hora y media: revisa si hay uno más nuevo.</p>' : ""}
-        <ul class="mt-comp">${comp.map((c) => `<li class="${NIVEL[c.nivel]}">${esc(c.texto)}</li>`).join("")}</ul>
-        <pre class="mt-crudo">${esc(m.texto)}${d.metars.length > 1 ? `
-(+${d.metars.length - 1} reporte${d.metars.length > 2 ? "s" : ""} anterior${d.metars.length > 2 ? "es" : ""})` : ""}${d.taf ? "\n\n" + esc(d.taf) : ""}</pre>
+        <ul class="mt-comp">${comp.map((c) => `<li class="${NIVEL[c.nivel]}">${escapar(c.texto)}</li>`).join("")}</ul>
+        <pre class="mt-crudo">${escapar(m.texto)}${d.metars.length > 1 ? `
+(+${d.metars.length - 1} reporte${d.metars.length > 2 ? "s" : ""} anterior${d.metars.length > 2 ? "es" : ""})` : ""}${d.taf ? "\n\n" + escapar(d.taf) : ""}</pre>
         <button type="button" class="mt-btn" ${acc}="metar-borrar">Borrar METAR</button></div>`;
       }
     }
-    return `<div class="mt-panel"><h3 class="mt-tit">${esc(titulo)}</h3>
+    return `<div class="mt-panel"><h3 class="mt-tit">${escapar(titulo)}</h3>
     <p class="mt-tenue">Aeródromos con METAR más cercanos. Abre uno, copia el reporte y pégalo abajo: la app lo lee y lo compara con el dron y el pronóstico.</p>
     ${lista}
-    <label class="mt-pegar"><span>Pegar METAR (y TAF si quieres)</span><textarea rows="3" data-metar-texto placeholder="METAR SCEL 021400Z 20008KT 9999 FEW030 22/08 Q1015 NOSIG=">${esc(guardado && guardado.texto && !leido.includes("mt-leido") ? guardado.texto : "")}</textarea></label>
+    <label class="mt-pegar"><span>Pegar METAR (y TAF si quieres)</span><textarea rows="3" data-metar-texto placeholder="METAR SCEL 021400Z 20008KT 9999 FEW030 22/08 Q1015 NOSIG=">${escapar(guardado && guardado.texto && !leido.includes("mt-leido") ? guardado.texto : "")}</textarea></label>
     <button type="button" class="mt-btn mt-pri" ${acc}="metar-leer">Leer METAR</button>
     ${leido}</div>`;
-  }
-
-  // compartido/util.js
-  function escapar(t) {
-    return String(t != null ? t : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   }
 
   // modulos/vuelos/calculo.js
@@ -578,7 +597,6 @@ var PronosticoVuelo = (() => {
   var VERSION = "1.1 (Vuelos 0.6)";
   var DRONES = DRONES_BASE.map((d) => ({ id: d.id, nombre: d.nombre, vientoMaxMs: d.vientoMaxMs, rafagaMaxMs: d.rafagaMaxMs }));
   var piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, cercanas, decodificar, comparar, graficoPronostico, checklistClima };
-  var esc2 = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   var dos = (n) => String(n).padStart(2, "0");
   var DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   var fechaCorta = (iso) => {
@@ -639,19 +657,19 @@ var PronosticoVuelo = (() => {
         // { texto, leidoEn }: el METAR pegado
       };
     }
-    const checklistHtml = (chk, titulo) => `<div class="pv-caja"><h3>${esc2(titulo)}</h3><ul class="pv-chk">${chk.map((x) => `<li class="${x.cumple ? "si" : "no"}"><span>${esc2(x.texto)}</span><b>${esc2(x.detalle)}</b></li>`).join("")}</ul></div>`;
+    const checklistHtml = (chk, titulo) => `<div class="pv-caja"><h3>${escapar(titulo)}</h3><ul class="pv-chk">${chk.map((x) => `<li class="${x.cumple ? "si" : "no"}"><span>${escapar(x.texto)}</span><b>${escapar(x.detalle)}</b></li>`).join("")}</ul></div>`;
     const metarHtml = () => `<div class="pv-caja">${htmlPanelMetar({ lat: o.lat, lon: o.lon, elevArea: st.pron ? st.pron.elevacionModelo : null, guardado: st.metar, dron: dron(), horasPron: st.pron ? st.pron.horas : null, acc: "data-pv" })}</div>`;
     function render() {
       const d = dron();
       const cab = `<div class="pv-cab">
-      <div><h2>Pronóstico de vuelo</h2>${o.lugar ? `<p class="pv-tenue">${esc2(o.lugar)}</p>` : ""}</div>
+      <div><h2>Pronóstico de vuelo</h2>${o.lugar ? `<p class="pv-tenue">${escapar(o.lugar)}</p>` : ""}</div>
       <div class="pv-acc">
-        ${o.dron ? "" : `<select class="pv-dron" aria-label="Dron">${DRONES.map((x) => `<option value="${x.id}" ${x.id === d.id ? "selected" : ""}>${esc2(x.nombre)}</option>`).join("")}</select>`}
+        ${o.dron ? "" : `<select class="pv-dron" aria-label="Dron">${DRONES.map((x) => `<option value="${x.id}" ${x.id === d.id ? "selected" : ""}>${escapar(x.nombre)}</option>`).join("")}</select>`}
         <button type="button" class="pv-btn pri" data-pv="consultar" ${st.cargando || o.lat == null ? "disabled" : ""}>${st.cargando ? "Consultando…" : st.pron ? "Actualizar" : "Consultar"}</button>
       </div></div>`;
       let cuerpo = "";
       if (o.lat == null || o.lon == null) cuerpo = '<p class="pv-tenue">Falta la ubicación (centro del área o del tramo) para consultar.</p>';
-      else if (st.error) cuerpo = `<div class="pv-error">${esc2(st.error)}</div>${o.ultimo ? ultimoHtml(o.ultimo) : ""}`;
+      else if (st.error) cuerpo = `<div class="pv-error">${escapar(st.error)}</div>${o.ultimo ? ultimoHtml(o.ultimo) : ""}`;
       else if (st.pron) {
         const dias = [...new Set(st.pron.horas.map((x) => x.fecha))];
         if (!st.dia || !dias.includes(st.dia)) st.dia = o.fecha && dias.includes(o.fecha) ? o.fecha : dias[0];
@@ -669,11 +687,11 @@ var PronosticoVuelo = (() => {
       } else if (o.ultimo) cuerpo = ultimoHtml(o.ultimo);
       else cuerpo = '<p class="pv-tenue">Consulta los próximos 3 días: viento a 120 m, ráfagas, lluvia, nubes, temperatura y Kp.</p>';
       if (o.lat != null && !st.pron) cuerpo += metarHtml();
-      el.innerHTML = cab + cuerpo + `<div class="pv-enlaces">${ENLACES_CONSULTA.map(([t, u]) => `<a class="pv-link" href="${u}" target="_blank" rel="noopener">${esc2(t)} ↗</a>`).join("")}</div>`;
+      el.innerHTML = cab + cuerpo + `<div class="pv-enlaces">${ENLACES_CONSULTA.map(([t, u]) => `<a class="pv-link" href="${u}" target="_blank" rel="noopener">${escapar(t)} ↗</a>`).join("")}</div>`;
     }
     function ultimoHtml(u) {
       const f = new Date(u.consultadoEn);
-      return `<p class="pv-tenue">Última consulta guardada: ${f.toLocaleDateString("es-CL")} ${dos(f.getHours())}:${dos(f.getMinutes())}${u.ventana ? ` · ventana ${esc2(u.ventana)}` : ""}. Sin conexión se muestra esto.</p>${u.checklist ? checklistHtml(u.checklist, "Checklist (última consulta)") : ""}`;
+      return `<p class="pv-tenue">Última consulta guardada: ${f.toLocaleDateString("es-CL")} ${dos(f.getHours())}:${dos(f.getMinutes())}${u.ventana ? ` · ventana ${escapar(u.ventana)}` : ""}. Sin conexión se muestra esto.</p>${u.checklist ? checklistHtml(u.checklist, "Checklist (última consulta)") : ""}`;
     }
     async function consultar() {
       if (o.lat == null || o.lon == null) return;

@@ -27,13 +27,18 @@ const porNombre = (a, b) => a.nombre.localeCompare(b.nombre, 'es');
 
 async function asegurarOficina() {
   const o = await obtener(ALM_PROYECTOS, OFICINA_ID);
-  if (!o) await guardar(ALM_PROYECTOS, sellar({ id: OFICINA_ID, nombre: 'Oficina', mandante: 'Topoland', especial: true }));
+  if (!o) await guardar(ALM_PROYECTOS, sellar({ id: OFICINA_ID, nombre: 'Oficina', mandante: 'Interno', especial: true }));
 }
 
 export async function listarProyectos({ incluirOficina = true } = {}) {
   let lista;
   if (proveedor) lista = await proveedor.listarProyectos();
-  else { await asegurarOficina(); lista = (await todos(ALM_PROYECTOS)).filter(activo); }
+  else {
+    // v0.21.1: la Oficina se revisa en la misma lectura (antes, una lectura extra cada vez).
+    let regs = await todos(ALM_PROYECTOS);
+    if (!regs.some(p => p.id === OFICINA_ID)) { await asegurarOficina(); regs = await todos(ALM_PROYECTOS); }
+    lista = regs.filter(activo);
+  }
   lista = lista.filter(p => incluirOficina || p.id !== OFICINA_ID);
   return lista.sort((a, b) => (a.id === OFICINA_ID ? -1 : b.id === OFICINA_ID ? 1 : porNombre(a, b)));
 }

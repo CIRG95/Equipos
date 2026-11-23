@@ -4,7 +4,7 @@
 
 import { cercanas, representatividad, enlaces, decodificar, comparar, antiguedadMin } from './metar.js';
 
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { escapar as esc } from '../../compartido/util.js';
 const NIVEL = { ok: 'mt-ok', aviso: 'mt-aviso', no: 'mt-no' };
 const COLOR_CAT = { VFR: 'mt-ok', MVFR: 'mt-aviso', IFR: 'mt-no', LIFR: 'mt-no' };
 

@@ -3,20 +3,20 @@
 
 import * as nube from '../compartido/nube.js';
 
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { escapar as esc } from '../compartido/util.js';
 const hora = iso => { if (!iso) return '—'; const d = new Date(iso); return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); };
 const sesion = { leer: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, escribir: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch { /* */ } } };
 
 export function iniciarPanelNube({ pastilla, alLlegarDatos }) {
-  const config = window.TOPOLAND_CONFIG || {};
+  const config = window.SISTEMA_CONFIG || {};
   nube.configurar({ clienteId: config.googleClientId || undefined, api: config.driveApi || undefined });
   nube.iniciar();
-  window.TopolandNube = nube; // para revisar desde la consola
+  window.SistemaNube = nube; // para revisar desde la consola
 
   // ?carpeta=<id> en la dirección = invitación de un compañero
   const url = new URL(location.href);
   if (url.searchParams.get('carpeta')) {
-    sesion.escribir('topoland_invitacion', url.searchParams.get('carpeta'));
+    sesion.escribir('sistema_invitacion', url.searchParams.get('carpeta'));
     url.searchParams.delete('carpeta');
     history.replaceState(null, '', url.pathname + url.search + url.hash);
   }
@@ -53,7 +53,7 @@ export function iniciarPanelNube({ pastilla, alLlegarDatos }) {
 
   function pintar() {
     const e = nube.estado();
-    const invitacion = sesion.leer('topoland_invitacion');
+    const invitacion = sesion.leer('sistema_invitacion');
     const http = /^https?:/.test(location.protocol);
     let cuerpo = '';
 
@@ -111,7 +111,7 @@ export function iniciarPanelNube({ pastilla, alLlegarDatos }) {
       case 'invitacion': {
         const borrar = !!(dlg.querySelector('#np-limpiar') || {}).checked;
         if (borrar && !confirm('Se borrarán los equipos y datos de prueba de ESTE dispositivo y se bajarán los de la carpeta compartida. ¿Seguir?')) return;
-        accion(async () => { await nube.usarCarpeta(sesion.leer('topoland_invitacion'), { empezarDesdeNube: borrar }); sesion.escribir('topoland_invitacion', null); }, 'Listo: ya trabajas en la carpeta compartida');
+        accion(async () => { await nube.usarCarpeta(sesion.leer('sistema_invitacion'), { empezarDesdeNube: borrar }); sesion.escribir('sistema_invitacion', null); }, 'Listo: ya trabajas en la carpeta compartida');
         break;
       }
       case 'sincronizar': accion(() => nube.sincronizar(), 'Sincronizado'); break;
@@ -139,5 +139,5 @@ export function iniciarPanelNube({ pastilla, alLlegarDatos }) {
   });
 
   pastilla.addEventListener('click', () => { mensaje = null; pintar(); dlg.showModal(); });
-  if (sesion.leer('topoland_invitacion') && !nube.estado().carpetaId) setTimeout(() => { pintar(); dlg.showModal(); }, 400);
+  if (sesion.leer('sistema_invitacion') && !nube.estado().carpetaId) setTimeout(() => { pintar(); dlg.showModal(); }, 400);
 }

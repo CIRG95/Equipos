@@ -1,5 +1,5 @@
 /* pronostico-vuelo.css — estilos de la tarjeta de pronóstico (paquete PronosticoVuelo, desde el módulo Vuelos).
-   Todo va dentro de .pv. Los colores toman las variables de la app si existen (--marca, --ink, --muted…) y si no, los de Topoland. */
+   Todo va dentro de .pv. Los colores toman las variables de la app si existen (--marca, --ink, --muted…) y si no, los del Sistema. */
 .pv{--pv-marca:var(--marca,#1D5C63);--pv-ink:var(--ink,#1C1F23);--pv-muted:var(--muted,#5B6168);--pv-line:var(--borde,#E2E0DA);--pv-line2:var(--borde-suave,#EFEDE8);
   --pv-sup:var(--sup,#FFFFFF);--pv-go:#0F766E;--pv-no:#B42318;--pv-mono:var(--mono,'IBM Plex Mono',ui-monospace,Consolas,monospace);
   display:flex;flex-direction:column;gap:10px;color:var(--pv-ink);background:var(--pv-sup);border:1px solid var(--pv-line);border-radius:10px;padding:14px 16px;min-width:0}

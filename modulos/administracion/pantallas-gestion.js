@@ -13,7 +13,7 @@ import {
   habilitacionPersona, estadoDocumentos, avisoContrato, eppPorReponer, resumenVacaciones, ubicacionPersona, crucesAusencia, ocupacionSemanal,
   proyectosActivosDe, diasHabiles, TIPOS_AUSENCIA, NOMBRE_AUSENCIA, NOMBRE_TURNO,
 } from './modelo.js';
-import { esc, fechaLegible, vacio, plural, chipHab, campo, input, fecha, select, ICO } from './ui.js';
+import { esc, fechaLegible, vacio, plural, txt, chipHab, campo, input, fecha, select, ICO } from './ui.js';
 
 export const gestiona = v => v.ctx.rol === 'rrhh' || v.ctx.rol === 'direccion';
 export const iniciales = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
@@ -294,7 +294,6 @@ export const cambios = {
   'dist-agregar': async (i, v) => { if (!i.value) return false; await moverPersona(v, i.value, { a: i.dataset.proy }); v.avisar('Persona asignada al proyecto'); return true; },
 };
 
-const txt = (fd, k) => String(fd.get(k) || '').trim();
 export const formularios = {
   trabajador: async (f, fd, v) => {
     const p = await guardarPersona({ nombre: txt(fd, 'nombre'), cargo: txt(fd, 'cargo'), roles: fd.getAll('roles') }, { personaId: v.ctx.personaId });

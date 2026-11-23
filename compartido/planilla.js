@@ -5,8 +5,7 @@
 
 import { cargarScript, normalizarTexto } from './util.js';
 
-let urlSheetJS = 'vendor/xlsx.full.min.js'; // relativa a la página que monta el módulo
-export function configurarSheetJS(url) { urlSheetJS = url; }
+const urlSheetJS = 'vendor/xlsx.full.min.js'; // relativa a la página que monta el módulo
 
 export function leerCSV(texto) {
   texto = texto.replace(/^﻿/, '');

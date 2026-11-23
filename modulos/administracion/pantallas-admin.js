@@ -7,7 +7,7 @@ import { ALM, guardarRegistro, guardarConfig, aPapelera } from './datos.js';
 import {
   tiposDe, acreditacion, estadoDocumentos, ESTADOS_GUIA, ESTADOS_VIAJE, ESTADOS_PLATAFORMA,
 } from './modelo.js';
-import { esc, fechaLegible, vacio, plural, chipVenc, chipHab, chipPlataforma, pestanas, campo, input, fecha, select, firmaCambio } from './ui.js';
+import { esc, fechaLegible, vacio, plural, txt, chipVenc, chipHab, chipPlataforma, pestanas, campo, input, fecha, select, firmaCambio } from './ui.js';
 import { tablaDocumentos } from './pantallas-personal.js';
 import { ESTADOS_VENC } from '../../compartido/vencimientos.js';
 
@@ -186,7 +186,6 @@ export function configuracion(v) {
 }
 
 // ─────────────────────────── Acciones y formularios ───────────────────────────
-const txt = (fd, k) => String(fd.get(k) || '').trim();
 const num = (fd, k) => (fd.get(k) === '' || fd.get(k) == null ? '' : Number(fd.get(k)));
 
 export const acciones = {

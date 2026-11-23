@@ -13,11 +13,12 @@
 import { almacenesRegistrados, todos, obtener, guardar, guardarVarios, alCambiar, vaciar } from './almacen.js';
 import { dispositivoId, ahoraISO } from './util.js';
 import { crearAdaptadorDrive, idDeEnlaceDrive } from './nube-drive.js';
+import { CARPETAS_DRIVE_ANTERIORES } from './nombres-anteriores.js';
 
-const CLAVE = 'topoland_nube';
+const CLAVE = 'sistema_nube';
 const PREFIJOS = ['equipos_', 'compartido_', 'vuelos_', 'seguimiento_', 'terreno_', 'gastos_', 'admin_', 'planif_'];
 const ALM_ARCHIVOS = 'compartido_archivos';
-export const NOMBRE_CARPETA_PRUEBA = 'Topoland Equipos (prueba)';
+export const NOMBRE_CARPETA_PRUEBA = 'Sistema de trabajo';
 
 let cfg = leerCfg();
 let adaptador = null;
@@ -73,12 +74,6 @@ export async function conectar({ forzarConsentimiento = false } = {}) {
   if (cfg.carpetaId) programar(200);
 }
 
-/** Solo para pruebas automáticas. */
-export function conectarConToken(token, segundos = 3600) {
-  configurar();
-  adaptador.usarToken(token, segundos);
-  emitir();
-}
 
 export function desconectar({ olvidarCarpeta = false } = {}) {
   if (adaptador) adaptador.desconectar();
@@ -87,7 +82,11 @@ export function desconectar({ olvidarCarpeta = false } = {}) {
 }
 
 export async function buscarCarpetas(nombre = NOMBRE_CARPETA_PRUEBA) {
-  return adaptador.buscarCarpetas(nombre);
+  // v0.21.1: también encuentra las carpetas creadas con el nombre anterior.
+  const nombres = nombre === NOMBRE_CARPETA_PRUEBA ? [nombre, ...CARPETAS_DRIVE_ANTERIORES] : [nombre];
+  const listas = await Promise.all(nombres.map(n => adaptador.buscarCarpetas(n)));
+  const vistas = new Set();
+  return listas.flat().filter(c => c && !vistas.has(c.id) && vistas.add(c.id));
 }
 
 export async function crearCarpeta(nombre = NOMBRE_CARPETA_PRUEBA) {
@@ -158,7 +157,7 @@ async function fotografia() {
     const regs = await todos(nombre);
     almacenes[nombre] = nombre === ALM_ARCHIVOS ? regs.map(sinDatos) : regs;
   }
-  return { app: 'topoland', formato: 1, dispositivoId: dispositivoId(), escritoEn: ahoraISO(), almacenes };
+  return { app: 'sistema', formato: 1, dispositivoId: dispositivoId(), escritoEn: ahoraISO(), almacenes };
 }
 
 async function mezclar(remoto) {

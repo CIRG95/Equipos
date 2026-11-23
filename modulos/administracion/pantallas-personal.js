@@ -5,8 +5,8 @@
 // Acceso: Recursos Humanos y Jefatura. Rutas: #/personal/<personaId>[/<pestaña>] · #/personal/carpetas ·
 // #/personal/carpeta/<id> · #/personal/carpeta-proyecto/<proyectoId> (crea o abre la carpeta de arranque del proyecto).
 
-import { hoyISO, descargar, cargarScript } from '../../compartido/util.js';
-import { ROLES_PERSONA, NOMBRE_ROL_PERSONA } from '../../app/catalogo.js';
+import { hoyISO, descargar, cargarScript, nombreEmpresa } from '../../compartido/util.js';
+import { ROLES_PERSONA } from '../../app/catalogo.js';
 import { gestiona, avisoConfidencial as aviso, iniciales, dotacion } from './pantallas-gestion.js';
 import { contenidoArchivo, abrirArchivo } from '../../compartido/archivos.js';
 import { armarZip, bytesDeDataURL, nombreSeguro } from '../../compartido/zip.js';
@@ -18,7 +18,7 @@ import {
   diasHabiles, resumenVacaciones, ubicacionPersona,
 } from './modelo.js';
 import { genteDeProyecto } from '../../compartido/cronograma.js';
-import { esc, fechaLegible, vacio, plural, chipVenc, chipHab, chipPlataforma, pestanas, campo, input, fecha, select, firmaCambio, ICO } from './ui.js';
+import { esc, fechaLegible, vacio, plural, txt, chipVenc, chipHab, chipPlataforma, campo, input, fecha, select, firmaCambio, ICO } from './ui.js';
 
 const PESTANAS_FICHA = [
   ['datos', 'Datos personales'], ['documentos', 'Documentos'], ['acreditacion', 'Acreditación por mandante'], ['contrato', 'Contrato'], ['vacaciones', 'Vacaciones y turnos'],
@@ -358,7 +358,7 @@ async function cvPdf(v, persona) {
   let y = 22;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text(persona.nombre, 20, y); y += 7;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text(persona.cargo || '', 20, y); y += 5;
-  doc.setFontSize(9); doc.setTextColor(90); doc.text(`${v.ctx.marca ? v.ctx.marca.nombre : 'Topoland'} · CV generado el ${fechaLegible(hoyISO())} desde el Sistema de trabajo`, 20, y); doc.setTextColor(0); y += 10;
+  doc.setFontSize(9); doc.setTextColor(90); doc.text(`${v.ctx.marca ? v.ctx.marca.nombre : nombreEmpresa()} · CV generado el ${fechaLegible(hoyISO())} desde el Sistema de trabajo`, 20, y); doc.setTextColor(0); y += 10;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('Experiencia en proyectos', 20, y); y += 7;
   doc.setFontSize(10);
   if (!ps.length) { doc.setFont('helvetica', 'normal'); doc.text('Sin proyectos registrados en el sistema.', 20, y); }
@@ -404,7 +404,6 @@ export const cambios = {
   'lic-persona': async (i, v) => { const l = v.st.d.licitaciones.find(x => x.id === i.dataset.id); const s = new Set(l.personas || []); i.checked ? s.add(i.dataset.p) : s.delete(i.dataset.p); await guardarRegistro(ALM.licitaciones, { id: l.id, personas: [...s] }); return true; },
 };
 
-const txt = (fd, k) => String(fd.get(k) || '').trim();
 export const formularios = {
   documento: async (f, fd, v) => {
     const { dueno, id, tipo } = f.dataset;

@@ -117,7 +117,7 @@ export function kmlDe(doc) {
   };
   const cuerpo = (doc.elementos || []).map(elementoXml).join('') + (doc.carpetas || []).map(carpetaXml).join('');
   const estilosTxt = [...estilos.values()].map(s => estiloXml(s.id, s.tipo, s.estilo)).join('');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document><name>${xml(doc.nombre || 'Topoland')}</name><open>1</open>`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document><name>${xml(doc.nombre || 'Sistema de trabajo')}</name><open>1</open>`
     + `${doc.descripcion ? `<description>${xml(doc.descripcion)}</description>` : ''}${estilosTxt}${cuerpo}</Document>\n</kml>\n`;
 }
 

@@ -1,4 +1,4 @@
-// app/sistema.js — envoltorio GLOBAL del Sistema de trabajo Topoland (Sistema v0.1).
+// app/sistema.js — envoltorio GLOBAL del Sistema de trabajo (Sistema v0.1).
 // Reemplaza al envoltorio de prueba de Equipos: menú por rol, persona, modo teléfono/PC, nube,
 // y monta cada módulo en el contenedor por su puerta de entrada.
 // Se empaqueta con esbuild en sistema-app.js (script clásico), igual que equipos-app.js.
@@ -168,7 +168,7 @@ async function cargarPersonas(seleccionar) {
 }
 
 // ── Marca de la empresa (nombre y color). Por ahora por equipo, en localStorage. ──
-const MARCA_DEFECTO = { nombre: 'Topoland', color: '#1D5C63' };
+const MARCA_DEFECTO = { nombre: 'Mi empresa', color: '#1D5C63' };
 function leerMarca() {
   try { return { ...MARCA_DEFECTO, ...JSON.parse(leer('env_marca', '{}')) }; } catch { return { ...MARCA_DEFECTO }; }
 }
@@ -176,7 +176,7 @@ function aplicarMarca() {
   const m = leerMarca();
   document.documentElement.style.setProperty('--marca', m.color);
   document.querySelector('.sis-marca b').textContent = m.nombre;
-  document.querySelector('.sis-logo').textContent = (m.nombre.trim()[0] || 'T').toUpperCase();
+  document.querySelector('.sis-logo').textContent = (m.nombre.trim()[0] || 'S').toUpperCase();
 }
 
 /** La marca guardada en la nube (admin_config) manda sobre la de este equipo: así todos ven el mismo nombre y color. */

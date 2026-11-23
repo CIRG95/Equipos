@@ -14,14 +14,14 @@ SIS.checklistSel = null;      // { plantillas, instrumentos } del proyecto elegi
 
 /** Aplica (o quita) la configuración del Sistema. Se llama al iniciar, al vincular y al llegar datos. */
 async function sisAplicarConfigTerreno() {
-  const vinculado = !!(SIS.listo && sisPersona() && typeof TopolandConexion.configTerreno === "function");
+  const vinculado = !!(SIS.listo && sisPersona() && typeof SistemaConexion.configTerreno === "function");
   if (!vinculado) {
     if (SIS.cfgTerreno) { SIS.cfgTerreno = null; cargarPlantillas(); cargarConfig(); }
     document.body.dataset.vinculado = "";
     return;
   }
   try {
-    const cfg = await TopolandConexion.configTerreno();
+    const cfg = await SistemaConexion.configTerreno();
     SIS.cfgTerreno = cfg;
     state.plantillas = cfg.plantillas;
     state.config.toleranciaTramoVerdeMm = cfg.tolerancia.verdeMm;
@@ -37,9 +37,9 @@ async function sisChecklistProyectoUI(id) {
   SIS.checklistSel = null;
   if (!box || !wrap) return;
   const mostrarElegir = () => { box.hidden = true; wrap.hidden = false; };
-  if (!id || id === "oficina" || typeof TopolandConexion.checklistDeProyecto !== "function") { mostrarElegir(); return; }
+  if (!id || id === "oficina" || typeof SistemaConexion.checklistDeProyecto !== "function") { mostrarElegir(); return; }
   let r = null;
-  try { r = await TopolandConexion.checklistDeProyecto(id); } catch (e) { console.error(e); }
+  try { r = await SistemaConexion.checklistDeProyecto(id); } catch (e) { console.error(e); }
   if (!r) { mostrarElegir(); return; }
   SIS.checklistSel = r;
   if (!r.plantillas.length) { mostrarElegir(); return; }
@@ -56,12 +56,12 @@ async function sisChecklistProyectoUI(id) {
 
 /** Equipos que la persona lleva (checklist de salida del Sistema), como sugerencias de «Equipo utilizado». */
 async function sisSugerirEquipos(datalistId) {
-  if (!SIS.listo || !sisPersona() || typeof TopolandConexion.misEquiposEnTerreno !== "function") return;
+  if (!SIS.listo || !sisPersona() || typeof SistemaConexion.misEquiposEnTerreno !== "function") return;
   try {
     const dl = document.getElementById(datalistId);
     if (!dl) return;
     const ya = new Set([...dl.options].map((o) => o.value));
-    (await TopolandConexion.misEquiposEnTerreno()).forEach((e) => {
+    (await SistemaConexion.misEquiposEnTerreno()).forEach((e) => {
       const v = e.nombre + (e.numeroSerie ? ", N° serie " + e.numeroSerie : "");
       if (!ya.has(v)) { const o = document.createElement("option"); o.value = v; dl.insertBefore(o, dl.firstChild); }
     });

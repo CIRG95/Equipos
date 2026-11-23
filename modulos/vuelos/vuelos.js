@@ -9,6 +9,8 @@ import { fondoEstatico } from './mapa-estatico.js';
 import { diasHabilesDesde } from '../../compartido/periodicidad.js';
 import { COLORES_DIA } from './ui.js';
 import { montarPantallas } from './pantallas.js';
+import { calcularAmarreHoja } from './vista-amarre.js';
+import { listarRedes } from '../planificacion/datos.js';
 
 export const VERSION = VERSION_MODULO;
 export const ALMACENES = Object.values(ALM);
@@ -31,6 +33,24 @@ export async function avanceDeProyecto(proyectoId, hoy = new Date().toISOString(
     return { id: p.id, nombre: p.nombre || 'Hoja de vuelo', estado, totales: totalesAvance(estado), meta: metaDelDia(p.programa || [], estado, hoy) };
   });
   return { hojas, totales: totalesAvance(hojas.flatMap(x => x.estado)), registros: eventos.length };
+}
+
+/**
+ * v0.21 · Hojas del proyecto listas para el KMZ: [{ hoja, geo, avance, amarre }] (solo las que tienen área).
+ * proyecto: el registro del proyecto (sus capas dan los PR para las bases de amarre).
+ */
+export async function vuelosParaKmz(proyecto) {
+  iniciar();
+  const [planes, eventos, redes] = await Promise.all([planesCrudos(proyecto.id), eventosDeProyecto(proyecto.id).catch(() => []), listarRedes().catch(() => [])]);
+  const out = [];
+  for (const p of planes) {
+    const hoja = migrarHoja(p), geo = geometria(hoja);
+    if (!geo) continue;
+    let amarre = null;
+    try { amarre = calcularAmarreHoja(hoja, geo, proyecto, redes); } catch (e) { console.warn('Amarre no calculado', e); }
+    out.push({ hoja, geo, avance: eventos.filter(e => e.hojaId === p.id), amarre });
+  }
+  return out;
 }
 
 /** contexto: { rol, personaId, proyectoId?, planId?, tab? } → { desmontar(), refrescar() } */

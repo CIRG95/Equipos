@@ -1,4 +1,12 @@
-# INTEGRACION.md — Sistema v0.15
+# INTEGRACION.md — Sistema v0.21
+
+## v0.21 · Mapa de puntos (Monografías 0.5) y exportar KML/KMZ
+- `compartido/kmz.js`: escribe KML con carpetas, estilos compartidos y `ExtendedData`, y el KMZ con `armarZip` (`compartido/zip.js`). `descargarDocumento(doc, base, 'kmz'|'kml')`.
+- `app/kmz-proyecto.js` (sin pantalla, con pruebas): `carpetaCapas`, `carpetaRed`, `carpetaMarcas`, `carpetaVuelo(hoja, { avance, amarre, geo })`, `carpetaMonografias(puntos)`, `documentoProyecto(proyecto, { redes, marcas, vuelos, monografias })`.
+- Vuelos: `calcularAmarreHoja(h, g, proyecto, redes)` y `prsParaAmarre` salen de `vista-amarre.js` para usarse sin la vista; puerta nueva `Vuelos.vuelosParaKmz(proyecto)`. Botón «Exportar KMZ» en la hoja (`data-accion="kmz-vuelo"`).
+- Planificación: «Exportar KMZ» en la red (`kmz-red`) y en las marcas (`kmz-marcas`).
+- Monografías: `mapa-calculo.js` (posición de la ficha, Web Mercator, escala, hoja con viñeta, zoom para una escala, nombres sin taparse) y `mapa-puntos.js` (ventana, dibujo en canvas, imagen y PDF con jsPDF). `croquis.js` exporta `dibujarSimbolo`, `dibujarNorte` y `capasDe`. Puerta nueva `Monografias.puntosDeProyecto(proyectoId)`.
+- Proyecto: «Exportar el proyecto (KMZ)» y «Como KML» en «Lo planificado» (`exportar-kmz-proyecto` en `app/vistas.js`).
 
 ## v0.17 · Roles en proyectos, trabajos ordenables, capas del proyecto y Vuelos 0.10
 

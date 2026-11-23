@@ -6,10 +6,12 @@ import { escapar as esc, descargar, fechaLegible, fechaHoraLegible, leerLS } fro
 import { listarProyectos, obtenerProyecto, OFICINA_ID } from '../../compartido/catalogos.js';
 import * as D from './datos.js';
 import { configurarPieza, chequeoMonografia } from './pieza-terreno.js';
-import { pdfDe, ordenNatural } from './pdf.js';
+import { pdfDe, ordenNatural, urlImagen } from './pdf.js';
 import { montarPasos } from './pasos.js';
 import { eliminarMonografia, restaurarMonografia, purgarMonografia, papeleraDeProyecto } from './borrado.js';
-import { chequeoFicha, cuenta, normalizarComun, efectiva } from './comun.js';
+import { chequeoFicha, cuenta, normalizarComun, efectiva, valorComun, CAMPOS_COMUNES } from './comun.js';
+import { abrirMapaPuntos } from './mapa-puntos.js';
+import { puntosDeFichas } from './mapa-calculo.js';
 
 const nombreArchivo = s => String(s || 'punto').replace(/[^a-z0-9_-]+/gi, '_');
 
@@ -48,7 +50,7 @@ export function montarPantallas(raiz, ctx) {
         <div class="sis-acciones"><a class="sis-btn primario" href="${base}/comun">${st.lista.length ? 'Abrir el paso a paso' : 'Empezar: datos comunes'}</a>${st.lista.length ? `<a class="sis-btn" href="${base}/revisar">Revisar y PDF</a>` : ''}</div></section>
       ${st.lista.length ? `<div class="mn-barra">
         <div class="mn-filtros">${[['', `Todas · ${st.lista.length}`], ...Object.keys(D.ESTADOS).filter(cuentaE).map(e => [e, `${D.ESTADOS[e].texto} · ${cuentaE(e)}`])].map(([e, t]) => `<button type="button" class="vu-pildora${st.filtro === e ? ' activo' : ''}" data-mn="filtro" data-e="${e}">${esc(t)}</button>`).join('')}</div>
-        <div class="sis-acciones"><button class="sis-btn primario" data-mn="pdf-todas" ${lista.length ? '' : 'disabled'}>PDF de ${st.filtro ? 'estas' : 'todas'} (${lista.length})</button></div>
+        <div class="sis-acciones"><button class="sis-btn mn-btn-mapa" data-mn="mapa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14"></path><path d="M15 6v14"></path></svg>Mapa de puntos</button><button class="sis-btn primario" data-mn="pdf-todas" ${lista.length ? '' : 'disabled'}>PDF de ${st.filtro ? 'estas' : 'todas'} (${lista.length})</button></div>
       </div>` : ''}
       <section class="sis-tarjeta">${lista.length ? `<table class="mn-tabla"><thead><tr><th>Punto</th><th>Estado</th><th>Avance</th><th>Medición</th><th>Operador</th><th></th></tr></thead><tbody>
         ${lista.map(x => { const f = x.ficha, k = cuenta(chequeoFicha(f, chequeoMonografia(efectiva(f)), comun)); return `<tr>
@@ -81,12 +83,27 @@ export function montarPantallas(raiz, ctx) {
     if (blob) { descargar(nombre, blob, 'application/pdf'); avisar(`PDF listo: ${lista.length} monografía${lista.length === 1 ? '' : 's'}.`); }
   }
 
+  // v0.21: Mapa de puntos del proyecto (imagen, hoja con viñeta y KMZ).
+  async function abrirMapa() {
+    const fichas = st.lista.map(x => x.ficha);
+    const guardado = normalizarComun(leerLS(`mono_comun_${st.proyectoId}`, {}));
+    const valores = Object.fromEntries(CAMPOS_COMUNES.map(([k]) => [k, valorComun(guardado, fichas, k).v || '']));
+    const conLogo = fichas.find(f => f.clienteLogo);
+    await abrirMapaPuntos({
+      proyecto: st.proyecto || { nombre: '' },
+      lista: puntosDeFichas(st.lista, e => (D.ESTADOS[e] || {}).texto || e),
+      comun: { ...guardado, valores },
+      logoCliente: conLogo ? await urlImagen(conLogo.clienteLogo) : null,
+    });
+  }
+
   cont.addEventListener('click', async ev => {
     const b = ev.target.closest('[data-mn]');
     if (!b) return;
     const a = b.dataset.mn;
     try {
       if (a === 'filtro') st.filtro = b.dataset.e;
+      else if (a === 'mapa') { await abrirMapa(); return; }
       else if (a === 'pdf') { const x = st.lista.find(y => y.id === b.dataset.id); await descargarPdf([x.ficha], `monografia_${nombreArchivo(x.ficha.puntoMedido)}.pdf`); }
       else if (a === 'pdf-todas') {
         const lista = st.lista.filter(x => !st.filtro || x.estado === st.filtro).map(x => x.ficha);

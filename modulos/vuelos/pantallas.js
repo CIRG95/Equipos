@@ -33,6 +33,8 @@ import { avanceDeHoja } from './datos.js';
 import { listarRedes } from '../planificacion/datos.js';
 import { leerCapasDeArchivos, fusionarCapas, resumenCapas, areaPrincipal, haDeAnillo } from './capas-proyecto.js';
 import { ubicacionDe } from './ubicacion.js';
+import { descargarDocumento } from '../../compartido/kmz.js';
+import { carpetaVuelo } from '../../app/kmz-proyecto.js';
 
 const HERRAMIENTAS = [['hojas', 'Hojas de vuelo'], ['rapido', 'Pronóstico rápido'], ['kml', 'Limpiar KML'], ['drones', 'Drones']];
 
@@ -762,6 +764,11 @@ export function montarPantallas(contenedor, ctx) {
       else if (a === 'kml-vuelo') { const g = geo(); descargarPoligono(h.nombre || 'zona de vuelo', g.vuelo.map(g.marco.aLonLat)); avisar('KML de la zona descargado'); }
       else if (a === 'kml-sector') { descargarKmlSector(Number(b.dataset.i)); avisar('KML descargado'); }
       else if (a === 'kml-sectores') { const g = geo(); for (let k = 0; k < g.sectores.length; k++) { descargarKmlSector(k); await new Promise(r => setTimeout(r, 400)); } avisar(`${g.sectores.length} KML descargados`); }
+      else if (a === 'kmz-vuelo') { // v0.21: sectores con ha y %, base usada y su altura, bases y área, en carpetas
+        const g = geo(); if (!g) return;
+        const doc = { nombre: h.nombre || 'Hoja de vuelo', carpetas: [carpetaVuelo(h, { avance: st.avance || [], amarre: v.amarreDeHoja(h, g), geo: g })] };
+        try { const n = descargarDocumento(doc, `Vuelo_${h.nombre || 'hoja'}`); avisar(`KMZ listo: ${n} elemento${n === 1 ? '' : 's'}.`); } catch (e) { avisar(e.message, 'error'); }
+      }
       else if (a === 'kml-eje-sector') {
         const g = geo(), i = Number(b.dataset.i), linea = g.sectores[i].eje.map(g.marco.aLonLat);
         const nombre = `${h.nombre || 'eje'}${g.sectores.length > 1 ? ' ' + nombreSector(h, i, g.sectores.length) : ''}`;

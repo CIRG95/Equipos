@@ -1,6 +1,20 @@
-# Topoland · Sistema de trabajo — v0.20 · Terreno 0.9.0
+# Topoland · Sistema de trabajo — v0.21 · Terreno 0.9.0
 
 **Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra «Sistema Topoland — flujos por rol y propuesta v0.18»): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
+
+## Qué cambia en v0.21 (mapa de puntos y exportar KMZ/KML)
+- **Monografías 0.5 · Mapa de puntos del proyecto** (botón «Mapa de puntos» junto a «PDF de todas»): mapa satelital de Esri con un símbolo por ficha (triángulo, círculo con cruz, cuadrado o círculo; color y tamaño) y su nombre, o nombre y cota.
+  - Los **nombres se acomodan solos** para no taparse entre ellos ni tapar los símbolos, la flecha de norte o la escala gráfica; si se corren, quedan unidos a su punto con una línea.
+  - **Encuadre en pantalla** (zoom con + y −, escala aproximada) o **escala fija** (1:1.000, 1:2.000, 1:5.000 o 1:10.000 en A4 o A3, horizontal o vertical): un marco punteado muestra lo que cabe en la hoja y avisa los puntos que quedan fuera. El detalle de la imagen se elige solo (o «Más» / «Máximo»).
+  - **Descarga:** imagen PNG o JPG (en pantalla, 2× o 3×; en escala fija, a 300 ppp para imprimir exacto) u **hoja PDF con viñeta** (logos, título, proyecto, mandante, datum, huso, geoide, leyenda, escala gráfica, norte, elaboró, revisó, fecha y cuadro de coordenadas; lo que no cabe sigue en otra lámina). Los datos salen de «Datos comunes» del paso 1. También **Descargar KMZ** de los mismos puntos.
+  - Fondo imagen, híbrido o calles; la atribución de Esri va siempre. La configuración queda guardada en el navegador (`mn_mapa_prefs`).
+- **Exportar KML/KMZ en carpetas** (era la v0.18b planificada): cada botón exporta solo lo suyo y «Lo planificado» exporta todo el proyecto.
+  - **Red de PR:** PR nuevos, puntos de control, vectores y área.
+  - **Marcas de vuelo:** control (GCP), chequeo y área o eje.
+  - **Vuelo (hoja):** «Exportar KMZ» en la hoja. Sectores aparte con sus hectáreas y % completado (verde, ámbar o gris), base usada y su altura (del registro de avance), base planificada y último vuelo; carpeta de bases con los sectores que cubre cada una; altura de vuelo, GSD y avance total en la descripción.
+  - **Proyecto completo** («Exportar el proyecto (KMZ)» o «Como KML»): capas del proyecto (área, caminos, PR existentes), redes de PR, marcas, vuelos y monografías, cada parte en su carpeta.
+- Sin almacenes nuevos y sin cambios en el paquete de conexión (sigue 1.7, idéntico al de `terreno/`).
+- Pruebas: 171 unitarias (nuevas `kmz.test.mjs` y `mapa-puntos.test.mjs`); navegador con datos ficticios en PC y teléfono (mapa, imagen, hoja PDF y los cinco KMZ).
 
 ## Qué cambia en v0.20 (el Sistema prepara, el teléfono registra)
 - **Checklist de terreno en el Sistema** (Configuración › Checklist de terreno): las plantillas de cada tipo de trabajo se editan aquí (nombre, ítems y tipo de respuesta: casilla, número o texto) y llegan a los teléfonos al sincronizar. Cada plantilla indica qué tipos de trabajo la cargan. También aquí: semáforo de nivelación por tramo y tipos de elemento de catastro. «Volver a las de fábrica» deshace los cambios.

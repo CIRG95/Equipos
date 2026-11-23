@@ -24,6 +24,9 @@ import { proyectoTecnico, leerTecnico } from './vistas-tecnico.js';
 import { trabajosDeProyecto, moverTrabajo, cronogramaDeTrabajos, POR_BATERIAS } from './trabajos.js';
 import { leerCapasDeArchivos, fusionarCapas, resumenCapas } from '../modulos/vuelos/capas-proyecto.js';
 import * as Vuelos from '../modulos/vuelos/vuelos.js';
+import * as Monografias from '../modulos/monografias/monografias.js';
+import { descargarDocumento } from '../compartido/kmz.js';
+import { documentoProyecto } from './kmz-proyecto.js';
 import { guardarConfig } from '../modulos/administracion/datos.js';
 import { NOMBRE_CATEGORIA } from './catalogo.js';
 
@@ -316,6 +319,21 @@ export async function manejarClic(boton, ctx) {
       const [planes, pla] = await Promise.all([Vuelos.planesDeProyecto(p.id).catch(() => []), Planificacion.resumenDeProyecto(p.id).catch(() => ({ redes: [], marcas: [] }))]);
       await guardarProyecto({ id: p.id, planificacion: { guardadoEn: ahoraISO(), guardadoPor: ctx.personaId || null, lineas: resumenPlanificacion(p, planes, pla) } }, { personaId: ctx.personaId });
       ctx.avisar('Planificación guardada'); return true;
+    }
+    case 'exportar-kmz-proyecto': {
+      // v0.21: todo el proyecto en un KMZ (o KML) con una carpeta por parte.
+      const p = await obtenerProyecto(boton.dataset.id);
+      if (!p) return false;
+      const [pla, vuelos, monografias] = await Promise.all([
+        Planificacion.resumenDeProyecto(p.id).catch(() => ({ redes: [], marcas: [] })),
+        Vuelos.vuelosParaKmz(p).catch(e => { console.warn(e); return []; }),
+        Monografias.puntosDeProyecto(p.id).catch(() => []),
+      ]);
+      try {
+        const n = descargarDocumento(documentoProyecto(p, { redes: pla.redes, marcas: pla.marcas, vuelos, monografias }), p.nombre || 'Proyecto', boton.dataset.f === 'kml' ? 'kml' : 'kmz');
+        ctx.avisar(`Proyecto exportado: ${n} elemento${n === 1 ? '' : 's'} en carpetas.`);
+      } catch (e) { ctx.avisar(e.message); }
+      return false;
     }
     case 'capas-quitar': {
       if (!confirm('¿Quitar las capas del proyecto (área, caminos y PR)? Las hojas de vuelo dejan de proponer bases de amarre y la red y las marcas nuevas ya no parten del área.')) return false;

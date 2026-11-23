@@ -4,8 +4,9 @@
 
 import * as D from './datos.js';
 import { montarPantallas } from './pantallas.js';
+import { puntosDeFichas } from './mapa-calculo.js';
 
-export const VERSION = '0.4'; // v0.12: paso a paso (datos.js conserva su versión porque va en el paquete de conexión)
+export const VERSION = '0.5'; // v0.21: mapa de puntos y KMZ (datos.js conserva su versión porque va en el paquete de conexión)
 export const ALMACENES = Object.values(D.ALM);
 
 let iniciado = false;
@@ -18,6 +19,12 @@ export function iniciar({ personaId } = {}) {
 export function montar(contenedor, contexto) {
   iniciar({ personaId: contexto.personaId });
   return montarPantallas(contenedor, contexto);
+}
+
+/** v0.21 · Puntos de las fichas del proyecto (con su posición, si tienen coordenadas), para el KMZ del proyecto. */
+export async function puntosDeProyecto(proyectoId) {
+  iniciar();
+  return puntosDeFichas(await D.monografiasDeProyecto(proyectoId), e => (D.ESTADOS[e] || {}).texto || e);
 }
 
 /** Para la ficha del proyecto: { total, porEstado, jornadas } */

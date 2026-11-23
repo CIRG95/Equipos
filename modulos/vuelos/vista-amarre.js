@@ -9,6 +9,32 @@ import { nombreSector, jornadasNecesarias, minutosUtiles, HORARIO_INICIAL } from
 import { calcularAmarre, jornadasPorBaterias, AMARRE_INICIAL, JORNADA_INICIAL } from './amarre.js';
 import { prsActivos, resumenCapas } from './capas-proyecto.js';
 
+/** PR que sirven de base para una hoja: los existentes del proyecto (capas) y los planificados en sus redes de PR (v0.18a). */
+export function prsParaAmarre(h, proyecto, redes = []) {
+  const capas = (proyecto && proyecto.capas) || {};
+  const norm = t => String(t || '').trim().toLowerCase();
+  const yaEn = new Set(prsActivos(capas).map(x => norm(x.nombre)));
+  const deRed = redes.filter(r => r.proyectoId === h.proyectoId).flatMap(r => (r.puntos || []))
+    .filter(x => Number.isFinite(x.lon) && Number.isFinite(x.lat) && !yaEn.has(norm(x.nombre)) && (yaEn.add(norm(x.nombre)) || true))
+    .map(x => ({ id: `red-${x.id}`, nombre: x.nombre, lon: x.lon, lat: x.lat, usar: true, planificado: true }));
+  return [...prsActivos(capas), ...deRed];
+}
+
+/** v0.21: bases de amarre de una hoja sin la vista (lo usa también la exportación KMZ). null si no hay PR. */
+export function calcularAmarreHoja(h, g, proyecto, redes = []) {
+  if (!g || !g.sectores.length) return null;
+  const capas = (proyecto && proyecto.capas) || {};
+  const prs = prsParaAmarre(h, proyecto, redes);
+  if (!prs.length) return null;
+  const am = { ...AMARRE_INICIAL, asignado: {}, ...(h.area.amarre || {}) };
+  const aXY = g.marco.aXY;
+  const caminos = [...(capas.caminos || []), ...(h.area.caminos || [])].map(c => c.linea.map(aXY));
+  const valor = calcularAmarre({ sectores: g.sectores.map(s => s.poligono), prs: prs.map(x => ({ id: x.id, nombre: x.nombre, xy: aXY([x.lon, x.lat]) })), caminos, radioKm: am.radioKm, asignado: am.asignado || {} });
+  valor.bases.forEach(b => { b.ll = g.marco.aLonLat(b.xy); });
+  valor.todos = prs.map(x => ({ ...x, xy: aXY([x.lon, x.lat]) }));
+  return valor;
+}
+
 export function crearVistaAmarre(v) {
   const { base, st } = v;
   const proyectoDe = h => base.proyectos.find(p => p.id === h.proyectoId) || null;
@@ -18,23 +44,13 @@ export function crearVistaAmarre(v) {
   function amarreDeHoja(h, g) {
     if (!g || !g.sectores.length) return null;
     const p = proyectoDe(h), capas = (p && p.capas) || {};
-    // v0.18a: además de los PR existentes (capas), cuentan los PR planificados en la red de PR del proyecto.
-    const norm = t => String(t || '').trim().toLowerCase();
-    const yaEn = new Set(prsActivos(capas).map(x => norm(x.nombre)));
-    const deRed = (base.redes || []).filter(r => r.proyectoId === h.proyectoId).flatMap(r => (r.puntos || []))
-      .filter(x => Number.isFinite(x.lon) && Number.isFinite(x.lat) && !yaEn.has(norm(x.nombre)) && (yaEn.add(norm(x.nombre)) || true))
-      .map(x => ({ id: `red-${x.id}`, nombre: x.nombre, lon: x.lon, lat: x.lat, usar: true, planificado: true }));
-    const prs = [...prsActivos(capas), ...deRed];
+    const prs = prsParaAmarre(h, p, base.redes || []);
     if (!prs.length) return null;
     const am = { ...AMARRE_INICIAL, asignado: {}, ...(h.area.amarre || {}) };
     const clave = JSON.stringify([prs, (capas.caminos || []).length, (h.area.caminos || []).length, am]);
-    let porGeo = memo.get(g);
+    const porGeo = memo.get(g);
     if (porGeo && porGeo.clave === clave) return porGeo.valor;
-    const aXY = g.marco.aXY;
-    const caminos = [...(capas.caminos || []), ...(h.area.caminos || [])].map(c => c.linea.map(aXY));
-    const valor = calcularAmarre({ sectores: g.sectores.map(s => s.poligono), prs: prs.map(x => ({ id: x.id, nombre: x.nombre, xy: aXY([x.lon, x.lat]) })), caminos, radioKm: am.radioKm, asignado: am.asignado || {} });
-    valor.bases.forEach(b => { b.ll = g.marco.aLonLat(b.xy); });
-    valor.todos = prs.map(x => ({ ...x, xy: aXY([x.lon, x.lat]) }));
+    const valor = calcularAmarreHoja(h, g, p, base.redes || []);
     memo.set(g, { clave, valor });
     return valor;
   }

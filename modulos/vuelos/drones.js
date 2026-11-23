@@ -2,7 +2,7 @@
 // Valores de referencia de las fichas técnicas del fabricante: se pueden corregir en la app
 // (Vuelos → Drones) y la corrección se guarda en el almacén vuelos_drones.
 // Un dron puede tener varios sensores (Matrice 300: L2 o L1): cada combinación es una entrada con la misma «familia».
-// Los Mavic 2 Enterprise no van: en Topoland se usan solo para termografía de cables.
+// Los Mavic 2 Enterprise no van: en la flota se usan solo para termografía de cables.
 
 export const DRONES_BASE = [
   {

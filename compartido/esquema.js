@@ -1,10 +1,9 @@
-// compartido/esquema.js — todas las partes (almacenes) de la base «topoland», en un solo lugar.
+// compartido/esquema.js — todas las partes (almacenes) de la base común, en un solo lugar.
 // La base la comparten el Sistema y la app de Terreno (mismo dominio). Si cada app creara solo lo suyo,
 // la que llega después tendría que subir la versión de la base y esperar a que la otra la suelte; en Android,
 // una app en segundo plano está congelada y no la suelta nunca (el Sistema quedaba sin cargar).
 // Por eso almacen.js registra este esquema completo al cargarse: la abra quien la abra, se crea entera.
 // Al agregar un almacén o un índice en un módulo, agregarlo también aquí (la prueba esquema.test.mjs lo revisa).
-export const VERSION_ESQUEMA = 1;
 
 const porProyecto = [['proyectoId', 'proyectoId']];
 const porEquipo = [['equipoId', 'equipoId']];

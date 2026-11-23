@@ -112,6 +112,7 @@ document.getElementById("btnCatastroTiposDefault").addEventListener("click", () 
 /* "Acerca de esta versión": lo mismo que trae el README, dentro de la app. */
 const APP_NOTAS = {
   cambios: [
+    "Versión 0.9.1: nombres internos genéricos (paquete de conexión 1.8, archivo js/sistema-conexion.js). La primera vez que se abre, copia sola los datos y la vinculación de la versión anterior: no hay que volver a vincular.",
     "Versión 0.9.0: el Sistema prepara y el teléfono registra. Con el teléfono vinculado, el checklist de cada trabajo, el semáforo de nivelación y los tipos de catastro vienen del Sistema (Configuración › Checklist de terreno); en el teléfono solo se marcan.",
     "Al elegir un proyecto del Sistema, la jornada trae cargado el checklist de sus tipos de trabajo (ya no hay que elegir los trabajos). «Cambiar» permite ajustarlo.",
     "Registrar muestra solo los instrumentos del proyecto («Ver todos los tipos» para el resto) y sugiere los equipos que llevas según el checklist de salida.",
@@ -119,6 +120,7 @@ const APP_NOTAS = {
     "Sin vincular, la app funciona igual que antes. Paquete de conexión 1.7 (configTerreno, checklistDeProyecto)."
   ],
   probar: [
+    "Abrir la app ya vinculada después de actualizar: debe seguir vinculada a la misma persona, con sus proyectos y gastos.",
     "En el Sistema, editar el checklist de «Dron — Aerofotogrametría» y sincronizar; en el teléfono, iniciar una jornada de un proyecto de vuelo: debe traer el checklist editado.",
     "Registrar con un proyecto de nivelación: solo debe aparecer el nivel; «Ver todos los tipos» muestra el resto.",
     "Desvincular el teléfono: vuelven las plantillas y ajustes propios del teléfono."

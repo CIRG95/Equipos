@@ -1,4 +1,14 @@
-# INTEGRACION.md — Sistema v0.21
+# INTEGRACION.md — Sistema v0.21.1
+
+## v0.21.1 · Revisión de optimización y código genérico
+- **Nombres internos:** base `sistema_trabajo` (`NOMBRE_BD`, exportado en `compartido/almacen.js`); claves `sistema_nube`, `sistema_nube_token`, `sistema_dispositivoId`, `sistema_conexion_persona|carpeta|codigo`, `sistema_invitacion` (sessionStorage), `sistema_bd_migrada`; globales `window.SISTEMA_CONFIG`, `window.SistemaConexion`, `window.SistemaNube`, `__sistemaBdEsperando`, `__sistemaBdBloqueada`.
+- **`compartido/nombres-anteriores.js`:** único archivo con los nombres antiguos. `migrarClavesAnteriores()` corre al cargar `util.js` (copia sin pisar ni borrar). `almacen.abrir()` llama una vez a `traerBaseAnterior()`: copia todas las partes de la base anterior con `add` (no pisa), incluidas las que el esquema ya no registra, y deja marca `sistema_bd_migrada`; si la anterior está vacía la borra. `respaldo.js` acepta `app` antiguo; `nube.buscarCarpetas()` busca también el nombre antiguo. Borrar el archivo y sus 4 usos cuando todos los equipos hayan actualizado.
+- **Marca:** `nombreEmpresa()` en `compartido/util.js` (lee `env_marca`; por defecto `NOMBRE_EMPRESA_DEFECTO = 'Mi empresa'`).
+- **Lecturas compartidas:** `almacen.todos()` reutiliza la misma lectura 1,5 s (`VIGENCIA_LECTURA_MS`) y entrega una copia (`structuredClone`); `guardar`, `guardarVarios`, `vaciar` y `borrarDefinitivo` la descartan. `obtener` y `porIndice` no cambian.
+- **Utilidades comunes nuevas en `util.js`:** `vacio`, `plural`, `txtCampo` (Administración la reexporta como `txt` desde `ui.js`; `app/vistas-ui.js` reexporta `vacio`).
+- **Quitado (sin uso):** `NOMBRE_INFO`, `configurarSheetJS`, `configurarSheetJSExportar`, `configurarQR`, `deshacerPapelera`, `documentosDe`, `ausenteEn`, `eliminarDeGabinete`, `nube.conectarConToken`, `VERSION_ESQUEMA`.
+- **Armado:** `esbuild --minify --keep-names` (antes solo espacios y sintaxis).
+- **Paquete de conexión 1.8:** mismas funciones; `paquete-conexion/sistema-conexion.js` idéntico a `terreno/js/sistema-conexion.js`.
 
 ## v0.21 · Mapa de puntos (Monografías 0.5) y exportar KML/KMZ
 - `compartido/kmz.js`: escribe KML con carpetas, estilos compartidos y `ExtendedData`, y el KMZ con `armarZip` (`compartido/zip.js`). `descargarDocumento(doc, base, 'kmz'|'kml')`.
@@ -55,7 +65,7 @@
 - `app/vistas-proyectos.js` y `app/vistas.js`: ficha de encargo (campos nuevos del proyecto: `mandanteId`, `alcance`, `entregablesPedidos`, `montoCotizado`, `cuadrilla`, `vehiculoIds`; se suman a `solicitadoPor`, `fechaEncargo` y `plazo`), archivos del mandante (`duenoTipo: 'encargo'`, carpeta `Proyectos/<nombre>/Encargo`), entregables y cierre.
 
 ### Paquete de conexión 1.4.1
-- Solo cambia el esquema (almacenes nuevos) y los prefijos de la nube; ninguna función. Copiado en `terreno/js/topoland-conexion.js`; `terreno/sw.js` CACHE = `terreno-topo-v47-0.5.9`. Paquete de pronóstico idéntico.
+- Solo cambia el esquema (almacenes nuevos) y los prefijos de la nube; ninguna función. Copiado en `terreno/js/sistema-conexion.js`; `terreno/sw.js` CACHE = `terreno-topo-v47-0.5.9`. Paquete de pronóstico idéntico.
 
 ### Límite
 - El acceso exclusivo de RRHH se controla en la app; la nube es una sola carpeta. Separarlo de verdad requiere Nextcloud con grupos o un servidor aparte.
@@ -76,7 +86,7 @@
 ## v0.14 · Paquete de conexión 1.4 (Gastos desde Terreno)
 - `app/conexion-terreno.js`: sección «Gastos (v1.4)» que reutiliza `modulos/gastos/datos.js` y `modelo.js` (sin pantallas): `CATEGORIAS_GASTO`, `proyectosGastos`, `misGastos`, `gastosDevueltos`, `guardarGasto`, `eliminarGasto`, `restaurarGasto`, `boleta`. Ver `paquete-conexion/LEEME.md`.
 - Reglas: la persona vinculada firma; solo gastos propios y editables (`gastoEditable`); foto obligatoria; mismo aviso de duplicado; carpeta de la boleta `Gastos/<proyecto>/<persona>`.
-- Paquete copiado a `terreno/js/topoland-conexion.js`; Terreno 0.5.9 (caché `terreno-topo-v46-0.5.9`) suma la pestaña Gastos.
+- Paquete copiado a `terreno/js/sistema-conexion.js`; Terreno 0.5.9 (caché `terreno-topo-v46-0.5.9`) suma la pestaña Gastos.
 - El Sistema no cambia en lo que hace; las 90 pruebas pasan.
 
 ## v0.13 · Gastos 0.1
@@ -84,7 +94,7 @@
 - Almacenes (también en `compartido/esquema.js`): `gastos_gastos` (índices `proyectoId`, `personaId`, `rendicionId`), `gastos_rendiciones` (`proyectoId`, `personaId`), `gastos_eventos` (`rendicionId`). Boleta en `compartido_archivos` con `modulo: 'gastos'`, `duenoTipo: 'gasto'`, `rol: 'boleta'`, carpeta `Gastos/<proyecto>/<persona>`.
 - Rutas: `#/gastos`, `#/gastos/proyecto/<id>`, `#/gastos/nuevo[/<proyectoId>]`, `#/gastos/gasto/<id>`, `#/gastos/rendicion/<id>`. El envoltorio pasa `vista`, `id` y `marcarVisto(id)`.
 - Campanita: `avisosPara()` suma `Gastos.avisos()`; `marcarAvisoVisto(ctx, id)` (nuevo en `app/vistas.js`) marca un aviso visto desde un módulo.
-- **Paquete de conexión:** cambia solo el esquema (3 almacenes nuevos). Copiado a `terreno/js/topoland-conexion.js` y caché de Terreno `terreno-topo-v45-0.5.8.2`. El paquete de pronóstico sale idéntico.
+- **Paquete de conexión:** cambia solo el esquema (3 almacenes nuevos). Copiado a `terreno/js/sistema-conexion.js` y caché de Terreno `terreno-topo-v45-0.5.8.2`. El paquete de pronóstico sale idéntico.
 
 
 ## v0.12 · Monografías paso a paso
@@ -139,8 +149,8 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 
 ## Datos y nube
 
-- **Sin almacenes nuevos:** la base `topoland` no cambia de versión, así que convive sin problema con la app de Equipos en el mismo dominio.
-- **Nube:** `compartido/nube.js` sin cambios (prefijos `equipos_` y `compartido_`, carpeta «Topoland Equipos (prueba)»). El panel `app/nube-panel.js` es copia de `envoltorio-nube.js`.
+- **Sin almacenes nuevos:** la base común no cambia de versión, así que convive sin problema con la app de Equipos en el mismo dominio.
+- **Nube:** `compartido/nube.js` sin cambios (prefijos `equipos_` y `compartido_`, carpeta de prueba de Drive). El panel `app/nube-panel.js` es copia de `envoltorio-nube.js`.
 - **Service worker:** caché `sistema-v0.2`, separado del de Equipos (`equipos-…`).
 
 ## Próximo: Gastos básico (después de Vuelos)
@@ -172,9 +182,9 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - **app/revision.js** + `version.json`: aviso de subida incompleta.
 
 ## Sistema v0.6
-- **Conexión con la app de Terreno** (`app/conexion-terreno.js` → `paquete-conexion/topoland-conexion.js`, global `TopolandConexion`):
-  - La app de Terreno lo incluye y usa la base `topoland` y la nube del Sistema sin programarlas.
-  - Persona vinculada en localStorage `topoland_conexion_persona`; carpeta del QR en `topoland_conexion_carpeta`.
+- **Conexión con la app de Terreno** (`app/conexion-terreno.js` → `paquete-conexion/sistema-conexion.js`, global `SistemaConexion`):
+  - La app de Terreno lo incluye y usa la base común y la nube del Sistema sin programarlas.
+  - Persona vinculada en localStorage `sistema_conexion_persona`; carpeta del QR en `sistema_conexion_carpeta`.
 - **Personas:** campo `codigoVinculo` (6 letras sin ambiguas). El QR es `<dirección de Terreno>?carpeta=<id>#vincular=<código>`.
 - **Equipos (puerta):**
   - `reportarProblema({ equipoId, descripcion, tipo, proyectoId, personaId, origen })` y `listarAlertas({ soloActivas })`.
@@ -210,10 +220,10 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - `app/vistas.js` (`urlTerreno`) la usa. Sin cambios en módulos, datos ni en el paquete de conexión 1.2.
 
 ## Sistema v0.8.2
-- **`compartido/esquema.js` (nuevo):** lista completa de almacenes e índices de la base `topoland`. `almacen.js` la registra al cargarse, en el Sistema y en el paquete de Terreno. **Regla:** todo almacén o índice nuevo de un módulo se agrega también aquí; `pruebas/esquema.test.mjs` falla si falta.
-- `almacen.js`: `registrarAlmacenes` suma índices nuevos a un almacén ya registrado; `definicionesRegistradas()`; marca `globalThis.__topolandBdEsperando` / `__topolandBdBloqueada` mientras una apertura espera (lo usa `index.html` para el aviso «Esperando los datos»). El rechazo por bloqueo pasa de 10 s a 60 s.
-- **Paquete de conexión 1.3:** `alVincular(fn)`, `explicarVinculo(codigo?)`; código del QR en `localStorage['topoland_conexion_codigo']`; `alLlegarDatos` avisa después de intentar el código pendiente.
-- **Chat de Terreno:** copiar `paquete-conexion/topoland-conexion.js` en `terreno/js/`, subir el caché del `sw.js` y usar `explicarVinculo` / `alVincular` en ⚙ → Sistema.
+- **`compartido/esquema.js` (nuevo):** lista completa de almacenes e índices de la base común (`sistema_trabajo` desde la v0.21.1). `almacen.js` la registra al cargarse, en el Sistema y en el paquete de Terreno. **Regla:** todo almacén o índice nuevo de un módulo se agrega también aquí; `pruebas/esquema.test.mjs` falla si falta.
+- `almacen.js`: `registrarAlmacenes` suma índices nuevos a un almacén ya registrado; `definicionesRegistradas()`; marca `globalThis.__sistemaBdEsperando` / `__sistemaBdBloqueada` mientras una apertura espera (lo usa `index.html` para el aviso «Esperando los datos»). El rechazo por bloqueo pasa de 10 s a 60 s.
+- **Paquete de conexión 1.3:** `alVincular(fn)`, `explicarVinculo(codigo?)`; código del QR en `localStorage['sistema_conexion_codigo']`; `alLlegarDatos` avisa después de intentar el código pendiente.
+- **Chat de Terreno:** copiar `paquete-conexion/sistema-conexion.js` en `terreno/js/`, subir el caché del `sw.js` y usar `explicarVinculo` / `alVincular` en ⚙ → Sistema.
 
 ## Sistema v0.9
 - **Vuelos 0.7** (`modulos/vuelos/`):
@@ -281,11 +291,11 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
   - Archivos de permisos y logs en `compartido_archivos` (`duenoTipo: 'vuelos_hoja'`, `rol: 'documento' | 'log'`).
 - **Equipos 0.2:** `sensores.js` (datos de cámara desde el catálogo de Vuelos), vista tarjetas/lista (`localStorage['eq_vista_lista']`), filtro por categoría y vista `alta` paso a paso. Sin cambios en `datos.js` ni en la puerta.
 - **Monografías 0.3:** `coordenadas.js` (datums, zonas, geoides, formato DD/DMS), `croquis.js` (mapa Esri → imagen), pestañas por ficha, campos `observacionPdf`, `modulos.observacion`, `paisUTM`, `formatoGeo`, `decimalesGeo`, `firmaPropia`. Logos de clientes en `compartido_archivos` con `duenoTipo: 'cliente_logo'` y `duenoId` = nombre normalizado. Grupos «para todas las fichas» en `localStorage['mono_comun_<proyectoId>']`. `pieza-terreno.js` no cambia: la Observación se agrega al texto de la descripción al armar el PDF.
-- **Sin almacenes ni índices nuevos:** `compartido/esquema.js` y el paquete de conexión 1.3 no cambian (se verificó que `paquete-conexion/topoland-conexion.js` queda idéntico). El paquete de pronóstico solo cambia en el dato de focal de la Matrice 4E; la copia de Terreno no necesita actualizarse.
+- **Sin almacenes ni índices nuevos:** `compartido/esquema.js` y el paquete de conexión 1.3 no cambian (se verificó que `paquete-conexion/sistema-conexion.js` queda idéntico). El paquete de pronóstico solo cambia en el dato de focal de la Matrice 4E; la copia de Terreno no necesita actualizarse.
 
 ## v0.17b
 - Rutas nuevas: `#/proyecto/<id>/{planificacion|encargo|entregas|recursos}` (sin sufijo = Resumen). Sin cambios en IndexedDB ni en `compartido/esquema.js`.
-- Paquete de conexión sin cambios (cmp con `terreno/js/topoland-conexion.js` idéntico).
+- Paquete de conexión sin cambios (cmp con `terreno/js/sistema-conexion.js` idéntico).
 
 ## Terreno 0.6.1
 - Sin cambios en el paquete de conexión ni en la base común. Terreno ahora usa también `misEquiposEnTerreno()` (lista de equipos en Registrar) y llama `publicarJornada()` al terminar la jornada sin segunda confirmación (si el teléfono está vinculado y la jornada tiene proyecto del Sistema).
@@ -294,7 +304,7 @@ Siguen siendo los temporales de `compartido/catalogos.js` (almacenes `compartido
 - Sin almacenes nuevos ni cambios en `compartido/esquema.js`. Campos nuevos en `compartido_proyectos`: `capas.areas [{ id, nombre, anillo, ha }]` y `planificacion { guardadoEn, guardadoPor, lineas }`. En la hoja de vuelo: `resumen.amarre.nuevosLL [{ nombre, lon, lat }]`.
 - Rutas nuevas: `#/planificacion/nueva-red/<proyectoId>`, `#/planificacion/nueva-marcas/<proyectoId>`, `#/herramientas/vuelo-rapido`, `#/proyecto/<id>/terreno`. Redirigen: `#/planificacion` → `#/proyectos`; `#/planificacion/proyecto/<id>` → `#/proyecto/<id>/planificacion`.
 - Módulo nuevo `modulos/planificacion/desde-proyecto.js` (semillas de red y marcas). `app/trabajos.js` suma `cronogramaSincronizado`.
-- Paquete de conexión sin cambios (cmp idéntico a `terreno/js/topoland-conexion.js`).
+- Paquete de conexión sin cambios (cmp idéntico a `terreno/js/sistema-conexion.js`).
 
 ## v0.18a · Avance por sector · paquete de conexión 1.5 · Terreno 0.7.0
 - Almacén nuevo `vuelos_avance` (índices `hojaId`, `proyectoId`), agregado en `compartido/esquema.js`: eventos de solo agregar `{ hojaId, proyectoId, sector, fecha, pct, base, alturaBase, obs, personaId, origen: 'sistema'|'terreno' }`. La hoja guarda `resumen.listaSectores [{ nombre, ha }]`.

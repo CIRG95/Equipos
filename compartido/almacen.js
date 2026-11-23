@@ -1,10 +1,12 @@
-// compartido/almacen.js — una sola base IndexedDB ("topoland") para todos los módulos.
+// compartido/almacen.js — una sola base IndexedDB ("sistema_trabajo") para todos los módulos.
 // Cada módulo registra sus almacenes (con prefijo propio: equipos_…, gastos_…, terreno_…)
 // antes de usarlos. Si falta alguno en la base, se sube la versión y se crea, sin tocar los demás.
 
 import { ESQUEMA } from './esquema.js';
+import { BD_ANTERIOR } from './nombres-anteriores.js';
 
-const NOMBRE_BD = 'topoland';
+export const NOMBRE_BD = 'sistema_trabajo';
+const CLAVE_MIGRADA = 'sistema_bd_migrada'; // v0.21.1: la base anterior ya se copió (vale para el Sistema y Terreno: mismo sitio)
 const registrados = new Map(); // nombre → { nombre, keyPath, indices: [[nombreIndice, ruta]] }
 let promesaBD = null;
 let conexion = null;            // la conexión abierta de esta página (se reutiliza)
@@ -45,8 +47,8 @@ export const MENSAJE_BLOQUEO = 'Los datos están abiertos en otra app o pestaña
 
 function abrirConVersion(version) {
   return new Promise((resolver, rechazar) => {
-    marcar('__topolandBdEsperando', true);
-    const listo = () => { marcar('__topolandBdEsperando', false); marcar('__topolandBdBloqueada', false); };
+    marcar('__sistemaBdEsperando', true);
+    const listo = () => { marcar('__sistemaBdEsperando', false); marcar('__sistemaBdBloqueada', false); };
     const req = version ? indexedDB.open(NOMBRE_BD, version) : indexedDB.open(NOMBRE_BD);
     req.onupgradeneeded = () => {
       const bd = req.result;
@@ -72,7 +74,7 @@ function abrirConVersion(version) {
     // Solo si pasa demasiado tiempo se avisa.
     req.onblocked = () => {
       clearTimeout(aviso);
-      marcar('__topolandBdBloqueada', true);
+      marcar('__sistemaBdBloqueada', true);
       aviso = setTimeout(() => { listo(); rechazar(new Error(MENSAJE_BLOQUEO)); }, 60000);
     };
   });
@@ -90,9 +92,52 @@ function faltaAlgo(bd) {
   return false;
 }
 
+// v0.21.1 · La primera vez, copia la base con el nombre anterior a la nueva, sin pisar nada que ya exista.
+// La base anterior no se borra (queda como respaldo); si estaba vacía (o no existía), se elimina.
+let anteriorRevisada = false;
+function abrirSimple(nombre) {
+  return new Promise((res, rej) => { const r = indexedDB.open(nombre); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); r.onblocked = () => rej(new Error('bloqueada')); });
+}
+async function traerBaseAnterior() {
+  anteriorRevisada = true;
+  try { if (localStorage.getItem(CLAVE_MIGRADA)) return; } catch { return; }
+  const listo = () => { try { localStorage.setItem(CLAVE_MIGRADA, new Date().toISOString()); } catch { /* */ } };
+  let vieja;
+  try { vieja = await abrirSimple(BD_ANTERIOR); } catch (e) { console.warn('No se pudo revisar la base anterior', e); return; }
+  const nombres = [...vieja.objectStoreNames];
+  if (!nombres.length) { vieja.close(); try { indexedDB.deleteDatabase(BD_ANTERIOR); } catch { /* */ } listo(); return; }
+  const tx = vieja.transaction(nombres, 'readonly');
+  const defs = [], lecturas = [];
+  for (const n of nombres) {
+    const s = tx.objectStore(n);
+    defs.push({ nombre: n, keyPath: s.keyPath || 'id', indices: [...s.indexNames].map(i => [i, s.index(i).keyPath]) });
+    lecturas.push(pedir(s.getAll()));
+  }
+  const datos = await Promise.all(lecturas);
+  vieja.close();
+  registrarAlmacenes(defs);
+  let bd = await abrirConVersion();
+  if (faltaAlgo(bd)) { const v = bd.version + 1; bd.close(); bd = await abrirConVersion(v); }
+  conexion = bd;
+  const tw = bd.transaction(nombres, 'readwrite');
+  let copiados = 0;
+  nombres.forEach((n, i) => {
+    const s = tw.objectStore(n);
+    for (const reg of datos[i]) {
+      const r = s.add(reg); // add: si el registro ya está en la base nueva, se deja el de la nueva
+      r.onsuccess = () => { copiados++; };
+      r.onerror = ev => { ev.preventDefault(); ev.stopPropagation(); };
+    }
+  });
+  await terminar(tw);
+  console.info(`Datos de la instalación anterior copiados: ${copiados} registros en ${nombres.length} partes.`);
+  listo();
+}
+
 export function abrir() {
   if (promesaBD) return promesaBD;
   const p = cadena.then(async () => {
+    if (!anteriorRevisada && typeof indexedDB !== 'undefined') { try { await traerBaseAnterior(); } catch (e) { console.warn('No se pudieron copiar los datos de la instalación anterior', e); } }
     let bd = conexion || await abrirConVersion();
     if (faltaAlgo(bd)) {
       const v = bd.version + 1;
@@ -122,9 +167,25 @@ export async function obtener(almacen, id) {
   return pedir(bd.transaction(almacen, 'readonly').objectStore(almacen).get(id));
 }
 
+// v0.21.1 · Lecturas completas compartidas: una pantalla pedía la misma parte varias veces al pintarse
+// (p. ej. equipos, eventos y alertas 3 a 4 veces). Durante 1,5 s se reutiliza la lectura y cada quien recibe
+// su propia copia (igual que leer de la base). Cualquier escritura de esta página la descarta al tiro;
+// lo que escriba otra pestaña o la app de Terreno se ve, como antes, al pasar a otra pantalla.
+const VIGENCIA_LECTURA_MS = 1500;
+const lecturas = new Map(); // almacen → { t, promesa }
+const clonar = v => (typeof structuredClone === 'function' ? structuredClone(v) : v);
+function descartarLecturas(almacenes) { for (const a of almacenes) lecturas.delete(a); }
+
 export async function todos(almacen) {
-  const bd = await abrir();
-  return pedir(bd.transaction(almacen, 'readonly').objectStore(almacen).getAll());
+  let e = lecturas.get(almacen);
+  if (!e || Date.now() - e.t > VIGENCIA_LECTURA_MS) {
+    const promesa = abrir().then(bd => pedir(bd.transaction(almacen, 'readonly').objectStore(almacen).getAll()));
+    e = { t: Date.now(), promesa };
+    lecturas.set(almacen, e);
+    const esta = e;
+    promesa.catch(() => { if (lecturas.get(almacen) === esta) lecturas.delete(almacen); });
+  }
+  return clonar(await e.promesa);
 }
 
 export async function porIndice(almacen, indice, valor) {
@@ -137,6 +198,7 @@ export async function guardar(almacen, registro, opciones) {
   const tx = bd.transaction(almacen, 'readwrite');
   tx.objectStore(almacen).put(registro);
   await terminar(tx);
+  descartarLecturas([almacen]);
   avisarCambio([almacen], opciones);
   return registro;
 }
@@ -150,6 +212,7 @@ export async function guardarVarios(operaciones, opciones) {
   const tx = bd.transaction(nombres, 'readwrite');
   for (const o of operaciones) tx.objectStore(o.almacen).put(o.registro);
   await terminar(tx);
+  descartarLecturas(nombres);
   avisarCambio(nombres, opciones);
 }
 
@@ -160,6 +223,7 @@ export async function vaciar(almacenes) {
   const tx = bd.transaction(almacenes, 'readwrite');
   for (const a of almacenes) tx.objectStore(a).clear();
   await terminar(tx);
+  descartarLecturas(almacenes);
   avisarCambio(almacenes, { silencioso: true });
 }
 
@@ -168,5 +232,6 @@ export async function borrarDefinitivo(almacen, id) {
   const tx = bd.transaction(almacen, 'readwrite');
   tx.objectStore(almacen).delete(id);
   await terminar(tx);
+  descartarLecturas([almacen]);
   avisarCambio([almacen]);
 }

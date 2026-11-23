@@ -25,11 +25,11 @@ input,select,textarea{width:100%;border:1px solid var(--borde);border-radius:10p
 <header><small>App de Terreno · prueba de conexión</small><b id="quien">Sin vincular</b></header>
 <main id="app"></main>
 <script src="../config.js"></script>
-<script src="topoland-conexion.js"></script>
+<script src="sistema-conexion.js"></script>
 <script>
-const C = window.TopolandConexion, $ = s => document.querySelector(s), app = $('#app');
+const C = window.SistemaConexion, $ = s => document.querySelector(s), app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const ini = C.iniciar({ clienteId: (window.TOPOLAND_CONFIG || {}).googleClientId });
+const ini = C.iniciar({ clienteId: (window.SISTEMA_CONFIG || {}).googleClientId });
 let msg = null, proyectoSel = '';
 
 async function pintar() {

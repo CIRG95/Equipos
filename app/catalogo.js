@@ -63,7 +63,7 @@ export const REGIONES = [
   "O'Higgins", 'Maule', 'Ñuble', 'Biobío', 'La Araucanía', 'Los Ríos', 'Los Lagos', 'Aysén', 'Magallanes',
 ];
 
-// Colores de marca para elegir por empresa (el primero es el de Topoland por defecto).
+// Colores de marca para elegir por empresa (el primero es el color por defecto).
 export const COLORES_MARCA = [
   ['#1D5C63', 'Azul petróleo'], ['#1D4ED8', 'Azul'], ['#0F766E', 'Verde'], ['#C2410C', 'Naranjo'], ['#1C1F23', 'Grafito'],
 ];

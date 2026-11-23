@@ -1,5 +1,5 @@
-/* topoland-conexion.js — GENERADO desde Sistema Topoland · app/conexion-terreno.js. No editar aquí. */
-var TopolandConexion = (() => {
+/* sistema-conexion.js — GENERADO desde el Sistema de trabajo · app/conexion-terreno.js. No editar aquí. */
+var SistemaConexion = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -116,8 +116,29 @@ var TopolandConexion = (() => {
     { nombre: "planif_marcas", indices: porProyecto }
   ];
 
+  // compartido/nombres-anteriores.js
+  var P = "topoland";
+  var BD_ANTERIOR = P;
+  var CLAVES = ["nube", "nube_token", "dispositivoId", "conexion_persona", "conexion_carpeta", "conexion_codigo"];
+  function migrarClavesAnteriores(ls = globalThis.localStorage) {
+    if (!ls) return 0;
+    let n = 0;
+    for (const k of CLAVES) {
+      try {
+        const viejo = ls.getItem(`${P}_${k}`);
+        if (viejo != null && ls.getItem(`sistema_${k}`) == null) {
+          ls.setItem(`sistema_${k}`, viejo);
+          n++;
+        }
+      } catch {
+      }
+    }
+    return n;
+  }
+
   // compartido/almacen.js
-  var NOMBRE_BD = "topoland";
+  var NOMBRE_BD = "sistema_trabajo";
+  var CLAVE_MIGRADA = "sistema_bd_migrada";
   var registrados = /* @__PURE__ */ new Map();
   var promesaBD = null;
   var conexion = null;
@@ -168,10 +189,10 @@ var TopolandConexion = (() => {
   var MENSAJE_BLOQUEO = "Los datos están abiertos en otra app o pestaña (por ejemplo, la app de Terreno en segundo plano). Ciérrala desde las apps recientes y vuelve a abrir.";
   function abrirConVersion(version) {
     return new Promise((resolver, rechazar) => {
-      marcar("__topolandBdEsperando", true);
+      marcar("__sistemaBdEsperando", true);
       const listo = () => {
-        marcar("__topolandBdEsperando", false);
-        marcar("__topolandBdBloqueada", false);
+        marcar("__sistemaBdEsperando", false);
+        marcar("__sistemaBdBloqueada", false);
       };
       const req = version ? indexedDB.open(NOMBRE_BD, version) : indexedDB.open(NOMBRE_BD);
       req.onupgradeneeded = () => {
@@ -203,7 +224,7 @@ var TopolandConexion = (() => {
       };
       req.onblocked = () => {
         clearTimeout(aviso);
-        marcar("__topolandBdBloqueada", true);
+        marcar("__sistemaBdBloqueada", true);
         aviso = setTimeout(() => {
           listo();
           rechazar(new Error(MENSAJE_BLOQUEO));
@@ -222,9 +243,91 @@ var TopolandConexion = (() => {
     }
     return false;
   }
+  var anteriorRevisada = false;
+  function abrirSimple(nombre) {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open(nombre);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+      r.onblocked = () => rej(new Error("bloqueada"));
+    });
+  }
+  async function traerBaseAnterior() {
+    anteriorRevisada = true;
+    try {
+      if (localStorage.getItem(CLAVE_MIGRADA)) return;
+    } catch {
+      return;
+    }
+    const listo = () => {
+      try {
+        localStorage.setItem(CLAVE_MIGRADA, (/* @__PURE__ */ new Date()).toISOString());
+      } catch {
+      }
+    };
+    let vieja;
+    try {
+      vieja = await abrirSimple(BD_ANTERIOR);
+    } catch (e) {
+      console.warn("No se pudo revisar la base anterior", e);
+      return;
+    }
+    const nombres = [...vieja.objectStoreNames];
+    if (!nombres.length) {
+      vieja.close();
+      try {
+        indexedDB.deleteDatabase(BD_ANTERIOR);
+      } catch {
+      }
+      listo();
+      return;
+    }
+    const tx = vieja.transaction(nombres, "readonly");
+    const defs = [], lecturas2 = [];
+    for (const n of nombres) {
+      const s = tx.objectStore(n);
+      defs.push({ nombre: n, keyPath: s.keyPath || "id", indices: [...s.indexNames].map((i) => [i, s.index(i).keyPath]) });
+      lecturas2.push(pedir(s.getAll()));
+    }
+    const datos = await Promise.all(lecturas2);
+    vieja.close();
+    registrarAlmacenes(defs);
+    let bd = await abrirConVersion();
+    if (faltaAlgo(bd)) {
+      const v = bd.version + 1;
+      bd.close();
+      bd = await abrirConVersion(v);
+    }
+    conexion = bd;
+    const tw = bd.transaction(nombres, "readwrite");
+    let copiados = 0;
+    nombres.forEach((n, i) => {
+      const s = tw.objectStore(n);
+      for (const reg of datos[i]) {
+        const r = s.add(reg);
+        r.onsuccess = () => {
+          copiados++;
+        };
+        r.onerror = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+        };
+      }
+    });
+    await terminar(tw);
+    console.info(`Datos de la instalación anterior copiados: ${copiados} registros en ${nombres.length} partes.`);
+    listo();
+  }
   function abrir() {
     if (promesaBD) return promesaBD;
     const p = cadena.then(async () => {
+      if (!anteriorRevisada && typeof indexedDB !== "undefined") {
+        try {
+          await traerBaseAnterior();
+        } catch (e) {
+          console.warn("No se pudieron copiar los datos de la instalación anterior", e);
+        }
+      }
       let bd = conexion || await abrirConVersion();
       if (faltaAlgo(bd)) {
         const v = bd.version + 1;
@@ -260,9 +363,24 @@ var TopolandConexion = (() => {
     const bd = await abrir();
     return pedir(bd.transaction(almacen, "readonly").objectStore(almacen).get(id));
   }
+  var VIGENCIA_LECTURA_MS = 1500;
+  var lecturas = /* @__PURE__ */ new Map();
+  var clonar = (v) => typeof structuredClone === "function" ? structuredClone(v) : v;
+  function descartarLecturas(almacenes) {
+    for (const a of almacenes) lecturas.delete(a);
+  }
   async function todos(almacen) {
-    const bd = await abrir();
-    return pedir(bd.transaction(almacen, "readonly").objectStore(almacen).getAll());
+    let e = lecturas.get(almacen);
+    if (!e || Date.now() - e.t > VIGENCIA_LECTURA_MS) {
+      const promesa = abrir().then((bd) => pedir(bd.transaction(almacen, "readonly").objectStore(almacen).getAll()));
+      e = { t: Date.now(), promesa };
+      lecturas.set(almacen, e);
+      const esta = e;
+      promesa.catch(() => {
+        if (lecturas.get(almacen) === esta) lecturas.delete(almacen);
+      });
+    }
+    return clonar(await e.promesa);
   }
   async function porIndice(almacen, indice, valor) {
     const bd = await abrir();
@@ -273,6 +391,7 @@ var TopolandConexion = (() => {
     const tx = bd.transaction(almacen, "readwrite");
     tx.objectStore(almacen).put(registro);
     await terminar(tx);
+    descartarLecturas([almacen]);
     avisarCambio([almacen], opciones);
     return registro;
   }
@@ -283,6 +402,7 @@ var TopolandConexion = (() => {
     const tx = bd.transaction(nombres, "readwrite");
     for (const o of operaciones) tx.objectStore(o.almacen).put(o.registro);
     await terminar(tx);
+    descartarLecturas(nombres);
     avisarCambio(nombres, opciones);
   }
   async function vaciar(almacenes) {
@@ -291,10 +411,12 @@ var TopolandConexion = (() => {
     const tx = bd.transaction(almacenes, "readwrite");
     for (const a of almacenes) tx.objectStore(a).clear();
     await terminar(tx);
+    descartarLecturas(almacenes);
     avisarCambio(almacenes, { silencioso: true });
   }
 
   // compartido/util.js
+  migrarClavesAnteriores();
   function uuid() {
     if (globalThis.crypto && crypto.randomUUID) return crypto.randomUUID();
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -302,7 +424,7 @@ var TopolandConexion = (() => {
       return (c === "x" ? r : r & 3 | 8).toString(16);
     });
   }
-  var CLAVE_DISPOSITIVO = "topoland_dispositivoId";
+  var CLAVE_DISPOSITIVO = "sistema_dispositivoId";
   var dispositivoEnMemoria = null;
   function dispositivoId() {
     if (dispositivoEnMemoria) return dispositivoEnMemoria;
@@ -379,7 +501,7 @@ var TopolandConexion = (() => {
     let pendientes = [];
     const leerGuardado = () => {
       try {
-        const g = JSON.parse(localStorage.getItem("topoland_nube_token") || "null");
+        const g = JSON.parse(localStorage.getItem("sistema_nube_token") || "null");
         if (g && g.vence > Date.now()) {
           token = g.token;
           vence = g.vence;
@@ -389,7 +511,7 @@ var TopolandConexion = (() => {
     };
     const guardarToken = () => {
       try {
-        localStorage.setItem("topoland_nube_token", JSON.stringify({ token, vence }));
+        localStorage.setItem("sistema_nube_token", JSON.stringify({ token, vence }));
       } catch {
       }
     };
@@ -445,7 +567,7 @@ var TopolandConexion = (() => {
       token = null;
       vence = 0;
       try {
-        localStorage.removeItem("topoland_nube_token");
+        localStorage.removeItem("sistema_nube_token");
       } catch {
       }
     }
@@ -519,7 +641,7 @@ var TopolandConexion = (() => {
         });
         return r2.json();
       }
-      const limite = "topoland" + Math.random().toString(16).slice(2);
+      const limite = "limite" + Math.random().toString(16).slice(2);
       const meta = { name: nombre, parents: [carpetaId], mimeType: mime };
       const cuerpo = new Blob([
         `--${limite}\r
@@ -569,7 +691,7 @@ Content-Type: ${mime}\r
   }
 
   // compartido/nube.js
-  var CLAVE = "topoland_nube";
+  var CLAVE = "sistema_nube";
   var PREFIJOS = ["equipos_", "compartido_", "vuelos_", "seguimiento_", "terreno_", "gastos_", "admin_", "planif_"];
   var ALM_ARCHIVOS = "compartido_archivos";
   var cfg = leerCfg();
@@ -705,7 +827,7 @@ Content-Type: ${mime}\r
       const regs = await todos(nombre);
       almacenes[nombre] = nombre === ALM_ARCHIVOS ? regs.map(sinDatos) : regs;
     }
-    return { app: "topoland", formato: 1, dispositivoId: dispositivoId(), escritoEn: ahoraISO(), almacenes };
+    return { app: "sistema", formato: 1, dispositivoId: dispositivoId(), escritoEn: ahoraISO(), almacenes };
   }
   async function mezclar(remoto) {
     const conocidos = new Set(almacenesRegistrados());
@@ -822,14 +944,18 @@ Content-Type: ${mime}\r
   var porNombre = (a, b) => a.nombre.localeCompare(b.nombre, "es");
   async function asegurarOficina() {
     const o = await obtener(ALM_PROYECTOS, OFICINA_ID);
-    if (!o) await guardar(ALM_PROYECTOS, sellar({ id: OFICINA_ID, nombre: "Oficina", mandante: "Topoland", especial: true }));
+    if (!o) await guardar(ALM_PROYECTOS, sellar({ id: OFICINA_ID, nombre: "Oficina", mandante: "Interno", especial: true }));
   }
   async function listarProyectos({ incluirOficina = true } = {}) {
     let lista;
     if (proveedor) lista = await proveedor.listarProyectos();
     else {
-      await asegurarOficina();
-      lista = (await todos(ALM_PROYECTOS)).filter(activo);
+      let regs = await todos(ALM_PROYECTOS);
+      if (!regs.some((p) => p.id === OFICINA_ID)) {
+        await asegurarOficina();
+        regs = await todos(ALM_PROYECTOS);
+      }
+      lista = regs.filter(activo);
     }
     lista = lista.filter((p) => incluirOficina || p.id !== OFICINA_ID);
     return lista.sort((a, b) => a.id === OFICINA_ID ? -1 : b.id === OFICINA_ID ? 1 : porNombre(a, b));
@@ -1151,6 +1277,17 @@ Content-Type: ${mime}\r
     "Escáner láser": dib(`${TRIPODE}<rect x="44" y="22" width="32" height="64" rx="10"/><circle cx="60" cy="50" r="8"/><path d="M48 40h24"/>`),
     "Otro": dib('<rect x="24" y="50" width="72" height="60" rx="6"/><path d="M48 50V38h24v12"/><path d="M24 74h72"/>')
   };
+
+  // compartido/zip.js
+  var TABLA_CRC = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
 
   // modulos/equipos/pantallas.js
   var svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -2267,10 +2404,10 @@ Content-Type: ${mime}\r
   }
 
   // app/conexion-terreno.js
-  var VERSION = "1.7 (Sistema v0.20)";
-  var CLAVE_PERSONA = "topoland_conexion_persona";
-  var CLAVE_CARPETA = "topoland_conexion_carpeta";
-  var CLAVE_CODIGO = "topoland_conexion_codigo";
+  var VERSION = "1.8 (Sistema v0.21.1)";
+  var CLAVE_PERSONA = "sistema_conexion_persona";
+  var CLAVE_CARPETA = "sistema_conexion_carpeta";
+  var CLAVE_CODIGO = "sistema_conexion_codigo";
   var leer = (k) => {
     try {
       return JSON.parse(localStorage.getItem(k) || "null");

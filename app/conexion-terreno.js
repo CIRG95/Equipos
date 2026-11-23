@@ -1,5 +1,5 @@
-// app/conexion-terreno.js — PAQUETE DE CONEXIÓN para la app de Terreno (se arma como paquete-conexion/topoland-conexion.js,
-// script clásico con el global window.TopolandConexion).
+// app/conexion-terreno.js — PAQUETE DE CONEXIÓN para la app de Terreno (se arma como paquete-conexion/sistema-conexion.js,
+// script clásico con el global window.SistemaConexion).
 //
 // La app de Terreno sigue siendo su propia app (decisión del 2-nov). Con este paquete:
 //   · se vincula a una persona del Sistema (QR o código), sin usuarios ni contraseñas por ahora;
@@ -8,9 +8,9 @@
 //   · marca tramos volados del Seguimiento;
 //   · publica jornadas, fotos y monografías por proyecto, y lee el estado de revisión de las monografías (v1.2);
 //   · sincroniza con la misma nube del Sistema (Google Drive en pruebas).
-// v1.3: crea la base «topoland» completa (esquema común, ver compartido/esquema.js) para no bloquear al Sistema;
+// v1.3: crea la base común completa (esquema común, ver compartido/esquema.js) para no bloquear al Sistema;
 //       el código del QR queda guardado y se vincula solo cuando llegan las personas desde la nube.
-// Usa la base común «topoland» y el mismo formato que el Sistema: no hay que programar nada de eso en Terreno.
+// Usa la base común y el mismo formato que el Sistema: no hay que programar nada de eso en Terreno.
 
 import * as nube from '../compartido/nube.js';
 import { listarPersonas, listarProyectos, OFICINA_ID } from '../compartido/catalogos.js';
@@ -38,10 +38,12 @@ import { ALM as ALM_ADMIN, guardarRegistro, fijarPersona as fijarPersonaAdmin } 
 //       compañeros del proyecto y registro de la charla de seguridad (almacén admin_seguridad, igual que en el Sistema).
 // v1.7 (Sistema v0.20): el checklist de terreno, la tolerancia de nivelación y los tipos de catastro se editan en el Sistema
 //       (configTerreno); cada proyecto entrega su checklist y los instrumentos de sus tipos de trabajo (checklistDeProyecto).
-export const VERSION = '1.7 (Sistema v0.20)';
-const CLAVE_PERSONA = 'topoland_conexion_persona';
-const CLAVE_CARPETA = 'topoland_conexion_carpeta';
-const CLAVE_CODIGO = 'topoland_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)
+// v1.8 (Sistema v0.21.1): mismas funciones con nombres genéricos: global window.SistemaConexion, archivo sistema-conexion.js,
+//       base «sistema_trabajo» y claves sistema_…; la primera vez copia la base y las claves de la instalación anterior.
+export const VERSION = '1.8 (Sistema v0.21.1)';
+const CLAVE_PERSONA = 'sistema_conexion_persona';
+const CLAVE_CARPETA = 'sistema_conexion_carpeta';
+const CLAVE_CODIGO = 'sistema_conexion_codigo'; // código del QR pendiente (sobrevive a recargas y a pasar a la app instalada)
 const leer = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const escribir = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
 

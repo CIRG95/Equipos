@@ -148,5 +148,5 @@ export function documentoProyecto(proyecto, { redes = [], marcas = [], vuelos = 
     ...(vuelos.length ? [{ nombre: 'Vuelos', carpetas: vuelos.map(v => carpetaVuelo(v.hoja, v)) }] : []),
     ...(monografias.length ? [carpetaMonografias(monografias)] : []),
   ];
-  return { nombre: proyecto.nombre || 'Proyecto', descripcion: [proyecto.mandante ? `Mandante: ${proyecto.mandante}` : '', 'Exportado desde el Sistema Topoland.'].filter(Boolean).join('\n'), carpetas };
+  return { nombre: proyecto.nombre || 'Proyecto', descripcion: [proyecto.mandante ? `Mandante: ${proyecto.mandante}` : '', 'Exportado desde el Sistema de trabajo.'].filter(Boolean).join('\n'), carpetas };
 }

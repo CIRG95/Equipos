@@ -3,7 +3,7 @@
 // Administración / RRHH: bandeja de rendiciones, revisión con boletas, devolver con motivo, depósitos de fondo y pago.
 // Rutas (las arma app/sistema.js): #/gastos · #/gastos/proyecto/<id> · #/gastos/nuevo[/<proyectoId>] · #/gastos/gasto/<id> · #/gastos/rendicion/<id>
 
-import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, leerLS, escribirLS } from '../../compartido/util.js';
+import { escapar as esc, fechaLegible, fechaHoraLegible, hoyISO, leerLS, escribirLS, vacio, plural } from '../../compartido/util.js';
 import { listarProyectos, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
 import { urlArchivo, abrirArchivo } from '../../compartido/archivos.js';
 import { avisarConDeshacer } from '../../compartido/deshacer.js';
@@ -26,8 +26,6 @@ const ICO = {
   pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>',
 };
 const chip = estado => `<span class="sis-chip ${ESTADOS[estado].color}">${ESTADOS[estado].texto}</span>`;
-const vacio = (t, extra = '') => `<div class="sis-vacio"><p>${t}</p>${extra}</div>`;
-const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
 
 export function montarPantallas(contenedor, ctx) {
   fijarPersona(ctx.personaId || null);

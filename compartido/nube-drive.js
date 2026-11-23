@@ -18,11 +18,11 @@ export function crearAdaptadorDrive({ clienteId, api = 'https://www.googleapis.c
 
   const leerGuardado = () => {
     try {
-      const g = JSON.parse(localStorage.getItem('topoland_nube_token') || 'null');
+      const g = JSON.parse(localStorage.getItem('sistema_nube_token') || 'null');
       if (g && g.vence > Date.now()) { token = g.token; vence = g.vence; }
     } catch { /* sin almacenamiento */ }
   };
-  const guardarToken = () => { try { localStorage.setItem('topoland_nube_token', JSON.stringify({ token, vence })); } catch { /* */ } };
+  const guardarToken = () => { try { localStorage.setItem('sistema_nube_token', JSON.stringify({ token, vence })); } catch { /* */ } };
   leerGuardado();
 
   function tokenVigente() { return token && Date.now() < vence; }
@@ -62,7 +62,7 @@ export function crearAdaptadorDrive({ clienteId, api = 'https://www.googleapis.c
   function desconectar() {
     if (token && globalThis.google && google.accounts && google.accounts.oauth2) { try { google.accounts.oauth2.revoke(token, () => {}); } catch { /* */ } }
     token = null; vence = 0;
-    try { localStorage.removeItem('topoland_nube_token'); } catch { /* */ }
+    try { localStorage.removeItem('sistema_nube_token'); } catch { /* */ }
   }
 
   async function pedir(ruta, opciones = {}) {
@@ -133,7 +133,7 @@ export function crearAdaptadorDrive({ clienteId, api = 'https://www.googleapis.c
       });
       return r.json();
     }
-    const limite = 'topoland' + Math.random().toString(16).slice(2);
+    const limite = 'limite' + Math.random().toString(16).slice(2);
     const meta = { name: nombre, parents: [carpetaId], mimeType: mime };
     const cuerpo = new Blob([
       `--${limite}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,

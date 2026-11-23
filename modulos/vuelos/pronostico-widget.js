@@ -8,12 +8,12 @@ import { cercanas, decodificar, comparar } from './metar.js';
 import { htmlPanelMetar } from './metar-ui.js';
 import { graficoPronostico, checklistClima } from './graficos.js';
 import { DRONES_BASE } from './drones.js';
+import { escapar as esc } from '../../compartido/util.js';
 
 export const VERSION = '1.1 (Vuelos 0.6)';
 export const DRONES = DRONES_BASE.map(d => ({ id: d.id, nombre: d.nombre, vientoMaxMs: d.vientoMaxMs, rafagaMaxMs: d.rafagaMaxMs }));
 export const piezas = { pedirPronostico, pedirKp, kpEnHora, evaluarHora, elevacionSol, cercanas, decodificar, comparar, graficoPronostico, checklistClima };
 
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const dos = n => String(n).padStart(2, '0');
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const fechaCorta = iso => { const d = new Date(iso + 'T12:00:00'); return `${DIAS[d.getDay()]} ${d.getDate()}`; };

@@ -248,7 +248,7 @@ function resumenCierre(j, levs) {
   };
 }
 function jornadaSeEnviaAlCerrar(j) {
-  return typeof sisPuedePublicar === "function" && sisPuedePublicar() && !!j.proyectoId && typeof TopolandConexion.publicarJornada === "function";
+  return typeof sisPuedePublicar === "function" && sisPuedePublicar() && !!j.proyectoId && typeof SistemaConexion.publicarJornada === "function";
 }
 function tarjetaCierreHtml(j, levs) {
   const r = resumenCierre(j, levs);

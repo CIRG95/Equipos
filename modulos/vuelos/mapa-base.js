@@ -7,7 +7,7 @@
 const CLAVE_LS = 'vu_mapa_base';
 const ESRI_PUBLICO = s => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
 
-export const clave = () => (typeof window !== 'undefined' && window.TOPOLAND_CONFIG && window.TOPOLAND_CONFIG.esriClave) || '';
+export const clave = () => (typeof window !== 'undefined' && window.SISTEMA_CONFIG && window.SISTEMA_CONFIG.esriClave) || '';
 
 /** Capas base disponibles: { nombre: L.Layer }. */
 export function capasBase(L) {

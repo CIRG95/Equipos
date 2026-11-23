@@ -4,7 +4,7 @@
 //   seguimiento_eventos   cambios de estado, solo se agregan (terreno, producto, entrega, nota)  índice cicloId
 //   seguimiento_entregas  entregas del ciclo (E1, E2…) con su fecha                       índice cicloId
 
-import { registrarAlmacenes, obtener, todos, porIndice, guardar, guardarVarios } from '../../compartido/almacen.js';
+import { registrarAlmacenes, todos, porIndice, guardar, guardarVarios } from '../../compartido/almacen.js';
 import { sellar, uuid } from '../../compartido/util.js';
 import { enviarAPapelera } from '../../compartido/papelera.js';
 

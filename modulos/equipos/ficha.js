@@ -4,7 +4,7 @@
 // También: editar especificaciones, editar accesorios, agregar certificado, etiqueta QR, certificados por proyecto.
 // Lo usa pantallas.js; recibe sus utilidades en `ctx` para no duplicarlas.
 
-import { fechaLegible, hoyISO, cargarScript } from '../../compartido/util.js';
+import { fechaLegible, hoyISO, cargarScript, nombreEmpresa } from '../../compartido/util.js';
 import { listarProyectos } from '../../compartido/catalogos.js';
 import { sensoresDe, textoSensor } from './sensores.js';
 import { archivosDe, urlArchivo, abrirArchivo, archivoAPapelera, tamanoLegible } from '../../compartido/archivos.js';
@@ -19,8 +19,7 @@ import {
   guardarAdmin, personaActiva,
 } from './datos.js';
 
-let urlQR = 'vendor/qrcode.js'; // relativa a la página, igual que SheetJS
-export function configurarQR(url) { urlQR = url; }
+const urlQR = 'vendor/qrcode.js'; // relativa a la página, igual que SheetJS
 
 // Dibujos genéricos por categoría (cuando el equipo no tiene foto).
 const dib = d => `<svg viewBox="0 0 120 160" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -333,7 +332,7 @@ export function crearFicha(ctx) {
           <p class="eq-tenue">Imprímela y pégala en la caja. Al escanearla con el teléfono se abre esta ficha${/^https?:/.test(enlace) ? '' : '. <b>Para que el QR funcione desde otro teléfono, genera la etiqueta desde la versión publicada en GitHub Pages</b> (abierta desde el PC, el enlace apunta a un archivo local)'}.</p></div>
         <div class="eq-etiqueta" id="eq-etiqueta">
           <div class="eq-etq-qr">${svgQR}</div>
-          <div class="eq-etq-txt"><b>${esc(est.nombre)}</b><span>N° serie ${esc(eq.numeroSerie || '—')}</span>${eq.codigoInterno ? `<span>${esc(eq.codigoInterno)}</span>` : ''}<small>Topoland</small></div>
+          <div class="eq-etq-txt"><b>${esc(est.nombre)}</b><span>N° serie ${esc(eq.numeroSerie || '—')}</span>${eq.codigoInterno ? `<span>${esc(eq.codigoInterno)}</span>` : ''}<small>${esc(nombreEmpresa())}</small></div>
         </div>
         <div class="eq-acciones bloque"><button class="eq-btn relleno" data-accion="imprimir-etiqueta">Imprimir etiqueta</button></div>`;
     },

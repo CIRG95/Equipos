@@ -1,12 +1,13 @@
-# Terreno Topografía — app de terreno (v0.9.0)
+# Terreno Topografía — app de terreno (v0.9.1)
 
 App aparte, liviana, para el teléfono (y PC). Alimenta al Sistema sin integrarse a él. Se publica con GitHub Pages en `…/equipos/terreno/`.
 
 - Es una copia armada desde el proyecto Terreno (código en `js/`, `css/`, `vendor/`). **Los cambios se hacen en el chat de Terreno**, no editar aquí.
-- Datos: base propia `terrenoTopoDB` (IndexedDB) y claves de localStorage sin prefijo `topoland_`/`env_`/`vu_`, así que no choca con el Sistema.
+- Datos: base propia `terrenoTopoDB` (IndexedDB) y claves de localStorage sin prefijo `sistema_`/`env_`/`vu_`, así que no choca con el Sistema.
 - Service worker propio (`terreno-topo-…`): solo borra sus cachés.
-- **0.5.8:** paquete de conexión 1.3 del Sistema (`js/topoland-conexion.js`, copiado sin cambios desde `paquete-conexion/`): base compartida completa, código del QR guardado y vinculación automática al terminar la sincronización.
+- **0.5.8:** paquete de conexión 1.3 del Sistema (`js/sistema-conexion.js`, copiado sin cambios desde `paquete-conexion/`): base compartida completa, código del QR guardado y vinculación automática al terminar la sincronización.
 - **0.6.0:** trabajo sin conexión completo: cola de subida guardada en el teléfono (`colaSync`), reconexión automática al volver la señal aunque la app haya abierto sin internet (`reconectarNubes` en `js/99-inicio.js`), franja «Sin conexión» y pastilla con las jornadas por subir, `sw.js` que guarda `../config.js` y abre la app guardada ante cualquier navegación sin señal. Paquete de conexión 1.4.2.
+- **0.9.1:** nombres internos genéricos: paquete de conexión 1.8 (`js/sistema-conexion.js`, global `SistemaConexion`), `window.SISTEMA_CONFIG`, claves `sistema_…`. La primera vez copia sola los datos y la vinculación de la versión anterior. Caché `terreno-topo-v53-0.9.1`.
 - **0.9.0:** el Sistema prepara y el teléfono registra. Vinculado: checklist, semáforo de nivelación y tipos de catastro vienen del Sistema; la jornada de un proyecto del Sistema trae su checklist ya cargado; Registrar filtra los instrumentos por los tipos de trabajo del proyecto y sugiere los equipos que se llevan; barra del teléfono Hoy · Registrar · Gastos («Mis jornadas» desde Hoy, «Monografías» desde Registrar). Sin vincular, igual que antes. Archivo nuevo `js/25-desde-sistema.js`; paquete 1.7; caché `terreno-topo-v52-0.9.0`.
 - **0.8.0:** modo simple para ayudantes y alarifes. Si en el Sistema la ficha dice «Ayudante» (y no «Encargado de terreno»), la app abre en «Inicio» con cuatro botones grandes: Mi jornada · Foto o punto · Gasto · Charla de seguridad; Monografías e Historial se ocultan. Charla de seguridad (proyecto, tema, asistentes) sin señal → Sistema › Seguridad del proyecto. La lista de proyectos incluye aquellos donde la persona integra la cuadrilla. Archivo nuevo `js/24-simple.js`. Paquete de conexión 1.6 (`miModo`, `companerosDeProyecto`, `registrarCharla`); caché `terreno-topo-v51-0.8.0`.
 - **0.7.0:** avance de los vuelos por sector. En una jornada de dron con proyecto del Sistema, la tarjeta «Vuelos del proyecto» muestra los sectores de cada hoja (los de hoy resaltados y los atrasados) y registra %, base, altura de la base y observación, sin señal. Paquete de conexión 1.5 (`vuelosDeProyecto`, `registrarAvance`); caché `terreno-topo-v50-0.7.0`.

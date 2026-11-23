@@ -17,7 +17,7 @@ import { inicio, htmlFranjaProyectos } from './vistas-inicio.js';
 import { proyectos, proyecto, datosRegistro, resumenPlanificacion } from './vistas-proyectos.js';
 import * as Planificacion from '../modulos/planificacion/planificacion.js';
 import { encargo, iniciarEncargo, leerEncargo } from './vistas-encargo.js';
-import { configuracion, nuevoCodigo, quien, rolDePersona } from './vistas-config.js';
+import { configuracion, nuevoCodigo, quien } from './vistas-config.js';
 import { configEfectiva, problemaPlantilla } from '../compartido/plantillas-terreno.js';
 import { obtenerConfigTerreno, guardarConfigTerreno } from '../modulos/administracion/datos.js';
 import { proyectoTecnico, leerTecnico } from './vistas-tecnico.js';
@@ -166,7 +166,7 @@ export async function manejarEnvio(form, ctx) {
     return true;
   }
   if (form.dataset.form === 'empresa') {
-    await ctx.cambiarMarca({ nombre: (datos.get('nombre') || '').trim() || 'Topoland', color: datos.get('color') || COLORES_MARCA[0][0] });
+    await ctx.cambiarMarca({ nombre: (datos.get('nombre') || '').trim() || 'Mi empresa', color: datos.get('color') || COLORES_MARCA[0][0] });
     ctx.avisar('Marca guardada');
     return true;
   }

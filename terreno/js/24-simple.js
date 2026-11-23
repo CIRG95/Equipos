@@ -16,7 +16,7 @@ function simpleSvg(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="cur
 /** Consulta la ficha en el Sistema y activa o quita el modo simple. */
 async function simpleAplicar() {
   let modo = "completo";
-  try { if (SIS.listo && typeof TopolandConexion.miModo === "function") modo = (await TopolandConexion.miModo()).modo; } catch (_) {}
+  try { if (SIS.listo && typeof SistemaConexion.miModo === "function") modo = (await SistemaConexion.miModo()).modo; } catch (_) {}
   const antes = SIMPLE.activo;
   SIMPLE.activo = modo === "simple";
   document.body.dataset.simple = SIMPLE.activo ? "1" : "";
@@ -74,7 +74,7 @@ function simpleRender() {
 /* ---------- Charla de seguridad ---------- */
 async function simpleAbrirCharla() {
   SIMPLE.charla = true;
-  try { SIMPLE.proyectos = await TopolandConexion.misProyectos(); } catch (_) { SIMPLE.proyectos = []; }
+  try { SIMPLE.proyectos = await SistemaConexion.misProyectos(); } catch (_) { SIMPLE.proyectos = []; }
   const j = jornadaActiva();
   const deJornada = j && SIMPLE.proyectos.find((x) => x.nombre === j.proyecto);
   SIMPLE.proyectoId = (deJornada || SIMPLE.proyectos[0] || {}).id || null;
@@ -82,7 +82,7 @@ async function simpleAbrirCharla() {
   simpleRender();
 }
 async function simpleCargarCompaneros() {
-  try { SIMPLE.companeros = SIMPLE.proyectoId ? await TopolandConexion.companerosDeProyecto(SIMPLE.proyectoId) : []; } catch (_) { SIMPLE.companeros = []; }
+  try { SIMPLE.companeros = SIMPLE.proyectoId ? await SistemaConexion.companerosDeProyecto(SIMPLE.proyectoId) : []; } catch (_) { SIMPLE.companeros = []; }
 }
 
 function simpleRenderCharla(cont) {
@@ -119,10 +119,10 @@ function simpleRenderCharla(cont) {
     if (!asistentes.length && !otros.length) { toast("Marca quiénes estuvieron"); return; }
     SIMPLE.guardando = true;
     try {
-      await TopolandConexion.registrarCharla({ proyectoId: f.proyecto.value, tema, asistentes, otros });
+      await SistemaConexion.registrarCharla({ proyectoId: f.proyecto.value, tema, asistentes, otros });
       SIMPLE.charla = false;
       toast("Charla registrada");
-      Promise.resolve().then(() => TopolandConexion.sincronizar()).catch(() => {});
+      Promise.resolve().then(() => SistemaConexion.sincronizar()).catch(() => {});
     } catch (err) { toast(err && err.message ? err.message : "No se pudo guardar la charla"); }
     SIMPLE.guardando = false;
     simpleRender();

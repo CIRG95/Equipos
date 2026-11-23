@@ -115,8 +115,6 @@ export function eppPorReponer(ficha, { hoy, diasAviso = DIAS_AVISO }) {
     .filter(x => ['vencido', 'por_vencer'].includes(x.e.estado));
 }
 
-/** ¿La persona está ausente (vacaciones aprobadas) en esa fecha? */
-export const ausenteEn = (ausencias, personaId, fecha) => ausencias.some(a => a.personaId === personaId && a.estado === 'aprobada' && a.desde <= fecha && fecha <= (a.hasta || a.desde));
 
 // ───────── Vacaciones, ubicación y distribución del personal (v0.16) ─────────
 

@@ -3,13 +3,13 @@
 // sin la app, y se puede volver a importar: las columnas informativas se ignoran al importar.
 // Hojas: Equipos · Accesorios · Certificados.
 
-import { cargarScript, hoyISO } from '../../compartido/util.js';
+import { cargarScript, hoyISO, nombreEmpresa } from '../../compartido/util.js';
+import { nombreSeguro } from '../../compartido/zip.js';
 import { mapaNombres, OFICINA_ID } from '../../compartido/catalogos.js';
 import { COLUMNAS_PLANILLA, COLUMNAS_INFORMATIVAS, LUGARES, ESTADOS_ACCESORIO, nombreCorto } from './modelo.js';
 import { listarConEstado, todosLosCertificados } from './datos.js';
 
-let urlSheetJS = 'vendor/xlsx.full.min.js';
-export function configurarSheetJSExportar(url) { urlSheetJS = url; }
+const urlSheetJS = 'vendor/xlsx.full.min.js';
 
 /**
  * aaaa-mm-dd → número de fecha de Excel (días desde 30-12-1899). Se escribe como número con formato
@@ -106,7 +106,7 @@ export async function descargarPlanilla() {
   XLSX.utils.book_append_sheet(libro, wsEq, 'Equipos');
   XLSX.utils.book_append_sheet(libro, wsAcc, 'Accesorios');
   XLSX.utils.book_append_sheet(libro, wsCert, 'Certificados');
-  const archivo = `Equipos_Topoland_${hoyISO()}.xlsx`;
+  const archivo = `Equipos_${nombreSeguro(nombreEmpresa())}_${hoyISO()}.xlsx`;
   XLSX.writeFile(libro, archivo, { compression: true });
   return { archivo, equipos: activos.length + deBaja.length };
 }

@@ -4,7 +4,7 @@
 //   · jornadasDeHoja: por baterías (agrupadas por base, con recarga opcional) o por horario (como antes)
 
 import { escapar as esc } from '../../compartido/util.js';
-import { fmt, fmtDuracion } from './calculo.js';
+import { fmt } from './calculo.js';
 import { nombreSector, jornadasNecesarias, minutosUtiles, HORARIO_INICIAL } from './hoja.js';
 import { calcularAmarre, jornadasPorBaterias, AMARRE_INICIAL, JORNADA_INICIAL } from './amarre.js';
 import { prsActivos, resumenCapas } from './capas-proyecto.js';

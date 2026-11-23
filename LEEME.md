@@ -1,6 +1,26 @@
-# Topoland · Sistema de trabajo — v0.21 · Terreno 0.9.0
+# Sistema de trabajo — v0.21.1 · Terreno 0.9.1
 
-**Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra «Sistema Topoland — flujos por rol y propuesta v0.18»): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
+**Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra de flujos por rol y propuesta v0.18): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
+
+## Qué cambia en v0.21.1 (revisión de optimización y código genérico)
+Sin funciones nuevas: la app hace lo mismo, más liviana y sin el nombre de ninguna empresa en el código.
+- **Código genérico.** El nombre de la empresa sale solo de Configuración › Marca (por defecto «Mi empresa»): encabezado, título de la pestaña, letra del logo, etiqueta QR de los equipos, hoja de vuelo, CV en PDF y nombre del Excel de equipos. Nombres internos nuevos:
+  - base de datos `sistema_trabajo`; claves del navegador `sistema_nube`, `sistema_nube_token`, `sistema_dispositivoId`, `sistema_conexion_*`, `sistema_invitacion`;
+  - `config.js` define `window.SISTEMA_CONFIG` (el Client ID no cambia);
+  - paquete de conexión **1.8**: archivo `sistema-conexion.js`, global `window.SistemaConexion` (mismas funciones);
+  - carpeta nueva de Drive por defecto «Sistema de trabajo»; el proyecto «Oficina» nuevo lleva mandante «Interno»; los respaldos se marcan `app: 'sistema'`.
+- **Nada se pierde al actualizar** (`compartido/nombres-anteriores.js`, el único archivo que conoce los nombres antiguos):
+  - la primera vez que se abre (Sistema o Terreno), se copia la base anterior completa a la nueva sin pisar nada, y las claves del navegador (Drive vinculado, persona, dispositivo); la base anterior queda intacta como respaldo;
+  - los respaldos `.json` antiguos se siguen importando y «Buscar carpetas» de Drive encuentra también la carpeta con el nombre anterior;
+  - cuando todos los equipos hayan abierto la v0.21.1, ese archivo se puede borrar en una versión de limpieza.
+- **Optimización:**
+  - `sistema-app.js` de 1,23 MB a **1,12 MB** (−9 %): ahora también acorta las variables internas, pero conserva el nombre de cada función para leer los errores.
+  - **Menos lecturas de la base:** cada pantalla pedía las mismas partes varias veces al pintarse (equipos, eventos y alertas hasta 4 veces). Ahora una lectura completa se comparte 1,5 s y cualquier escritura la descarta. Con datos de prueba: Inicio 25 → 17 lecturas, ficha del proyecto 44 → 29, Proyectos 35 → 15, Gastos 25 → 13. Lo que escriba otra pestaña o Terreno se ve al cambiar de pantalla, como antes.
+  - La Oficina se revisa en la misma lectura de proyectos (antes una lectura extra cada vez).
+  - Piezas repetidas unificadas en `compartido/util.js`: `vacio`, `plural`, `txtCampo` (4 copias en Administración) y `escapar` (3 copias); `puntoEnPoligono` de Planificación usa el de Vuelos.
+  - Código sin uso quitado: 10 funciones exportadas que nadie llamaba y 8 importaciones sobrantes.
+- **Terreno 0.9.1:** solo los nombres internos y el paquete 1.8; caché `terreno-topo-v53-0.9.1`. Sigue vinculado sin hacer nada.
+- Pruebas: 174 unitarias (nueva `nombres-anteriores.test.mjs`); navegador con datos ficticios: copia desde una instalación anterior (PC y teléfono), recorrido de 30 pantallas con los tres roles sin errores, etiqueta QR con la marca, Terreno vinculado tras actualizar.
 
 ## Qué cambia en v0.21 (mapa de puntos y exportar KMZ/KML)
 - **Monografías 0.5 · Mapa de puntos del proyecto** (botón «Mapa de puntos» junto a «PDF de todas»): mapa satelital de Esri con un símbolo por ficha (triángulo, círculo con cruz, cuadrado o círculo; color y tamaño) y su nombre, o nombre y cota.
@@ -59,7 +79,7 @@ Pensado para que lo use desde un alarife hasta la jefatura, sin explicación.
 
 ## App de Terreno 0.6.1 — menos pasos
 - Pestañas Hoy · Registrar · Monografías · Gastos · Historial. Vinculado, el operador y el proyecto vienen del Sistema; trabajos en un nivel; ubicación automática; checklist plegado; pronóstico en una línea; cierre al final con resumen y envío al Sistema (sin señal queda en cola). Detalle en `terreno/LEEME.md`.
-- Conexión intacta: `terreno/js/topoland-conexion.js` idéntico a `paquete-conexion/` (cmp), mismas funciones del paquete 1.4.2 (`misProyectos`, `publicarJornada`, `misEquiposEnTerreno`).
+- Conexión intacta: `terreno/js/sistema-conexion.js` idéntico a `paquete-conexion/` (cmp), mismas funciones del paquete 1.4.2 (`misProyectos`, `publicarJornada`, `misEquiposEnTerreno`).
 
 ## Qué cambia en v0.17b
 - **Ficha del proyecto en pestañas:** Resumen (cronograma, cuadrilla, seguridad, gastos) · Planificación (trabajos, capas KMZ, vuelos, red de PR, monografías) · Datos y bitácora · Entregas · Equipos y gastos. Cada pestaña tiene su propia dirección (`#/proyecto/<id>/<pestaña>`); los pendientes enlazan directo a la pestaña que corresponde. La pestaña «Datos y bitácora» muestra cuántas entradas siguen abiertas.

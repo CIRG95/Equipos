@@ -3,13 +3,14 @@
 
 import { todos, guardarVarios, almacenesRegistrados, obtener } from './almacen.js';
 import { ahoraISO, dispositivoId, hoyISO, descargar } from './util.js';
+import { APPS_RESPALDO_ANTERIORES } from './nombres-anteriores.js';
 
 export async function exportarRespaldo(prefijos = ['']) {
   const almacenes = {};
   for (const nombre of almacenesRegistrados()) {
     if (prefijos.some(p => nombre.startsWith(p))) almacenes[nombre] = await todos(nombre);
   }
-  return { app: 'topoland', formato: 1, exportadoEn: ahoraISO(), dispositivoId: dispositivoId(), almacenes };
+  return { app: 'sistema', formato: 1, exportadoEn: ahoraISO(), dispositivoId: dispositivoId(), almacenes };
 }
 
 export async function descargarRespaldo(prefijos, nombreBase = 'respaldo') {
@@ -19,7 +20,7 @@ export async function descargarRespaldo(prefijos, nombreBase = 'respaldo') {
 }
 
 export async function importarRespaldo(datos) {
-  if (!datos || datos.app !== 'topoland' || !datos.almacenes) throw new Error('El archivo no es un respaldo válido.');
+  if (!datos || (datos.app !== 'sistema' && !APPS_RESPALDO_ANTERIORES.includes(datos.app)) || !datos.almacenes) throw new Error('El archivo no es un respaldo válido.');
   const conocidos = new Set(almacenesRegistrados());
   const resumen = { nuevos: 0, actualizados: 0, sinCambio: 0, omitidosAlmacen: [] };
   const ops = [];

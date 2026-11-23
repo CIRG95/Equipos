@@ -184,8 +184,8 @@ function renderLevantamiento() {
     }
   }
   // 0.6.1: el equipo se elige de los equipos que el Sistema tiene en terreno a tu cargo (o se escribe)
-  if (typeof sisPersona === "function" && sisPersona() && typeof TopolandConexion.misEquiposEnTerreno === "function") {
-    TopolandConexion.misEquiposEnTerreno().then((lista) => {
+  if (typeof sisPersona === "function" && sisPersona() && typeof SistemaConexion.misEquiposEnTerreno === "function") {
+    SistemaConexion.misEquiposEnTerreno().then((lista) => {
       const dl = document.getElementById("listaEquipos");
       if (!dl || !lista || !lista.length) return;
       const ya = new Set([...dl.options].map((o) => o.value));

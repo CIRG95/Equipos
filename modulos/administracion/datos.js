@@ -14,9 +14,9 @@
 //   admin_config           configuración común (tabla de tiempos GNSS, tarifas, plazos de aviso)
 // Los archivos (PDF, fotos) van en compartido_archivos con modulo 'administracion'.
 
-import { registrarAlmacenes, obtener, todos, guardar, porIndice } from '../../compartido/almacen.js';
+import { registrarAlmacenes, obtener, todos, guardar } from '../../compartido/almacen.js';
 import { sellar } from '../../compartido/util.js';
-import { enviarAPapelera, restaurar } from '../../compartido/papelera.js';
+import { enviarAPapelera } from '../../compartido/papelera.js';
 import { guardarArchivo, archivoAPapelera } from '../../compartido/archivos.js';
 import { TIPOS_BASE, MANDANTES_BASE, CONFIG_BASE } from './modelo.js';
 
@@ -79,7 +79,6 @@ export async function guardarRegistro(almacen, datos) {
   return guardar(almacen, sello({ ...(previo || {}), ...datos }));
 }
 export async function aPapelera(almacen, id) { return enviarAPapelera(almacen, id, { personaId: persona }); }
-export async function deshacerPapelera(almacen, id) { return restaurar(almacen, id, { personaId: persona }); }
 
 export async function guardarConfig(cambios) {
   const actual = (await obtener(ALM.config, 'general')) || { ...CONFIG_BASE, id: 'general' };
@@ -105,10 +104,6 @@ export async function guardarFicha(personaId, cambios) {
   return guardar(ALM.fichas, sello({ ...actual, ...cambios, id: personaId }));
 }
 
-/** Documentos de una persona o vehículo. */
-export async function documentosDe(duenoTipo, duenoId) {
-  return (await porIndice(ALM.documentos, 'dueno', [duenoTipo, duenoId])).filter(vivo);
-}
 
 /**
  * Guarda un documento y, si viene, su archivo (PDF o foto). Carpeta en la nube:

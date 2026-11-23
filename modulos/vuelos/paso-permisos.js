@@ -1,6 +1,6 @@
 // modulos/vuelos/paso-permisos.js — paso 4 de la hoja (DGAC, documentos, consultas con registro) y la hoja para terreno (impresión).
 
-import { escapar as esc, fechaLegible } from '../../compartido/util.js';
+import { escapar as esc, fechaLegible, nombreEmpresa } from '../../compartido/util.js';
 import { fmt, fmtDuracion } from './calculo.js';
 import { chip, fechaHora, dosD } from './ui.js';
 import { ENLACES_CONSULTA } from './pronostico.js';
@@ -105,7 +105,7 @@ export function crearPasoPermisos(v) {
     const despLL = r => { const [lon, lat] = g.marco.aLonLat(r.despegueXY); return `${lat.toFixed(5)}, ${lon.toFixed(5)}`; };
     const vacias = Array(Math.max(0, 6 - h.viento.length)).fill({ hora: '', ms: '', nota: '' });
     const html = `<div class="vu-imp">
-      <header><div><b>${esc(document.querySelector('.sis-marca b')?.textContent || 'Topoland')}</b> · Hoja de vuelo</div><div>${esc(h.nombre || '')}</div></header>
+      <header><div><b>${esc(nombreEmpresa())}</b> · Hoja de vuelo</div><div>${esc(h.nombre || '')}</div></header>
       <table class="vu-imp-datos">${filaT('Proyecto', esc(nomProy(h.proyectoId)))}${filaT('Fecha', h.fecha ? fechaLegible(h.fecha) : '')}${filaT('Piloto', esc(nomPers(h.pilotoId)))}${filaT('Dron', esc(d.nombre))}
         ${filaT('Producto', `${h.params.modo === 'lidar' ? 'LiDAR' : 'Fotogrametría'} · GSD ${fmt(t.gsd, 2)} cm · altura ${fmt(t.altura, 0)} m · traslapes ${h.params.traslapeFrontal}/${h.params.traslapeLateral} %`)}
         ${filaT('Área de vuelo', `${fmt(g.areaVuelo / 10000, 2)} ha${g.tipo === 'corredor' ? ` · corredor de ${fmt(g.izq + g.der, 0)} m` : Number(h.area.margen) ? ` · margen de ${h.area.margen} m` : ''}`)}

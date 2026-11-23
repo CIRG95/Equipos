@@ -5,7 +5,7 @@
 // El mapa (Leaflet + base satelital de Esri, igual que Vuelos) se crea una vez por editor; los cambios repintan
 // solo las capas y el panel, para que arrastrar un PR recalcule al instante sin recargar el mapa.
 
-import { escapar as esc, hoyISO, cargarScript, descargar, fechaHoraLegible } from '../../compartido/util.js';
+import { escapar as esc, hoyISO, cargarScript, descargar, fechaHoraLegible, vacio } from '../../compartido/util.js';
 import { listarProyectos, listarPersonas, OFICINA_ID } from '../../compartido/catalogos.js';
 import { obtener } from '../../compartido/almacen.js';
 import { leerArchivo, analizarKml } from '../vuelos/kml.js';
@@ -23,7 +23,6 @@ import {
   marcoLocal, sugerirPR, vectoresSugeridos, preAnalisis, evaluarPunto, reforzar, planificarSesiones, tiempoPara, marcasArea, marcasCorredor, dist, largoLinea, areaPoligono,
 } from './modelo.js';
 
-const vacio = (t, extra = '') => `<div class="sis-vacio"><p>${t}</p>${extra}</div>`;
 const COLOR = { ok: '#0F766E', aviso: '#B7791F', malo: '#B42318', control: '#1D5C63', chequeo: '#1D4ED8', gcp: '#C2571A' };
 const NIVEL = { ok: ['Cumple', 'verde'], aviso: ['Débil', 'ambar'], malo: ['No cumple', 'rojo'] };
 const km = m => (m >= 1000 ? `${(m / 1000).toLocaleString('es-CL', { maximumFractionDigits: 2 })} km` : `${Math.round(m)} m`);

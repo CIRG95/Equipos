@@ -20,7 +20,6 @@ export const INFO_ENCARGO = [
   ['referencia', 'Sistema de referencia y puntos existentes', 'Datum, huso y monografías o PR entregados por el mandante.'],
   ['seguridad', 'Requisitos de seguridad del mandante', 'Inducciones, exámenes y elementos de protección exigidos.'],
 ];
-export const NOMBRE_INFO = Object.fromEntries(INFO_ENCARGO.map(([k, t]) => [k, t]));
 
 export const TIPOS_BITACORA = {
   consulta: { texto: 'Consulta', color: 'ambar', pide: 'respuesta' },

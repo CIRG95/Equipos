@@ -11,8 +11,9 @@ for f in app/*.js compartido/*.js modulos/*/*.js; do
 done
 node --test pruebas/*.test.mjs > /tmp/_pruebas.txt 2>&1 || { cat /tmp/_pruebas.txt; echo "Fallaron pruebas: no se arma."; exit 1; }
 grep -E "^# (pass|fail)" /tmp/_pruebas.txt
-# v0.11.4: sin espacios ni comentarios (los nombres se mantienen legibles para leer errores en el teléfono).
-npx --yes esbuild@0.24.0 app/sistema.js --bundle --format=iife --target=es2019 --charset=utf8 --minify-whitespace --minify-syntax \
+# v0.11.4: sin espacios ni comentarios. v0.21.1: también acorta las variables internas (--minify), pero
+# --keep-names conserva el nombre de cada función, así los errores del teléfono siguen diciendo dónde falló.
+npx --yes esbuild@0.24.0 app/sistema.js --bundle --format=iife --target=es2019 --charset=utf8 --minify --keep-names \
   --banner:js="/* sistema-app.js — ARCHIVO GENERADO con construir.sh. No editar: los cambios van en app/, compartido/ o modulos/. */" \
   --outfile=sistema-app.js
 node --check sistema-app.js
@@ -30,11 +31,11 @@ fs.writeFileSync('version.json', JSON.stringify({ version: '$VER', armado: new D
 mkdir -p paquete-pronostico
 npx --yes esbuild@0.24.0 modulos/vuelos/pronostico-widget.js --bundle --format=iife --global-name=PronosticoVuelo \
   --target=es2019 --charset=utf8 --log-level=warning \
-  --banner:js="/* pronostico-vuelo.js — GENERADO desde Sistema Topoland · modulos/vuelos. No editar aquí. */" \
+  --banner:js="/* pronostico-vuelo.js — GENERADO desde el Sistema de trabajo · modulos/vuelos. No editar aquí. */" \
   --outfile=paquete-pronostico/pronostico-vuelo.js
-npx --yes esbuild@0.24.0 app/conexion-terreno.js --bundle --format=iife --global-name=TopolandConexion \
+npx --yes esbuild@0.24.0 app/conexion-terreno.js --bundle --format=iife --global-name=SistemaConexion \
   --target=es2019 --charset=utf8 --log-level=warning \
-  --banner:js="/* topoland-conexion.js — GENERADO desde Sistema Topoland · app/conexion-terreno.js. No editar aquí. */" \
-  --outfile=paquete-conexion/topoland-conexion.js
-node --check paquete-conexion/topoland-conexion.js
+  --banner:js="/* sistema-conexion.js — GENERADO desde el Sistema de trabajo · app/conexion-terreno.js. No editar aquí. */" \
+  --outfile=paquete-conexion/sistema-conexion.js
+node --check paquete-conexion/sistema-conexion.js
 echo "Listo: sistema-app.js v$VER · version.json · paquete-pronostico/ · paquete-conexion/"

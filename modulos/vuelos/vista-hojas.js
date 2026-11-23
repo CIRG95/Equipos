@@ -168,6 +168,7 @@ export function crearVistaHojas(v) {
         </div>
         <div class="sis-acciones">${chip(NOMBRE_ETAPA_VUELO[etapaVuelo(h)], (ETAPAS_VUELO.find(e => e[0] === etapaVuelo(h)) || [])[2] || 'gris')}
           <button class="sis-btn chico" data-accion="imprimir" ${g ? '' : 'disabled'}>Hoja para terreno (PDF)</button>
+          <button class="sis-btn chico" data-accion="kmz-vuelo" ${g ? '' : 'disabled'}>Exportar KMZ</button>
           ${h.estado === 'borrador' ? '<button class="sis-btn chico primario" data-accion="estado" data-e="lista">Programar</button>'
             : h.estado === 'lista' ? '<button class="sis-btn chico primario" data-accion="estado" data-e="volada">Marcar volado</button><button class="sis-btn chico" data-accion="estado" data-e="borrador">Volver a planificación</button>'
             : h.procesado ? '<button class="sis-btn chico" data-accion="procesado" data-v="0">Quitar «procesado»</button>'

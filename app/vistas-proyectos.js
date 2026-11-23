@@ -219,6 +219,8 @@ function htmlLoPlanificado(p, ctx, lineas, nomPers, { compacto = false } = {}) {
     <p class="sis-tenue lp-estado">${g ? `Guardada el ${esc(fechaHoraLegible(g.guardadoEn))}${g.guardadoPor ? ` por ${esc(nomPers(g.guardadoPor))}` : ''}${cambios ? ' · <b class="enc-rojo">hay cambios sin guardar</b>' : ''}.` : 'Todavía no se guarda la planificación.'}</p>
     ${!compacto && edita ? `<div class="sis-acciones"><button type="button" class="sis-btn ${!g || cambios ? 'primario' : ''}" data-accion="guardar-planificacion" data-id="${esc(p.id)}">Guardar planificación</button></div>
     <p class="sis-tenue">Cada cambio queda registrado al instante; «Guardar» deja constancia de lo planificado hasta ahora, con fecha y autor, para compararlo después.</p>` : ''}
+    <div class="lp-exportar"><div class="sis-acciones"><button type="button" class="sis-btn chico" data-accion="exportar-kmz-proyecto" data-id="${esc(p.id)}" data-f="kmz">Exportar el proyecto (KMZ)</button><button type="button" class="sis-btn chico" data-accion="exportar-kmz-proyecto" data-id="${esc(p.id)}" data-f="kml">Como KML</button></div>
+      ${compacto ? '' : '<p class="sis-tenue">Un solo archivo para Google Earth, en carpetas: capas, redes de PR, marcas, vuelos (sectores con hectáreas, avance y bases) y monografías.</p>'}</div>
   </section>`;
 }
 

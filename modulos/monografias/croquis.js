@@ -11,12 +11,12 @@ export const FONDOS = {
   calles: ['Calles', [ESRI('World_Street_Map')]],
   imagen: ['Imagen', [ESRI('World_Imagery')]],
 };
-const capasDe = op => (FONDOS[op.fondo] || FONDOS.hibrido)[1];
+export const capasDe = op => (FONDOS[op.fondo] || FONDOS.hibrido)[1];
 export const SIMBOLOS = [['circulo-cruz', 'Círculo con cruz'], ['triangulo', 'Triángulo'], ['cuadrado', 'Cuadrado'], ['circulo', 'Círculo lleno'], ['estrella', 'Estrella']];
 export const FUENTES = [['Arial', 'Arial'], ['IBM Plex Sans', 'IBM Plex Sans'], ['Georgia', 'Georgia (serif)'], ['Courier New', 'Courier (monoespaciada)']];
 
 /** Dibuja el símbolo del punto centrado en (x, y). */
-function dibujarSimbolo(c, tipo, x, y, r, color) {
+export function dibujarSimbolo(c, tipo, x, y, r, color) {
   c.save(); c.lineWidth = Math.max(2, r / 4); c.strokeStyle = '#FFFFFF'; c.fillStyle = color;
   c.beginPath();
   if (tipo === 'triangulo') { c.moveTo(x, y - r); c.lineTo(x + r * 0.9, y + r * 0.7); c.lineTo(x - r * 0.9, y + r * 0.7); c.closePath(); }
@@ -28,7 +28,7 @@ function dibujarSimbolo(c, tipo, x, y, r, color) {
   c.restore();
 }
 
-function dibujarNorte(c, x, y, h) {
+export function dibujarNorte(c, x, y, h) {
   c.save(); c.fillStyle = '#FFFFFF'; c.strokeStyle = '#1C1F23'; c.lineWidth = 1.5;
   c.beginPath(); c.moveTo(x, y); c.lineTo(x + h * 0.32, y + h * 0.75); c.lineTo(x, y + h * 0.58); c.lineTo(x - h * 0.32, y + h * 0.75); c.closePath(); c.fill(); c.stroke();
   c.font = `bold ${Math.round(h * 0.42)}px Arial`; c.textAlign = 'center'; c.lineWidth = 3; c.strokeText('N', x, y + h * 1.2); c.fillText('N', x, y + h * 1.2);

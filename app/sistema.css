@@ -681,3 +681,7 @@ body[data-modo="pc"] .pf-cuerpo > .sis-dos:has(> aside:empty){grid-template-colu
 .ck-plantilla>summary{display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; cursor:pointer; padding:4px 0;}
 .ck-plantilla[open]>summary{margin-bottom:8px;}
 .ck-items input[name="texto"]{width:100%; min-width:180px;}
+/* v0.21 · Exportar el proyecto (KMZ/KML) en «Lo planificado» */
+.lp-exportar{margin-top:12px; padding-top:12px; border-top:1px solid var(--borde-suave);}
+.lp-exportar .sis-acciones{margin:0;}
+.lp-exportar p{margin:6px 0 0;}

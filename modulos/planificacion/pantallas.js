@@ -16,6 +16,8 @@ import { geoAUtm } from '../monografias/comun.js';
 import { guardarConfig } from '../administracion/datos.js';
 import { semillaRed, semillaMarcas, sumarPuntosDelProyecto } from './desde-proyecto.js';
 import { areaPrincipal } from '../vuelos/capas-proyecto.js';
+import { descargarDocumento } from '../../compartido/kmz.js';
+import { carpetaRed, carpetaMarcas } from '../../app/kmz-proyecto.js';
 import { ALM, PARAMS_RED, listarRedes, listarMarcas, obtenerRed, obtenerMarcas, guardarRed, guardarMarcas, eliminar } from './datos.js';
 import {
   marcoLocal, sugerirPR, vectoresSugeridos, preAnalisis, evaluarPunto, reforzar, planificarSesiones, tiempoPara, marcasArea, marcasCorredor, dist, largoLinea, areaPoligono,
@@ -179,7 +181,7 @@ export function montarPantallas(contenedor, ctx) {
       const tab = st.tabBajo || 'vectores';
       const R = p.receptores;
       bajo.innerHTML = `<div class="sis-cab"><div class="ad-tabs-btn" role="tablist"><button type="button" role="tab" aria-selected="${tab === 'vectores'}" class="${tab === 'vectores' ? 'activo' : ''}" data-a="tab-bajo" data-t="vectores">Vectores (${calc ? calc.vec.length : 0})</button><button type="button" role="tab" aria-selected="${tab === 'sesiones'}" class="${tab === 'sesiones' ? 'activo' : ''}" data-a="tab-bajo" data-t="sesiones">Sesiones (${calc ? calc.ses.length : 0})</button></div>
-        <div class="sis-acciones"><button type="button" class="sis-btn chico" data-a="csv-puntos">Exportar puntos</button><button type="button" class="sis-btn chico" data-a="csv-vectores">Exportar vectores y sesiones</button><button type="button" class="sis-btn chico peligro" data-a="borrar-red">Eliminar planificación</button></div></div>
+        <div class="sis-acciones"><button type="button" class="sis-btn chico" data-a="kmz-red">Exportar KMZ</button><button type="button" class="sis-btn chico" data-a="csv-puntos">Exportar puntos</button><button type="button" class="sis-btn chico" data-a="csv-vectores">Exportar vectores y sesiones</button><button type="button" class="sis-btn chico peligro" data-a="borrar-red">Eliminar planificación</button></div></div>
         ${!calc || !calc.vec.length ? vacio('Sin vectores. Use «Sugerir red» o agregue vectores desde el detalle de cada PR.') : tab === 'vectores'
           ? `<div class="sis-tabla-scroll"><table class="sis-tabla"><thead><tr><th>Vector</th><th>Largo</th><th>Tipo</th><th>Redundancia local</th><th>Ocupación mínima</th></tr></thead><tbody>${calc.vec.map(([i, j], k) => { const L2 = dist(calc.xy[i], calc.xy[j]); const amarre = pts[i].tipo === 'control' || pts[j].tipo === 'control'; const rr = calc.pa ? calc.pa.vectores[k] : null; return `<tr><td class="mono">${esc(pts[i].nombre)} – ${esc(pts[j].nombre)}</td><td class="mono">${km(L2)}</td><td>${amarre ? 'Amarre' : 'Independiente'}</td><td class="mono">${rr ? rr.r.toFixed(2) : '—'}</td><td>${minTxt(tiempoPara(L2, tabla))}</td></tr>`; }).join('')}</tbody></table></div>`
           : `<div class="sis-tabla-scroll"><table class="sis-tabla"><thead><tr><th>Sesión</th>${Array.from({ length: R }, (_, k) => `<th>Receptor ${k + 1}</th>`).join('')}<th>Vectores</th><th>Vector más largo</th><th>Duración</th></tr></thead><tbody>${calc.ses.map((s, k) => `<tr><td><b>S${k + 1}</b></td>${Array.from({ length: R }, (_, q) => `<td class="mono">${s.puntos[q] != null ? esc(pts[s.puntos[q]].nombre) : '—'}</td>`).join('')}<td>${s.vectores.length}</td><td class="mono">${km(s.largoMax)}</td><td>${minTxt(s.minutos)}</td></tr>`).join('')}</tbody></table></div>
@@ -234,6 +236,7 @@ export function montarPantallas(contenedor, ctx) {
         'vec-quitar': async b => { const [i, j] = calc.vec[Number(b.dataset.k)]; const a = r.puntos[i].id, c = r.puntos[j].id; r.vectores = r.vectores.filter(([x, y]) => !((x === a && y === c) || (x === c && y === a))); r = await guardarRed(r); pintarTodo(); },
         'pt-quitar': async () => { if (!confirm('¿Quitar este punto y sus vectores?')) return; r.puntos = r.puntos.filter(x => x.id !== st.sel); r.vectores = r.vectores.filter(([a, c]) => a !== st.sel && c !== st.sel); st.sel = null; r = await guardarRed(r); pintarTodo(); },
         'csv-puntos': () => exportarPuntos(r),
+        'kmz-red': () => exportarKmz({ nombre: r.nombre || 'Red de PR', carpetas: [carpetaRed(r)] }, `Red_${r.nombre || 'PR'}`),
         'csv-vectores': () => exportarVectores(r, calc, P()),
         'borrar-red': async () => { if (!confirm('¿Eliminar esta planificación? Va a la papelera.')) return; await eliminar(ALM.redes, r.id); ir('#/planificacion'); },
       },
@@ -302,7 +305,7 @@ export function montarPantallas(contenedor, ctx) {
         <div class="sis-acciones"><button type="button" class="sis-btn primario" data-a="generar">Generar distribución</button></div></section>
         <section class="sis-tarjeta"><h2>Resultado</h2><div class="sis-chips"><span class="sis-chip ambar">${nC} de control</span><span class="sis-chip azul">${nK} de chequeo</span></div>
           <p class="sis-tenue">Los puntos de chequeo no se incluyen en el ajuste; se utilizan para validar la precisión del modelo en Agisoft o Pix4D.</p>
-          <div class="sis-acciones"><button type="button" class="sis-btn primario" data-a="csv-marcas" ${(r.marcas || []).length ? '' : 'disabled'}>Exportar CSV para Agisoft / Pix4D</button><button type="button" class="sis-btn" data-a="a-red">Amarrar a una red de PR</button><button type="button" class="sis-btn chico peligro" data-a="borrar-marcas">Eliminar</button></div></section>`;
+          <div class="sis-acciones"><button type="button" class="sis-btn primario" data-a="csv-marcas" ${(r.marcas || []).length ? '' : 'disabled'}>Exportar CSV para Agisoft / Pix4D</button><button type="button" class="sis-btn" data-a="kmz-marcas" ${(r.marcas || []).length ? '' : 'disabled'}>Exportar KMZ</button><button type="button" class="sis-btn" data-a="a-red">Amarrar a una red de PR</button><button type="button" class="sis-btn chico peligro" data-a="borrar-marcas">Eliminar</button></div></section>`;
     }
     editor = {
       alClic: null,
@@ -322,6 +325,7 @@ export function montarPantallas(contenedor, ctx) {
           renombrar(); r = await guardarMarcas(r); pintarCapas({ encuadre: true }); pintarPanel();
         },
         'csv-marcas': () => exportarMarcas(r),
+        'kmz-marcas': () => exportarKmz({ nombre: r.nombre || 'Marcas de vuelo', carpetas: [carpetaMarcas(r)] }, `Marcas_${r.nombre || 'GCP'}`),
         'a-red': async () => {
           const redes = (await listarRedes()).filter(x => x.proyectoId === r.proyectoId);
           if (redes[0]) ir(`#/planificacion/red/${redes[0].id}`);
@@ -352,6 +356,10 @@ export function montarPantallas(contenedor, ctx) {
   const csv = filas => '﻿' + filas.map(f => f.map(celda).join(';')).join('\r\n');
   const n3 = v => (v == null ? '' : v.toFixed(3).replace('.', ','));
   const n8 = v => v.toFixed(8).replace('.', ',');
+  // v0.21: KMZ con carpetas (lo mismo que va en «Exportar el proyecto»).
+  function exportarKmz(doc, base) {
+    try { const n = descargarDocumento(doc, base); ctx.avisar(`KMZ listo: ${n} elemento${n === 1 ? '' : 's'}.`); } catch (e) { ctx.avisar(e.message); }
+  }
   function exportarPuntos(r) {
     const filas = [['Nombre', 'Tipo', 'Latitud', 'Longitud', 'Este (UTM)', 'Norte (UTM)', 'Huso', 'Nota de terreno']];
     for (const p of r.puntos || []) { const u = geoAUtm(p.lat, p.lon); const z = Math.floor((p.lon + 180) / 6) + 1; filas.push([p.nombre, p.tipo === 'control' ? 'Control' : 'PR', n8(p.lat), n8(p.lon), n3(u && u.este), n3(u && u.norte), `${z}${p.lat < 0 ? ' S' : ' N'}`, p.nota || '']); }

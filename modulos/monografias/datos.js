@@ -7,7 +7,7 @@
 
 import { registrarAlmacenes, obtener, todos, porIndice, guardar } from '../../compartido/almacen.js';
 import { sellar, uuid } from '../../compartido/util.js';
-import { guardarArchivoDatos, archivosDeProyecto, infoArchivo } from '../../compartido/archivos.js';
+import { guardarArchivoDatos, archivosDeProyecto, infoArchivo, archivosDe } from '../../compartido/archivos.js';
 
 export const VERSION_MODULO = '0.1';
 export const SCHEMA_VERSION = 1;
@@ -201,3 +201,13 @@ export async function resumenDeProyecto(proyectoId) {
 
 export { infoArchivo };
 export const todasLasMonografias = async () => (await todos(ALM.mono)).filter(vivo);
+
+// v0.21.2 · El logo del cliente se guarda con el cliente (dueño «cliente_logo», clave del nombre), no en las fichas.
+export const claveCliente = t => String(t || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+/** { archivo } del último logo guardado del cliente, o null. */
+export async function logoDeCliente(nombre) {
+  const k = claveCliente(nombre);
+  if (!k) return null;
+  const a = (await archivosDe('cliente_logo', k))[0];
+  return a ? { archivo: a.id } : null;
+}

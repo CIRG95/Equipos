@@ -12,6 +12,7 @@ import { eliminarMonografia, restaurarMonografia, purgarMonografia, papeleraDePr
 import { chequeoFicha, cuenta, normalizarComun, efectiva, valorComun, CAMPOS_COMUNES } from './comun.js';
 import { abrirMapaPuntos } from './mapa-puntos.js';
 import { puntosDeFichas } from './mapa-calculo.js';
+import { fotosParaElegir } from './fotos-lote.js';
 
 const nombreArchivo = s => String(s || 'punto').replace(/[^a-z0-9_-]+/gi, '_');
 
@@ -38,7 +39,7 @@ export function montarPantallas(raiz, ctx) {
     st.proyecto = p;
     st.lista = (await D.monografiasDeProyecto(st.proyectoId)).sort((a, b) => ordenNatural(a.ficha, b.ficha));
     configurarPieza({ monografias: st.lista.map(x => x.ficha) });
-    const [jornadas, fotos, papelera] = await Promise.all([D.jornadasDeProyecto(st.proyectoId), D.fotosDeProyecto(st.proyectoId), papeleraDeProyecto(st.proyectoId)]);
+    const [jornadas, fotos, papelera] = await Promise.all([D.jornadasDeProyecto(st.proyectoId), D.fotosDeProyecto(st.proyectoId).then(fotosParaElegir), papeleraDeProyecto(st.proyectoId)]);
     const comun = normalizarComun(leerLS(`mono_comun_${st.proyectoId}`, {}));
     const lista = st.lista.filter(x => !st.filtro || x.estado === st.filtro);
     const cuentaE = e => st.lista.filter(x => x.estado === e).length;

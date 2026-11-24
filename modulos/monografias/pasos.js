@@ -7,7 +7,7 @@
 
 import { escapar as esc, descargar, fechaLegible, fechaHoraLegible, uuid, leerLS, escribirLS } from '../../compartido/util.js';
 import { listarProyectos, obtenerProyecto, listarPersonas } from '../../compartido/catalogos.js';
-import { urlArchivo, guardarArchivo, guardarArchivoDatos, archivosDe } from '../../compartido/archivos.js';
+import { urlArchivo, guardarArchivo, guardarArchivoDatos, archivosDe, archivoAPapelera } from '../../compartido/archivos.js';
 import { listarEquiposConEstado } from '../equipos/equipos.js';
 import { ubicacionDe } from '../vuelos/ubicacion.js';
 import { DATUMS_CHILE, GEOIDES, ZONAS_POR_PAIS, leerGrados, escribirGrados } from './coordenadas.js';
@@ -88,9 +88,20 @@ export function montarPasos(raiz, ctx) {
     const cli = C.valorComun(st.comun, st.lista.map(fichaDe), 'clienteNombre').v;
     const logo = await D.logoDeCliente(cli);
     if (!logo) return;
+    await limpiarLogos(cli);
     const pon = f => { if (!f.clienteLogo && (!f.clienteNombre || claveCliente(f.clienteNombre) === claveCliente(cli))) f.clienteLogo = { ...logo }; };
     if (st.lista.some(y => !y.ficha.clienteLogo)) await aplicarATodas(pon);
     if (st.ficha) pon(st.ficha);
+  }
+  /** v0.21.4 · Deja solo el logo más nuevo del cliente; los anteriores van a la papelera (si una ficha usaba uno anterior, pasa al nuevo). */
+  async function limpiarLogos(cli) {
+    const lista = await archivosDe('cliente_logo', claveCliente(cli));
+    const sobran = new Set(L.logosSobrantes(lista));
+    if (!sobran.size) return;
+    const nuevo = { archivo: lista[0].id };
+    await aplicarATodas(f => { if (f.clienteLogo && sobran.has(f.clienteLogo.archivo)) f.clienteLogo = { ...nuevo }; });
+    if (st.ficha && st.ficha.clienteLogo && sobran.has(st.ficha.clienteLogo.archivo)) st.ficha.clienteLogo = { ...nuevo };
+    for (const id of sobran) await archivoAPapelera(id);
   }
   async function aplicarATodas(fn) {
     let n = 0;
@@ -544,7 +555,7 @@ export function montarPasos(raiz, ctx) {
       if (st.vista === 'comun') cuerpo = await vistaComun();
       else if (st.vista === 'revisar') cuerpo = vistaRevisar();
       else {
-        if (st.elegir || !st.fotos.length) st.fotos = await D.fotosDeProyecto(st.proyectoId);
+        if (st.elegir || !st.fotos.length) st.fotos = L.fotosParaElegir(await D.fotosDeProyecto(st.proyectoId));
         const x = st.x;
         cuerpo = `${x.nuevaDeTerreno ? `<div class="sis-tarjeta sis-aviso mn-aviso"><b>Terreno envió una versión más nueva de esta ficha.</b> <span>La que ves es la revisada en gabinete.</span> <button class="sis-btn chico" data-a="usar-terreno">Usar la de Terreno</button></div>` : ''}
           ${st.paso === 'ubicacion' ? await vistaUbicacion() : await vistaCoordenadas()}`;
@@ -713,6 +724,7 @@ export function montarPasos(raiz, ctx) {
           const n = st.lista.length;
           await aplicarATodas(f => { f.clienteLogo = valor; if (f.ajustes) delete f.ajustes.clienteLogo; });
           if (st.ficha) { st.ficha.clienteLogo = valor; if (st.ficha.ajustes) delete st.ficha.ajustes.clienteLogo; }
+          await limpiarLogos(C.valorComun(st.comun, st.lista.map(fichaDe), 'clienteNombre').v);
           avisar(n ? `Logo del cliente guardado (${n} ficha${n === 1 ? '' : 's'}).` : 'Logo del cliente guardado. Las fichas que agregues lo llevarán.');
         }
         else { ponerImagen(slot, valor); await guardarAhora(); }

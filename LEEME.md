@@ -1,4 +1,9 @@
-# Sistema de trabajo — v0.21.3 · Terreno 0.9.1
+# Sistema de trabajo — v0.21.4 · Terreno 0.9.1
+
+## Qué cambia en v0.21.4 (arreglo: fotos repetidas y logos en «Desde las fotos de Terreno»)
+- La ventana para elegir croquis, panorámica o foto adicional ya no muestra los **logos del cliente** ni la **misma imagen repetida** (se reconoce por su huella o por nombre y tamaño). La lista del proyecto cuenta igual.
+- Al cargar un logo del cliente, los logos anteriores de ese cliente van a la papelera (las fichas que los usaban pasan al nuevo); al abrir Monografías se limpian los que ya estaban repetidos.
+- La v0.21.3 (coordenadas con columnas elegibles y fotos en lote) no había llegado a `main` (el PR #41 se fusionó con la versión anterior de la rama): entra con esta versión.
 
 ## Qué cambia en v0.21.3 (Monografías 0.6: coordenadas con columnas elegibles y fotos en lote)
 - **«Pegar o cargar coordenadas»** (paso 1 › Fichas): se pega desde Excel o un texto, o se **carga el archivo** (.xlsx, .csv o .txt), y los valores quedan en una tabla.

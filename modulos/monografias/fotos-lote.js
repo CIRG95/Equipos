@@ -125,3 +125,23 @@ function gpsDeTiff(v, t) {
   if (ref(3) === 'W') lon = -lon;
   return { lat, lon };
 }
+
+// ─────────── v0.21.4 · Fotos para elegir ───────────
+/** Logos de cliente (guardados con el cliente o, antes de la v0.21.2, con el proyecto). */
+export const esLogo = a => a.duenoTipo === 'cliente_logo' || (a.detalle && a.detalle.tipo === 'logo');
+/**
+ * Fotos del proyecto para elegir como croquis, panorámica o adicional: sin logos y sin repetidas
+ * (la misma imagen cargada varias veces queda una sola vez; se reconoce por su huella o por nombre y tamaño).
+ * La lista viene de la más nueva a la más antigua.
+ */
+export function fotosParaElegir(lista) {
+  const vistas = new Set();
+  return lista.filter(a => {
+    if (esLogo(a)) return false;
+    const k = (a.detalle && a.detalle.huella) || `${a.nombre}|${a.tamano}`;
+    if (vistas.has(k)) return false;
+    vistas.add(k); return true;
+  });
+}
+/** Logos de un cliente que sobran: todos menos el más nuevo (la lista viene de la más nueva a la más antigua). */
+export const logosSobrantes = lista => lista.slice(1).map(a => a.id);

@@ -63,3 +63,17 @@ test('GPS desde el EXIF de un JPEG', () => {
   assert.equal(gpsDeJpeg(new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer), null);
   assert.ok(Math.abs(distanciaM(-33, -70, -33.001, -70) - 111.2) < 0.5);
 });
+
+test('v0.21.4 · fotos para elegir: sin logos ni repetidas; logos que sobran', async () => {
+  const { fotosParaElegir, logosSobrantes } = await import('../modulos/monografias/fotos-lote.js');
+  const lista = [
+    { id: '1', nombre: 'logo.png', tamano: 10, duenoTipo: 'cliente_logo', detalle: { tipo: 'logo' } },
+    { id: '2', nombre: 'logo.png', tamano: 10, duenoTipo: 'terreno_monografia', detalle: { tipo: 'logo' } },
+    { id: '3', nombre: 'pano.jpg', tamano: 50, detalle: { tipo: 'panoramica' } },
+    { id: '4', nombre: 'pano.jpg', tamano: 50, detalle: { tipo: 'panoramica' } },
+    { id: '5', nombre: 'foto.jpg', tamano: 70, detalle: { huella: 'h1' } },
+    { id: '6', nombre: 'otra.jpg', tamano: 71, detalle: { huella: 'h1' } },
+  ];
+  assert.deepEqual(fotosParaElegir(lista).map(a => a.id), ['3', '5']);
+  assert.deepEqual(logosSobrantes([{ id: 'n' }, { id: 'v1' }, { id: 'v2' }]), ['v1', 'v2']);
+});

@@ -6,7 +6,7 @@ import * as D from './datos.js';
 import { montarPantallas } from './pantallas.js';
 import { puntosDeFichas } from './mapa-calculo.js';
 
-export const VERSION = '0.5'; // v0.21: mapa de puntos y KMZ (datos.js conserva su versión porque va en el paquete de conexión)
+export const VERSION = '0.6'; // v0.21.3: coordenadas con columnas elegibles y fotos en lote · v0.21: mapa de puntos y KMZ (datos.js conserva su versión porque va en el paquete de conexión)
 export const ALMACENES = Object.values(D.ALM);
 
 let iniciado = false;

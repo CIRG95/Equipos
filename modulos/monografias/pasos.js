@@ -13,6 +13,9 @@ import { ubicacionDe } from '../vuelos/ubicacion.js';
 import { DATUMS_CHILE, GEOIDES, ZONAS_POR_PAIS, leerGrados, escribirGrados } from './coordenadas.js';
 import { abrirCroquis } from './croquis.js';
 import * as D from './datos.js';
+import * as T from './tabla-coords.js';
+import * as L from './fotos-lote.js';
+import { leerArchivoTabla } from '../../compartido/planilla.js';
 import { configurarPieza, chequeoMonografia, valoresPorDefecto, dimsMonografia, ajusteDe, cargarImagenEl } from './pieza-terreno.js';
 import { abrirAjuste, colocarImagen } from './ajuste.js';
 import { pdfDe, urlImagen, logoEmpresa, fijarLogoEmpresa, ordenNatural } from './pdf.js';
@@ -35,7 +38,7 @@ export function montarPasos(raiz, ctx) {
   const p0 = ctx.monografiaId;
   const st = {
     proyectoId: ctx.proyectoId, vista: p0 === 'comun' ? 'comun' : p0 === 'revisar' ? 'revisar' : 'ficha', monoId: p0 === 'comun' || p0 === 'revisar' ? null : p0,
-    paso: ctx.paso === 'ubicacion' ? 'ubicacion' : 'coordenadas', lista: [], ficha: null, x: null, comun: leerComun(ctx.proyectoId), fotos: [], elegir: null, pegar: null,
+    paso: ctx.paso === 'ubicacion' ? 'ubicacion' : 'coordenadas', lista: [], ficha: null, x: null, comun: leerComun(ctx.proyectoId), fotos: [], elegir: null, pegar: null, lote: null,
     mensaje: null, guardando: null, comunPend: new Set(), vivo: true, nombres: {}, estadoSel: null, intentoComuna: false, abierto: leerLS('mn_flotante', typeof window !== 'undefined' && window.innerWidth >= 1200),
   };
   raiz.innerHTML = '<div class="mn mn-asis"></div>';
@@ -240,9 +243,9 @@ export function montarPasos(raiz, ctx) {
         <div class="mn-config-logo"><span class="mn-logo-mini">${logoEmpresa() ? `<img src="${logoEmpresa()}" alt="Logo de la empresa">` : '<span class="sis-tenue">Sin logo</span>'}</span>
           <span><b>Logo de la empresa</b><small class="sis-tenue">Va en el recuadro superior derecho.</small><span class="sis-acciones"><label class="sis-btn chico">${logoEmpresa() ? 'Cambiar' : 'Cargar logo'}<input type="file" accept="image/*" data-archivo="logo" hidden></label>${logoEmpresa() ? '<button class="sis-btn chico" data-a="quitar-logo">Quitar</button>' : ''}</span></span></div>
       </section>
-      <section class="sis-tarjeta"><div class="sis-cab"><h2>Fichas · ${st.lista.length}</h2><button class="sis-btn chico" data-a="pegar-abrir">Pegar desde Excel</button></div>
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Fichas · ${st.lista.length}</h2><span class="sis-acciones"><button class="sis-btn chico" data-a="pegar-abrir">Pegar o cargar coordenadas</button><button class="sis-btn chico" data-a="fotos-abrir" ${st.lista.length ? '' : 'disabled title="Primero crea las fichas"'}>Fotos en lote</button></span></div>
         <label class="sis-campo"><span>Nombres de las fichas nuevas</span><span class="sis-en-linea"><input id="mn-nombres" placeholder="PR-1 a PR-12 · o PR-1, PR-2, PR-3" aria-label="Nombres de las fichas"><button type="button" class="sis-btn primario" data-a="crear-nombres">Crear fichas</button></span></label>
-        <p class="sis-tenue">Escribe un rango («PR-1 a PR-12») o una lista separada por comas. Si ya existe una ficha con ese nombre, no se repite. Con «Pegar desde Excel» se crean con sus coordenadas ya puestas (Nombre | Este | Norte | Cota).</p>
+        <p class="sis-tenue">Escribe un rango («PR-1 a PR-12») o una lista separada por comas. Si ya existe una ficha con ese nombre, no se repite. Con «Pegar o cargar coordenadas» se crean con sus coordenadas ya puestas: tú eliges qué es cada columna. «Fotos en lote» reparte muchas fotos de una vez.</p>
         ${st.lista.length ? `<div class="mn-chips-fichas">${st.lista.map(y => { const k = C.cuenta(chequeo(fichaDe(y))); return `<a class="sis-chip ${k.ok === k.total ? 'verde' : 'gris'}" href="${rutaFicha(y.id)}">${esc(nombreDe(fichaDe(y)))} · ${k.ok}/${k.total}</a>`; }).join('')}</div>` : ''}
       </section>
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Formato de coordenadas geográficas</h2></div>
@@ -250,19 +253,161 @@ export function montarPasos(raiz, ctx) {
           <label>Decimales <input type="number" min="0" max="8" data-dec value="${esc(c.decimalesGeo)}" aria-label="Decimales"></label></div>
         <p class="sis-tenue">Al cambiarlo se reescriben la latitud y la longitud de todas las fichas.</p></section>
       ${st.pegar != null ? pegarHtml() : ''}
+      ${st.lote ? loteHtml() : ''}
       <span hidden data-avance="${av.ok}/${av.total}"></span>`;
   }
+  // ─────────── v0.21.3 · Tabla de coordenadas: el usuario elige qué es cada columna ───────────
+  const PREFS_PEGAR = 'mn_pegar_prefs';
+  function tablaPegada() {
+    const cfg = st.pegarCfg || (st.pegarCfg = { ...{ sep: 'auto', decimal: 'auto' }, ...leerLS(PREFS_PEGAR, {}), titulos: null, roles: null });
+    const { filas, sep } = T.separar(st.pegar, cfg.sep);
+    const titulos = cfg.titulos == null ? T.pareceTitulos(filas) : cfg.titulos;
+    const ancho = Math.max(0, ...filas.map(f => f.length));
+    let roles = cfg.roles && cfg.roles.length === ancho ? cfg.roles : null;
+    if (!roles) { const rec = leerLS(PREFS_PEGAR, {}).roles; roles = !titulos && rec && rec.length === ancho ? rec : T.detectarColumnas(filas, titulos); }
+    const regs = T.registros(filas, roles, { titulos, decimal: cfg.decimal });
+    return { cfg, filas, sep, titulos, roles, regs, rev: T.revisar(regs, roles), ancho };
+  }
   function pegarHtml() {
-    const filas = C.leerTabla(st.pegar);
-    const existe = new Set(st.lista.map(y => nombreDe(fichaDe(y)).toLowerCase()));
-    return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="Pegar desde Excel"><div class="mn-modal-caja">
-      <div class="sis-cab"><h2>Pegar desde Excel</h2><button class="sis-btn chico" data-a="pegar-cerrar">Cerrar</button></div>
-      <p class="sis-tenue">Copia en Excel las columnas <b>Nombre | Este | Norte | Cota</b> (con o sin títulos) y pégalas aquí. Las geográficas se calculan con el huso del paso 1.</p>
-      <textarea data-pegar rows="7" placeholder="PR-1	352100,500	6972345,250	812,40">${esc(st.pegar)}</textarea>
-      <div class="mn-pegar-prev">${filas.length ? `<table class="mn-tabla"><thead><tr><th>Nombre</th><th>Este</th><th>Norte</th><th>Cota</th><th></th></tr></thead><tbody>${filas.slice(0, 50).map(r => `<tr><td>${esc(r.nombre)}</td><td>${r.este ?? '—'}</td><td>${r.norte ?? '—'}</td><td>${r.cota ?? '—'}</td><td>${existe.has(r.nombre.toLowerCase()) ? '<span class="sis-chip ambar">se actualiza</span>' : '<span class="sis-chip verde">nueva</span>'}</td></tr>`).join('')}</tbody></table>${filas.length > 50 ? `<p class="sis-tenue">… y ${filas.length - 50} más.</p>` : ''}` : '<p class="sis-tenue">Aún no hay filas.</p>'}</div>
-      <div class="sis-acciones"><button class="sis-btn primario" data-a="pegar-aplicar" ${filas.length ? '' : 'disabled'}>Crear o actualizar ${filas.length} ficha${filas.length === 1 ? '' : 's'}</button></div>
+    return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="Coordenadas de las fichas"><div class="mn-modal-caja">
+      <div class="sis-cab"><h2>Coordenadas de las fichas</h2><button class="sis-btn chico" data-a="pegar-cerrar">Cerrar</button></div>
+      <p class="sis-tenue">Pega las filas copiadas de Excel o de un texto, o carga el archivo (.xlsx, .csv o .txt). Después elige en el encabezado qué es cada columna. Las geográficas se calculan con el huso del paso 1.</p>
+      <div class="mn-pegar-entrada"><textarea data-pegar rows="5" wrap="off" placeholder="PR-1	352100,500	6972345,250	812,40">${esc(st.pegar)}</textarea>
+        <label class="sis-btn chico">Cargar archivo<input type="file" accept=".xlsx,.xls,.csv,.txt" data-cargar-tabla hidden></label></div>
+      ${pegarPrevHtml()}
     </div></div>`;
   }
+  function pegarPrevHtml() {
+    const t = tablaPegada(), { cfg } = t;
+    const existe = new Set(st.lista.map(y => nombreDe(fichaDe(y)).toLowerCase()));
+    const sel = (k, ops, v) => `<select data-pg="${k}">${ops.map(([a, b]) => `<option value="${a}" ${v === a ? 'selected' : ''}>${esc(b)}${k === 'sep' && a === 'auto' && cfg.sep === 'auto' ? ` (${esc((T.SEPARADORES.find(x => x[0] === t.sep) || [])[1] || '')})` : ''}</option>`).join('')}</select>`;
+    const datos = t.titulos ? t.filas.slice(1) : t.filas;
+    const porFila = new Map(t.regs.map(r => [r.fila, r]));
+    const marcadas = new Set(t.rev.avisos.flatMap(a => a.filas || []));
+    const cuerpo = datos.slice(0, 60).map((f, k) => {
+      const n = k + 1 + (t.titulos ? 1 : 0), r = porFila.get(n);
+      const celdas = Array.from({ length: t.ancho }, (_, i) => { const rol = t.roles[i], mala = r && r.malos.includes(rol); return `<td class="${rol === 'no' ? 'mn-pg-no' : ''}${mala ? ' mn-pg-mala' : ''}">${esc(f[i] || '')}</td>`; }).join('');
+      const est = !r ? '' : r.nombre && existe.has(r.nombre.toLowerCase()) ? '<span class="sis-chip ambar">se actualiza</span>' : '<span class="sis-chip verde">nueva</span>';
+      return `<tr class="${marcadas.has(n) ? 'mn-pg-marcada' : ''}"><td class="sis-tenue">${n}</td>${celdas}<td>${est}</td></tr>`;
+    }).join('');
+    const avisos = t.rev.avisos.map(a => `<li class="mn-pg-${a.tipo}">${esc(a.texto)}${a.tipo === 'invertidos' ? ' <button class="sis-btn chico" data-a="pegar-intercambiar">Intercambiar E y N</button>' : ''}</li>`).join('');
+    const n = t.regs.length;
+    return `<div class="mn-pegar-prev">${t.filas.length ? `
+      <div class="mn-pg-opciones"><label>Separador de columnas ${sel('sep', T.SEPARADORES, cfg.sep)}</label><label>Decimales ${sel('decimal', T.DECIMALES, cfg.decimal)}</label>
+        <label class="sis-check"><input type="checkbox" data-pg="titulos" ${t.titulos ? 'checked' : ''}> La primera fila son títulos</label></div>
+      <div class="mn-pg-tabla"><table class="mn-tabla"><thead><tr><th></th>${t.roles.map((rol, i) => `<th><select data-pg-col="${i}" aria-label="Columna ${i + 1}" class="mn-pg-rol${rol === 'no' ? ' no' : ''}">${T.ROLES.map(([a, b]) => `<option value="${a}" ${rol === a ? 'selected' : ''}>${b}</option>`).join('')}</select>${t.titulos ? `<small class="sis-tenue">${esc(t.filas[0][i] || '')}</small>` : ''}</th>`).join('')}<th></th></tr></thead>
+        <tbody>${cuerpo}</tbody></table>${datos.length > 60 ? `<p class="sis-tenue">… y ${datos.length - 60} filas más.</p>` : ''}</div>
+      ${avisos ? `<ul class="mn-pg-avisos">${avisos}</ul>` : '<p class="mn-pg-ok">Revisado: sin problemas.</p>'}` : '<p class="sis-tenue">Aún no hay filas.</p>'}
+      <div class="sis-acciones"><button class="sis-btn primario" data-a="pegar-aplicar" ${t.rev.puedeCrear ? '' : 'disabled'}>Crear o actualizar ${n} ficha${n === 1 ? '' : 's'}</button></div></div>`;
+  }
+  function refrescarPegar() {
+    const caja = cont.querySelector('.mn-pegar-prev'); if (!caja) return;
+    const tmp = document.createElement('div'); tmp.innerHTML = pegarPrevHtml(); caja.replaceWith(tmp.firstElementChild);
+  }
+  /** Recuerda separador, decimales y el orden de columnas (si no hay títulos) para la próxima vez. */
+  function recordarPegar(t) { escribirLS(PREFS_PEGAR, { sep: t.cfg.sep, decimal: t.cfg.decimal, roles: t.titulos ? (leerLS(PREFS_PEGAR, {}).roles || null) : t.roles }); }
+
+  // ─────────── v0.21.3 · Fotos en lote ───────────
+  /** Fichas con su posición geográfica (escrita o calculada desde UTM) para repartir por GPS. */
+  function fichasParaLote() {
+    return st.lista.map(y => {
+      const f = fichaDe(y);
+      let lat = leerGrados(f.latitud), lon = leerGrados(f.longitud);
+      if ((lat == null || lon == null) && f.este && f.norte) { const g = C.utmAGeo(Number(f.este), Number(f.norte), f.zonaUTM); if (g) { lat = g.lat; lon = g.lon; } }
+      return { id: y.id, nombre: nombreDe(f), lat, lon, tienePano: !!f.panoramicaImg, tieneCroquis: !!f.croquisImg };
+    });
+  }
+  const ORIGEN_LOTE = { nombre: ['verde', 'por nombre'], gps: ['verde', 'por GPS'], orden: ['gris', 'en orden'], mano: ['gris', 'a mano'] };
+  function loteHtml() {
+    const L0 = st.lote, fichas = fichasParaLote(), fotos = L0.fotos;
+    const n = { nombre: 0, gps: 0, sin: 0 }; for (const f of fotos) { if (!f.fichaId) n.sin++; else if (f.origen === 'nombre') n.nombre++; else if (f.origen === 'gps') n.gps++; }
+    const asignadas = fotos.filter(f => f.fichaId).length;
+    const opFichas = sel => `<option value="">— Sin asignar —</option>${fichas.map(fi => `<option value="${esc(fi.id)}" ${sel === fi.id ? 'selected' : ''}>${esc(fi.nombre)}</option>`).join('')}`;
+    const tarjeta = (f, i) => {
+      const [col, txt] = f.fichaId ? ORIGEN_LOTE[f.origen] || ORIGEN_LOTE.mano : ['ambar', 'sin asignar'];
+      return `<div class="mn-lote-foto${f.fichaId ? '' : ' sin'}${L0.activa && f.fichaId === L0.activa ? ' activa' : ''}">
+        <button type="button" class="mn-lote-mini" data-a="lote-tocar" data-i="${i}" title="${L0.activa ? 'Asignar a la ficha elegida arriba' : esc(f.nombre)}"><img src="${f.url}" alt="${esc(f.nombre)}" loading="lazy"></button>
+        <small class="mn-lote-nombre" title="${esc(f.nombre)}">${esc(f.nombre)}</small>
+        <span class="sis-chip ${col}">${txt}${f.origen === 'gps' && f.fichaId ? ` · ${Math.round(f.distancia)} m` : ''}</span>
+        <select data-lote="ficha" data-i="${i}" aria-label="Ficha de ${esc(f.nombre)}">${opFichas(f.fichaId)}</select>
+        <span class="mn-lote-tipo">${L.TIPOS.map(([k, t]) => `<button type="button" class="${f.tipo === k ? 'activo' : ''}" data-a="lote-tipo" data-i="${i}" data-v="${k}">${t}</button>`).join('')}</span>
+        <button type="button" class="sis-btn chico mn-lote-quitar" data-a="lote-quitar" data-i="${i}" aria-label="Quitar ${esc(f.nombre)}">Quitar</button></div>`;
+    };
+    return `<div class="mn-modal mn-lote" role="dialog" aria-modal="true" aria-label="Fotos en lote"><div class="mn-modal-caja">
+      <div class="sis-cab"><h2>Fotos en lote</h2><button class="sis-btn chico" data-a="lote-cerrar">Cerrar</button></div>
+      <p class="sis-tenue">Se reparten solas por el <b>nombre del archivo</b> («PR-3_pano.jpg» va a PR-3) o por el <b>GPS de la foto</b> (la ficha a menos de ${L.DISTANCIA_MAXIMA_M} m). Las fotos reenviadas por WhatsApp como imagen no traen GPS: envíalas como <b>documento</b> o asígnalas aquí.</p>
+      <label class="mn-lote-zona" data-lote-zona><b>Elegir fotos</b> o arrastrarlas aquí<input type="file" accept="image/*" multiple data-lote-archivos hidden></label>
+      ${fotos.length ? `
+      <div class="mn-lote-resumen"><span class="sis-chip verde">${n.nombre} por nombre</span><span class="sis-chip verde">${n.gps} por GPS</span><span class="sis-chip ${n.sin ? 'ambar' : 'gris'}">${n.sin} sin asignar</span></div>
+      <div class="mn-lote-barra"><label>Tocar fotos para asignarlas a <select data-lote="activa"><option value="">— elegir ficha —</option>${fichas.map(fi => `<option value="${esc(fi.id)}" ${L0.activa === fi.id ? 'selected' : ''}>${esc(fi.nombre)}</option>`).join('')}</select></label>
+        <button type="button" class="sis-btn chico" data-a="lote-siguiente" ${L0.activa ? '' : 'disabled'}>Siguiente ficha →</button>
+        <button type="button" class="sis-btn chico" data-a="lote-orden" ${n.sin ? '' : 'disabled'} title="Las fotos sin asignar, en su orden, a las fichas que aún no tienen foto">Repartir en orden las sin asignar</button></div>
+      <div class="mn-lote-grilla">${fotos.map(tarjeta).join('')}</div>` : ''}
+      <p class="sis-tenue mn-lote-prog" aria-live="polite"></p>
+      <div class="sis-acciones"><button class="sis-btn primario" data-a="lote-aplicar" ${asignadas ? '' : 'disabled'}>Asignar ${asignadas} foto${asignadas === 1 ? '' : 's'}</button></div>
+    </div></div>`;
+  }
+  function refrescarLote() {
+    const viejo = cont.querySelector('.mn-lote'); if (!viejo) return;
+    const caja = viejo.querySelector('.mn-modal-caja'), y = caja ? caja.scrollTop : 0;
+    const tmp = document.createElement('div'); tmp.innerHTML = loteHtml(); viejo.replaceWith(tmp.firstElementChild);
+    const nueva = cont.querySelector('.mn-lote .mn-modal-caja'); if (nueva) nueva.scrollTop = y;
+  }
+  async function agregarAlLote(archivos) {
+    const imgs = [...archivos].filter(a => (a.type || '').startsWith('image/') || /\.(jpe?g|png|heic|webp)$/i.test(a.name || ''));
+    if (!imgs.length) return;
+    imgs.sort((a, b) => String(a.name).localeCompare(String(b.name), 'es', { numeric: true })); // WhatsApp y la cámara numeran en orden de toma
+    const nuevas = await Promise.all(imgs.map(async a => ({ id: uuid(), archivo: a, nombre: a.name || 'foto', url: URL.createObjectURL(a), gps: L.gpsDeJpeg(await a.slice(0, 262144).arrayBuffer()), tipo: null })));
+    const fichas = fichasParaLote();
+    st.lote.fotos = [...st.lote.fotos, ...L.repartir(nuevas, fichas)];
+    refrescarLote();
+  }
+  const lote = {
+    cambiar(t) {
+      const i = Number(t.dataset.i), f = st.lote.fotos[i];
+      if (t.dataset.lote === 'activa') st.lote.activa = t.value || null;
+      else if (t.dataset.lote === 'ficha' && f) { f.fichaId = t.value || null; f.origen = t.value ? 'mano' : null; f.tipo = null; st.lote.fotos = L.tiposPorDefecto(st.lote.fotos, fichasParaLote()); }
+      refrescarLote();
+    },
+    clic(a, b) {
+      const L0 = st.lote, i = Number(b.dataset.i), f = L0.fotos[i];
+      if (a === 'lote-tocar' && f && L0.activa) { f.fichaId = L0.activa; f.origen = 'mano'; f.tipo = null; L0.fotos = L.tiposPorDefecto(L0.fotos, fichasParaLote()); }
+      else if (a === 'lote-tipo' && f) f.tipo = b.dataset.v;
+      else if (a === 'lote-quitar' && f) { URL.revokeObjectURL(f.url); L0.fotos.splice(i, 1); }
+      else if (a === 'lote-orden') L0.fotos = L.repartirEnOrden(L0.fotos, fichasParaLote());
+      else if (a === 'lote-siguiente') { const ids = st.lista.map(y => y.id), k = ids.indexOf(L0.activa); L0.activa = ids[k + 1] || null; }
+      refrescarLote();
+    },
+    cerrar() { if (st.lote) for (const f of st.lote.fotos) URL.revokeObjectURL(f.url); st.lote = null; },
+    async aplicar() {
+      const fotos = st.lote.fotos.filter(f => f.fichaId);
+      if (!fotos.length) return;
+      const tiene = new Map(fichasParaLote().map(fi => [fi.id, fi]));
+      const choca = fotos.filter(f => (f.tipo === 'panoramicaImg' && tiene.get(f.fichaId).tienePano) || (f.tipo === 'croquisImg' && tiene.get(f.fichaId).tieneCroquis));
+      const reemplazar = !choca.length || confirm(`${choca.length} foto${choca.length === 1 ? ' va' : 's van'} a fichas que ya tienen panorámica o croquis.\n\nAceptar: reemplazarlas.\nCancelar: agregarlas como fotos adicionales.`);
+      const prog = cont.querySelector('.mn-lote-prog'), boton = cont.querySelector('[data-a="lote-aplicar"]');
+      if (boton) boton.disabled = true;
+      const porFicha = new Map(); for (const f of fotos) { if (!porFicha.has(f.fichaId)) porFicha.set(f.fichaId, []); porFicha.get(f.fichaId).push(f); }
+      let hechas = 0;
+      for (const [id, lista] of porFicha) {
+        const x = st.lista.find(y => y.id === id); if (!x) continue;
+        const f = JSON.parse(JSON.stringify(fichaDe(x))), usados = new Set();
+        for (const foto of lista) {
+          if (prog) prog.textContent = `Guardando ${hechas + 1} de ${fotos.length}…`;
+          let tipo = foto.tipo;
+          if (tipo !== 'extra' && (usados.has(tipo) || (!reemplazar && f[tipo]))) tipo = 'extra'; // una sola panorámica y un solo croquis por ficha
+          const valor = await subirImagen(foto.archivo, tipo, f);
+          if (tipo === 'extra') { f.fotosExtra = f.fotosExtra || []; f.fotosExtra.push({ id: uuid(), img: valor, leyenda: '', aj: { modo: 'llenar', zoom: 1, ox: 0, oy: 0, giro: 0 } }); }
+          else { f[tipo] = valor; if (f.ajustes) delete f.ajustes[tipo]; usados.add(tipo); }
+          hechas++;
+        }
+        await guardarFicha(x, f);
+        if (st.ficha && st.ficha.id === id) st.ficha = JSON.parse(JSON.stringify(f));
+      }
+      lote.cerrar();
+      avisar(`${hechas} foto${hechas === 1 ? '' : 's'} asignada${hechas === 1 ? '' : 's'} a ${porFicha.size} ficha${porFicha.size === 1 ? '' : 's'}.`);
+    },
+  };
 
   // ─────────── Paso 2 · Coordenadas y croquis ───────────
   async function vistaCoordenadas() {
@@ -466,10 +611,10 @@ export function montarPasos(raiz, ctx) {
     }
     return { nuevas, act, primera };
   }
-  async function subirImagen(archivo, slot) {
+  async function subirImagen(archivo, slot, ficha = st.ficha) {
     const cli = C.valorComun(st.comun, st.lista.map(fichaDe), 'clienteNombre').v;
     const deCliente = slot === 'clienteLogo' && cli;
-    const f = st.ficha;
+    const f = ficha;
     const reg = await guardarArchivo(archivo, { modulo: 'terreno', duenoTipo: deCliente ? 'cliente_logo' : 'terreno_monografia', duenoId: deCliente ? claveCliente(cli) : (f ? f.id : st.proyectoId), rol: 'foto', proyectoId: st.proyectoId,
       carpeta: `Proyectos/${st.proyecto ? st.proyecto.nombre : st.proyectoId}/Monografías`, detalle: { tipo: slot === 'croquisImg' ? 'croquis' : slot === 'panoramicaImg' ? 'panoramica' : slot === 'clienteLogo' ? 'logo' : 'detalle', punto: f ? f.puntoMedido || '' : '', origen: 'gabinete' } });
     return { archivo: reg.id };
@@ -494,17 +639,31 @@ export function montarPasos(raiz, ctx) {
     } else if (t.dataset.c != null) { st.comun.valores[t.dataset.c] = t.value; cambioComun(t.dataset.c); }
     else if (t.dataset.extra != null && st.ficha) { st.ficha.fotosExtra[Number(t.dataset.extra)].leyenda = t.value; cambio(); }
     else if (t.dataset.pres && t.type === 'range') { const x = cont.querySelector(`[data-pres-txt="${t.dataset.pres}"]`); if (x) x.textContent = (Number(t.value) / 10).toLocaleString('es-CL', { maximumFractionDigits: 1 }); }
-    else if (t.hasAttribute('data-pegar')) {
-      st.pegar = t.value;
-      const caja = cont.querySelector('.mn-pegar-prev'), tmp = document.createElement('div'); tmp.innerHTML = pegarHtml();
-      if (caja) caja.replaceWith(tmp.querySelector('.mn-pegar-prev'));
-      const b = cont.querySelector('[data-a="pegar-aplicar"]'), nb = tmp.querySelector('[data-a="pegar-aplicar"]'); if (b && nb) b.replaceWith(nb);
-    }
+    else if (t.hasAttribute('data-pegar')) { st.pegar = t.value; if (st.pegarCfg) { st.pegarCfg.titulos = null; st.pegarCfg.roles = null; } refrescarPegar(); }
   });
 
   cont.addEventListener('change', async ev => {
     const t = ev.target;
     try {
+      if (t.dataset.pg || t.dataset.pgCol != null) {
+        const cfg = st.pegarCfg, act = tablaPegada();
+        if (t.dataset.pgCol != null) {
+          const roles = [...act.roles], i = Number(t.dataset.pgCol), v = t.value;
+          if (v !== 'no') { const j = roles.indexOf(v); if (j >= 0 && j !== i) roles[j] = 'no'; } // cada rol en una sola columna
+          roles[i] = v; cfg.roles = roles;
+        } else if (t.dataset.pg === 'titulos') { cfg.titulos = t.checked; cfg.roles = null; }
+        else { cfg[t.dataset.pg] = t.value; if (t.dataset.pg === 'sep') { cfg.roles = null; cfg.titulos = null; } }
+        refrescarPegar(); return;
+      }
+      if (t.hasAttribute('data-cargar-tabla') && t.files && t.files[0]) {
+        const a = t.files[0]; t.value = '';
+        const nombre = (a.name || '').toLowerCase();
+        if (/\.(csv|txt)$/.test(nombre)) { st.pegar = await a.text(); st.pegarCfg = { ...st.pegarCfg, sep: 'auto', titulos: null, roles: null }; }
+        else { const { filas } = await leerArchivoTabla(a); st.pegar = filas.map(f => f.map(c => (c instanceof Date ? c.toISOString().slice(0, 10) : String(c ?? ''))).join('\t')).join('\n'); st.pegarCfg = { ...st.pegarCfg, sep: 'tab', decimal: 'auto', titulos: null, roles: null }; }
+        await render(); return;
+      }
+      if (t.dataset.lote != null) { lote.cambiar(t); return; }
+      if (t.hasAttribute('data-lote-archivos') && t.files) { const fs = [...t.files]; t.value = ''; await agregarAlLote(fs); return; }
       if (t.dataset.f != null && st.ficha) {
         const k = t.dataset.f;
         const desde = ['este', 'norte'].includes(k) ? 'utm' : ['latitud', 'longitud'].includes(k) ? 'geo' : null;
@@ -576,6 +735,11 @@ export function montarPasos(raiz, ctx) {
     await aplicarATodas(rees);
   }
 
+  // v0.21.3 · arrastrar fotos a la ventana «Fotos en lote»
+  cont.addEventListener('dragover', ev => { const z = ev.target.closest && ev.target.closest('.mn-lote'); if (z) { ev.preventDefault(); const zona = z.querySelector('[data-lote-zona]'); if (zona) zona.classList.add('encima'); } });
+  cont.addEventListener('dragleave', ev => { const zona = ev.target.closest && ev.target.closest('[data-lote-zona]'); if (zona) zona.classList.remove('encima'); });
+  cont.addEventListener('drop', ev => { if (!(ev.target.closest && ev.target.closest('.mn-lote'))) return; ev.preventDefault(); if (ev.dataTransfer && ev.dataTransfer.files.length) agregarAlLote(ev.dataTransfer.files).catch(e => avisar(e.message, 'error')); });
+
   cont.addEventListener('click', async ev => {
     const b = ev.target.closest('[data-a]');
     if (!b) return;
@@ -588,10 +752,17 @@ export function montarPasos(raiz, ctx) {
         if (!nombres.length) { avisar('Escribe los nombres: «PR-1 a PR-12» o «PR-1, PR-2».', 'error'); }
         else { const r = await crearFichas(nombres.map(nombre => ({ nombre }))); avisar(r.nuevas ? `${r.nuevas} ficha${r.nuevas === 1 ? '' : 's'} nueva${r.nuevas === 1 ? '' : 's'}.` : 'Esas fichas ya existían.'); }
       }
-      else if (a === 'pegar-abrir') { st.pegar = ''; }
+      else if (a === 'pegar-abrir') { st.pegar = ''; st.pegarCfg = null; }
+      else if (a === 'fotos-abrir') { st.lote = { fotos: [], activa: null }; }
+      else if (a === 'lote-cerrar') { lote.cerrar(); }
+      else if (a === 'lote-aplicar') { await lote.aplicar(); }
+      else if (a.startsWith('lote-')) { lote.clic(a, b); return; }
       else if (a === 'pegar-cerrar') { st.pegar = null; }
+      else if (a === 'pegar-intercambiar') { const t = tablaPegada(); st.pegarCfg.roles = T.intercambiarEN(t.roles); refrescarPegar(); return; }
       else if (a === 'pegar-aplicar') {
-        const r = await crearFichas(C.leerTabla(st.pegar)); st.pegar = null;
+        const t = tablaPegada(); if (!t.rev.puedeCrear) return;
+        recordarPegar(t);
+        const r = await crearFichas(t.regs); st.pegar = null;
         avisar(`${r.nuevas} ficha${r.nuevas === 1 ? '' : 's'} nueva${r.nuevas === 1 ? '' : 's'}${r.act ? ` y ${r.act} actualizada${r.act === 1 ? '' : 's'}` : ''}, con sus coordenadas.`);
       }
       else if (a === 'formato') { st.comun.formatoGeo = b.dataset.v; guardarComun(st.proyectoId, st.comun); await reformatear(); }

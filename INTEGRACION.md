@@ -1,4 +1,12 @@
-# INTEGRACION.md — Sistema v0.21.1
+# INTEGRACION.md — Sistema v0.21.3
+
+## v0.21.3 · Monografías 0.6
+- `modulos/monografias/tabla-coords.js` (puro): `separar(texto, sep)`, `detectarSeparador`, `numeroCon(t, 'auto'|'punto'|'coma')`, `pareceTitulos`, `detectarColumnas(filas, titulos)` → roles `nombre|este|norte|cota|no`, `registros(filas, roles, { titulos, decimal })`, `revisar(regs, roles)` → `{ avisos, puedeCrear }`, `intercambiarEN`, `leerAuto`. `comun.leerTabla` queda solo por compatibilidad.
+- `modulos/monografias/fotos-lote.js` (puro): `fichaPorNombre`, `tipoPorNombre`, `fichaPorGps(gps, fichas, 30)`, `repartir(fotos, fichas)`, `tiposPorDefecto`, `repartirEnOrden`, `gpsDeJpeg(buffer)` (lee el GPS del EXIF sin librerías).
+- `pasos.js`: estado `st.pegarCfg` (`mn_pegar_prefs` en el navegador) y `st.lote = { fotos, activa }`; `subirImagen(archivo, slot, ficha)` acepta la ficha. Las fotos se guardan con `guardarArchivo` (se reducen como siempre).
+
+## v0.21.2 · Logo del cliente
+- `monografias/datos.js`: `claveCliente`, `logoDeCliente(nombre)` → `{ archivo }`. El paso 1 y el mapa de puntos lo usan si ninguna ficha tiene logo; `completarLogoCliente()` en `pasos.js` lo pone en las fichas que no lo tienen.
 
 ## v0.21.1 · Revisión de optimización y código genérico
 - **Nombres internos:** base `sistema_trabajo` (`NOMBRE_BD`, exportado en `compartido/almacen.js`); claves `sistema_nube`, `sistema_nube_token`, `sistema_dispositivoId`, `sistema_conexion_persona|carpeta|codigo`, `sistema_invitacion` (sessionStorage), `sistema_bd_migrada`; globales `window.SISTEMA_CONFIG`, `window.SistemaConexion`, `window.SistemaNube`, `__sistemaBdEsperando`, `__sistemaBdBloqueada`.

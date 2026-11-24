@@ -1,4 +1,23 @@
-# Sistema de trabajo — v0.21.2 · Terreno 0.9.1
+# Sistema de trabajo — v0.21.3 · Terreno 0.9.1
+
+## Qué cambia en v0.21.3 (Monografías 0.6: coordenadas con columnas elegibles y fotos en lote)
+- **«Pegar o cargar coordenadas»** (paso 1 › Fichas): se pega desde Excel o un texto, o se **carga el archivo** (.xlsx, .csv o .txt), y los valores quedan en una tabla.
+  - En el **encabezado de cada columna** se elige qué es: Nombre, E (Este), N (Norte), Z (Cota) o «No usar». Parte con lo que detecta (por los títulos o por los valores: 7 dígitos = Norte, 6 = Este).
+  - **Separador de columnas** (automático, tabulación, punto y coma, coma o espacios) y **decimales** (automático, punto o coma; también con separador de miles).
+  - Casilla «La primera fila son títulos».
+  - **Revisión antes de crear:** E y N invertidos (con botón «Intercambiar E y N»), celdas que no son número (en rojo), filas sin nombre, nombres repetidos y E/N fuera de lo normal para UTM. Con errores, «Crear» queda bloqueado.
+  - Recuerda separador, decimales y el orden de columnas de la última vez (`mn_pegar_prefs`).
+- **«Fotos en lote»**: se eligen o arrastran muchas fotos y se reparten solas:
+  - por el **nombre del archivo** («PR-3_pano.jpg» → PR-3; «PR-1» no calza con «PR-10»);
+  - por el **GPS de la foto** (la ficha a menos de 30 m; las fotos de WhatsApp enviadas como imagen no traen GPS);
+  - el resto queda **sin asignar**: se elige la ficha en cada foto, o se elige una ficha arriba y se tocan sus fotos («Siguiente ficha →»), o «Repartir en orden las sin asignar».
+  - Cada foto se marca Panorámica, Croquis o Adicional («croquis» o «pano» en el nombre la marcan sola; la primera de una ficha sin panorámica va como panorámica).
+  - Si una ficha ya tenía panorámica o croquis, pregunta si reemplazarla o dejarla como adicional.
+- Con una ventana abierta, el panel flotante de avance ya no queda encima.
+- Archivos nuevos: `modulos/monografias/tabla-coords.js` y `fotos-lote.js` (lógica pura, con pruebas). Sin almacenes nuevos; sin cambios en Terreno ni en el paquete de conexión.
+- Pruebas: 185 unitarias (nuevas `tabla-coords.test.mjs` 6 y `fotos-lote.test.mjs` 5); navegador en PC y teléfono: tabla con títulos y columna extra, coma separadora con punto decimal, E/N invertidos e intercambio, fotos por nombre, por GPS (3 m), en orden y a mano.
+
+# Sistema de trabajo — v0.21.2
 
 ## Qué cambia en v0.21.2 (arreglo: logo del cliente en Monografías)
 - El logo del cliente se guardaba con el cliente, pero la pantalla solo lo buscaba en las fichas: con 0 fichas decía «guardado» y mostraba «Sin imagen». Ahora se muestra el logo guardado del cliente aunque no haya fichas.

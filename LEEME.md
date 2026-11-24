@@ -1,4 +1,10 @@
-# Sistema de trabajo — v0.21.1 · Terreno 0.9.1
+# Sistema de trabajo — v0.21.2 · Terreno 0.9.1
+
+## Qué cambia en v0.21.2 (arreglo: logo del cliente en Monografías)
+- El logo del cliente se guardaba con el cliente, pero la pantalla solo lo buscaba en las fichas: con 0 fichas decía «guardado» y mostraba «Sin imagen». Ahora se muestra el logo guardado del cliente aunque no haya fichas.
+- Las fichas sin logo (nuevas o llegadas del teléfono) toman el logo del cliente al abrir Monografías; el mapa de puntos también lo usa.
+- Si no hay cliente elegido, pide elegirlo antes de cargar el logo (antes quedaba guardado sin cliente y no aparecía).
+- `datos.js`: `claveCliente`, `logoDeCliente(nombre)`. Sin cambios en Terreno ni en el paquete de conexión.
 
 **Sistema v0.18 = estructura nueva** (pedido por Camilo el 18-nov, con la pizarra de flujos por rol y propuesta v0.18): el proyecto es el centro y sigue una línea encargo → planificación → terreno → entregas; un solo KMZ por proyecto; planificación en pasos; cronograma automático.
 

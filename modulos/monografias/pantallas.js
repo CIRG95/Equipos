@@ -93,7 +93,7 @@ export function montarPantallas(raiz, ctx) {
       proyecto: st.proyecto || { nombre: '' },
       lista: puntosDeFichas(st.lista, e => (D.ESTADOS[e] || {}).texto || e),
       comun: { ...guardado, valores },
-      logoCliente: conLogo ? await urlImagen(conLogo.clienteLogo) : null,
+      logoCliente: await urlImagen(conLogo ? conLogo.clienteLogo : await D.logoDeCliente(valores.clienteNombre)),
     });
   }
 

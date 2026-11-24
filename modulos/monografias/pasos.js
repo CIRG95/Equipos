@@ -19,7 +19,7 @@ import { pdfDe, urlImagen, logoEmpresa, fijarLogoEmpresa, ordenNatural } from '.
 import { eliminarMonografia } from './borrado.js';
 import * as C from './comun.js';
 
-const claveCliente = t => String(t || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const claveCliente = D.claveCliente;
 const ranura = { croquisImg: 'Croquis de ubicación', panoramicaImg: 'Vista panorámica', clienteLogo: 'Logo del cliente' };
 const MODO_DEF = { clienteLogo: 'ajustar', croquisImg: 'llenar', panoramicaImg: 'llenar' };
 const ANCHO_MINI = { croquisImg: 320, panoramicaImg: 320, clienteLogo: 160, extra: 220 };
@@ -54,6 +54,7 @@ export function montarPasos(raiz, ctx) {
       st.x = st.lista.find(y => y.id === st.monoId) || null;
       if (st.x && (!st.ficha || st.ficha.id !== st.x.id)) st.ficha = JSON.parse(JSON.stringify(st.x.ficha));
     }
+    await completarLogoCliente();
     configurarPieza({ monografias: st.lista.map(y => (st.ficha && y.id === st.ficha.id ? st.ficha : y.ficha)) });
     if (!Object.keys(st.nombres).length) for (const p of await listarPersonas()) st.nombres[p.id] = p.nombre;
   }
@@ -78,6 +79,16 @@ export function montarPasos(raiz, ctx) {
     st.guardando = setTimeout(async () => { await guardarAhora(); if (refrescar) render(); else refrescarFlotante(); }, 450);
   }
   /** Aplica cambios a todas las fichas del proyecto (los datos comunes y lo que incluye el PDF). */
+  /** v0.21.2 · Las fichas sin logo (nuevas, o llegadas del teléfono) toman el logo guardado del cliente. */
+  async function completarLogoCliente() {
+    if (!st.comun || !st.comun.todas || !st.comun.todas.clienteNombre || !st.lista.length) return;
+    const cli = C.valorComun(st.comun, st.lista.map(fichaDe), 'clienteNombre').v;
+    const logo = await D.logoDeCliente(cli);
+    if (!logo) return;
+    const pon = f => { if (!f.clienteLogo && (!f.clienteNombre || claveCliente(f.clienteNombre) === claveCliente(cli))) f.clienteLogo = { ...logo }; };
+    if (st.lista.some(y => !y.ficha.clienteLogo)) await aplicarATodas(pon);
+    if (st.ficha) pon(st.ficha);
+  }
   async function aplicarATodas(fn) {
     let n = 0;
     for (const x of st.lista) {
@@ -189,7 +200,8 @@ export function montarPasos(raiz, ctx) {
         ${!c.todas[k] ? '<small class="sis-tenue">Se pide en cada ficha (paso 3).</small>' : distintas && fichas.length > 1 ? `<small class="mn-av">Distinto en ${distintas} ficha${distintas === 1 ? '' : 's'}: al cambiarlo se iguala.</small>` : ''}</div>`;
     };
     const cls = await clientes(), cli = val('clienteNombre').v;
-    const logoCli = fichas.find(f => f.clienteLogo) ? fichas.find(f => f.clienteLogo).clienteLogo : null, urlLogoCli = await urlImagen(logoCli);
+    // v0.21.2: si aún no hay fichas (o ninguna lo tiene), se muestra el logo guardado con el cliente.
+    const logoCli = (fichas.find(f => f.clienteLogo) || {}).clienteLogo || await D.logoDeCliente(cli), urlLogoCli = await urlImagen(logoCli);
     const tipo = val('tipoMedicion').v || 'GNSS estático';
     const cat = tipo === 'Estación total' ? 'Estación total' : 'GNSS';
     const equipos = (await listarEquiposConEstado()).filter(e => e.categoria === cat)
@@ -536,8 +548,14 @@ export function montarPasos(raiz, ctx) {
       if (t.dataset.archivo && t.files && t.files[0]) {
         const archivo = t.files[0], slot = t.dataset.archivo; t.value = '';
         if (slot === 'logo') { const r = new FileReader(); r.onload = async () => { fijarLogoEmpresa(r.result); avisar('Logo de la empresa guardado.'); await render(); }; r.readAsDataURL(archivo); return; }
+        if (slot === 'clienteLogo' && !C.valorComun(st.comun, st.lista.map(fichaDe), 'clienteNombre').v) { avisar('Elige primero el cliente: el logo queda guardado con él.', 'error'); return; }
         const valor = await subirImagen(archivo, slot);
-        if (slot === 'clienteLogo') { await aplicarATodas(f => { f.clienteLogo = valor; if (f.ajustes) delete f.ajustes.clienteLogo; }); avisar('Logo del cliente guardado en todas las fichas.'); }
+        if (slot === 'clienteLogo') {
+          const n = st.lista.length;
+          await aplicarATodas(f => { f.clienteLogo = valor; if (f.ajustes) delete f.ajustes.clienteLogo; });
+          if (st.ficha) { st.ficha.clienteLogo = valor; if (st.ficha.ajustes) delete st.ficha.ajustes.clienteLogo; }
+          avisar(n ? `Logo del cliente guardado (${n} ficha${n === 1 ? '' : 's'}).` : 'Logo del cliente guardado. Las fichas que agregues lo llevarán.');
+        }
         else { ponerImagen(slot, valor); await guardarAhora(); }
         await render();
       }

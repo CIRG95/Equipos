@@ -17,7 +17,6 @@
 - Archivos nuevos: `modulos/monografias/tabla-coords.js` y `fotos-lote.js` (lógica pura, con pruebas). Sin almacenes nuevos; sin cambios en Terreno ni en el paquete de conexión.
 - Pruebas: 185 unitarias (nuevas `tabla-coords.test.mjs` 6 y `fotos-lote.test.mjs` 5); navegador en PC y teléfono: tabla con títulos y columna extra, coma separadora con punto decimal, E/N invertidos e intercambio, fotos por nombre, por GPS (3 m), en orden y a mano.
 
-# Sistema de trabajo — v0.21.2
 
 ## Qué cambia en v0.21.2 (arreglo: logo del cliente en Monografías)
 - El logo del cliente se guardaba con el cliente, pero la pantalla solo lo buscaba en las fichas: con 0 fichas decía «guardado» y mostraba «Sin imagen». Ahora se muestra el logo guardado del cliente aunque no haya fichas.

@@ -1,4 +1,7 @@
-# INTEGRACION.md — Sistema v0.23
+# INTEGRACION.md — Sistema v0.23.1
+
+## v0.23.1
+- Solo presentación de Monografías (`pasos.js`: `navHtml` con pastillas; `monografias.css`) y selectores de `estilo-documento.css`. Sin cambios de datos.
 
 ## v0.23 · Monografías 0.8
 - `mono_comun_<proyecto>` gana `croquisComun` ({centro, zoom, ancho, alto, aspecto, estilo}); `normalizarComun` lo conserva (null si falta).

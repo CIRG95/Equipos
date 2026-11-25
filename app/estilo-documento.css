@@ -14,18 +14,18 @@
 .sis-tarjeta, .sis-form fieldset, .sis-kpi, .sis-proy, .sis-notas, .vu-detalles, .sg-kpi, .sg-tabla-caja, .gs-kpi, .np-caja{
   border-color:var(--line); border-radius:var(--radius); box-shadow:none;
 }
-.sis-vista .sis-tarjeta > h2:first-child,
-.sis-vista .sis-tarjeta > .sis-cab:first-child{
+.sis-tarjeta > h2:first-child,
+.sis-tarjeta > .sis-cab:first-child{
   margin:-16px -16px 14px; padding:8px 16px; background:var(--banda); color:var(--banda-tinta);
   font-size:13px; font-weight:600; letter-spacing:.01em;
 }
-.sis-vista .sis-tarjeta > .sis-cab:first-child h2{color:var(--banda-tinta); font-size:13px; font-weight:600; margin:0;}
-.sis-vista .sis-tarjeta > .sis-cab:first-child{align-items:center;}
-.sis-vista .sis-tarjeta > .sis-cab:first-child .sis-btn{min-height:30px; padding:3px 10px; font-size:12.5px;}
-.sis-vista .sis-tarjeta > h2:first-child svg, .sis-vista .sis-tarjeta > .sis-cab:first-child h2 svg{width:16px; height:16px;}
-.sis-vista .sis-aviso > h2:first-child{background:#8A3410; color:#fff;}
-.sis-vista .sis-pronto > h2:first-child{background:#6B7078; color:#fff;}
-.sis-vista .sis-destacada{border-color:var(--marca);}
+.sis-tarjeta > .sis-cab:first-child h2{color:var(--banda-tinta); font-size:13px; font-weight:600; margin:0;}
+.sis-tarjeta > .sis-cab:first-child{align-items:center;}
+.sis-tarjeta > .sis-cab:first-child .sis-btn{min-height:30px; padding:3px 10px; font-size:12.5px;}
+.sis-tarjeta > h2:first-child svg, .sis-vista .sis-tarjeta > .sis-cab:first-child h2 svg{width:16px; height:16px;}
+.sis-aviso > h2:first-child{background:#8A3410; color:#fff;}
+.sis-pronto > h2:first-child{background:#6B7078; color:#fff;}
+.sis-destacada{border-color:var(--marca);}
 .sis-form legend{background:var(--banda); color:var(--banda-tinta); font-size:12.5px; padding:3px 10px; border-radius:2px;}
 .sis-aviso{background:#FFF8F3; border-color:#E3B995;}
 .sis-pronto{background:#F3F1EB; border-style:solid;}

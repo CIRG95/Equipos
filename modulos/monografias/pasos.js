@@ -139,22 +139,15 @@ export function montarPasos(raiz, ctx) {
   }
   const claveActual = () => (st.vista === 'ficha' ? `${st.monoId}:${st.paso}` : st.vista);
 
-  function navHtml(sec, i) {
-    const items = [];
-    let n = 0;
-    for (let k = 0; k < sec.length; k++) {
-      const s = sec[k];
-      if (s.id && s.id !== st.monoId) { // las otras fichas: una sola línea con su avance
-        if (s.paso !== 'coordenadas') continue;
-        const c = C.cuenta(chequeo(fichaDe(st.lista.find(y => y.id === s.id))));
-        items.push(`<a class="mn-paso${c.ok === c.total ? ' hecho' : ''}" href="${s.ruta}"><i>${c.ok === c.total ? '✓' : ++n}</i><span><b>${esc(s.texto)}</b><small>${c.ok} de ${c.total}</small></span></a>`);
-        if (c.ok === c.total) n++;
-        continue;
-      }
-      n++;
-      items.push(`<a class="mn-paso${k === i ? ' actual' : k < i ? ' hecho' : ''}" href="${s.ruta}"${k === i ? ' aria-current="step"' : ''}><i>${k < i ? '✓' : n}</i><span><b>${esc(s.texto)}</b><small>${esc(s.sub)}</small></span></a>`);
-    }
-    return `<nav class="mn-pasos" aria-label="Pasos">${items.join('')}</nav>`;
+  function navHtml() {
+    const actual = st.vista === 'ficha' ? st.monoId : (st.lista[0] || {}).id;
+    const pill = (txt, href, act) => (href ? `<a class="mn-pill${act ? ' activo' : ''}" href="${href}"${act ? ' aria-current="step"' : ''}>${txt}</a>` : `<span class="mn-pill apagada" title="Primero crea las fichas">${txt}</span>`);
+    const pills = [pill('1 · Datos comunes', rutaComun(), st.vista === 'comun'),
+      pill('2 · Coordenadas y croquis', actual ? rutaFicha(actual, 'coordenadas') : '', st.vista === 'ficha' && st.paso === 'coordenadas'),
+      pill('3 · Ubicación y descripción', actual ? rutaFicha(actual, 'ubicacion') : '', st.vista === 'ficha' && st.paso === 'ubicacion'),
+      pill('Revisar', rutaRevisar(), st.vista === 'revisar')].join('');
+    const fichas = st.vista === 'ficha' ? `<div class="mn-chips-fichas mn-fichas-nav" aria-label="Fichas">${st.lista.map(y => { const k = C.cuenta(chequeo(fichaDe(y))); return `<a class="sis-chip ${y.id === st.monoId ? 'azul' : k.ok === k.total ? 'verde' : 'gris'}" href="${rutaFicha(y.id, st.paso)}"${y.id === st.monoId ? ' aria-current="page"' : ''}>${esc(nombreDe(fichaDe(y)))} · ${k.ok}/${k.total}</a>`; }).join('')}</div>` : '';
+    return `<nav class="mn-pills" aria-label="Pasos">${pills}</nav>${fichas}`;
   }
 
   function cabHtml(sec, i) {
@@ -221,7 +214,7 @@ export function montarPasos(raiz, ctx) {
     const val = k => C.valorComun(c, fichas, k);
     const fila = (k, control) => {
       const { distintas } = val(k);
-      return `<div class="mn-c${c.todas[k] ? '' : ' propio'}">${control}<label class="mn-todas"><input type="checkbox" data-todas="${k}" ${c.todas[k] ? 'checked' : ''}> Todas las fichas</label>
+      return `<div class="mn-c${c.todas[k] ? '' : ' propio'}">${control}<label class="mn-todas" title="Igual en todas las fichas"><input type="checkbox" data-todas="${k}" ${c.todas[k] ? 'checked' : ''} aria-label="Todas las fichas"> Todas</label>
         ${!c.todas[k] ? '<small class="sis-tenue">Se pide en cada ficha (paso 3).</small>' : distintas && fichas.length > 1 ? `<small class="mn-av">Distinto en ${distintas} ficha${distintas === 1 ? '' : 's'}: al cambiarlo se iguala.</small>` : ''}</div>`;
     };
     const cls = await clientes(), cli = val('clienteNombre').v;
@@ -236,7 +229,7 @@ export function montarPasos(raiz, ctx) {
     const personas = Object.values(st.nombres);
     const av = C.avanceComun(c, fichas);
     return `<div class="mn-comun-2"><div class="mn-comun-izq">
-      <section class="sis-tarjeta"><div class="sis-cab"><h2>Documento y cliente</h2><span class="sis-tenue">Se escriben una vez; la casilla decide si van en todas las fichas</span></div>
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Documento y cliente</h2><span class="sis-tenue">Casilla = igual en todas las fichas</span></div>
         <div class="mn-grilla-c">
           ${fila('clienteNombre', `<label class="sis-campo"><span>Cliente</span><select data-cliente>${cls.map(x => `<option value="${esc(x.k)}" ${claveCliente(cli) === x.k ? 'selected' : ''}>${esc(x.nombre)}${x.logo ? ' · con logo' : ''}</option>`).join('')}${!cli ? '<option value="" selected>— Elegir —</option>' : ''}<option value="__nuevo">+ Nuevo cliente…</option></select></label>`)}
           ${fila('nombreProyecto', entrada('c', 'nombreProyecto', 'Nombre del proyecto', { valor: val('nombreProyecto').v }))}
@@ -244,7 +237,7 @@ export function montarPasos(raiz, ctx) {
           <div class="mn-c mn-logo-cli">${miniHtml(urlLogoCli, [36, 16], ANCHO_MINI.clienteLogo, 'data-mini="clienteLogo"', 'Logo del cliente')}
             <span><b>Logo del cliente</b><small class="sis-tenue">Queda guardado con el cliente.</small><label class="sis-btn chico">${urlLogoCli ? 'Cambiar' : 'Cargar'}<input type="file" accept="image/*" data-archivo="clienteLogo" hidden></label></span></div>
         </div></section>
-      <section class="sis-tarjeta"><div class="sis-cab"><h2>Medición y responsables</h2></div>
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Medición y responsables</h2><span class="sis-tenue">Casilla = igual en todas las fichas</span></div>
         <div class="mn-grilla-c">
           ${fila('tipoMedicion', `<div class="sis-campo"><span>Tipo de medición</span><div class="vu-pildoras">${C.TIPOS_MEDICION.map(t => `<button type="button" class="vu-pildora${t === tipo ? ' activo' : ''}" data-a="tipo" data-v="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`)}
           ${fila('equipoGNSS', `<label class="sis-campo"><span>Equipo ${cat === 'GNSS' ? 'GNSS' : '(estación total)'}</span><select data-equipo>
@@ -274,9 +267,12 @@ export function montarPasos(raiz, ctx) {
       <section class="sis-tarjeta mn-avance-card"><div class="sis-cab"><h2>Datos comunes</h2><b class="mn-av-num">${av.ok}/${av.total}</b></div>
         <div class="mn-barra-av" role="progressbar" aria-valuemin="0" aria-valuemax="${av.total}" aria-valuenow="${av.ok}"><i style="width:${av.total ? Math.round(100 * av.ok / av.total) : 0}%"></i></div>
         <p class="sis-tenue">${av.faltan.length ? `Faltan: <b>${esc(av.faltan.join(', '))}</b>.` : 'Completos.'}</p></section>
-      <section class="sis-tarjeta"><div class="sis-cab"><h2>Fichas · ${st.lista.length}</h2><span class="sis-acciones"><button class="sis-btn chico" data-a="pegar-abrir">Pegar o cargar coordenadas</button><button class="sis-btn chico" data-a="fotos-abrir" ${st.lista.length ? '' : 'disabled title="Primero crea las fichas"'}>Fotos en lote</button></span></div>
-        <label class="sis-campo"><span>Nombres de las fichas nuevas</span><span class="sis-en-linea"><input id="mn-nombres" placeholder="PR-1 a PR-12 · o PR-1, PR-2, PR-3" aria-label="Nombres de las fichas"><button type="button" class="sis-btn primario" data-a="crear-nombres">Crear fichas</button></span></label>
-        <p class="sis-tenue">Escribe un rango («PR-1 a PR-12») o una lista separada por comas. Si ya existe una ficha con ese nombre, no se repite. Con «Pegar o cargar coordenadas» se crean con sus coordenadas ya puestas: tú eliges qué es cada columna. «Fotos en lote» reparte muchas fotos de una vez.</p>
+      <section class="sis-tarjeta mn-fichas-card"><div class="sis-cab"><h2>Fichas del proyecto</h2><span class="sis-tenue">${st.lista.length ? `${st.lista.length} ficha${st.lista.length === 1 ? '' : 's'}` : 'Sin fichas aún'}</span></div>
+        <button type="button" class="sis-btn primario mn-ancho" data-a="pegar-abrir">Pegar o cargar coordenadas</button>
+        <p class="sis-tenue">Verás todos los puntos en el mapa y fijarás el encuadre, el símbolo y las letras <b>una sola vez para todas las fichas</b>.</p>
+        <div class="mn-sep"></div>
+        <label class="sis-campo"><span>Crear por nombres</span><span class="sis-en-linea"><input id="mn-nombres" placeholder="PR-1 a PR-12 · o PR-1, PR-2" aria-label="Nombres de las fichas"><button type="button" class="sis-btn" data-a="crear-nombres">Crear</button></span></label>
+        <button type="button" class="sis-btn mn-ancho" data-a="fotos-abrir" ${st.lista.length ? '' : 'disabled title="Primero crea las fichas"'}>Fotos en lote</button>
         ${st.lista.length ? `<div class="mn-chips-fichas">${st.lista.map(y => { const k = C.cuenta(chequeo(fichaDe(y))); return `<a class="sis-chip ${k.ok === k.total ? 'verde' : 'gris'}" href="${rutaFicha(y.id)}">${esc(nombreDe(fichaDe(y)))} · ${k.ok}/${k.total}</a>`; }).join('')}</div>` : ''}
       </section>
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Mapa común de PR</h2></div>

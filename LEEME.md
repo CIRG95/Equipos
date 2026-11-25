@@ -1,4 +1,10 @@
-# Sistema de trabajo — v0.23 · Terreno 0.9.1
+# Sistema de trabajo — v0.23.1 · Terreno 0.9.1
+
+## Qué cambia en v0.23.1 (Monografías 0.8.1: Paso 1 como en el boceto)
+Camilo vio la v0.23 y no se parecía al lienzo.
+- **Pasos como pastillas arriba** («1 · Datos comunes · 2 · Coordenadas y croquis · 3 · Ubicación y descripción · Revisar») en lugar de la lista de la izquierda; en los pasos 2 y 3 la ficha se elige con las fichitas de abajo (con su avance).
+- **Datos comunes:** campos en **dos columnas**, con «Todas» junto a la etiqueta de cada campo; el panel derecho muestra el avance **12/14** con su barra y «Faltan…», la tarjeta «Fichas del proyecto» (botón grande «Pegar o cargar coordenadas», crear por nombres, fotos en lote) y el mapa común.
+- Las bandas de título de v0.22 ahora se aplican también a las pantallas de Monografías (el selector ya no depende de `.sis-vista`).
 
 ## Qué cambia en v0.23 (Monografías 0.8: mapa común de PR)
 Pedido por Camilo el 25-nov, con el boceto del lienzo (pantallas 1, 2 y 3).

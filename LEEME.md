@@ -1,4 +1,12 @@
-# Sistema de trabajo — v0.21.5 · Terreno 0.9.1
+# Sistema de trabajo — v0.22 · Terreno 0.9.1
+
+## Qué cambia en v0.22 (estilo documento en toda la app)
+Pedido por Camilo el 25-nov: «me gustó el estilo del boceto 3 (la ficha), aplícalo a la app completa».
+- **Mismo lenguaje visual en todos los módulos:** fondo beige con hojas blancas, esquinas casi rectas (3 px), bordes finos y **banda de título en el color de marca** en cada tarjeta (como Coordenadas / Medición de la ficha). Los datos en cuadrícula (`sis-datos`, paso 3 de Monografías) llevan filas finas; las tablas de Gastos y Monografías, cabecera en banda.
+- **Solo cambia el aspecto**, nada de funciones: se hace con una capa final, `app/estilo-documento.css` (cargada después de todos los CSS). Para volver atrás basta quitar su `<link>` de `index.html` y su entrada en `sw.js`.
+- El color de la banda es el de la empresa (Personas → Empresa), así que cambia con la marca.
+- **No se tocó Terreno** (`terreno/`) ni la conexión.
+- Pendiente: mirarlo en el teléfono y en el PC y anotar qué pantallas quedan raras (no se pudo abrir en un navegador desde aquí).
 
 ## Qué cambia en v0.21.5 (Monografías 0.7: ficha más clara y editable)
 Pedido por Camilo el 25-nov con la ficha de PFV Buena Esperanza (Perú) a la vista.

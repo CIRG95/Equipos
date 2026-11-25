@@ -1,0 +1,75 @@
+/* app/estilo-documento.css — v0.22 «Estilo documento».
+   Capa final (se carga después de todos los CSS): lleva a toda la app el estilo de la ficha de monografía:
+   fondo beige con hojas blancas, esquinas casi rectas, bordes finos y bloques con banda de título en el color
+   de marca. Solo pisa aspecto (colores, bordes, radios); no cambia estructura ni comportamiento.
+   Para volver al estilo anterior basta quitar el <link> de index.html y la entrada de sw.js. */
+
+:root{
+  --bg:#E9E6DD; --line:#C9C4B8; --borde:#D6D2C6; --borde-suave:#E6E2D8;
+  --radius:3px; --soft:none;
+  --papel:#FFFFFF; --banda:var(--marca); --banda-tinta:#FFFFFF;
+}
+
+/* ---------- Hojas: tarjetas con banda de título ---------- */
+.sis-tarjeta, .sis-form fieldset, .sis-kpi, .sis-proy, .sis-notas, .vu-detalles, .sg-kpi, .sg-tabla-caja, .gs-kpi, .np-caja{
+  border-color:var(--line); border-radius:var(--radius); box-shadow:none;
+}
+.sis-vista .sis-tarjeta > h2:first-child,
+.sis-vista .sis-tarjeta > .sis-cab:first-child{
+  margin:-16px -16px 14px; padding:8px 16px; background:var(--banda); color:var(--banda-tinta);
+  font-size:13px; font-weight:600; letter-spacing:.01em;
+}
+.sis-vista .sis-tarjeta > .sis-cab:first-child h2{color:var(--banda-tinta); font-size:13px; font-weight:600; margin:0;}
+.sis-vista .sis-tarjeta > .sis-cab:first-child{align-items:center;}
+.sis-vista .sis-tarjeta > .sis-cab:first-child .sis-btn{min-height:30px; padding:3px 10px; font-size:12.5px;}
+.sis-vista .sis-tarjeta > h2:first-child svg, .sis-vista .sis-tarjeta > .sis-cab:first-child h2 svg{width:16px; height:16px;}
+.sis-vista .sis-aviso > h2:first-child{background:#8A3410; color:#fff;}
+.sis-vista .sis-pronto > h2:first-child{background:#6B7078; color:#fff;}
+.sis-vista .sis-destacada{border-color:var(--marca);}
+.sis-form legend{background:var(--banda); color:var(--banda-tinta); font-size:12.5px; padding:3px 10px; border-radius:2px;}
+.sis-aviso{background:#FFF8F3; border-color:#E3B995;}
+.sis-pronto{background:#F3F1EB; border-style:solid;}
+
+/* ---------- Datos en cuadrícula con filas finas (como Coordenadas / Medición de la ficha) ---------- */
+.sis-datos, .mn-datos{gap:0 !important; border-top:1px solid var(--borde); border-left:1px solid var(--borde);}
+.sis-dato, .mn-datos > *{padding:7px 10px; border-right:1px solid var(--borde); border-bottom:1px solid var(--borde); background:var(--papel);}
+.sis-dato span{font-size:11.5px; text-transform:none;}
+
+/* ---------- Títulos y listas ---------- */
+.sis-vista h1{letter-spacing:0;}
+.sis-sub{color:#4B5057;}
+.sis-fila{border-top-color:var(--borde-suave);}
+.sis-grupo + .sis-grupo{border-top-color:var(--borde-suave);}
+
+/* ---------- Botones, campos y etiquetas: esquinas rectas ---------- */
+.sis-btn, .np-btn, .redondo, .pill, button.pill, .sis-cat, .sis-detalle, .sis-detalle-texto, .sis-error, .np-msg, .np-aviso{border-radius:var(--radius);}
+.sis-btn{border-color:var(--line);}
+.sis-btn.primario{background:var(--marca); border-color:var(--marca);}
+.sis-campo input:not([type=checkbox]):not([type=radio]), .sis-campo select, .sis-campo textarea, .sis-form-linea input,
+dialog.nube-panel input:not([type=checkbox]){border-radius:var(--radius); border-color:var(--line);}
+.sis-opcion, .sis-color, .sis-chip{border-radius:var(--radius);}
+.sis-chip{font-weight:600; padding:2px 8px;}
+.pill{background:#F1EFE8;}
+.sis-logo{border-radius:var(--radius);}
+.sis-tip, .sis-aviso-flotante{border-radius:var(--radius);}
+
+/* ---------- Encabezado y barras ---------- */
+.sis-header{border-bottom:1px solid var(--line);}
+.sis-menu{border-top-color:var(--line);}
+.sis-menu.abierto .sis-menu-extra{border-radius:var(--radius);}
+.sis-menu.abierto .sis-menu-extra .sis-menu-item{border-radius:var(--radius);}
+.mod-equipos .eq-nav, body[data-modo="pc"] .mod-equipos .eq-nav{background:#DDD9CE; border-radius:var(--radius);}
+.mod-equipos .eq-pestana, body[data-modo="pc"] .mod-equipos .eq-pestana{border-radius:2px;}
+
+/* ---------- Ventanas ---------- */
+dialog.nube-panel{border-radius:var(--radius) var(--radius) 0 0;}
+body[data-modo="pc"] dialog.nube-panel{border-radius:var(--radius);}
+.np-cab{border-bottom:2px solid var(--marca); padding-bottom:6px;}
+.mn-modal-caja{border-radius:var(--radius);}
+
+/* ---------- Tablas: cabecera en banda ---------- */
+.mn-tabla thead th, .sg-tabla thead th, .gs-tabla thead th{background:var(--banda); color:var(--banda-tinta); font-weight:600; font-size:12.5px;}
+.mn-tabla td, .sg-tabla td, .gs-tabla td{border-bottom-color:var(--borde-suave);}
+
+/* ---------- Módulo Equipos (tarjetas con sus propias clases) ---------- */
+.mod-equipos{--eq-radius:var(--radius); --eq-soft:none; --eq-line-soft:var(--borde);}

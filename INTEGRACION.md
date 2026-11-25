@@ -1,4 +1,11 @@
-# INTEGRACION.md — Sistema v0.21.3
+# INTEGRACION.md — Sistema v0.21.5
+
+## v0.21.5 · Monografías 0.7
+- `comun.js`: `efectiva(f)` entrega al PDF decimales con punto, `zonaUTM` como «17 Sur» y `comuna` con la provincia (solo países que la usan); `PAISES`, `PAIS_POR_CODIGO`, `paisDe(f)`, `etiquetasUbicacion(pais)`, `unirSinRepetir`, `zonaLegible`. La ficha suma `pais` y `provincia`.
+- `coordenadas.js`: `escribirGrados` escribe con punto; `puntoDecimal(texto)`. `vuelos/ubicacion.js › ubicacionDe` devuelve también `provincia`.
+- `pasos.js`: `st.editar` (clave del dato que se cambia desde el paso 3), `editarHtml()`, `guardarDatoEditado()`, `equiposPara(tipo)`; `estimarSiFalta` completa también el país.
+- `croquis.js`: `dibujarEscalaCroquis`, opción `escala` (en `mn_croquis_prefs`).
+- `herramientas/extraer-pieza-monografia.mjs`: `PARCHES` de texto del PDF (zona, columnas geodésicas); la pieza se regeneró desde Terreno 0.9.1 (sin otros cambios).
 
 ## v0.21.3 · Monografías 0.6
 - `modulos/monografias/tabla-coords.js` (puro): `separar(texto, sep)`, `detectarSeparador`, `numeroCon(t, 'auto'|'punto'|'coma')`, `pareceTitulos`, `detectarColumnas(filas, titulos)` → roles `nombre|este|norte|cota|no`, `registros(filas, roles, { titulos, decimal })`, `revisar(regs, roles)` → `{ avisos, puedeCrear }`, `intercambiarEN`, `leerAuto`. `comun.leerTabla` queda solo por compatibilidad.

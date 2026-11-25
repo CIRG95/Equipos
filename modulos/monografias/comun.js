@@ -3,6 +3,7 @@
 // frases frecuentes y el chequeo de cada ficha con el paso donde se completa cada dato.
 
 import { tmInversa } from '../vuelos/formatos.js';
+import { puntoDecimal } from './coordenadas.js';
 
 /** Datos que se escriben una vez en el paso 1. [clave, etiqueta, grupo, tipo] */
 export const CAMPOS_COMUNES = [
@@ -127,7 +128,36 @@ export function efectiva(f) {
   const c = { ...f, modulos: { ...MODULOS_DEF, ...(f.modulos || {}) } };
   if (f.disposicionImg === 'solo-croquis') { c.modulos.panoramica = false; c.disposicionImg = 'lado'; }
   if (c.modulos.logoCliente === false) c.clienteLogo = null;
+  // v0.21.5 · lo que se imprime: un solo decimal (punto), «Zona 17 Sur» y distrito + provincia + departamento según el país.
+  for (const k of ['norte', 'este', 'cotaOrtometrica', 'latitud', 'longitud', 'alturaElipsoidal']) if (c[k]) c[k] = puntoDecimal(c[k]);
+  if (c.zonaUTM) c.zonaUTM = zonaLegible(c.zonaUTM);
+  if (etiquetasUbicacion(paisDe(f)).provincia && String(f.provincia || '').trim()) c.comuna = unirSinRepetir([f.comuna, f.provincia]);
   return c;
+}
+
+// ─────────── v0.21.5 · País: cómo se llaman las divisiones y cómo se escribe el huso ───────────
+export const PAISES = ['Chile', 'Perú', 'Bolivia', 'Argentina'];
+export const PAIS_POR_CODIGO = { CL: 'Chile', PE: 'Perú', BO: 'Bolivia', AR: 'Argentina' };
+const ETIQUETAS_UBICACION = {
+  Chile: { comuna: 'Comuna', provincia: '', region: 'Región' },
+  'Perú': { comuna: 'Distrito', provincia: 'Provincia', region: 'Departamento' },
+  Bolivia: { comuna: 'Municipio', provincia: 'Provincia', region: 'Departamento' },
+  Argentina: { comuna: 'Departamento', provincia: '', region: 'Provincia' },
+};
+/** País de la ficha; sin dato se asume Chile (como antes de v0.21.5). */
+export const paisDe = f => String((f && f.pais) || '').trim() || 'Chile';
+/** Nombres de las divisiones según el país. provincia '' = el país no la usa. */
+export const etiquetasUbicacion = pais => ETIQUETAS_UBICACION[pais] || { comuna: 'Localidad o municipio', provincia: 'Provincia', region: 'Región o estado' };
+/** «Paita, Paita, Piura» → «Paita, Piura»: junta las partes sin repetir las iguales. */
+export function unirSinRepetir(partes) {
+  const out = [];
+  for (const p of partes.map(x => String(x ?? '').trim()).filter(Boolean)) if (!out.some(o => o.toLowerCase() === p.toLowerCase())) out.push(p);
+  return out.join(', ');
+}
+/** «17s», «17 S» → «17 Sur»; «17 S (Juan Fernández)» → «17 Sur (Juan Fernández)». Si no calza, queda igual. */
+export function zonaLegible(z) {
+  const m = /^\s*(\d{1,2})\s*([NSns])\b\s*(.*)$/.exec(String(z ?? ''));
+  return m ? `${m[1]} ${m[2].toUpperCase() === 'S' ? 'Sur' : 'Norte'}${m[3] ? ' ' + m[3] : ''}` : String(z ?? '').trim();
 }
 
 const PASO_DE = { Punto: 'coordenadas', 'Coordenadas UTM': 'coordenadas', Geográficas: 'coordenadas', 'H. elipsoidal': 'coordenadas', 'Cota ortométrica': 'coordenadas', Croquis: 'coordenadas', 'Fotografía panorámica': 'coordenadas', 'Fotos adicionales': 'ubicacion' };
@@ -140,7 +170,8 @@ export function chequeoFicha(f, base, comun) {
   const mod = efectiva(f).modulos;
   const filas = base.map(r => ({ k: r.k === 'Fotografía panorámica' ? 'Foto panorámica' : r.k, ok: r.ok, det: r.det || '', aviso: r.dup || r.calc || '', paso: PASO_DE[r.k] || 'coordenadas' }));
   filas.push({ k: 'Sector / Lugar', ok: !!t(f.ubicacion), paso: 'ubicacion' });
-  filas.push({ k: f.comunaEstimada ? 'Comuna (confirmar)' : 'Comuna', ok: !!t(f.comuna) && !f.comunaEstimada, det: t(f.comuna), paso: 'ubicacion' });
+  const nComuna = etiquetasUbicacion(paisDe(f)).comuna;
+  filas.push({ k: f.comunaEstimada ? `${nComuna} (confirmar)` : nComuna, ok: !!t(f.comuna) && !f.comunaEstimada, det: t(f.comuna), paso: 'ubicacion' });
   if (mod.descripcion) filas.push({ k: 'Descripción', ok: !!t(f.descripcion), paso: 'ubicacion' });
   if (mod.firma) {
     const donde = k => (comun.todas[k] ? 'comun' : 'ubicacion');
@@ -159,7 +190,7 @@ export function fichaNueva({ id, proyectoId, nombre, defaults, comun, proyecto, 
     ...base, id, proyectoId,
     nombreProyecto: base.nombreProyecto || (proyecto ? proyecto.nombre : ''), clienteNombre: base.clienteNombre || (proyecto ? proyecto.mandante || '' : ''),
     tipoMedicion: comun.valores.tipoMedicion || 'GNSS estático', zonaUTM: base.zonaUTM || '19 S', operadorCargo: base.operadorCargo || 'Geomensor',
-    puntoMedido: nombre, ubicacion: '', localidad: '', comuna: '', region: '', norte: '', este: '', cotaOrtometrica: '', latitud: '', longitud: '', alturaElipsoidal: '',
+    puntoMedido: nombre, ubicacion: '', localidad: '', comuna: '', provincia: '', region: '', norte: '', este: '', cotaOrtometrica: '', latitud: '', longitud: '', alturaElipsoidal: '',
     croquisImg: null, panoramicaImg: null, descripcion: '', observacionPdf: '', fotosExtra: [], modulos: { ...comun.modulos }, creado: new Date().toISOString(), ...extra,
   };
 }

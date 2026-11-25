@@ -10,7 +10,7 @@ import { listarProyectos, obtenerProyecto, listarPersonas } from '../../comparti
 import { urlArchivo, guardarArchivo, guardarArchivoDatos, archivosDe, archivoAPapelera } from '../../compartido/archivos.js';
 import { listarEquiposConEstado } from '../equipos/equipos.js';
 import { ubicacionDe } from '../vuelos/ubicacion.js';
-import { DATUMS_CHILE, GEOIDES, ZONAS_POR_PAIS, leerGrados, escribirGrados } from './coordenadas.js';
+import { DATUMS_CHILE, GEOIDES, ZONAS_POR_PAIS, leerGrados, escribirGrados, puntoDecimal } from './coordenadas.js';
 import { abrirCroquis } from './croquis.js';
 import * as D from './datos.js';
 import * as T from './tabla-coords.js';
@@ -55,7 +55,10 @@ export function montarPasos(raiz, ctx) {
     st.lista = (await D.monografiasDeProyecto(st.proyectoId)).sort((a, b) => ordenNatural(a.ficha, b.ficha));
     if (st.vista === 'ficha') {
       st.x = st.lista.find(y => y.id === st.monoId) || null;
-      if (st.x && (!st.ficha || st.ficha.id !== st.x.id)) st.ficha = JSON.parse(JSON.stringify(st.x.ficha));
+      if (st.x && (!st.ficha || st.ficha.id !== st.x.id)) {
+        st.ficha = JSON.parse(JSON.stringify(st.x.ficha));
+        for (const k of ['latitud', 'longitud']) if (st.ficha[k]) st.ficha[k] = puntoDecimal(st.ficha[k]); // v0.21.5: un solo decimal (punto)
+      }
     }
     await completarLogoCliente();
     configurarPieza({ monografias: st.lista.map(y => (st.ficha && y.id === st.ficha.id ? st.ficha : y.ficha)) });
@@ -196,6 +199,13 @@ export function montarPasos(raiz, ctx) {
       ${url ? `<button class="sis-btn chico" data-a="ajustar" data-slot="${clave}">✂ Ajustar encuadre</button><button class="sis-btn chico" data-a="quitar-img" data-slot="${clave}">Quitar</button>` : ''}</div>`;
   }
 
+  /** Equipos de la base que sirven para ese tipo de medición (GNSS o estación total); primero los de este proyecto. */
+  async function equiposPara(tipo) {
+    const cat = tipo === 'Estación total' ? 'Estación total' : 'GNSS';
+    return (await listarEquiposConEstado()).filter(e => e.categoria === cat)
+      .sort((a, b) => (b.ubicacion.proyectoId === st.proyectoId) - (a.ubicacion.proyectoId === st.proyectoId) || textoEquipo(a).localeCompare(textoEquipo(b), 'es'));
+  }
+
   // ─────────── Paso 1 · Datos comunes ───────────
   async function clientes() {
     const nombres = new Map();
@@ -218,8 +228,7 @@ export function montarPasos(raiz, ctx) {
     const logoCli = (fichas.find(f => f.clienteLogo) || {}).clienteLogo || await D.logoDeCliente(cli), urlLogoCli = await urlImagen(logoCli);
     const tipo = val('tipoMedicion').v || 'GNSS estático';
     const cat = tipo === 'Estación total' ? 'Estación total' : 'GNSS';
-    const equipos = (await listarEquiposConEstado()).filter(e => e.categoria === cat)
-      .sort((a, b) => (b.ubicacion.proyectoId === st.proyectoId) - (a.ubicacion.proyectoId === st.proyectoId) || textoEquipo(a).localeCompare(textoEquipo(b), 'es'));
+    const equipos = await equiposPara(tipo);
     const eqVal = val('equipoGNSS').v, eqSel = equipos.find(e => textoEquipo(e) === eqVal);
     const avisoEq = eqSel && eqSel.calibracion.nivel === 'vencida' ? `<small class="mn-av">Calibración vencida (${esc(fechaLegible(eqSel.calibracion.proxima))}).</small>`
       : eqSel && eqSel.calibracion.nivel === 'por_vencer' ? `<small class="mn-av">La calibración vence el ${esc(fechaLegible(eqSel.calibracion.proxima))}.</small>` : '';
@@ -456,24 +465,29 @@ export function montarPasos(raiz, ctx) {
   async function vistaUbicacion() {
     const f = st.ficha, mod = C.efectiva(f).modulos, i = st.lista.findIndex(y => y.id === f.id), ant = i > 0 ? fichaDe(st.lista[i - 1]) : null;
     const propios = C.CAMPOS_COMUNES.filter(([k]) => !st.comun.todas[k]);
+    const pais = C.paisDe(f), E = C.etiquetasUbicacion(pais);
     const dato = (t, v, paso) => `<a class="mn-dato" href="${paso === 'comun' ? rutaComun() : rutaFicha(f.id, paso)}"><small>${esc(t)}</small><b>${esc(v || '—')}</b></a>`;
+    const editable = (t, k, v) => `<button type="button" class="mn-dato mn-dato-ed" data-a="editar-dato" data-k="${k}" title="Tocar para cambiarlo"><small>${esc(t)} <span aria-hidden="true">✎</span></small><b>${esc(v || '—')}</b></button>`;
     const est = f.comunaEstimada ? ' <span class="sis-chip ambar">estimado</span>' : '';
     const frases = [...C.FRASES_BASE, ...leerLS('mono_frases', [])];
     const extras = await Promise.all((f.fotosExtra || []).map(async (e, k) => { const u = await urlImagen(e.img); return `<div class="mn-extra">${miniHtml(u, dimsMonografia(f).extra, ANCHO_MINI.extra, `data-mini-extra="${k}"`, `Foto ${k + 1}`)}<div class="mn-extra-datos"><input data-extra="${k}" value="${esc(e.leyenda || '')}" placeholder="Leyenda" aria-label="Leyenda de la foto ${k + 1}"><div class="sis-acciones">${u ? `<button class="sis-btn chico" data-a="ajustar" data-i="${k}">✂ Ajustar encuadre</button>` : ''}<button class="sis-btn chico" data-a="quitar-extra" data-i="${k}">Quitar</button></div></div></div>`; }));
     return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Ubicación</h2>${ant ? '<button class="sis-btn chico" data-a="copiar-anterior">Copiar sector y localidad de la ficha anterior</button>' : ''}</div>
         <div class="mn-campos">${entrada('f', 'ubicacion', 'Sector / Lugar')}${entrada('f', 'localidad', 'Localidad')}
-          <label class="sis-campo"><span>Comuna${est}</span><input data-f="comuna" value="${esc(f.comuna || '')}"></label>
-          <label class="sis-campo"><span>Región${est}</span><input data-f="region" value="${esc(f.region || '')}"></label></div>
-        <p class="sis-tenue">Comuna y región se estiman con las coordenadas del paso 2 (OpenStreetMap, necesita internet); se pueden corregir.</p>
-        <div class="sis-acciones">${f.comunaEstimada ? '<button class="sis-btn chico primario" data-a="confirmar-comuna">Confirmar comuna y región</button>' : ''}<button class="sis-btn chico" data-a="estimar-comuna">Estimar con las coordenadas</button></div>
+          <label class="sis-campo"><span>País</span><select data-f="pais">${[...C.PAISES, ...(C.PAISES.includes(pais) ? [] : [pais])].map(p => `<option ${p === pais ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+          <label class="sis-campo"><span>${esc(E.comuna)}${est}</span><input data-f="comuna" value="${esc(f.comuna || '')}"></label>
+          ${E.provincia ? `<label class="sis-campo"><span>${esc(E.provincia)}${est}</span><input data-f="provincia" value="${esc(f.provincia || '')}"></label>` : ''}
+          <label class="sis-campo"><span>${esc(E.region)}${est}</span><input data-f="region" value="${esc(f.region || '')}"></label></div>
+        <p class="sis-tenue">El país, ${esc(E.comuna.toLowerCase())}${E.provincia ? `, ${esc(E.provincia.toLowerCase())}` : ''} y ${esc(E.region.toLowerCase())} se estiman con las coordenadas del paso 2 (OpenStreetMap, necesita internet); se pueden corregir.</p>
+        <div class="sis-acciones">${f.comunaEstimada ? '<button class="sis-btn chico primario" data-a="confirmar-comuna">Confirmar la ubicación estimada</button>' : ''}<button class="sis-btn chico" data-a="estimar-comuna">Estimar con las coordenadas</button></div>
       </section>
-      <section class="sis-tarjeta"><div class="sis-cab"><h2>Coordenadas y medición</h2><span class="sis-tenue">Solo lectura: tocar un dato lleva a donde se cambia</span></div>
-        <div class="mn-datos">${dato('Este', f.este && `${f.este} m`, 'coordenadas')}${dato('Norte', f.norte && `${f.norte} m`, 'coordenadas')}${dato('Cota', f.cotaOrtometrica && `${f.cotaOrtometrica} m`, 'coordenadas')}
-          ${dato('Latitud', f.latitud, 'coordenadas')}${dato('Longitud', f.longitud, 'coordenadas')}
-          ${dato('Equipo', f.equipoGNSS, st.comun.todas.equipoGNSS ? 'comun' : 'ubicacion')}${dato('Tipo de medición', f.tipoMedicion, st.comun.todas.tipoMedicion ? 'comun' : 'ubicacion')}${dato('Fecha de medición', f.fechaMedicion && fechaLegible(f.fechaMedicion), st.comun.todas.fechaMedicion ? 'comun' : 'ubicacion')}</div>
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Coordenadas y medición</h2><span class="sis-tenue">Las coordenadas se cambian en el paso 2; lo demás, tocándolo (✎)</span></div>
+        <div class="mn-datos mn-datos-4">
+          ${dato('Norte', f.norte && `${f.norte} m`, 'coordenadas')}${dato('Este', f.este && `${f.este} m`, 'coordenadas')}${dato('Cota ortométrica', f.cotaOrtometrica && `${f.cotaOrtometrica} m`, 'coordenadas')}${editable('Huso UTM', 'zonaUTM', f.zonaUTM && C.zonaLegible(f.zonaUTM))}
+          ${dato('Latitud', puntoDecimal(f.latitud), 'coordenadas')}${dato('Longitud', puntoDecimal(f.longitud), 'coordenadas')}${dato('Altura elipsoidal', f.alturaElipsoidal && `${f.alturaElipsoidal} m`, 'coordenadas')}${editable('Geoide', 'geoide', f.geoide)}
+          ${editable('Equipo', 'equipoGNSS', f.equipoGNSS)}${editable('Tipo de medición', 'tipoMedicion', f.tipoMedicion)}${editable('Fecha de medición', 'fechaMedicion', f.fechaMedicion && fechaLegible(f.fechaMedicion))}</div>
       </section>
       ${propios.length ? `<section class="sis-tarjeta"><div class="sis-cab"><h2>Datos propios de esta ficha</h2><a class="sis-tenue" href="${rutaComun()}">Se eligen en el paso 1</a></div>
-        <div class="mn-campos">${propios.map(([k, t, , tipo]) => entrada('f', k, t, { tipo: tipo || 'text', lista: k === 'datumUTM' || k === 'datumGeodesico' ? DATUMS_CHILE : k === 'zonaUTM' ? ZONAS_POR_PAIS.Chile : k === 'geoide' ? GEOIDES : k === 'tipoMedicion' ? C.TIPOS_MEDICION : /Nombre$/.test(k) ? Object.values(st.nombres) : null })).join('')}</div></section>` : ''}
+        <div class="mn-campos">${propios.map(([k, t, , tipo]) => entrada('f', k, t, { tipo: tipo || 'text', lista: k === 'datumUTM' || k === 'datumGeodesico' ? DATUMS_CHILE : k === 'zonaUTM' ? (ZONAS_POR_PAIS[pais] || ZONAS_POR_PAIS.Chile) : k === 'geoide' ? GEOIDES : k === 'tipoMedicion' ? C.TIPOS_MEDICION : /Nombre$/.test(k) ? Object.values(st.nombres) : null })).join('')}</div></section>` : ''}
       ${mod.descripcion || mod.observacion ? `<section class="sis-tarjeta"><div class="sis-cab"><h2>Descripción y observación</h2></div>
         ${mod.descripcion ? `<label class="sis-campo"><span>Descripción</span><textarea data-f="descripcion" rows="4" id="mn-desc">${esc(f.descripcion || '')}</textarea></label>
           <div class="mn-frases"><span class="sis-tenue">Frases:</span>${frases.map(t => `<button type="button" class="vu-pildora" data-a="frase" data-t="${esc(t)}">${esc(t)}</button>`).join('')}<button type="button" class="sis-btn chico" data-a="guardar-frase" title="Guarda el texto seleccionado (o la última línea) como frase">+ Guardar frase</button></div>` : ''}
@@ -534,6 +548,49 @@ export function montarPasos(raiz, ctx) {
     if (t.firstElementChild) viejo.replaceWith(t.firstElementChild);
   }
 
+  // ─────────── v0.21.5 · Cambiar un dato de la ficha desde el resumen del paso 3 ───────────
+  // Sirve igual si el dato es «de todas las fichas» o propio: se elige si el cambio va a todas o solo a esta.
+  async function editarHtml() {
+    const f = st.ficha, k = st.editar, titulo = C.ETIQUETA[k] || k, todas = !!st.comun.todas[k];
+    let campo;
+    if (k === 'equipoGNSS') {
+      const equipos = await equiposPara(f.tipoMedicion), eqVal = f.equipoGNSS || '', sel = equipos.find(e => textoEquipo(e) === eqVal);
+      const av = sel && sel.calibracion.nivel === 'vencida' ? `<small class="mn-av">Calibración vencida (${esc(fechaLegible(sel.calibracion.proxima))}).</small>`
+        : sel && sel.calibracion.nivel === 'por_vencer' ? `<small class="mn-av">La calibración vence el ${esc(fechaLegible(sel.calibracion.proxima))}.</small>` : '';
+      campo = `<label class="sis-campo"><span>Equipo de la base de Equipos</span><select data-ed="valor">
+          ${!eqVal ? '<option value="" selected>— Elegir —</option>' : ''}${equipos.map(e => `<option value="${esc(textoEquipo(e))}" ${textoEquipo(e) === eqVal ? 'selected' : ''}>${esc(textoEquipo(e))}${e.ubicacion.proyectoId === st.proyectoId ? ' · en este proyecto' : ''}${e.calibracion.nivel === 'vencida' ? ' · calibración vencida' : ''}</option>`).join('')}
+          ${eqVal && !sel ? `<option selected value="${esc(eqVal)}">${esc(eqVal)}</option>` : ''}</select>${av}</label>
+        <label class="sis-campo"><span>O escribir otro (marca, modelo y número de serie)</span><input data-ed="otro" placeholder="Si lo escribes, se usa este"></label>
+        ${!equipos.length ? '<small class="sis-tenue">No hay equipos de ese tipo en Equipos: escríbelo.</small>' : ''}`;
+    } else if (k === 'tipoMedicion') {
+      campo = `<label class="sis-campo"><span>Tipo de medición</span><select data-ed="valor">${C.TIPOS_MEDICION.map(t => `<option ${t === f.tipoMedicion ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
+    } else if (k === 'fechaMedicion') {
+      campo = `<label class="sis-campo"><span>Fecha de medición</span><input type="date" data-ed="valor" value="${esc(f.fechaMedicion || '')}"></label>`;
+    } else {
+      const lista = k === 'zonaUTM' ? (ZONAS_POR_PAIS[C.paisDe(f)] || ZONAS_POR_PAIS.Chile) : GEOIDES;
+      campo = `<label class="sis-campo"><span>${esc(titulo)}</span><input data-ed="valor" list="mn-ed-lista" value="${esc(f[k] || '')}"><datalist id="mn-ed-lista">${lista.map(x => `<option value="${esc(x)}">`).join('')}</datalist></label>`;
+    }
+    return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="${esc(titulo)}"><div class="mn-modal-caja mn-editar">
+      <div class="sis-cab"><h2>${esc(titulo)} · ${esc(nombreDe(f))}</h2><button class="sis-btn chico" data-a="editar-cerrar">Cancelar</button></div>
+      ${campo}
+      <label class="sis-check"><input type="checkbox" data-ed="todas" ${todas ? 'checked' : ''}> Aplicar a todas las fichas</label>
+      <p class="sis-tenue">${todas ? 'Marcado: el cambio queda en todas las fichas del proyecto. Desmárcalo para cambiar solo ésta.' : 'Sin marcar: el cambio queda solo en esta ficha. Márcalo para igualarlo en todas.'}</p>
+      <div class="sis-acciones"><button class="sis-btn primario" data-a="editar-guardar">Guardar</button></div></div></div>`;
+  }
+  async function guardarDatoEditado() {
+    const f = st.ficha, k = st.editar, g = n => cont.querySelector(`[data-ed="${n}"]`);
+    const v = ((g('otro') && g('otro').value.trim()) || (g('valor') ? g('valor').value : '')).trim();
+    const todas = !!(g('todas') && g('todas').checked);
+    st.editar = null;
+    f[k] = v;
+    await guardarAhora();
+    if (todas) {
+      st.comun.valores[k] = v; st.comun.todas[k] = true; guardarComun(st.proyectoId, st.comun);
+      const n = await aplicarATodas(x => { x[k] = v; });
+      avisar(`«${C.ETIQUETA[k]}» aplicado a todas las fichas${n ? ` (${n} más)` : ''}.`);
+    } else avisar(`«${C.ETIQUETA[k]}» cambiado solo en ${nombreDe(f)}.`);
+  }
+
   async function selectorFotos() {
     const fotos = await Promise.all(st.fotos.map(async a => ({ a, url: await urlArchivo(a.id) })));
     return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="Elegir foto de terreno"><div class="mn-modal-caja">
@@ -562,7 +619,7 @@ export function montarPasos(raiz, ctx) {
       }
       cont.innerHTML = `${st.mensaje ? `<div class="vu-msg ${st.mensaje.tipo === 'error' ? 'error' : ''}" role="status">${esc(st.mensaje.texto)}</div>` : ''}
         ${cabHtml(sec, i)}<div class="mn-asis-cuerpo${st.vista === 'revisar' ? ' sin-flot' : ''}">${navHtml(sec, i)}<div class="mn-asis-main">${cuerpo}${pieHtml(sec, i)}</div>${flotanteHtml()}</div>
-        ${st.elegir ? await selectorFotos() : ''}`;
+        ${st.elegir ? await selectorFotos() : ''}${st.editar && st.ficha ? await editarHtml() : ''}`;
       st.mensaje = null;
       colocarMinis();
       if (st.vista === 'ficha' && st.paso === 'ubicacion') estimarSiFalta();
@@ -591,7 +648,7 @@ export function montarPasos(raiz, ctx) {
   }
   async function estimarSiFalta(forzar = false) {
     const f = st.ficha;
-    if (!forzar && (st.intentoComuna || (f.comuna && f.region))) return;
+    if (!forzar && (st.intentoComuna || (f.comuna && f.region && f.pais))) return;
     st.intentoComuna = true;
     let lat = leerGrados(f.latitud), lon = leerGrados(f.longitud);
     if ((lat == null || lon == null) && C.numero(f.este) != null) { const g = C.utmAGeo(C.numero(f.este), C.numero(f.norte), f.zonaUTM); if (g) ({ lat, lon } = g); }
@@ -599,16 +656,20 @@ export function montarPasos(raiz, ctx) {
     try {
       const u = await ubicacionDe(lat, lon);
       if (!st.vivo || st.ficha !== f) return;
+      const nueva = forzar || !f.comuna || !f.region, paisU = C.PAIS_POR_CODIGO[u.codigoPais] || u.pais || '';
+      if (paisU && (forzar || !f.pais)) f.pais = paisU;
       if (forzar || !f.comuna) f.comuna = u.comuna || f.comuna;
       if (forzar || !f.region) f.region = u.region || f.region;
-      f.comunaEstimada = true;
-      await guardarAhora(); avisar('Comuna y región estimadas con las coordenadas: confírmalas.'); render();
-    } catch (e) { if (forzar) { avisar('No se pudo estimar la comuna (¿sin internet?). Escríbela a mano.', 'error'); render(); } }
+      if (C.etiquetasUbicacion(C.paisDe(f)).provincia && (forzar || !f.provincia)) f.provincia = u.provincia || f.provincia || '';
+      if (nueva) f.comunaEstimada = true;
+      await guardarAhora(); if (nueva) avisar('Ubicación estimada con las coordenadas: confírmala.'); render();
+    } catch (e) { if (forzar) { avisar('No se pudo estimar la ubicación (¿sin internet?). Escríbela a mano.', 'error'); render(); } }
   }
   async function crearFichas(filas) {
     const p = st.proyecto, d = valoresPorDefecto();
     const porNombre = new Map(st.lista.map(y => [nombreDe(fichaDe(y)).toLowerCase(), y]));
     let nuevas = 0, act = 0, primera = null;
+    const paisPrevio = (st.lista.map(fichaDe).find(g => g.pais) || {}).pais || '';
     for (const r of filas) {
       const extra = {};
       if (r.este != null && r.norte != null) { extra.este = C.metros(r.este); extra.norte = C.metros(r.norte); }
@@ -616,7 +677,7 @@ export function montarPasos(raiz, ctx) {
       const y = porNombre.get(String(r.nombre).toLowerCase());
       let f;
       if (y) { if (!Object.keys(extra).length) continue; f = { ...JSON.parse(JSON.stringify(y.ficha)), ...extra }; }
-      else f = C.fichaNueva({ id: uuid(), proyectoId: st.proyectoId, nombre: r.nombre, defaults: d, comun: st.comun, proyecto: p, extra });
+      else f = C.fichaNueva({ id: uuid(), proyectoId: st.proyectoId, nombre: r.nombre, defaults: d, comun: st.comun, proyecto: p, extra: { ...(paisPrevio ? { pais: paisPrevio } : {}), ...extra } });
       if (extra.este) { const prev = st.ficha; st.ficha = f; convertir('utm', { forzar: true }); st.ficha = prev; }
       if (y) { await guardarFicha(y, f); act++; } else { await D.guardarGabinete(f); nuevas++; primera = primera || f.id; }
     }
@@ -645,7 +706,7 @@ export function montarPasos(raiz, ctx) {
     const t = ev.target;
     if (t.dataset.f != null && st.ficha) {
       st.ficha[t.dataset.f] = t.value;
-      if (t.dataset.f === 'comuna' || t.dataset.f === 'region') st.ficha.comunaEstimada = false;
+      if (['comuna', 'provincia', 'region'].includes(t.dataset.f)) st.ficha.comunaEstimada = false;
       cambio();
     } else if (t.dataset.c != null) { st.comun.valores[t.dataset.c] = t.value; cambioComun(t.dataset.c); }
     else if (t.dataset.extra != null && st.ficha) { st.ficha.fotosExtra[Number(t.dataset.extra)].leyenda = t.value; cambio(); }
@@ -680,7 +741,7 @@ export function montarPasos(raiz, ctx) {
         const desde = ['este', 'norte'].includes(k) ? 'utm' : ['latitud', 'longitud'].includes(k) ? 'geo' : null;
         if (desde === 'geo') { const v = leerGrados(st.ficha[k]); if (v != null) st.ficha[k] = escribirGrados(v, k === 'latitud' ? 'lat' : 'lon', st.comun.formatoGeo, st.comun.decimalesGeo); }
         if (desde && convertir(desde)) { await guardarAhora(); await render(); }
-        else if (k === 'puntoMedido') { await guardarAhora(); await render(); }
+        else if (k === 'puntoMedido' || k === 'pais') { await guardarAhora(); await render(); }
         return;
       }
       if (t.dataset.todas) {
@@ -764,6 +825,9 @@ export function montarPasos(raiz, ctx) {
         if (!nombres.length) { avisar('Escribe los nombres: «PR-1 a PR-12» o «PR-1, PR-2».', 'error'); }
         else { const r = await crearFichas(nombres.map(nombre => ({ nombre }))); avisar(r.nuevas ? `${r.nuevas} ficha${r.nuevas === 1 ? '' : 's'} nueva${r.nuevas === 1 ? '' : 's'}.` : 'Esas fichas ya existían.'); }
       }
+      else if (a === 'editar-dato') { st.editar = b.dataset.k; }
+      else if (a === 'editar-cerrar') { st.editar = null; }
+      else if (a === 'editar-guardar') { await guardarDatoEditado(); }
       else if (a === 'pegar-abrir') { st.pegar = ''; st.pegarCfg = null; }
       else if (a === 'fotos-abrir') { st.lote = { fotos: [], activa: null }; }
       else if (a === 'lote-cerrar') { lote.cerrar(); }

@@ -1,7 +1,7 @@
 // herramientas/extraer-pieza-monografia.mjs — arma modulos/monografias/pieza-terreno.js copiando TAL CUAL
 // el código de monografías de la app de Terreno (formato, chequeo, imágenes y PDF), para que el PDF del
 // Sistema salga idéntico al de Terreno. Uso:  node herramientas/extraer-pieza-monografia.mjs <carpeta terreno/js>
-// No editar pieza-terreno.js a mano: si Terreno cambia su monografía, se vuelve a correr esto.
+// No editar pieza-terreno.js a mano: si Terreno cambia su monografía, se vuelve a correr esto. (v0.21.5: PARCHES = ajustes de texto propios del Sistema.)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -55,5 +55,22 @@ ${defaults}
 export const VERSION_TERRENO = '${version}';
 export { cargarMonografiaDefaults as valoresPorDefecto, monoResumenDatos as chequeoMonografia, prepararImagenesMonografia, construirMonografiaPdf, dimsMonografia, ajusteDe, calcRectImagen, cargarImagenEl, ordenNatural, impNum, fmtFechaCorta };
 `;
-writeFileSync(new URL('../modulos/monografias/pieza-terreno.js', import.meta.url), salida);
-console.log('pieza-terreno.js generada desde Terreno v' + version + ' (' + Math.round(salida.length / 1024) + ' KB)');
+// v0.21.5 · Ajustes de texto que pidió Camilo para las fichas del Sistema. Se aplican aquí (no a mano en pieza-terreno.js) y
+// deben pedirse también en el chat de Terreno para que el PDF del teléfono salga igual. Si el código de Terreno cambia y
+// alguno ya no calza, la herramienta se detiene para revisarlo.
+const PARCHES = [
+  // «WGS84- Zona 17s» → «WGS84 - Zona 17 Sur» (el «17 Sur» lo arma efectiva() en comun.js)
+  ['.join("- Zona ")', '.join(" - Zona ")', 1],
+  // Columnas geodésicas: sin «(°)» (los valores van en grados, minutos y segundos) y «Altura elipsoidal (m)»
+  ['{ l: "Punto", w: w0 * 0.17 }, { l: "Latitud (°)", w: w0 * 0.28 }, { l: "Longitud (°)", w: w0 * 0.28 }, { l: "Altura Elip(m)", w: w0 * 0.27 }',
+   '{ l: "Punto", w: w0 * 0.13 }, { l: "Latitud", w: w0 * 0.28 }, { l: "Longitud", w: w0 * 0.28 }, { l: "Altura elipsoidal (m)", w: w0 * 0.31 }', 1],
+  ['["Punto", "Latitud (°)", "Longitud (°)", "Altura Elip(m)"]', '["Punto", "Latitud", "Longitud", "Altura elipsoidal (m)"]', 1],
+];
+let final = salida;
+for (const [buscar, poner, veces] of PARCHES) {
+  const n = final.split(buscar).length - 1;
+  if (n !== veces) throw new Error(`Parche que ya no calza (${n} veces, se esperaba ${veces}): ${buscar.slice(0, 70)}`);
+  final = final.split(buscar).join(poner);
+}
+writeFileSync(new URL('../modulos/monografias/pieza-terreno.js', import.meta.url), final);
+console.log('pieza-terreno.js generada desde Terreno v' + version + ' con ' + PARCHES.length + ' ajustes del Sistema (' + Math.round(final.length / 1024) + ' KB)');

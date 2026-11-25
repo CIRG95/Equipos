@@ -1,4 +1,16 @@
-# Sistema de trabajo — v0.21.4 · Terreno 0.9.1
+# Sistema de trabajo — v0.21.5 · Terreno 0.9.1
+
+## Qué cambia en v0.21.5 (Monografías 0.7: ficha más clara y editable)
+Pedido por Camilo el 25-nov con la ficha de PFV Buena Esperanza (Perú) a la vista.
+- **Un solo decimal: el punto.** Las geográficas se escribían con coma y las UTM y alturas con punto. Ahora todo va con punto (`5°08'35.92270" S`). Las fichas antiguas se corrigen al abrirlas y en el PDF.
+- **Países.** La ficha tiene **País** (se completa sola con las coordenadas, o se elige). Los nombres cambian: Chile «Comuna · Región»; **Perú «Distrito · Provincia · Departamento»**; Bolivia «Municipio · Provincia · Departamento»; Argentina «Departamento · Provincia». En el PDF, el distrito lleva la provincia sin repetirla («Paita, Piura»). Sin país se asume Chile.
+- **PDF:** «Coordenadas UTM - WGS84 - Zona 17 Sur» (antes «WGS84- Zona 17s»); columnas «Latitud» y «Longitud» (sin «(°)») y «Altura elipsoidal (m)».
+- **Paso 3 · Coordenadas y medición:** ordenado como la ficha (Norte, Este, Cota ortométrica, Huso / Latitud, Longitud, Altura elipsoidal, Geoide / Equipo, Tipo, Fecha) y con **todas** las coordenadas (faltaba la altura elipsoidal).
+  - **Equipo, tipo de medición, fecha, huso y geoide se cambian ahí mismo** (✎): el equipo se elige de la base de Equipos (con aviso de calibración) o se escribe otro. Ya no es un enlace al paso 1 cuando el dato es «de todas las fichas»: una ventana pregunta si el cambio va a **todas las fichas** o solo a esa.
+- **Croquis:** además de la flecha de norte, **escala gráfica** (casilla «Escala gráfica»; el mapa muestra una escala de apoyo).
+- `pieza-terreno.js` sigue generado desde Terreno (0.9.1); los ajustes de texto del PDF son `PARCHES` en `herramientas/extraer-pieza-monografia.mjs`. **Pendiente en el chat de Terreno** aplicar lo mismo para que el PDF del teléfono salga igual.
+- Archivos: `comun.js` (`efectiva`, `paisDe`, `etiquetasUbicacion`, `zonaLegible`, `unirSinRepetir`), `coordenadas.js` (`puntoDecimal`), `vuelos/ubicacion.js` (`provincia`), `croquis.js` (`dibujarEscalaCroquis`). Sin almacenes nuevos; sin cambios en el paquete de conexión.
+- Pruebas: nueva `ficha-pais-decimal.test.mjs`.
 
 ## Qué cambia en v0.21.4 (arreglo: fotos repetidas y logos en «Desde las fotos de Terreno»)
 - La ventana para elegir croquis, panorámica o foto adicional ya no muestra los **logos del cliente** ni la **misma imagen repetida** (se reconoce por su huella o por nombre y tamaño). La lista del proyecto cuenta igual.

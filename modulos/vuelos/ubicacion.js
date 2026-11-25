@@ -7,7 +7,10 @@ const cache = new Map();
 /** Quita «Región de», «Región del» o «Región» del nombre que entrega OpenStreetMap. */
 export const limpiarRegion = t => String(t || '').replace(/^Regi[oó]n\s+(de\s+la\s+|del\s+|de\s+)?/i, '').trim();
 
-/** → { comuna, region, pais, codigoPais } o lanza Error. */
+/** v0.21.5 · Quita «Provincia de», «Provincia del» o «Provincia» del nombre que entrega OpenStreetMap. */
+export const limpiarProvincia = t => String(t || '').replace(/^Provincia\s+(de\s+la\s+|del\s+|de\s+)?/i, '').trim();
+
+/** → { comuna, provincia, region, pais, codigoPais } o lanza Error. */
 export async function ubicacionDe(lat, lon) {
   const clave = `${lat.toFixed(3)},${lon.toFixed(3)}`;
   if (cache.has(clave)) return cache.get(clave);
@@ -18,6 +21,7 @@ export async function ubicacionDe(lat, lon) {
   const a = j.address || {};
   const out = {
     comuna: a.municipality || a.city || a.town || a.village || a.county || '',
+    provincia: limpiarProvincia(a.county || ''),
     region: limpiarRegion(a.state || a.region || ''),
     pais: a.country || '', codigoPais: (a.country_code || '').toUpperCase(),
   };

@@ -4,6 +4,7 @@
 Camilo vio la v0.23 y no se parecía al lienzo.
 - **Pasos como pastillas arriba** («1 · Datos comunes · 2 · Coordenadas y croquis · 3 · Ubicación y descripción · Revisar») en lugar de la lista de la izquierda; en los pasos 2 y 3 la ficha se elige con las fichitas de abajo (con su avance).
 - **Datos comunes:** campos en **dos columnas**, con «Todas» junto a la etiqueta de cada campo; el panel derecho muestra el avance **12/14** con su barra y «Faltan…», la tarjeta «Fichas del proyecto» (botón grande «Pegar o cargar coordenadas», crear por nombres, fotos en lote) y el mapa común.
+- **Botones de imagen ordenados** (croquis y panorámica): una acción principal a la vista («Usar el encuadre común», «Armar en el mapa» o «Cargar foto»), «Ajustar encuadre» si hay imagen, y un menú «Más ▾» con subir/reemplazar, desde las fotos de Terreno, armar a mano y quitar. Antes eran 5-6 botones sueltos.
 - Las bandas de título de v0.22 ahora se aplican también a las pantallas de Monografías (el selector ya no depende de `.sis-vista`).
 
 ## Qué cambia en v0.23 (Monografías 0.8: mapa común de PR)

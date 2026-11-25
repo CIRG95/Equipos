@@ -186,12 +186,22 @@ export function montarPasos(raiz, ctx) {
       cargarImagenEl(img.src).then(im => colocarImagen(img, { w: im.naturalWidth, h: im.naturalHeight }, caja.clientWidth, caja.clientHeight, aj)).catch(() => {});
     }
   }
+  /** v0.23.1 · Una acción principal a la vista + «Ajustar encuadre» y un menú «Más» con el resto (antes eran 5-6 botones sueltos). */
   async function botonesImagen(clave, url) {
-    return `<div class="sis-acciones">${clave === 'croquisImg' && st.comun.croquisComun ? '<button class="sis-btn chico primario" data-a="croquis-comun" title="Mismo encuadre y estilo que las demás fichas, con solo el punto de esta">Usar el encuadre común</button>' : ''}${clave === 'croquisImg' ? `<button class="sis-btn chico${st.comun.croquisComun ? '' : ' primario'}" data-a="croquis-mapa">🗺 Armar en el mapa</button>` : ''}
-      <label class="sis-btn chico">${clave === 'panoramicaImg' ? 'Cargar foto' : 'Subir'}<input type="file" accept="image/*" data-archivo="${clave}" hidden></label>
-      <button class="sis-btn chico" data-a="elegir" data-slot="${clave}">Desde las fotos de Terreno</button>
-      ${url ? `<button class="sis-btn chico" data-a="ajustar" data-slot="${clave}">✂ Ajustar encuadre</button><button class="sis-btn chico" data-a="quitar-img" data-slot="${clave}">Quitar</button>` : ''}</div>`;
+    const comun = clave === 'croquisImg' && st.comun.croquisComun;
+    const principal = clave === 'croquisImg'
+      ? (comun ? '<button class="sis-btn chico primario" data-a="croquis-comun" title="Mismo encuadre y estilo que las demás fichas, con solo el punto de esta">Usar el encuadre común</button>' : '<button class="sis-btn chico primario" data-a="croquis-mapa">Armar en el mapa</button>')
+      : (!url ? `<label class="sis-btn chico primario">Cargar foto<input type="file" accept="image/*" data-archivo="${clave}" hidden></label>` : '');
+    const items = [
+      comun ? '<button type="button" class="mn-menu-item" data-a="croquis-mapa">Armar a mano en el mapa…</button>' : '',
+      `<label class="mn-menu-item">${url ? 'Reemplazar con otra imagen…' : 'Subir imagen…'}<input type="file" accept="image/*" data-archivo="${clave}" hidden></label>`,
+      `<button type="button" class="mn-menu-item" data-a="elegir" data-slot="${clave}">Desde las fotos de Terreno…</button>`,
+      url ? `<button type="button" class="mn-menu-item peligro" data-a="quitar-img" data-slot="${clave}">Quitar imagen</button>` : '',
+    ].filter(Boolean).join('');
+    return `<div class="sis-acciones mn-acc-img">${principal}${url ? `<button class="sis-btn chico" data-a="ajustar" data-slot="${clave}">Ajustar encuadre</button>` : ''}
+      <details class="mn-menu"><summary class="sis-btn chico">Más ▾</summary><div class="mn-menu-lista">${items}</div></details></div>`;
   }
+
 
   /** Equipos de la base que sirven para ese tipo de medición (GNSS o estación total); primero los de este proyecto. */
   async function equiposPara(tipo) {
@@ -923,6 +933,7 @@ export function montarPasos(raiz, ctx) {
   cont.addEventListener('drop', ev => { if (!(ev.target.closest && ev.target.closest('.mn-lote'))) return; ev.preventDefault(); if (ev.dataTransfer && ev.dataTransfer.files.length) agregarAlLote(ev.dataTransfer.files).catch(e => avisar(e.message, 'error')); });
 
   cont.addEventListener('click', async ev => {
+    for (const d of cont.querySelectorAll('details.mn-menu[open]')) if (!d.contains(ev.target) || ev.target.closest('.mn-menu-lista')) setTimeout(() => d.removeAttribute('open'), 0);
     const b = ev.target.closest('[data-a]');
     if (!b) return;
     const a = b.dataset.a, f = st.ficha;

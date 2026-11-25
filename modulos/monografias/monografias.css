@@ -300,3 +300,12 @@ body[data-modo="pc"] .mn-pegar-2{grid-template-columns:minmax(0,1fr) 660px;}
 .mn-sep{height:1px; background:var(--borde-suave); margin:12px 0;}
 .mn-fichas-card .sis-campo{margin:0 0 8px;} .mn-fichas-card .sis-en-linea{display:flex; gap:6px;} .mn-fichas-card .sis-en-linea input{flex:1; min-width:0; min-height:38px;}
 .mn-fichas-card .mn-chips-fichas{margin-top:12px;}
+
+/* ---------- v0.23.1 · Botones de imagen: acción principal + «Más» ---------- */
+.mn-acc-img{align-items:center; gap:8px;}
+.mn-menu{position:relative;}
+.mn-menu > summary{list-style:none; cursor:pointer;} .mn-menu > summary::-webkit-details-marker{display:none;}
+.mn-menu-lista{position:absolute; z-index:30; left:0; top:calc(100% + 4px); min-width:230px; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line); box-shadow:0 8px 24px rgba(28,31,35,.16); padding:4px;}
+.mn-menu-item{display:flex; align-items:center; min-height:38px; padding:6px 10px; border:0; background:none; font:inherit; font-size:13.5px; text-align:left; color:var(--ink); cursor:pointer; border-radius:2px;}
+.mn-menu-item:hover{background:var(--marca-suave);}
+.mn-menu-item.peligro{color:var(--danger); border-top:1px solid var(--borde-suave); margin-top:4px;}

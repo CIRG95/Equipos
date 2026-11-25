@@ -464,7 +464,9 @@ export function montarPasos(raiz, ctx) {
   // ─────────── Paso 3 · Ubicación y descripción ───────────
   async function vistaUbicacion() {
     const f = st.ficha, mod = C.efectiva(f).modulos, i = st.lista.findIndex(y => y.id === f.id), ant = i > 0 ? fichaDe(st.lista[i - 1]) : null;
-    const propios = C.CAMPOS_COMUNES.filter(([k]) => !st.comun.todas[k]);
+    // v0.21.5: lo que ya se cambia desde el resumen (✎) no se repite en «Datos propios»
+    const EN_RESUMEN = ['equipoGNSS', 'tipoMedicion', 'fechaMedicion', 'zonaUTM', 'geoide'];
+    const propios = C.CAMPOS_COMUNES.filter(([k]) => !st.comun.todas[k] && !EN_RESUMEN.includes(k));
     const pais = C.paisDe(f), E = C.etiquetasUbicacion(pais);
     const dato = (t, v, paso) => `<a class="mn-dato" href="${paso === 'comun' ? rutaComun() : rutaFicha(f.id, paso)}"><small>${esc(t)}</small><b>${esc(v || '—')}</b></a>`;
     const editable = (t, k, v) => `<button type="button" class="mn-dato mn-dato-ed" data-a="editar-dato" data-k="${k}" title="Tocar para cambiarlo"><small>${esc(t)} <span aria-hidden="true">✎</span></small><b>${esc(v || '—')}</b></button>`;

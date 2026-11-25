@@ -1,4 +1,9 @@
-# INTEGRACION.md — Sistema v0.21.5
+# INTEGRACION.md — Sistema v0.22
+
+## v0.22 · estilo documento
+- Archivo nuevo `app/estilo-documento.css`, enlazado en `index.html` (último) y en la lista de `sw.js`. Solo CSS; sin cambios de JS ni de datos.
+- Variables nuevas: `--banda`, `--banda-tinta`, `--papel`; cambian `--bg`, `--line`, `--borde`, `--radius` (3px), `--soft` (ninguna).
+- Terreno y `paquete-conexion/` no cambian.
 
 ## v0.21.5 · Monografías 0.7
 - `comun.js`: `efectiva(f)` entrega al PDF decimales con punto, `zonaUTM` como «17 Sur» y `comuna` con la provincia (solo países que la usan); `PAISES`, `PAIS_POR_CODIGO`, `paisDe(f)`, `etiquetasUbicacion(pais)`, `unirSinRepetir`, `zonaLegible`. La ficha suma `pais` y `provincia`.

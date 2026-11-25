@@ -10,6 +10,15 @@ export const limpiarRegion = t => String(t || '').replace(/^Regi[oó]n\s+(de\s+l
 /** v0.21.5 · Quita «Provincia de», «Provincia del» o «Provincia» del nombre que entrega OpenStreetMap. */
 export const limpiarProvincia = t => String(t || '').replace(/^Provincia\s+(de\s+la\s+|del\s+|de\s+)?/i, '').trim();
 
+/** Divisiones de la dirección de OpenStreetMap. La provincia (Perú, Bolivia) viene como `county` o, más a menudo, `state_district`. */
+export function divisionesDe(a = {}) {
+  return {
+    comuna: a.municipality || a.city || a.town || a.village || a.county || '',
+    provincia: limpiarProvincia(a.county || a.state_district || a.province || ''),
+    region: limpiarRegion(a.state || a.region || ''),
+  };
+}
+
 /** → { comuna, provincia, region, pais, codigoPais } o lanza Error. */
 export async function ubicacionDe(lat, lon) {
   const clave = `${lat.toFixed(3)},${lon.toFixed(3)}`;
@@ -18,13 +27,7 @@ export async function ubicacionDe(lat, lon) {
   const r = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!r.ok) throw new Error(`OpenStreetMap respondió ${r.status}`);
   const j = await r.json();
-  const a = j.address || {};
-  const out = {
-    comuna: a.municipality || a.city || a.town || a.village || a.county || '',
-    provincia: limpiarProvincia(a.county || ''),
-    region: limpiarRegion(a.state || a.region || ''),
-    pais: a.country || '', codigoPais: (a.country_code || '').toUpperCase(),
-  };
+  const out = { ...divisionesDe(j.address || {}), pais: (j.address || {}).country || '', codigoPais: ((j.address || {}).country_code || '').toUpperCase() };
   cache.set(clave, out);
   return out;
 }

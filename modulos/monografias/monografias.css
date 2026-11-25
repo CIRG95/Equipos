@@ -277,3 +277,35 @@ body[data-modo="pc"] .mn-pegar-2{grid-template-columns:minmax(0,1fr) 660px;}
 .mn-mc-grupo > b{font-size:12.5px; margin-bottom:4px;}
 .mn-mc-grupo .sis-campo{margin-bottom:6px;}
 .mn-mc-msg{margin:0;}
+
+/* ---------- v0.23.1 · Paso 1 como en el boceto: pastillas arriba, campos en dos columnas, «Todas» junto a la etiqueta ---------- */
+.mn-asis-cuerpo{display:block;}
+.mn-pills{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px;}
+.mn-pill{display:inline-flex; align-items:center; min-height:38px; padding:0 16px; border:1px solid var(--line); background:#fff; color:var(--muted); text-decoration:none; font-size:14px; border-radius:999px;}
+.mn-pill.activo{background:var(--marca); border-color:var(--marca); color:#fff; font-weight:600;}
+.mn-pill.apagada{opacity:.55;}
+.mn-fichas-nav{margin:0 0 14px;}
+.mn-comun-2 .sis-tarjeta > .sis-cab:first-child{background:none; color:var(--ink); margin:0 0 14px; padding:0; align-items:baseline;}
+.mn-comun-2 .sis-tarjeta > .sis-cab:first-child h2{color:var(--ink); font-size:20px; font-weight:600;}
+.mn-comun-der .sis-tarjeta > .sis-cab:first-child h2{font-size:16px;}
+.mn-comun-2 .mn-grilla-c{grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 20px;}
+.mn-comun-2 .mn-c{position:relative; border-bottom:0; padding:0;}
+.mn-comun-2 .mn-c .sis-campo{margin:0;}
+.mn-comun-2 .mn-c .sis-campo > span:first-child{padding-right:70px; min-height:18px;}
+.mn-comun-2 .mn-todas{position:absolute; top:0; right:0; margin:0; font-size:12px; color:var(--muted); font-weight:400;}
+.mn-comun-2 .sis-campo input:not([type=checkbox]), .mn-comun-2 .sis-campo select{min-height:40px; padding:6px 12px; font-size:14px;}
+.mn-comun-2 .mn-logo-cli{grid-column:1 / -1;}
+.mn-avance-card .mn-av-num{color:var(--marca); font-size:18px;}
+.mn-ancho{width:100%;}
+.mn-sep{height:1px; background:var(--borde-suave); margin:12px 0;}
+.mn-fichas-card .sis-campo{margin:0 0 8px;} .mn-fichas-card .sis-en-linea{display:flex; gap:6px;} .mn-fichas-card .sis-en-linea input{flex:1; min-width:0; min-height:38px;}
+.mn-fichas-card .mn-chips-fichas{margin-top:12px;}
+
+/* ---------- v0.23.1 · Botones de imagen: acción principal + «Más» ---------- */
+.mn-acc-img{align-items:center; gap:8px;}
+.mn-menu{position:relative;}
+.mn-menu > summary{list-style:none; cursor:pointer;} .mn-menu > summary::-webkit-details-marker{display:none;}
+.mn-menu-lista{position:absolute; z-index:30; left:0; top:calc(100% + 4px); min-width:230px; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line); box-shadow:0 8px 24px rgba(28,31,35,.16); padding:4px;}
+.mn-menu-item{display:flex; align-items:center; min-height:38px; padding:6px 10px; border:0; background:none; font:inherit; font-size:13.5px; text-align:left; color:var(--ink); cursor:pointer; border-radius:2px;}
+.mn-menu-item:hover{background:var(--marca-suave);}
+.mn-menu-item.peligro{color:var(--danger); border-top:1px solid var(--borde-suave); margin-top:4px;}

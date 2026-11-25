@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { efectiva, zonaLegible, unirSinRepetir, paisDe, etiquetasUbicacion, chequeoFicha, PAIS_POR_CODIGO } from '../modulos/monografias/comun.js';
 import { escribirGrados, leerGrados, puntoDecimal } from '../modulos/monografias/coordenadas.js';
-import { limpiarProvincia } from '../modulos/vuelos/ubicacion.js';
+import { limpiarProvincia, divisionesDe } from '../modulos/vuelos/ubicacion.js';
 
 test('geográficas con punto decimal (antes coma) y se siguen leyendo', () => {
   const lat = escribirGrados(-5.143313, 'lat', 'dms', 5);
@@ -63,4 +63,10 @@ test('el chequeo nombra la división según el país', () => {
   assert.equal(filaDe({ comuna: 'Paita', pais: 'Perú', modulos: {} }).k, 'Distrito');
   assert.equal(filaDe({ comuna: 'Paita', pais: 'Perú', comunaEstimada: true, modulos: {} }).k, 'Distrito (confirmar)');
   assert.equal(filaDe({ comuna: 'Los Andes', modulos: {} }).k, 'Comuna');
+});
+
+test('la provincia se toma de county o de state_district', () => {
+  assert.deepEqual(divisionesDe({ town: 'Paita', state_district: 'Provincia de Paita', state: 'Piura' }), { comuna: 'Paita', provincia: 'Paita', region: 'Piura' });
+  assert.equal(divisionesDe({ city: 'Sullana', county: 'Provincia de Sullana', state: 'Piura' }).provincia, 'Sullana');
+  assert.equal(divisionesDe({ city: 'Los Andes', state: 'Región de Valparaíso' }).provincia, '');
 });

@@ -25,7 +25,7 @@ export const FRASES_BASE = ['Fierro de 12 mm en dado de hormigón', 'Clavo con g
 export function normalizarComun(c = {}) {
   const todas = {};
   for (const [k] of CAMPOS_COMUNES) todas[k] = c.todas && k in c.todas ? !!c.todas[k] : true;
-  return { v: 2, todas, valores: { ...(c.valores || {}) }, modulos: { ...MODULOS_DEF, ...(c.modulos || {}) }, formatoGeo: c.formatoGeo || 'dms', decimalesGeo: c.decimalesGeo ?? 4, frases: Array.isArray(c.frases) ? c.frases : [] };
+  return { v: 2, todas, valores: { ...(c.valores || {}) }, modulos: { ...MODULOS_DEF, ...(c.modulos || {}) }, formatoGeo: c.formatoGeo || 'dms', decimalesGeo: c.decimalesGeo ?? 4, frases: Array.isArray(c.frases) ? c.frases : [], croquisComun: c.croquisComun && Array.isArray(c.croquisComun.centro) ? c.croquisComun : null };
 }
 /** Valor del paso 1: el guardado o, si no hay, el de la primera ficha. Y cuántas fichas tienen otro valor. */
 export function valorComun(comun, fichas, k) {

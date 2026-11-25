@@ -251,3 +251,29 @@ button.mn-dato small{display:flex; justify-content:space-between; gap:6px;}
 body:has(.mn-modal) .mn-flotante{visibility:hidden;}
 .mn-lote-quitar{align-self:flex-end; min-height:30px; padding:4px 10px;}
 @media (max-width: 600px){ .mn-lote-grilla{grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;} .mn-lote-tipo button{padding:4px 6px; font-size:11.5px;} .mn-lote-barra{position:static;} }
+
+/* ---------- v0.23 · Datos comunes con panel a la derecha + mapa común ---------- */
+.mn-comun-2{display:grid; grid-template-columns:minmax(0,1fr); gap:0 20px; align-items:start;}
+body[data-modo="pc"] .mn-comun-2{grid-template-columns:minmax(0,1fr) 330px;}
+.mn-comun-der{display:flex; flex-direction:column;}
+body[data-modo="pc"] .mn-comun-der{position:sticky; top:84px;}
+.mn-avance-card .mn-av-num{font-family:var(--mono); font-size:15px; color:#fff;}
+.mn-barra-av{height:8px; background:#E4E0D6; overflow:hidden; margin-bottom:8px;}
+.mn-barra-av i{display:block; height:8px; background:var(--marca);}
+.mn-modal-caja.mn-ancha{width:min(1380px, 100%);}
+.mn-pegar-2{display:grid; grid-template-columns:minmax(0,1fr); gap:16px;}
+body[data-modo="pc"] .mn-pegar-2{grid-template-columns:minmax(0,1fr) 660px;}
+.mn-pegar-izq{min-width:0;}
+.mn-pg-cel{width:100%; min-width:70px; border:1px solid transparent; background:transparent; font:inherit; font-variant-numeric:tabular-nums; padding:4px 6px; border-radius:2px;}
+.mn-pg-cel:hover{border-color:var(--line);} .mn-pg-cel:focus{border-color:var(--marca); background:#fff; outline:none;}
+.mn-pg-est{white-space:nowrap;}
+.mn-pg-x{border:1px solid var(--line); background:#fff; color:var(--muted); width:26px; height:26px; margin-left:6px; cursor:pointer; border-radius:2px;}
+.mn-pg-pie{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:space-between; margin-top:10px;}
+.mn-mc{display:flex; flex-direction:column; gap:8px; min-width:0;}
+.mn-mc-mapa-caja{max-width:100%; overflow:auto; border:1px solid var(--line);}
+.mn-mc-mapa{background:#C9B48F;}
+.mn-mc-ctl{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px 14px;}
+.mn-mc-grupo{display:flex; flex-direction:column; gap:2px; border:1px solid var(--borde); padding:8px 10px; background:#fff;}
+.mn-mc-grupo > b{font-size:12.5px; margin-bottom:4px;}
+.mn-mc-grupo .sis-campo{margin-bottom:6px;}
+.mn-mc-msg{margin:0;}

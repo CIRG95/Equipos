@@ -11,7 +11,8 @@ import { urlArchivo, guardarArchivo, guardarArchivoDatos, archivosDe, archivoAPa
 import { listarEquiposConEstado } from '../equipos/equipos.js';
 import { ubicacionDe } from '../vuelos/ubicacion.js';
 import { DATUMS_CHILE, GEOIDES, ZONAS_POR_PAIS, leerGrados, escribirGrados, puntoDecimal } from './coordenadas.js';
-import { abrirCroquis } from './croquis.js';
+import { abrirCroquis, croquisConEncuadre } from './croquis.js';
+import { crearMapaComun } from './mapa-comun.js';
 import * as D from './datos.js';
 import * as T from './tabla-coords.js';
 import * as L from './fotos-lote.js';
@@ -193,7 +194,7 @@ export function montarPasos(raiz, ctx) {
     }
   }
   async function botonesImagen(clave, url) {
-    return `<div class="sis-acciones">${clave === 'croquisImg' ? '<button class="sis-btn chico primario" data-a="croquis-mapa">🗺 Armar en el mapa</button>' : ''}
+    return `<div class="sis-acciones">${clave === 'croquisImg' && st.comun.croquisComun ? '<button class="sis-btn chico primario" data-a="croquis-comun" title="Mismo encuadre y estilo que las demás fichas, con solo el punto de esta">Usar el encuadre común</button>' : ''}${clave === 'croquisImg' ? `<button class="sis-btn chico${st.comun.croquisComun ? '' : ' primario'}" data-a="croquis-mapa">🗺 Armar en el mapa</button>` : ''}
       <label class="sis-btn chico">${clave === 'panoramicaImg' ? 'Cargar foto' : 'Subir'}<input type="file" accept="image/*" data-archivo="${clave}" hidden></label>
       <button class="sis-btn chico" data-a="elegir" data-slot="${clave}">Desde las fotos de Terreno</button>
       ${url ? `<button class="sis-btn chico" data-a="ajustar" data-slot="${clave}">✂ Ajustar encuadre</button><button class="sis-btn chico" data-a="quitar-img" data-slot="${clave}">Quitar</button>` : ''}</div>`;
@@ -234,7 +235,8 @@ export function montarPasos(raiz, ctx) {
       : eqSel && eqSel.calibracion.nivel === 'por_vencer' ? `<small class="mn-av">La calibración vence el ${esc(fechaLegible(eqSel.calibracion.proxima))}.</small>` : '';
     const personas = Object.values(st.nombres);
     const av = C.avanceComun(c, fichas);
-    return `<section class="sis-tarjeta"><div class="sis-cab"><h2>Documento y cliente</h2><span class="sis-tenue">Se escriben una vez; la casilla decide si van en todas las fichas</span></div>
+    return `<div class="mn-comun-2"><div class="mn-comun-izq">
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Documento y cliente</h2><span class="sis-tenue">Se escriben una vez; la casilla decide si van en todas las fichas</span></div>
         <div class="mn-grilla-c">
           ${fila('clienteNombre', `<label class="sis-campo"><span>Cliente</span><select data-cliente>${cls.map(x => `<option value="${esc(x.k)}" ${claveCliente(cli) === x.k ? 'selected' : ''}>${esc(x.nombre)}${x.logo ? ' · con logo' : ''}</option>`).join('')}${!cli ? '<option value="" selected>— Elegir —</option>' : ''}<option value="__nuevo">+ Nuevo cliente…</option></select></label>`)}
           ${fila('nombreProyecto', entrada('c', 'nombreProyecto', 'Nombre del proyecto', { valor: val('nombreProyecto').v }))}
@@ -263,16 +265,27 @@ export function montarPasos(raiz, ctx) {
         <div class="mn-config-logo"><span class="mn-logo-mini">${logoEmpresa() ? `<img src="${logoEmpresa()}" alt="Logo de la empresa">` : '<span class="sis-tenue">Sin logo</span>'}</span>
           <span><b>Logo de la empresa</b><small class="sis-tenue">Va en el recuadro superior derecho.</small><span class="sis-acciones"><label class="sis-btn chico">${logoEmpresa() ? 'Cambiar' : 'Cargar logo'}<input type="file" accept="image/*" data-archivo="logo" hidden></label>${logoEmpresa() ? '<button class="sis-btn chico" data-a="quitar-logo">Quitar</button>' : ''}</span></span></div>
       </section>
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Formato de coordenadas geográficas</h2></div>
+        <div class="mn-formato"><span class="sis-vistas">${[['dd', 'dd.dddd°'], ['dms', 'D°M\'S"']].map(([v, t]) => `<button type="button" class="${c.formatoGeo === v ? 'activo' : ''}" data-a="formato" data-v="${v}">${t}</button>`).join('')}</span>
+          <label>Decimales <input type="number" min="0" max="8" data-dec value="${esc(c.decimalesGeo)}" aria-label="Decimales"></label></div>
+        <p class="sis-tenue">Al cambiarlo se reescriben la latitud y la longitud de todas las fichas.</p></section>
+      </div>
+      <aside class="mn-comun-der">
+      <section class="sis-tarjeta mn-avance-card"><div class="sis-cab"><h2>Datos comunes</h2><b class="mn-av-num">${av.ok}/${av.total}</b></div>
+        <div class="mn-barra-av" role="progressbar" aria-valuemin="0" aria-valuemax="${av.total}" aria-valuenow="${av.ok}"><i style="width:${av.total ? Math.round(100 * av.ok / av.total) : 0}%"></i></div>
+        <p class="sis-tenue">${av.faltan.length ? `Faltan: <b>${esc(av.faltan.join(', '))}</b>.` : 'Completos.'}</p></section>
       <section class="sis-tarjeta"><div class="sis-cab"><h2>Fichas · ${st.lista.length}</h2><span class="sis-acciones"><button class="sis-btn chico" data-a="pegar-abrir">Pegar o cargar coordenadas</button><button class="sis-btn chico" data-a="fotos-abrir" ${st.lista.length ? '' : 'disabled title="Primero crea las fichas"'}>Fotos en lote</button></span></div>
         <label class="sis-campo"><span>Nombres de las fichas nuevas</span><span class="sis-en-linea"><input id="mn-nombres" placeholder="PR-1 a PR-12 · o PR-1, PR-2, PR-3" aria-label="Nombres de las fichas"><button type="button" class="sis-btn primario" data-a="crear-nombres">Crear fichas</button></span></label>
         <p class="sis-tenue">Escribe un rango («PR-1 a PR-12») o una lista separada por comas. Si ya existe una ficha con ese nombre, no se repite. Con «Pegar o cargar coordenadas» se crean con sus coordenadas ya puestas: tú eliges qué es cada columna. «Fotos en lote» reparte muchas fotos de una vez.</p>
         ${st.lista.length ? `<div class="mn-chips-fichas">${st.lista.map(y => { const k = C.cuenta(chequeo(fichaDe(y))); return `<a class="sis-chip ${k.ok === k.total ? 'verde' : 'gris'}" href="${rutaFicha(y.id)}">${esc(nombreDe(fichaDe(y)))} · ${k.ok}/${k.total}</a>`; }).join('')}</div>` : ''}
       </section>
-      <section class="sis-tarjeta"><div class="sis-cab"><h2>Formato de coordenadas geográficas</h2></div>
-        <div class="mn-formato"><span class="sis-vistas">${[['dd', 'dd.dddd°'], ['dms', 'D°M\'S"']].map(([v, t]) => `<button type="button" class="${c.formatoGeo === v ? 'activo' : ''}" data-a="formato" data-v="${v}">${t}</button>`).join('')}</span>
-          <label>Decimales <input type="number" min="0" max="8" data-dec value="${esc(c.decimalesGeo)}" aria-label="Decimales"></label></div>
-        <p class="sis-tenue">Al cambiarlo se reescriben la latitud y la longitud de todas las fichas.</p></section>
+      <section class="sis-tarjeta"><div class="sis-cab"><h2>Mapa común de PR</h2></div>
+        <p class="sis-tenue">${st.comun.croquisComun ? `Encuadre definido (zoom ${esc(st.comun.croquisComun.zoom)}): todas las fichas lo usan y muestran solo su punto, buscado por el nombre de la hoja.` : 'Encuadre sin definir. Se define al pegar o cargar las coordenadas, o aquí con las fichas que ya existen.'}</p>
+        <div class="sis-acciones"><button class="sis-btn chico" data-a="mc-abrir" ${st.lista.length ? '' : 'disabled title="Primero crea las fichas con coordenadas"'}>Encuadrar con todos los PR</button>
+          <button class="sis-btn chico" data-a="mc-aplicar" ${st.comun.croquisComun && st.lista.length ? '' : 'disabled title="Primero define el encuadre"'}>Armar croquis de todas las fichas</button></div></section>
+      </aside></div>
       ${st.pegar != null ? pegarHtml() : ''}
+      ${st.mcSolo ? mcHtml() : ''}
       ${st.lote ? loteHtml() : ''}
       <span hidden data-avance="${av.ok}/${av.total}"></span>`;
   }
@@ -289,12 +302,15 @@ export function montarPasos(raiz, ctx) {
     return { cfg, filas, sep, titulos, roles, regs, rev: T.revisar(regs, roles), ancho };
   }
   function pegarHtml() {
-    return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="Coordenadas de las fichas"><div class="mn-modal-caja">
+    return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="Coordenadas de las fichas"><div class="mn-modal-caja mn-ancha">
       <div class="sis-cab"><h2>Coordenadas de las fichas</h2><button class="sis-btn chico" data-a="pegar-cerrar">Cerrar</button></div>
-      <p class="sis-tenue">Pega las filas copiadas de Excel o de un texto, o carga el archivo (.xlsx, .csv o .txt). Después elige en el encabezado qué es cada columna. Las geográficas se calculan con el huso del paso 1.</p>
+      <p class="sis-tenue">Pega las filas copiadas de Excel o de un texto, o carga el archivo (.xlsx, .csv o .txt). Elige en el encabezado qué es cada columna; las celdas se pueden corregir y se pueden agregar o quitar puntos. A la derecha ves todos los puntos y fijas el encuadre y el estilo que usarán todas las fichas.</p>
+      ${zonaComun() ? '' : '<p class="mn-pg-avisos"><span class="mn-pg-aviso">Falta el huso UTM en Datos comunes: sin él no se pueden dibujar los puntos en el mapa.</span></p>'}
+      <div class="mn-pegar-2"><div class="mn-pegar-izq">
       <div class="mn-pegar-entrada"><textarea data-pegar rows="5" wrap="off" placeholder="PR-1	352100,500	6972345,250	812,40">${esc(st.pegar)}</textarea>
         <label class="sis-btn chico">Cargar archivo<input type="file" accept=".xlsx,.xls,.csv,.txt" data-cargar-tabla hidden></label></div>
       ${pegarPrevHtml()}
+      </div><div class="mn-pegar-der"><div class="mn-mc-lugar"></div></div></div>
     </div></div>`;
   }
   function pegarPrevHtml() {
@@ -304,11 +320,11 @@ export function montarPasos(raiz, ctx) {
     const datos = t.titulos ? t.filas.slice(1) : t.filas;
     const porFila = new Map(t.regs.map(r => [r.fila, r]));
     const marcadas = new Set(t.rev.avisos.flatMap(a => a.filas || []));
-    const cuerpo = datos.slice(0, 60).map((f, k) => {
+    const cuerpo = datos.slice(0, 300).map((f, k) => {
       const n = k + 1 + (t.titulos ? 1 : 0), r = porFila.get(n);
-      const celdas = Array.from({ length: t.ancho }, (_, i) => { const rol = t.roles[i], mala = r && r.malos.includes(rol); return `<td class="${rol === 'no' ? 'mn-pg-no' : ''}${mala ? ' mn-pg-mala' : ''}">${esc(f[i] || '')}</td>`; }).join('');
+      const celdas = Array.from({ length: t.ancho }, (_, i) => { const rol = t.roles[i], mala = r && r.malos.includes(rol); return `<td class="${rol === 'no' ? 'mn-pg-no' : ''}${mala ? ' mn-pg-mala' : ''}"><input class="mn-pg-cel" data-cel="${n},${i}" value="${esc(f[i] || '')}" aria-label="Fila ${n}, columna ${i + 1}"></td>`; }).join('');
       const est = !r ? '' : r.nombre && existe.has(r.nombre.toLowerCase()) ? '<span class="sis-chip ambar">se actualiza</span>' : '<span class="sis-chip verde">nueva</span>';
-      return `<tr class="${marcadas.has(n) ? 'mn-pg-marcada' : ''}"><td class="sis-tenue">${n}</td>${celdas}<td>${est}</td></tr>`;
+      return `<tr class="${marcadas.has(n) ? 'mn-pg-marcada' : ''}"><td class="sis-tenue">${n}</td>${celdas}<td class="mn-pg-est">${est}<button type="button" class="mn-pg-x" data-a="pegar-quitar" data-n="${n}" aria-label="Quitar la fila ${n}">×</button></td></tr>`;
     }).join('');
     const avisos = t.rev.avisos.map(a => `<li class="mn-pg-${a.tipo}">${esc(a.texto)}${a.tipo === 'invertidos' ? ' <button class="sis-btn chico" data-a="pegar-intercambiar">Intercambiar E y N</button>' : ''}</li>`).join('');
     const n = t.regs.length;
@@ -316,13 +332,96 @@ export function montarPasos(raiz, ctx) {
       <div class="mn-pg-opciones"><label>Separador de columnas ${sel('sep', T.SEPARADORES, cfg.sep)}</label><label>Decimales ${sel('decimal', T.DECIMALES, cfg.decimal)}</label>
         <label class="sis-check"><input type="checkbox" data-pg="titulos" ${t.titulos ? 'checked' : ''}> La primera fila son títulos</label></div>
       <div class="mn-pg-tabla"><table class="mn-tabla"><thead><tr><th></th>${t.roles.map((rol, i) => `<th><select data-pg-col="${i}" aria-label="Columna ${i + 1}" class="mn-pg-rol${rol === 'no' ? ' no' : ''}">${T.ROLES.map(([a, b]) => `<option value="${a}" ${rol === a ? 'selected' : ''}>${b}</option>`).join('')}</select>${t.titulos ? `<small class="sis-tenue">${esc(t.filas[0][i] || '')}</small>` : ''}</th>`).join('')}<th></th></tr></thead>
-        <tbody>${cuerpo}</tbody></table>${datos.length > 60 ? `<p class="sis-tenue">… y ${datos.length - 60} filas más.</p>` : ''}</div>
+        <tbody>${cuerpo}</tbody></table>${datos.length > 300 ? `<p class="sis-tenue">… y ${datos.length - 300} filas más.</p>` : ''}</div>
       ${avisos ? `<ul class="mn-pg-avisos">${avisos}</ul>` : '<p class="mn-pg-ok">Revisado: sin problemas.</p>'}` : '<p class="sis-tenue">Aún no hay filas.</p>'}
-      <div class="sis-acciones"><button class="sis-btn primario" data-a="pegar-aplicar" ${t.rev.puedeCrear ? '' : 'disabled'}>Crear o actualizar ${n} ficha${n === 1 ? '' : 's'}</button></div></div>`;
+      <div class="mn-pg-pie"><button type="button" class="sis-btn chico" data-a="pegar-agregar">+ Agregar punto</button>
+        <label class="sis-check"><input type="checkbox" data-pg-croquis ${st.pegarCroquis === false ? '' : 'checked'}> Armar el croquis de cada ficha con este encuadre</label>
+        <button class="sis-btn primario" data-a="pegar-aplicar" ${t.rev.puedeCrear ? '' : 'disabled'}>Crear fichas (${n})</button></div></div>`;
   }
   function refrescarPegar() {
     const caja = cont.querySelector('.mn-pegar-prev'); if (!caja) return;
     const tmp = document.createElement('div'); tmp.innerHTML = pegarPrevHtml(); caja.replaceWith(tmp.firstElementChild);
+    if (st.mc) st.mc.ponerPuntos(puntosMapa());
+  }
+  // ─────────── v0.23 · Mapa común: todos los PR, encuadre y estilo para todas las fichas ───────────
+  const zonaComun = () => C.valorComun(st.comun, st.lista.map(fichaDe), 'zonaUTM').v || '';
+  /** Posición (lat, lon) de una ficha: la escrita o la calculada desde UTM; null si no hay. */
+  function posDe(f) {
+    let lat = leerGrados(f.latitud), lon = leerGrados(f.longitud);
+    if ((lat == null || lon == null) && C.numero(f.este) != null) { const g = C.utmAGeo(C.numero(f.este), C.numero(f.norte), f.zonaUTM || zonaComun()); if (g) { lat = g.lat; lon = g.lon; } }
+    return lat != null && lon != null ? { lat, lon } : null;
+  }
+  /** Puntos del mapa: las fichas que ya existen y, con la ventana de coordenadas abierta, también las filas de la tabla. */
+  function puntosMapa() {
+    const m = new Map();
+    for (const y of st.lista) { const f = fichaDe(y), pos = posDe(f); if (pos) m.set(nombreDe(f).toLowerCase(), { nombre: nombreDe(f), ...pos }); }
+    if (st.pegar != null) {
+      const zona = zonaComun();
+      for (const r of tablaPegada().regs) if (r.este != null && r.norte != null) { const g = C.utmAGeo(r.este, r.norte, zona); if (g) m.set(String(r.nombre).toLowerCase(), { nombre: r.nombre, lat: g.lat, lon: g.lon }); }
+    }
+    return [...m.values()];
+  }
+  function aspectoCroquis() {
+    try { const d = dimsMonografia(C.efectiva(st.lista[0] ? fichaDe(st.lista[0]) : { ...valoresPorDefecto() })).croquisImg; return d[0] / d[1]; } catch { return 1.6; }
+  }
+  /** Acopla el mapa común al lugar reservado en la pantalla (sobrevive a los re-dibujos); lo libera al cerrar la ventana. */
+  async function acoplarMapa() {
+    const lugar = cont.querySelector('.mn-mc-lugar');
+    if (!lugar) { if (st.mc) { st.mc.destruir(); st.mc = null; } return; }
+    if (!st.mc) {
+      if (st.mcCreando) return;
+      st.mcCreando = true;
+      try { st.mc = await crearMapaComun({ puntos: puntosMapa(), cfg: st.comun.croquisComun, aspecto: aspectoCroquis() }); } finally { st.mcCreando = false; }
+      if (!st.vivo) { st.mc.destruir(); st.mc = null; return; }
+    }
+    const lugar2 = cont.querySelector('.mn-mc-lugar'); if (!lugar2) return;
+    st.mc.montar(lugar2); st.mc.ponerPuntos(puntosMapa());
+  }
+  function guardarEncuadre() {
+    if (!st.mc || !st.mc.tienePuntos()) return false;
+    st.comun.croquisComun = st.mc.config(); guardarComun(st.proyectoId, st.comun); return true;
+  }
+  /** Reescribe el texto pegado con un cambio hecho en la tabla (celda, fila nueva o fila quitada). */
+  function editarTextoPegado(fn) {
+    const cfg = st.pegarCfg || (tablaPegada(), st.pegarCfg), t = tablaPegada();
+    const filas = t.filas.map(f => f.slice());
+    fn(filas, t);
+    const ancho = Math.max(1, ...filas.map(f => f.length));
+    st.pegar = filas.map(f => Array.from({ length: ancho }, (_, i) => f[i] ?? '').join('\t')).join('\n');
+    cfg.sep = 'tab'; if (cfg.roles && cfg.roles.length !== ancho) cfg.roles = null;
+    const ta = cont.querySelector('[data-pegar]'); if (ta) ta.value = st.pegar;
+  }
+  async function guardarCroquisDe(y, url) {
+    const f = fichaDe(y), g = JSON.parse(JSON.stringify(y.ficha));
+    const reg = await guardarArchivoDatos(url, `croquis_${nombreArchivo(nombreDe(f))}.jpg`, { modulo: 'terreno', duenoTipo: 'terreno_monografia', duenoId: f.id, rol: 'foto', proyectoId: st.proyectoId, carpeta: `Proyectos/${st.proyecto ? st.proyecto.nombre : st.proyectoId}/Monografías`, detalle: { tipo: 'croquis', punto: nombreDe(f), origen: 'gabinete' } });
+    g.croquisImg = { archivo: reg.id }; if (g.ajustes) delete g.ajustes.croquisImg;
+    await guardarFicha(y, g);
+  }
+  /** Dibuja el croquis de cada ficha con el encuadre común, cada una con solo su punto (el de su nombre de hoja). */
+  async function armarCroquisTodas() {
+    const cfg = st.comun.croquisComun; if (!cfg) return { n: 0, sin: 0, fallo: 0 };
+    await cargar();
+    const aviso = document.createElement('div'); aviso.className = 'sis-aviso-flotante'; document.body.appendChild(aviso);
+    let n = 0, sin = 0, fallo = 0;
+    try {
+      for (const y of st.lista) {
+        const f = fichaDe(y), pos = posDe(f);
+        aviso.textContent = `Armando croquis ${n + sin + fallo + 1} de ${st.lista.length}…`;
+        if (!pos) { sin++; continue; }
+        try { await guardarCroquisDe(y, await croquisConEncuadre(cfg, { nombre: nombreDe(f), lat: pos.lat, lon: pos.lon })); n++; }
+        catch (e) { console.warn(e); fallo++; }
+      }
+    } finally { aviso.remove(); }
+    return { n, sin, fallo };
+  }
+  const textoCroquis = r => `${r.n} croquis armado${r.n === 1 ? '' : 's'}${r.sin ? ` · ${r.sin} sin coordenadas` : ''}${r.fallo ? ` · ${r.fallo} con error (¿sin conexión al mapa?)` : ''}.`;
+  function mcHtml() {
+    return `<div class="mn-modal" role="dialog" aria-modal="true" aria-label="Mapa común de PR"><div class="mn-modal-caja mn-ancha">
+      <div class="sis-cab"><h2>Mapa común de PR</h2><button class="sis-btn chico" data-a="mc-cerrar">Cerrar</button></div>
+      <p class="sis-tenue">Mueve y acerca el mapa hasta que se vean todos los PR como quieres que salgan. Ese encuadre y estilo se aplican a todas las fichas; cada una muestra solo su punto, según el nombre de la hoja.</p>
+      <div class="mn-mc-lugar"></div>
+      <div class="sis-acciones"><button class="sis-btn" data-a="mc-guardar">Guardar encuadre</button><button class="sis-btn primario" data-a="mc-guardar-aplicar">Guardar y armar el croquis de todas las fichas</button></div>
+    </div></div>`;
   }
   /** Recuerda separador, decimales y el orden de columnas (si no hay títulos) para la próxima vez. */
   function recordarPegar(t) { escribirLS(PREFS_PEGAR, { sep: t.cfg.sep, decimal: t.cfg.decimal, roles: t.titulos ? (leerLS(PREFS_PEGAR, {}).roles || null) : t.roles }); }
@@ -521,7 +620,8 @@ export function montarPasos(raiz, ctx) {
   // ─────────── Chequeo flotante ───────────
   function flotanteHtml() {
     if (st.vista === 'revisar') return '';
-    if (st.vista === 'comun') {
+    if (st.vista === 'comun') return ''; // v0.23: el avance X/14 está en el panel de la derecha
+    if (false) {
       const av = C.avanceComun(st.comun, st.lista.map(fichaDe));
       return `<aside class="mn-flotante${st.abierto ? ' abierto' : ''}" aria-label="Chequeo"><button type="button" class="mn-flot-cab" data-a="flotante" aria-expanded="${st.abierto}">
         ${anillo(av.ok, av.total)}<span><b>Datos comunes · ${av.ok} de ${av.total}</b>${av.faltan.length ? `<small>Faltan: ${esc(av.faltan.join(', '))}</small>` : '<small>Completos</small>'}</span><i>${st.abierto ? '▾' : '▴'}</i></button></aside>`;
@@ -624,6 +724,7 @@ export function montarPasos(raiz, ctx) {
         ${st.elegir ? await selectorFotos() : ''}${st.editar && st.ficha ? await editarHtml() : ''}`;
       st.mensaje = null;
       colocarMinis();
+      await acoplarMapa();
       if (st.vista === 'ficha' && st.paso === 'ubicacion') estimarSiFalta();
     } catch (e) { console.error(e); cont.innerHTML = `<section class="sis-tarjeta sis-error"><p>${esc(e.message || 'Error')}</p></section>`; }
   }
@@ -719,6 +820,16 @@ export function montarPasos(raiz, ctx) {
   cont.addEventListener('change', async ev => {
     const t = ev.target;
     try {
+      if (t.hasAttribute('data-pg-croquis')) { st.pegarCroquis = t.checked; return; }
+      if (t.dataset.cel != null) {
+        const [n, i] = t.dataset.cel.split(',').map(Number), v = t.value;
+        editarTextoPegado(filas => { if (filas[n - 1]) filas[n - 1][i] = v; });
+        setTimeout(() => { // con Tab el foco ya pasó a la celda siguiente: se repone tras redibujar la tabla
+          const act = document.activeElement, clave = act && act.dataset ? act.dataset.cel : null;
+          refrescarPegar(); if (clave) { const c = cont.querySelector(`[data-cel="${clave}"]`); if (c) c.focus(); }
+        }, 0);
+        return;
+      }
       if (t.dataset.pg || t.dataset.pgCol != null) {
         const cfg = st.pegarCfg, act = tablaPegada();
         if (t.dataset.pgCol != null) {
@@ -836,12 +947,44 @@ export function montarPasos(raiz, ctx) {
       else if (a === 'lote-aplicar') { await lote.aplicar(); }
       else if (a.startsWith('lote-')) { lote.clic(a, b); return; }
       else if (a === 'pegar-cerrar') { st.pegar = null; }
+      else if (a === 'pegar-agregar') {
+        const cfg = st.pegarCfg || (tablaPegada(), st.pegarCfg);
+        editarTextoPegado((filas, t) => {
+          if (!filas.length) { filas.push(['', '', '', '']); cfg.titulos = false; cfg.roles = ['nombre', 'este', 'norte', 'cota']; }
+          const nom = t.roles.indexOf('nombre'), ult = filas.length ? String(filas[filas.length - 1][nom >= 0 ? nom : 0] || '') : '';
+          const m = ult.match(/^(.*?)(\d+)$/), nuevo = m ? m[1] + String(Number(m[2]) + 1).padStart(m[2].length, '0') : `PR-${filas.length + 1}`;
+          const fila = new Array(Math.max(...filas.map(f => f.length))).fill(''); fila[nom >= 0 ? nom : 0] = nuevo; filas.push(fila);
+        });
+        refrescarPegar(); return;
+      }
+      else if (a === 'pegar-quitar') { const n = Number(b.dataset.n); editarTextoPegado(filas => { filas.splice(n - 1, 1); }); refrescarPegar(); return; }
+      else if (a === 'mc-abrir') { st.mcSolo = true; }
+      else if (a === 'mc-cerrar') { st.mcSolo = false; }
+      else if (a === 'mc-guardar' || a === 'mc-guardar-aplicar') {
+        if (!guardarEncuadre()) { avisar('Aún no hay puntos con coordenadas para encuadrar.', 'error'); }
+        else if (a === 'mc-guardar') { st.mcSolo = false; avisar('Encuadre guardado: las fichas lo usan al armar el croquis.'); }
+        else { st.mcSolo = false; const r = await armarCroquisTodas(); avisar(textoCroquis(r), r.fallo ? 'error' : 'ok'); }
+      }
+      else if (a === 'mc-aplicar') { const r = await armarCroquisTodas(); avisar(textoCroquis(r), r.fallo ? 'error' : 'ok'); }
+      else if (a === 'croquis-comun') {
+        const pos = posDe(f); if (!pos) { avisar('La ficha aún no tiene coordenadas.', 'error'); }
+        else {
+          try {
+            const url = await croquisConEncuadre(st.comun.croquisComun, { nombre: nombreDe(f), lat: pos.lat, lon: pos.lon });
+            const reg = await guardarArchivoDatos(url, `croquis_${nombreArchivo(nombreDe(f))}.jpg`, { modulo: 'terreno', duenoTipo: 'terreno_monografia', duenoId: f.id, rol: 'foto', proyectoId: st.proyectoId, carpeta: `Proyectos/${st.proyecto ? st.proyecto.nombre : st.proyectoId}/Monografías`, detalle: { tipo: 'croquis', punto: nombreDe(f), origen: 'gabinete' } });
+            ponerImagen('croquisImg', { archivo: reg.id }); await guardarAhora(); avisar('Croquis listo con el encuadre común.');
+          } catch (e) { console.warn(e); avisar('No se pudo dibujar el mapa (¿sin conexión?).', 'error'); }
+        }
+      }
       else if (a === 'pegar-intercambiar') { const t = tablaPegada(); st.pegarCfg.roles = T.intercambiarEN(t.roles); refrescarPegar(); return; }
       else if (a === 'pegar-aplicar') {
         const t = tablaPegada(); if (!t.rev.puedeCrear) return;
         recordarPegar(t);
+        const guardado = guardarEncuadre();
         const r = await crearFichas(t.regs); st.pegar = null;
-        avisar(`${r.nuevas} ficha${r.nuevas === 1 ? '' : 's'} nueva${r.nuevas === 1 ? '' : 's'}${r.act ? ` y ${r.act} actualizada${r.act === 1 ? '' : 's'}` : ''}, con sus coordenadas.`);
+        let extra = '';
+        if (guardado && st.pegarCroquis !== false) { const rc = await armarCroquisTodas(); extra = ' ' + textoCroquis(rc); }
+        avisar(`${r.nuevas} ficha${r.nuevas === 1 ? '' : 's'} nueva${r.nuevas === 1 ? '' : 's'}${r.act ? ` y ${r.act} actualizada${r.act === 1 ? '' : 's'}` : ''}, con sus coordenadas.${extra}`);
       }
       else if (a === 'formato') { st.comun.formatoGeo = b.dataset.v; guardarComun(st.proyectoId, st.comun); await reformatear(); }
       else if (a === 'quitar-logo') { fijarLogoEmpresa(null); }
@@ -935,5 +1078,5 @@ export function montarPasos(raiz, ctx) {
   });
 
   render();
-  return { desmontar() { st.vivo = false; if (st.guardando && st.ficha) guardarAhora(); }, refrescar: render };
+  return { desmontar() { st.vivo = false; if (st.mc) { st.mc.destruir(); st.mc = null; } if (st.guardando && st.ficha) guardarAhora(); }, refrescar: render };
 }

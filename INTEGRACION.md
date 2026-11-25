@@ -1,4 +1,8 @@
-# INTEGRACION.md — Sistema v0.22
+# INTEGRACION.md — Sistema v0.23
+
+## v0.23 · Monografías 0.8
+- `mono_comun_<proyecto>` gana `croquisComun` ({centro, zoom, ancho, alto, aspecto, estilo}); `normalizarComun` lo conserva (null si falta).
+- Archivo nuevo `modulos/monografias/mapa-comun.js`; `croquis.js` exporta `ESTILO_BASE` y `croquisConEncuadre`. `datos.js` y `pieza-terreno.js` no cambian.
 
 ## v0.22 · estilo documento
 - Archivo nuevo `app/estilo-documento.css`, enlazado en `index.html` (último) y en la lista de `sw.js`. Solo CSS; sin cambios de JS ni de datos.

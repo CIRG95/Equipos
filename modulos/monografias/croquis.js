@@ -14,6 +14,7 @@ export const FONDOS = {
 };
 export const capasDe = op => (FONDOS[op.fondo] || FONDOS.hibrido)[1];
 export const SIMBOLOS = [['circulo-cruz', 'Círculo con cruz'], ['triangulo', 'Triángulo'], ['cuadrado', 'Cuadrado'], ['circulo', 'Círculo lleno'], ['estrella', 'Estrella']];
+export const ESTILO_BASE = { simbolo: 'circulo-cruz', color: '#E53935', tamSimbolo: 10, fuente: 'Arial', tamLetra: 16, negrita: true, colorLetra: '#FFFFFF', norte: true, escala: true, fondo: 'hibrido', linea: true };
 export const FUENTES = [['Arial', 'Arial'], ['IBM Plex Sans', 'IBM Plex Sans'], ['Georgia', 'Georgia (serif)'], ['Courier New', 'Courier (monoespaciada)']];
 
 /** Dibuja el símbolo del punto centrado en (x, y). */
@@ -160,4 +161,24 @@ export async function abrirCroquis({ lat, lon, nombre = '', aspecto = 1.6 }) {
       catch (e) { console.warn(e); msg.textContent = 'No se pudo dibujar el mapa (sin conexión o el servidor de mapas no lo permite). Sube una imagen del croquis.'; b.disabled = false; }
     });
   });
+}
+
+/**
+ * v0.23 · Croquis de UNA ficha con el encuadre común del proyecto: mismo centro, zoom y estilo para todas, pero con
+ * solo el punto (y el nombre) de esa ficha. cfg = { centro: [lat, lon], zoom, ancho, alto, estilo }. → dataURL JPEG.
+ */
+export async function croquisConEncuadre(cfg, { nombre, lat, lon }) {
+  if (!window.L) await cargarScript('vendor/leaflet/leaflet.js');
+  const L = window.L;
+  const lugar = document.createElement('div');
+  lugar.style.cssText = `position:fixed; left:-99999px; top:0; width:${cfg.ancho}px; height:${cfg.alto}px;`;
+  document.body.appendChild(lugar);
+  const mapa = L.map(lugar, { zoomControl: false, attributionControl: false, fadeAnimation: false, zoomAnimation: false, markerZoomAnimation: false, zoomSnap: 1 });
+  try {
+    mapa.setView(cfg.centro, cfg.zoom, { animate: false });
+    const op = { ...ESTILO_BASE, ...(cfg.estilo || {}), nombre, punto: [lat, lon] };
+    const d = op.tamSimbolo + 16;
+    op.etiqueta = mapa.containerPointToLatLng(mapa.latLngToContainerPoint(op.punto).add(L.point(d, -d)));
+    return await capturar(mapa, L, op);
+  } finally { mapa.remove(); lugar.remove(); }
 }

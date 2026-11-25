@@ -1,4 +1,13 @@
-# Sistema de trabajo — v0.22 · Terreno 0.9.1
+# Sistema de trabajo — v0.23 · Terreno 0.9.1
+
+## Qué cambia en v0.23 (Monografías 0.8: mapa común de PR)
+Pedido por Camilo el 25-nov, con el boceto del lienzo (pantallas 1, 2 y 3).
+- **Datos comunes:** a la derecha hay un panel con el avance **X/14** (antes era la ventanita flotante), las fichas y el **Mapa común de PR**. A la izquierda siguen Documento, Medición y responsables, Qué incluye el PDF y el formato de coordenadas.
+- **Pegar o cargar coordenadas:** la tabla ahora es **interactiva** (corriges celdas, agregas o quitas puntos; Tab pasa a la celda siguiente) y a la derecha aparece el **mapa con todos los PR**: fijas encuadre (mueve y acerca, o «Ajustar a todos los puntos»), fondo, forma y color del símbolo, tamaño de símbolo y de letra, norte y escala. Al apretar **Crear fichas** se guarda ese encuadre y (casilla marcada) se arma el croquis de cada ficha.
+- **Cada ficha muestra solo su punto**, buscado por el **nombre de la hoja**, con el mismo encuadre y estilo. En el paso 2 de cada ficha aparece «Usar el encuadre común». En Datos comunes, «Encuadrar con todos los PR» reabre el mapa con las fichas que ya existen y «Armar croquis de todas las fichas» las rehace.
+- Los puntos se dibujan con el **huso UTM de Datos comunes** (si falta, la ventana lo avisa). El zoom del encuadre es de números enteros.
+- Archivos: `mapa-comun.js` (nuevo), `croquis.js` (`croquisConEncuadre`), `comun.js` (`croquisComun`), `pasos.js`, `monografias.css`. No se toca Terreno ni la conexión.
+- Pendiente: probarlo en el navegador (no se pudo desde aquí); el mapa necesita internet.
 
 ## Qué cambia en v0.22 (estilo documento en toda la app)
 Pedido por Camilo el 25-nov: «me gustó el estilo del boceto 3 (la ficha), aplícalo a la app completa».

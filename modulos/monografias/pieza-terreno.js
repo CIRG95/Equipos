@@ -1,4 +1,4 @@
-// modulos/monografias/pieza-terreno.js — GENERADO por herramientas/extraer-pieza-monografia.mjs desde Terreno v0.5.8.
+// modulos/monografias/pieza-terreno.js — GENERADO por herramientas/extraer-pieza-monografia.mjs desde Terreno v0.9.1.
 // Es el código de monografías de la app de Terreno copiado sin cambios (formato, chequeo ✔ – ! ?, ajuste de
 // imágenes y PDF con jsPDF + fuente Carlito), para que la monografía salga idéntica en el Sistema y en Terreno.
 // NO EDITAR A MANO: si Terreno cambia su monografía, se vuelve a correr la herramienta.
@@ -293,7 +293,7 @@ function construirMonografiaPdf(m, imgs, docExistente) {
     const hEnc = 5.5;
     if (utmOn) {
       caja(X0, wBloque, hEnc);
-      txt("Coordenadas UTM - " + [m.datumUTM, m.zonaUTM].filter(Boolean).join("- Zona "), X0 + 2, y + hEnc - 1.5, { bold: true, size: 8 });
+      txt("Coordenadas UTM - " + [m.datumUTM, m.zonaUTM].filter(Boolean).join(" - Zona "), X0 + 2, y + hEnc - 1.5, { bold: true, size: 8 });
     }
     if (geoOn) {
       const x = mitad ? X0 + wBloque : X0;
@@ -319,7 +319,7 @@ function construirMonografiaPdf(m, imgs, docExistente) {
     // Encabezado azul de la tabla (4 sub-columnas por bloque)
     const hHead = 6.5;
     function subcolsUTM(x0, w0) { return [{ l: "Punto", w: w0 * 0.17 }, { l: "Norte(m)", w: w0 * 0.28 }, { l: "Este(m)", w: w0 * 0.28 }, { l: "Cota Ortométrica(m)", w: w0 * 0.27 }]; }
-    function subcolsGEO(x0, w0) { return [{ l: "Punto", w: w0 * 0.17 }, { l: "Latitud (°)", w: w0 * 0.28 }, { l: "Longitud (°)", w: w0 * 0.28 }, { l: "Altura Elip(m)", w: w0 * 0.27 }]; }
+    function subcolsGEO(x0, w0) { return [{ l: "Punto", w: w0 * 0.13 }, { l: "Latitud", w: w0 * 0.28 }, { l: "Longitud", w: w0 * 0.28 }, { l: "Altura elipsoidal (m)", w: w0 * 0.31 }]; }
     // Encoge el texto (hasta un mínimo) si no cabe en el ancho de la columna
     // — evita que encabezados largos como "Cota Ortométrica(m)" se corten.
     function sizeParaAncho(texto, anchoDisponible, bold) {
@@ -349,7 +349,7 @@ function construirMonografiaPdf(m, imgs, docExistente) {
     if (geoOn) {
       const x = mitad ? X0 + wBloque : X0;
       doc.setFillColor(...MONO_NAVY); doc.rect(x, y, wBloque, hHead, "F");
-      filaCols(x, wBloque, subcolsGEO(x, wBloque), ["Punto", "Latitud (°)", "Longitud (°)", "Altura Elip(m)"], true);
+      filaCols(x, wBloque, subcolsGEO(x, wBloque), ["Punto", "Latitud", "Longitud", "Altura elipsoidal (m)"], true);
     }
     y += hHead;
 
@@ -471,5 +471,5 @@ function cargarMonografiaDefaults() {
   };
 }
 
-export const VERSION_TERRENO = '0.5.8';
+export const VERSION_TERRENO = '0.9.1';
 export { cargarMonografiaDefaults as valoresPorDefecto, monoResumenDatos as chequeoMonografia, prepararImagenesMonografia, construirMonografiaPdf, dimsMonografia, ajusteDe, calcRectImagen, cargarImagenEl, ordenNatural, impNum, fmtFechaCorta };

@@ -4,6 +4,7 @@
 // v0.12: fondo a elegir (híbrido, calles o imagen) y nombre que se arrastra, unido al punto con una línea.
 
 import { cargarScript, escapar as esc } from '../../compartido/util.js';
+import { metrosPorPixel, escalaGrafica } from './mapa-calculo.js';
 
 const ESRI = s => `https://server.arcgisonline.com/ArcGIS/rest/services/${s}/MapServer/tile/{z}/{y}/{x}`;
 export const FONDOS = {
@@ -35,7 +36,21 @@ export function dibujarNorte(c, x, y, h) {
   c.restore();
 }
 
-/** Imagen (dataURL JPEG) del mapa tal como se ve, con el punto, su nombre y la flecha de norte. */
+/** v0.21.5 · Escala gráfica abajo a la izquierda del croquis. mpp = metros por píxel del mapa. */
+export function dibujarEscalaCroquis(c, mpp, x, yBase) {
+  const e = escalaGrafica(mpp, 120), h = 6, padX = 8;
+  c.save(); c.font = '12px Arial, sans-serif';
+  const caja = { x, y: yBase - 34, w: e.px + 2 * padX + 30, h: 34 };
+  c.fillStyle = 'rgba(255,255,255,.88)'; c.fillRect(caja.x, caja.y, caja.w, caja.h);
+  const bx = caja.x + padX, by = caja.y + 8;
+  for (let k = 0; k < 4; k++) { c.fillStyle = k % 2 ? '#FFFFFF' : '#1C1F23'; c.fillRect(bx + k * e.px / 4, by, e.px / 4, h); }
+  c.strokeStyle = '#1C1F23'; c.lineWidth = 1; c.strokeRect(bx, by, e.px, h);
+  c.fillStyle = '#1C1F23'; c.textBaseline = 'top';
+  c.fillText('0', bx - 3, by + h + 3); c.textAlign = 'right'; c.fillText(e.texto, bx + e.px + 26, by + h + 3);
+  c.restore();
+}
+
+/** Imagen (dataURL JPEG) del mapa tal como se ve, con el punto, su nombre, la flecha de norte y la escala gráfica. */
 async function capturar(mapa, L, op) {
   const tam = mapa.getSize(), z = mapa.getZoom(), b = mapa.getPixelBounds(), escala = 2;
   const cv = document.createElement('canvas');
@@ -66,6 +81,7 @@ async function capturar(mapa, L, op) {
     const x = q.x + 4; c.strokeText(op.nombre, x, q.y); c.fillText(op.nombre, x, q.y); c.restore();
   }
   if (op.norte) dibujarNorte(c, 28, 14, 34);
+  if (op.escala) dibujarEscalaCroquis(c, metrosPorPixel(op.punto[0], z), 8, tam.y - 8);
   return cv.toDataURL('image/jpeg', 0.9);
 }
 
@@ -79,7 +95,7 @@ export async function abrirCroquis({ lat, lon, nombre = '', aspecto = 1.6 }) {
   const tieneCoord = isFinite(lat) && isFinite(lon) && (lat || lon);
   const punto = tieneCoord ? [lat, lon] : [-33.45, -70.66];
   const prefs = (() => { try { return JSON.parse(localStorage.getItem('mn_croquis_prefs') || '{}'); } catch { return {}; } })();
-  const op = { simbolo: 'circulo-cruz', color: '#E53935', tamSimbolo: 10, fuente: 'Arial', tamLetra: 16, negrita: true, colorLetra: '#FFFFFF', norte: true, fondo: 'hibrido', linea: true, ...prefs, nombre, punto };
+  const op = { simbolo: 'circulo-cruz', color: '#E53935', tamSimbolo: 10, fuente: 'Arial', tamLetra: 16, negrita: true, colorLetra: '#FFFFFF', norte: true, escala: true, fondo: 'hibrido', linea: true, ...prefs, nombre, punto };
   const ancho = Math.min(760, window.innerWidth - 48), alto = Math.round(ancho / aspecto);
   const caja = document.createElement('div');
   caja.className = 'mn-modal';
@@ -99,6 +115,7 @@ export async function abrirCroquis({ lat, lon, nombre = '', aspecto = 1.6 }) {
         <label class="sis-check"><input type="checkbox" data-o="negrita" ${op.negrita ? 'checked' : ''}> Negrita</label>
         <label class="sis-check"><input type="checkbox" data-o="linea" ${op.linea ? 'checked' : ''}> Nombre unido al punto con línea</label>
         <label class="sis-check"><input type="checkbox" data-o="norte" ${op.norte ? 'checked' : ''}> Flecha de norte</label>
+        <label class="sis-check"><input type="checkbox" data-o="escala" ${op.escala ? 'checked' : ''}> Escala gráfica</label>
         <p class="mn-croquis-msg sis-tenue" role="status"></p>
         <div class="sis-acciones"><button type="button" class="sis-btn primario" data-c="usar">Usar como croquis</button></div>
       </div>
@@ -106,6 +123,7 @@ export async function abrirCroquis({ lat, lon, nombre = '', aspecto = 1.6 }) {
   document.body.appendChild(caja);
   const lugar = caja.querySelector('.mn-croquis-mapa');
   const mapa = L.map(lugar, { zoomControl: true, attributionControl: true }).setView(punto, tieneCoord ? 13 : 5);
+  L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(mapa); // vista previa de la escala (el croquis dibuja la suya)
   let fondo = null;
   const ponerFondo = () => { if (fondo) fondo.remove(); fondo = L.layerGroup(capasDe(op).map((u, i) => L.tileLayer(u, { maxZoom: 19, crossOrigin: 'anonymous', attribution: i ? '' : 'Mapa © Esri y sus colaboradores' }))).addTo(mapa); };
   ponerFondo();
@@ -130,7 +148,7 @@ export async function abrirCroquis({ lat, lon, nombre = '', aspecto = 1.6 }) {
     op.etiqueta = mapa.containerPointToLatLng(mapa.latLngToContainerPoint(e.latlng).add(dp)); nombreM.setLatLng(op.etiqueta); pintarLinea();
   });
   return new Promise(resolver => {
-    const cerrar = v => { try { localStorage.setItem('mn_croquis_prefs', JSON.stringify({ simbolo: op.simbolo, color: op.color, tamSimbolo: op.tamSimbolo, fuente: op.fuente, tamLetra: op.tamLetra, negrita: op.negrita, colorLetra: op.colorLetra, norte: op.norte, fondo: op.fondo, linea: op.linea })); } catch { /* */ } mapa.remove(); caja.remove(); resolver(v); };
+    const cerrar = v => { try { localStorage.setItem('mn_croquis_prefs', JSON.stringify({ simbolo: op.simbolo, color: op.color, tamSimbolo: op.tamSimbolo, fuente: op.fuente, tamLetra: op.tamLetra, negrita: op.negrita, colorLetra: op.colorLetra, norte: op.norte, escala: op.escala, fondo: op.fondo, linea: op.linea })); } catch { /* */ } mapa.remove(); caja.remove(); resolver(v); };
     caja.addEventListener('input', ev => { const k = ev.target.dataset.o; if (!k) return; op[k] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.type === 'number' ? Number(ev.target.value) : ev.target.value; pintarMarca(); });
     caja.addEventListener('change', ev => { const k = ev.target.dataset.o; if (!k) return; op[k] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.type === 'number' ? Number(ev.target.value) : ev.target.value; if (k === 'fondo') ponerFondo(); pintarMarca(); });
     caja.addEventListener('click', async ev => {

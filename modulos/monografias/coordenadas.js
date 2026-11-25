@@ -25,15 +25,18 @@ export function leerGrados(texto) {
   return sur ? -v : v;
 }
 
-/** Escribe grados: formato 'dd' (−33,123456°) o 'dms' (33°07'24,44" S). eje: 'lat' | 'lon'. */
+/** v0.21.5 · Un solo criterio decimal en toda la ficha: punto (como las UTM y las alturas). «5°08'35,92» → «5°08'35.92». */
+export const puntoDecimal = s => String(s ?? '').replace(/(\d),(\d)/g, '$1.$2');
+
+/** Escribe grados: formato 'dd' (−33.123456°) o 'dms' (33°07'24.44" S). eje: 'lat' | 'lon'. v0.21.5: el decimal es punto. */
 export function escribirGrados(v, eje, formato = 'dms', dec = 4) {
   if (v == null || !isFinite(v)) return '';
   const n = Math.max(0, Math.min(8, Number(dec) || 0));
-  if (formato === 'dd') return `${v.toFixed(n).replace('.', ',')}°`;
+  if (formato === 'dd') return `${v.toFixed(n)}°`;
   const hem = eje === 'lat' ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'O' : 'E');
   const a = Math.abs(v);
   let g = Math.floor(a), m = Math.floor((a - g) * 60), s = ((a - g) * 60 - m) * 60;
   if (Number(s.toFixed(n)) >= 60) { s = 0; m += 1; }
   if (m >= 60) { m = 0; g += 1; }
-  return `${g}°${String(m).padStart(2, '0')}'${s.toFixed(n).replace('.', ',').padStart(n ? n + 3 : 2, '0')}" ${hem}`;
+  return `${g}°${String(m).padStart(2, '0')}'${s.toFixed(n).padStart(n ? n + 3 : 2, '0')}" ${hem}`;
 }
